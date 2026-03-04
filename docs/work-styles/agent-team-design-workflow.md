@@ -47,9 +47,29 @@ Spawn 2-4 specialized agents based on the domain:
 1. Create a **new team** (e.g., `protocol-review`) — don't reuse the old one
 2. Spawn the **same roles** as Phase 1 (they re-read their docs + review notes)
 3. **Critical**: Instruct agents to message EACH OTHER directly, not just report to lead
-4. Discussion lead sends initial analysis to all teammates
-5. Others respond with positions, especially on issues affecting their docs
-6. Cross-cutting issues get debated between relevant specialists
+4. **Designate one agent as consensus reporter** — explicitly assign one agent
+   (typically the architecture lead) to synthesize peer-agreed positions and
+   report the final consensus to team-lead. This prevents ambiguity about who
+   "owns" the summary.
+5. Discussion lead sends initial analysis to all teammates
+6. Others respond with positions, especially on issues affecting their docs
+7. Cross-cutting issues get debated between relevant specialists
+
+### Context Carry-Forward (Restarting After Session Loss)
+
+If a session ends mid-discussion (context window exhaustion, crash, etc.),
+the previous team's agents become unreachable. To resume:
+
+1. Force-clean stale team: `rm -rf ~/.claude/teams/<name>` then `TeamDelete`
+2. Create a **new team** with fresh agents
+3. **Feed prior discussion as structured context** in each agent's spawn prompt:
+   - Prior proposals and agreed positions (copy from inbox JSON files)
+   - Specific unresolved questions (numbered, with each agent's last position)
+   - Which tasks were completed vs. still open
+4. This avoids re-discussing settled points and lets agents pick up mid-debate
+
+Inbox files from the dead team persist at `~/.claude/teams/<old-name>/inboxes/*.json`
+until manually cleaned up — read them to reconstruct context.
 
 ### Resolving Disagreements
 - If agents disagree (e.g., 2-vs-1 on a design choice), the team lead (you)
@@ -57,7 +77,9 @@ Spawn 2-4 specialized agents based on the domain:
 - Always cite the authority: "The reviewer's mapping is the final word"
 
 ### Output
-- Discussion lead writes `review-resolutions.md` with agreed resolutions
+- Consensus reporter synthesizes all peer-agreed positions into a single
+  message to team-lead (not piecemeal per-agent reports)
+- Team lead assigns an agent to write `review-resolutions.md` with agreed resolutions
 - Each resolution: issue summary, agreed change, which docs affected
 
 ---
@@ -77,6 +99,20 @@ docs/design/topic/
 ├── review-resolutions.md      # Lives at top level, tracks all rounds
 └── v1/                        # Final consensus version (bumped when stable)
 ```
+
+### Task Dependencies for Write-After-Discuss
+
+Use `TaskCreate` with `addBlockedBy` to enforce the correct ordering:
+
+```
+Task #1: Discuss and reach consensus          (no blockers)
+Task #2: Write review-resolutions.md          (blocked by #1)
+Task #3: Write v0.N+1 docs with revisions     (blocked by #2)
+```
+
+This prevents agents from starting to write before consensus is reached.
+Assign different agents to each task — the consensus reporter writes
+resolutions, another agent applies them to produce the updated spec.
 
 ### Execution
 - Move current docs to versioned directory **before** revision starts
@@ -107,6 +143,7 @@ docs/design/topic/
 | Terminology drift | "Tab" means different things in different docs | Establish a mapping table and broadcast it before writing starts |
 | Idle agents need nudging | Agent goes idle repeatedly without output | Send direct message with explicit step-by-step instructions |
 | Agents proxy through lead | All messages go lead→agent instead of agent→agent | Instruct agents to talk to each other directly in spawn prompt |
+| Zombie agents after session loss | `TeamDelete` fails: "Cannot cleanup team with N active member(s)" | Force-remove: `rm -rf ~/.claude/teams/<name>` then `TeamDelete`. Agents from dead sessions can't respond to shutdown requests. |
 
 ### Team Communication Patterns
 - Use `broadcast` sparingly — only for project-owner decisions or universal context
