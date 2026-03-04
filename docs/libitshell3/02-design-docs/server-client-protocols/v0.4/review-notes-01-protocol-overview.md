@@ -129,5 +129,5 @@ implemented, creating confusion about the feature's actual status.
 2. Section 3.5: change "Receivers that encounter COMPRESSED=1 SHOULD send
    `ERR_DECOMPRESSION_FAILED`" to "Receivers that encounter COMPRESSED=1 SHOULD
    send `ERR_PROTOCOL_ERROR`" (or simply close the connection)
-3. Reserve error code `0x00000007` for future use (when compression is added in v2,
-   re-introduce the error code alongside the feature)
+3. Reserve error code `0x00000007` for future use (if compression is ever
+   re-introduced, add the error code alongside the feature)
