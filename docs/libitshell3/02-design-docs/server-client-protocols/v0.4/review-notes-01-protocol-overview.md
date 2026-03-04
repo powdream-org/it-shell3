@@ -123,11 +123,98 @@ committing a **protocol violation**, which should be handled by the existing gen
 Keeping `ERR_DECOMPRESSION_FAILED` in the spec implies compression is partially
 implemented, creating confusion about the feature's actual status.
 
+Additionally, the reader loop pseudocode (Section 11.2) still references
+`ERR_DECOMPRESSION_FAILED`:
+
+```
+if header.flags.compressed:
+    return Error(ERR_DECOMPRESSION_FAILED)  // v1: compression not supported
+```
+
+This should be updated to match.
+
 ### Recommendation
 
 1. Remove `ERR_DECOMPRESSION_FAILED` (`0x00000007`) from the error code table
 2. Section 3.5: change "Receivers that encounter COMPRESSED=1 SHOULD send
    `ERR_DECOMPRESSION_FAILED`" to "Receivers that encounter COMPRESSED=1 SHOULD
    send `ERR_PROTOCOL_ERROR`" (or simply close the connection)
-3. Reserve error code `0x00000007` for future use (if compression is ever
+3. Section 11.2 pseudocode: change `ERR_DECOMPRESSION_FAILED` to
+   `ERR_PROTOCOL_ERROR`
+4. Reserve error code `0x00000007` for future use (if compression is ever
    re-introduced, add the error code alongside the feature)
+
+---
+
+## Issue 3: Version field semantics and comparison logic undefined
+
+**Severity**: Medium (affects protocol evolution and forward/backward compatibility)
+
+### Problem
+
+The reader loop pseudocode (Section 11.2) performs an exact version match:
+
+```
+if header.version != PROTOCOL_VERSION:
+    return Error(ERR_UNSUPPORTED_VERSION)
+```
+
+This means **any** version change — even a compatible one — breaks all existing
+implementations. The spec does not define:
+
+1. What constitutes a "version bump" vs. a compatible extension
+2. Whether the version field represents wire format version, protocol revision,
+   or something else
+3. How the version check should be performed (exact match, range, minimum)
+
+Meanwhile, the protocol already has a **capability negotiation** mechanism in the
+handshake (`ClientHello.capabilities` / `ServerHello.capabilities`). This creates
+ambiguity: when should a change bump the version number vs. add a new capability?
+
+### Analysis: three options
+
+| Option | Version semantics | Comparison logic | When to bump |
+|--------|------------------|-----------------|--------------|
+| **A: Wire format only** | Version = binary header layout. Capability negotiation handles all message-level evolution. | Exact match (current). Acceptable because header layout almost never changes. | Only when the 16-byte header structure itself changes (essentially never after v1). |
+| **B: Major.minor split** | Split the 1-byte field into 4-bit major + 4-bit minor. Major = breaking, minor = compatible additions. | `major == MAJOR && minor >= MIN_MINOR` | Major: header/encoding changes. Minor: new message types, new required fields. |
+| **C: Minimum version** | Version = monotonically increasing protocol revision. | `header.version >= MIN_SUPPORTED && header.version <= CURRENT` | Any normative spec change. Receiver supports a range of versions. |
+
+### Option A rationale (recommended for discussion)
+
+The capability mechanism already handles compatible evolution:
+- New message type → add a capability flag, negotiate at handshake
+- New optional field → just add it (receivers tolerate unknown fields per JSON convention)
+- New required field → add a capability flag; only send if peer declared support
+
+If capabilities handle all compatible changes, the version byte only needs to
+change for truly breaking wire format changes (e.g., header size change, endianness
+change). These are so rare that exact match is fine — it's essentially a magic
+number extension.
+
+This avoids duplicating evolution logic between version comparison and capability
+negotiation. One mechanism, one place.
+
+### Option B rationale
+
+If the team wants version-based evolution without capabilities for simpler changes,
+major.minor gives fine-grained control. However, 4 bits = 16 values per axis, which
+may be limiting. Also creates "which mechanism do I use?" confusion alongside
+capabilities.
+
+### Option C rationale
+
+Simple and common in network protocols. But requires the receiver to maintain a
+`MIN_SUPPORTED_VERSION` which accumulates technical debt — at what point do you
+drop support for old versions?
+
+### Recommendation
+
+The protocol designer should:
+
+1. **Define what the version byte means**: wire format version (Option A),
+   protocol revision (Option C), or hybrid (Option B)
+2. **Define the relationship between version and capabilities**: which changes
+   go through which mechanism
+3. **Update Section 11.2 pseudocode** to reflect the chosen comparison logic
+4. **Document the evolution policy**: how future changes should be introduced
+   (version bump vs. capability flag vs. optional field)
