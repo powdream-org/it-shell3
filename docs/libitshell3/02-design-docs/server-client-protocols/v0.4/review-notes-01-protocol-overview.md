@@ -225,3 +225,70 @@ The protocol designer should:
 3. **Update Section 11.2 pseudocode** to reflect the chosen comparison logic
 4. **Document the evolution policy**: how future changes should be introduced
    (version bump vs. capability flag vs. optional field)
+
+---
+
+## Issue 4: Input method / keyboard layout field naming inconsistent across documents
+
+**Severity**: Medium (cross-document inconsistency — affects implementer clarity)
+
+### Problem
+
+The v0.3 Issue 6 resolution introduced a two-axis model (`input_method` +
+`keyboard_layout`) with string identifiers. However, the field names are
+inconsistent across the six documents:
+
+| Message (Direction) | Field names | Pattern |
+|---|---|---|
+| KeyEvent (C→S) | `input_method` | no prefix |
+| InputMethodSwitch (C→S) | `input_method`, `keyboard_layout` | no prefix |
+| InputMethodAck (S→C) | `active_input_method`, `active_keyboard_layout` | `active_` prefix |
+| PreeditStart (S→C) | `active_input_method` | `active_` prefix |
+| PreeditSync (S→C) | `active_input_method` | `active_` prefix |
+| LayoutChanged leaf (S→C) | `active_input_method`, `active_keyboard_layout` | `active_` prefix |
+| pane_input_methods (S→C) | `active_input_method`, `active_keyboard_layout` | `active_` prefix |
+| ClientHello | `preferred_input_methods[].method` | abbreviated |
+| ServerHello | `supported_input_methods[].method`, `.layouts` | abbreviated, **plural** |
+| Default for new panes | `input_method`, `keyboard_layout` | no prefix |
+
+Three inconsistencies:
+
+### 4a. `active_` prefix convention is implicit
+
+C→S messages use `input_method`; S→C messages use `active_input_method`. This
+looks like an intentional pattern (request vs. state) but it is **never stated
+as a convention** in any document. An implementer seeing `input_method` in
+KeyEvent and `active_input_method` in PreeditStart has no way to know this is
+deliberate, not a typo.
+
+### 4b. Handshake objects use abbreviated field names
+
+Inside `preferred_input_methods` and `supported_input_methods` arrays, the field
+is just `method` — not `input_method`. Similarly `layout` / `layouts` — not
+`keyboard_layout`. This creates a third naming variant for the same concept.
+
+### 4c. `layout` (singular optional) vs `layouts` (plural array)
+
+- ClientHello: `{"method": "korean_2set"}` — `layout` is optional, singular
+- ServerHello: `{"method": "korean_2set", "layouts": ["qwerty"]}` — `layouts`
+  is a plural array
+
+The asymmetry is semantically justified (client declares one preference, server
+advertises multiple options), but the singular/plural inconsistency between the
+same nested object structure is confusing.
+
+### Recommendation
+
+1. **Document the `active_` prefix convention** in Section 7 (Encoding
+   Conventions) or in a new "Field Naming Conventions" subsection:
+   > C→S messages use bare field names (`input_method`, `keyboard_layout`) to
+   > indicate a requested or declared value. S→C messages use the `active_`
+   > prefix (`active_input_method`, `active_keyboard_layout`) to indicate
+   > current authoritative state.
+
+2. **Decide on handshake object field names**: either expand to full names
+   (`input_method`, `keyboard_layout`) for consistency, or document why the
+   abbreviated forms are used (brevity inside arrays).
+
+3. **Align singular/plural**: either both use `layout`/`layouts` with clear
+   documentation of when each form appears, or normalize to one form.
