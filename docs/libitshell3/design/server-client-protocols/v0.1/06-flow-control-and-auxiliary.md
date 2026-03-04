@@ -1,6 +1,6 @@
 # 06 - Flow Control and Auxiliary Protocols
 
-**Status**: Draft
+**Status**: Draft (revised per review-resolutions.md)
 **Date**: 2026-03-04
 **Author**: systems-engineer (AI-assisted)
 
@@ -8,16 +8,17 @@
 
 This document specifies flow control (backpressure), clipboard, persistence, notification, subscription, heartbeat, and extension negotiation protocols for libitshell3. These are auxiliary protocols that complement the core session/pane management (doc 03), input forwarding (doc 04), and render state streaming (doc 04).
 
-All messages use the binary framing defined in document 01 (14-byte header: magic(2) + version(1) + flags(1) + type(2) + length(4) + sequence(4), little-endian byte order).
+All messages use the binary framing defined in document 01 (16-byte header: magic(2) + version(1) + flags(1) + msg_type(2) + reserved(2) + payload_len(4) + sequence(4), little-endian byte order).
 
 ### Conventions
 
 Same as doc 03:
 - Little-endian byte order for all multi-byte integers.
 - Strings are UTF-8, length-prefixed with `u16` byte count.
-- UUIDs are 16 bytes (RFC 4122, network byte order within UUID).
+- IDs are u32 (4 bytes), server-assigned, monotonically increasing (see doc 03 ID Types).
 - Boolean fields are `u8`: 0 = false, 1 = true.
-- "Payload offset" means byte offset after the 14-byte header.
+- "Payload offset" means byte offset after the 16-byte header.
+- `payload_len` in the header is the payload size only (NOT including the 16-byte header).
 
 ---
 
@@ -26,7 +27,7 @@ Same as doc 03:
 | Range | Category | Document |
 |-------|----------|----------|
 | `0x0001` - `0x00FF` | Handshake, capability negotiation | Doc 02 |
-| `0x0100` - `0x01FF` | Session, tab, pane management | Doc 03 |
+| `0x0100` - `0x01FF` | Session and pane management | Doc 03 |
 | `0x0200` - `0x02FF` | Input forwarding | Doc 04 |
 | `0x0300` - `0x03FF` | Render state / frame updates | Doc 04 |
 | `0x0400` - `0x04FF` | CJK preedit / IME protocol | Doc 05 |
@@ -63,10 +64,10 @@ Sent by the server when the output queue for a specific pane exceeds the configu
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID |
-| 16 | 4 | `queued_bytes` | Current queue size in bytes |
-| 20 | 4 | `queued_frames` | Number of frames queued |
-| 24 | 4 | `queue_age_ms` | Age of oldest queued frame in milliseconds |
+| 0 | 4 | `pane_id` | Pane ID (u32) |
+| 4 | 4 | `queued_bytes` | Current queue size in bytes |
+| 8 | 4 | `queued_frames` | Number of frames queued |
+| 12 | 4 | `queue_age_ms` | Age of oldest queued frame in milliseconds |
 
 ### 1.2 ContinuePane (0x0501)
 
@@ -74,8 +75,8 @@ Sent by the client when it has finished processing queued frames and is ready to
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID |
-| 16 | 4 | `last_processed_seq` | Sequence number of the last FrameUpdate the client processed |
+| 0 | 4 | `pane_id` | Pane ID (u32) |
+| 4 | 4 | `last_processed_seq` | Sequence number of the last FrameUpdate the client processed |
 
 The server uses `last_processed_seq` to determine which frames the client has already consumed. It discards frames older than this sequence and sends a fresh full FrameUpdate reflecting the current terminal state, followed by incremental updates going forward.
 
@@ -112,10 +113,10 @@ Per-pane entry:
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID |
-| 16 | 4 | `queued_bytes` | Current queue size |
-| 20 | 4 | `queued_frames` | Queued frame count |
-| 24 | 1 | `paused` | 1 = pane is paused for this client |
+| 0 | 4 | `pane_id` | Pane ID (u32) |
+| 4 | 4 | `queued_bytes` | Current queue size |
+| 8 | 4 | `queued_frames` | Queued frame count |
+| 12 | 1 | `paused` | 1 = pane is paused for this client |
 
 ### Server Output Queue Management
 
@@ -160,11 +161,11 @@ Sent by the server when a shell application writes to the clipboard via OSC 52. 
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Source pane UUID |
-| 16 | 1 | `clipboard_type` | 0 = system (clipboard), 1 = selection (primary/X11) |
-| 17 | 4 | `data_len` | Length of clipboard data in bytes |
-| 21 | `data_len` | `data` | Clipboard content (UTF-8 text or base64-encoded binary) |
-| 21+D | 1 | `encoding` | 0 = UTF-8 text, 1 = base64 (binary data) |
+| 0 | 4 | `pane_id` | Source pane ID (u32) |
+| 4 | 1 | `clipboard_type` | 0 = system (clipboard), 1 = selection (primary/X11) |
+| 5 | 4 | `data_len` | Length of clipboard data in bytes |
+| 9 | `data_len` | `data` | Clipboard content (UTF-8 text or base64-encoded binary) |
+| 9+D | 1 | `encoding` | 0 = UTF-8 text, 1 = base64 (binary data) |
 
 **OSC 52 integration**: When the server's terminal emulator processes `ESC ] 52 ; c ; <base64-data> ST`, it:
 1. Decodes the base64 data.
@@ -179,8 +180,8 @@ Sent by the client when a shell application requests clipboard contents via OSC 
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Requesting pane UUID |
-| 16 | 1 | `clipboard_type` | 0 = system, 1 = selection |
+| 0 | 4 | `pane_id` | Requesting pane ID (u32) |
+| 4 | 1 | `clipboard_type` | 0 = system, 1 = selection |
 
 ### 2.3 ClipboardReadResponse (0x0602)
 
@@ -188,11 +189,11 @@ Client responds with the current OS clipboard contents.
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Requesting pane UUID |
-| 16 | 1 | `clipboard_type` | 0 = system, 1 = selection |
-| 17 | 1 | `status` | 0 = success, 1 = denied (user refused), 2 = unavailable |
-| 18 | 4 | `data_len` | Length of clipboard data |
-| 22 | `data_len` | `data` | Clipboard content (UTF-8) |
+| 0 | 4 | `pane_id` | Requesting pane ID (u32) |
+| 4 | 1 | `clipboard_type` | 0 = system, 1 = selection |
+| 5 | 1 | `status` | 0 = success, 1 = denied (user refused), 2 = unavailable |
+| 6 | 4 | `data_len` | Length of clipboard data |
+| 10 | `data_len` | `data` | Clipboard content (UTF-8) |
 
 ### 2.4 ClipboardChanged (0x0603)
 
@@ -241,9 +242,9 @@ Triggers an immediate snapshot of the specified session to disk.
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `session_id` | Session to snapshot (zero UUID = all sessions) |
-| 16 | 1 | `include_scrollback` | 1 = include scrollback in snapshot |
-| 17 | 4 | `max_scrollback_lines` | Max scrollback lines per pane (0 = use default, max 4000) |
+| 0 | 4 | `session_id` | Session to snapshot (0 = all sessions) |
+| 4 | 1 | `include_scrollback` | 1 = include scrollback in snapshot |
+| 5 | 4 | `max_scrollback_lines` | Max scrollback lines per pane (0 = use default, max 4000) |
 
 ### 3.2 SnapshotResponse (0x0701)
 
@@ -265,8 +266,9 @@ Requests the server to restore a session from a previously saved snapshot. The s
 |--------|------|-------|-------------|
 | 0 | 2 | `path_len` | Snapshot file path length (0 = restore from most recent) |
 | 2 | `path_len` | `path` | UTF-8 path to snapshot file |
-| 2+N | 16 | `session_id` | Session UUID from the snapshot (zero UUID = restore all) |
-| 18+N | 1 | `restore_scrollback` | 1 = replay saved scrollback into new PTYs |
+| 2+N | 2 | `snapshot_session_name_len` | Length of session name from snapshot (0 = restore all) |
+| 4+N | `name_len` | `snapshot_session_name` | UTF-8 session name from snapshot to restore |
+| 4+N+M | 1 | `restore_scrollback` | 1 = replay saved scrollback into new PTYs |
 
 ### 3.4 RestoreSessionResponse (0x0703)
 
@@ -275,22 +277,20 @@ On success, the server follows with CreateSessionResponse-like data and LayoutCh
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
 | 0 | 1 | `status` | 0 = success, 1 = snapshot not found, 2 = corrupt snapshot, 3 = I/O error |
-| 1 | 16 | `session_id` | UUID of the restored session (may differ from original) |
-| 17 | 2 | `tab_count` | Number of restored tabs |
-| 19 | 2 | `pane_count` | Number of restored panes |
-| 21 | 2 | `error_len` | Error message length |
-| 23 | `error_len` | `error_msg` | UTF-8 error description |
+| 1 | 4 | `session_id` | ID of the restored session (newly assigned by server) |
+| 5 | 2 | `pane_count` | Number of restored panes |
+| 7 | 2 | `error_len` | Error message length |
+| 9 | `error_len` | `error_msg` | UTF-8 error description |
 
 **Restore sequence**:
 1. Client sends RestoreSessionRequest.
 2. Server reads snapshot file, validates format.
-3. For each tab in the snapshot:
-   a. Server creates the tab with the saved name.
-   b. Server walks the layout tree, creating panes and spawning shells.
-   c. If `restore_scrollback=1`, server writes saved scrollback to a temp file and sets `ITSHELL3_RESTORE_SCROLLBACK_FILE` in the shell environment (following cmux's pattern).
-4. Server sends RestoreSessionResponse.
-5. Server sends LayoutChanged for each tab.
-6. Server sends FrameUpdate for each pane.
+3. Server creates the session with the saved name and a fresh server-assigned session_id.
+4. Server walks the saved layout tree, creating panes (with fresh pane_ids) and spawning shells.
+5. If `restore_scrollback=1`, server writes saved scrollback to a temp file and sets `ITSHELL3_RESTORE_SCROLLBACK_FILE` in the shell environment (following cmux's pattern).
+6. Server sends RestoreSessionResponse.
+7. Server sends LayoutChanged for the restored session.
+8. Server sends FrameUpdate for each pane.
 
 ### 3.5 SnapshotListRequest (0x0704)
 
@@ -312,12 +312,11 @@ Per-snapshot entry:
 |--------|------|-------|-------------|
 | 0 | 2 | `path_len` | File path length |
 | 2 | `path_len` | `path` | UTF-8 path |
-| 2+N | 16 | `session_id` | Session UUID |
-| 18+N | 2 | `name_len` | Session name length |
-| 20+N | `name_len` | `name` | UTF-8 session name |
-| 20+N+M | 8 | `timestamp` | Unix timestamp (u64) |
-| 28+N+M | 4 | `file_size` | Snapshot file size |
-| 32+N+M | 1 | `has_scrollback` | 1 = snapshot includes scrollback |
+| 2+N | 2 | `name_len` | Session name length |
+| 4+N | `name_len` | `name` | UTF-8 session name |
+| 4+N+M | 8 | `timestamp` | Unix timestamp (u64) |
+| 12+N+M | 4 | `file_size` | Snapshot file size |
+| 16+N+M | 1 | `has_scrollback` | 1 = snapshot includes scrollback |
 
 ### 3.7 SnapshotAutoSaveConfig (0x0706)
 
@@ -358,26 +357,26 @@ Server-initiated notifications for events that clients may want to track. Unlike
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID |
-| 16 | 2 | `title_len` | Title length |
-| 18 | `title_len` | `title` | UTF-8 pane title |
+| 0 | 4 | `pane_id` | Pane ID (u32) |
+| 4 | 2 | `title_len` | Title length |
+| 6 | `title_len` | `title` | UTF-8 pane title |
 
 ### 4.2 ProcessExited (0x0801)
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID |
-| 16 | 4 | `exit_code` | Exit code (i32; negative = killed by signal, e.g., -9 for SIGKILL) |
-| 20 | 2 | `process_name_len` | Process name length |
-| 22 | `process_name_len` | `process_name` | UTF-8 process name |
-| 22+N | 1 | `pane_remains` | 1 = pane stays open (remain-on-exit), 0 = pane will close |
+| 0 | 4 | `pane_id` | Pane ID (u32) |
+| 4 | 4 | `exit_code` | Exit code (i32; negative = killed by signal, e.g., -9 for SIGKILL) |
+| 8 | 2 | `process_name_len` | Process name length |
+| 10 | `process_name_len` | `process_name` | UTF-8 process name |
+| 10+N | 1 | `pane_remains` | 1 = pane stays open (remain-on-exit), 0 = pane will close |
 
 ### 4.3 Bell (0x0802)
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID |
-| 16 | 8 | `timestamp` | Unix timestamp with milliseconds (u64, ms since epoch) |
+| 0 | 4 | `pane_id` | Pane ID (u32) |
+| 4 | 8 | `timestamp` | Unix timestamp with milliseconds (u64, ms since epoch) |
 
 The client handles the bell according to its configuration (audible beep, visual flash, bounce dock icon, system notification, etc.).
 
@@ -387,20 +386,20 @@ Periodic health report from the server's terminal processing pipeline. Useful fo
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID |
-| 16 | 4 | `frames_processed` | Frames processed since last report |
-| 20 | 4 | `frames_dropped` | Frames dropped due to backpressure |
-| 24 | 4 | `avg_frame_time_us` | Average frame processing time (microseconds) |
-| 28 | 4 | `pty_bytes_read` | PTY bytes read since last report |
-| 32 | 4 | `queue_depth` | Current output queue depth (bytes) |
+| 0 | 4 | `pane_id` | Pane ID (u32) |
+| 4 | 4 | `frames_processed` | Frames processed since last report |
+| 8 | 4 | `frames_dropped` | Frames dropped due to backpressure |
+| 12 | 4 | `avg_frame_time_us` | Average frame processing time (microseconds) |
+| 16 | 4 | `pty_bytes_read` | PTY bytes read since last report |
+| 20 | 4 | `queue_depth` | Current output queue depth (bytes) |
 
 ### 4.5 PaneCwdChanged (0x0804)
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID |
-| 16 | 2 | `cwd_len` | Working directory length |
-| 18 | `cwd_len` | `cwd` | UTF-8 new working directory |
+| 0 | 4 | `pane_id` | Pane ID (u32) |
+| 4 | 2 | `cwd_len` | Working directory length |
+| 6 | `cwd_len` | `cwd` | UTF-8 new working directory |
 
 Triggered by shell integration sequences (OSC 7) or `/proc/<pid>/cwd` polling.
 
@@ -408,17 +407,17 @@ Triggered by shell integration sequences (OSC 7) or `/proc/<pid>/cwd` polling.
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID |
-| 16 | 8 | `timestamp` | Unix timestamp (ms since epoch, u64) |
+| 0 | 4 | `pane_id` | Pane ID (u32) |
+| 4 | 8 | `timestamp` | Unix timestamp (ms since epoch, u64) |
 
-Sent when output activity is detected in a pane that is not currently visible (background tab or non-focused pane). Allows the client to show activity indicators on tabs/panes.
+Sent when output activity is detected in a pane that is not currently visible (non-focused pane). Allows the client to show activity indicators on panes.
 
 ### 4.7 SilenceDetected (0x0806)
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID |
-| 16 | 4 | `silence_duration_ms` | How long the pane has been silent (ms) |
+| 0 | 4 | `pane_id` | Pane ID (u32) |
+| 4 | 4 | `silence_duration_ms` | How long the pane has been silent (ms) |
 
 Sent when a pane has produced no output for a configured duration. Useful for long-running build commands: the user gets notified when the build finishes (silence after activity).
 
@@ -441,9 +440,9 @@ Clients subscribe to specific per-pane or global events. The server only sends n
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID (zero UUID = subscribe for all panes) |
-| 16 | 4 | `event_mask` | Bitmask of events to subscribe to |
-| 20 | 4 | `config` | Event-specific configuration (see below) |
+| 0 | 4 | `pane_id` | Pane ID (0 = subscribe for all panes) |
+| 4 | 4 | `event_mask` | Bitmask of events to subscribe to |
+| 8 | 4 | `config` | Event-specific configuration (see below) |
 
 **event_mask bits**:
 
@@ -470,8 +469,8 @@ Clients subscribe to specific per-pane or global events. The server only sends n
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 16 | `pane_id` | Pane UUID (zero UUID = all panes) |
-| 16 | 4 | `event_mask` | Bitmask of events to unsubscribe from |
+| 0 | 4 | `pane_id` | Pane ID (0 = all panes) |
+| 4 | 4 | `event_mask` | Bitmask of events to unsubscribe from |
 
 ### 5.4 UnsubscribeAck (0x0813)
 
@@ -485,7 +484,6 @@ Clients subscribe to specific per-pane or global events. The server only sends n
 After AttachSession, the client automatically receives these notifications without explicit subscription:
 - LayoutChanged (doc 03, always sent)
 - SessionListChanged (doc 03, always sent)
-- TabListChanged (doc 03, always sent)
 - PaneMetadataChanged (doc 03, always sent)
 
 All Section 4 notifications require explicit subscription.
