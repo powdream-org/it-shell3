@@ -85,7 +85,7 @@ Located at `~/dev/git/references/`:
 
 ## Work Styles
 
-> **⚠️ MANDATORY: You MUST read and strictly follow all work-style docs under `docs/work-styles/` before starting any team-based work. No exceptions.**
+> **⚠️ MANDATORY: You(main agent, team leader) MUST read and strictly follow all work-style docs under `docs/work-styles/` before starting any team-based work. No exceptions.**
 >
 > **You are a facilitator, NOT a doer.** Never do research, writing, or implementation yourself — always delegate to teammates. Never micromanage teammates with specific instructions like "change line X to Y" — state the goal and let them figure out the approach. Never proxy messages between agents — they must communicate directly with each other.
 
