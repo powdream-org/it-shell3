@@ -277,6 +277,36 @@ The asymmetry is semantically justified (client declares one preference, server
 advertises multiple options), but the singular/plural inconsistency between the
 same nested object structure is confusing.
 
+### 4d. Protocol string identifiers vs IME contract naming mismatch
+
+The cross-document review (review-notes-cross-review-ime.md, Issue 10) identified
+a representation mismatch between the protocol and the IME contract:
+
+| Layer | Language | Layout | Combined identifier |
+|---|---|---|---|
+| **IME contract** | `LanguageId` enum (`direct=0`, `korean=1`) | `layout_id: []const u8` (e.g., `"ko_2"`) | Two separate fields |
+| **Protocol (current)** | — | — | Single string `"korean_2set"` that encodes both |
+
+The protocol's `"korean_2set"` maps to IME's `LanguageId.korean` + `layout_id`
+but this two-level mapping is undocumented. The server silently performs it.
+
+Furthermore, the owner directive in the cross-review states:
+
+> `layout_id` values MUST use a language prefix (e.g., `"ko_2"` not `"2"`).
+> The v0.4 spec should adopt the prefixed format (e.g., `"ko_2set"` instead of
+> `"korean_2set"`) or at minimum ensure all layout strings are unambiguous.
+
+This creates a **third naming convention** for the same concept:
+
+| Source | Korean 2-set identifier |
+|---|---|
+| Protocol v0.4 | `"korean_2set"` |
+| Owner directive | `"ko_2set"` |
+| IME contract | `LanguageId.korean` + `layout_id: "ko_2"` |
+
+The protocol string format needs to be aligned with the IME contract's naming
+convention, or the mapping between them must be explicitly documented.
+
 ### Recommendation
 
 1. **Document the `active_` prefix convention** in Section 7 (Encoding
@@ -292,3 +322,7 @@ same nested object structure is confusing.
 
 3. **Align singular/plural**: either both use `layout`/`layouts` with clear
    documentation of when each form appears, or normalize to one form.
+
+4. **Align protocol identifiers with IME contract**: decide on one canonical
+   string format for input method identifiers and use it in both the protocol
+   and the IME contract. Document the mapping if they must differ.
