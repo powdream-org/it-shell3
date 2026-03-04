@@ -177,6 +177,12 @@ These items are inconsistencies or redundancies that do not affect correctness b
 
 **Description**: The IME uses a simple two-value enum while the protocol uses strings that encode both language and keyboard layout. The protocol's `"korean_2set"` maps to IME `LanguageId.korean` + a separate `layout_id` concept. This two-level mapping (protocol string -> LanguageId + layout variant) is not documented in either document set. Since the server performs this mapping and both sides are internally consistent, this is not a functional issue, but a cross-reference note would aid implementers.
 
+> **Owner directive (2026-03-05)**: `layout_id` values MUST use a language prefix for language-specific layouts to avoid ambiguity. For example, `"2"` alone is meaningless — use `"ko_2"` (Korean 2-set/두벌식), `"ko_3_390"` (Korean 3-set 390), etc. The language prefix makes the layout self-describing without requiring a separate `LanguageId` for disambiguation.
+>
+> For `direct` mode, `layout_id` currently defaults to the standard QWERTY layout, but future extensions may introduce layout variants such as `"azerty"` (French), `"qwertz"` (German), etc. The `layout_id` field should be designed to accommodate these without requiring `LanguageId` enum expansion — `direct` remains a single `LanguageId` value, with the physical layout expressed entirely through `layout_id`.
+>
+> This naming convention applies to both the IME contract's `layout_id: []const u8` and the protocol's string identifiers. The v0.4 spec should adopt the prefixed format (e.g., `"ko_2set"` instead of `"korean_2set"`) or at minimum ensure all layout strings are unambiguous without external context.
+
 ---
 
 ## Recommended Actions
