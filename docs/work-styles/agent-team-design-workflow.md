@@ -102,6 +102,69 @@ the real ghostty PoC (`poc/ime-ghostty-real/`) drove 6 new resolutions.
 
 ---
 
+## Phase 2b: Cross-Component Consistency Review
+
+Phase 2 reviews issues **within** a single spec set (e.g., protocol docs reviewing
+each other). Phase 2b addresses a different need: checking consistency **between**
+two separate spec areas that must interoperate.
+
+### When to Use
+
+Use this when two independently-authored spec sets share an interface boundary. For
+example, reviewing the IME interface contract against the server-client protocol docs
+to verify that wire-to-IME field mapping, modifier key encoding, composition state
+encoding, and preedit message flow are consistent across both.
+
+### Team Composition
+
+Members from **both** spec areas must participate. The team shifts from Phase 2's
+single-domain roles to a mixed group:
+
+| Pattern | Example members |
+|---------|----------------|
+| Component A expert(s) | Protocol architect, systems engineer |
+| Component B expert(s) | IME engine expert, CJK specialist |
+| Shared-concern specialist | Rendering & CJK specialist (bridges both areas) |
+
+The key difference from Phase 2 is that no single agent owns the full picture — each
+brings knowledge of their component and discovers mismatches at the boundary.
+
+### Execution
+
+1. **Review phase** — All agents read both spec sets, then raise issues where the
+   two components disagree or leave gaps. Issues are numbered and discussed freely
+   by all reviewers. Do NOT pre-assign issues to specific reviewers; any reviewer
+   may raise or respond to any issue.
+
+   > **Strict separation**: Do NOT modify design documents during the review phase.
+   > The review phase produces review notes only. Document changes happen in the
+   > revision cycle (Phase 3).
+
+2. **Two review-notes files** — Each component side gets its own review-notes file.
+   For example, an IME-vs-protocol cross-review produces:
+   - `docs/design/protocol/vN/review-notes-XX-cross-ime.md`
+   - `docs/design/ime/vN/review-notes-XX-cross-protocol.md`
+
+   This separation matters because each component applies its own changes in its
+   own revision cycle, potentially at different times and by different teams.
+
+3. **Revision** — After the review phase completes, each component applies its own
+   changes independently using the normal Phase 3 process. The two revision cycles
+   need not be synchronous — one component may revise immediately while the other
+   waits for a future session.
+
+### Differences from Phase 2
+
+| Aspect | Phase 2 (intra-component) | Phase 2b (cross-component) |
+|--------|--------------------------|---------------------------|
+| Scope | Issues within one spec set | Consistency between two spec sets |
+| Team | Single-domain specialists | Mixed members from both domains |
+| Review output | One review-notes file | Two files (one per component side) |
+| Revision | One revision cycle | Two independent revision cycles |
+| Typical issues | Internal contradictions, missing details | Field mapping mismatches, encoding disagreements, missing cross-references |
+
+---
+
 ## Phase 3: Applying Revisions (Versioned)
 
 ### Directory Structure
@@ -139,6 +202,41 @@ resolutions, another agent applies them to produce the updated spec.
   (they may think the resolutions doc IS the deliverable — tell them to
   produce updated spec files with changes applied inline)
 - After writing, agents cross-check each other's docs for consistency
+
+### Spec Writer Role Pattern
+
+Design decisions and mechanical spec production are separable concerns. Core team
+members (architects, domain experts) make the decisions; a dedicated spec-writer
+agent can handle the mechanical work of applying those decisions to produce the
+next version.
+
+#### Division of Responsibility
+
+| Concern | Who | Model |
+|---------|-----|-------|
+| Design decisions, review, debate | Core team members | `opus` |
+| Applying resolutions to produce vN+1 docs | Spec-writer agent | `sonnet` |
+
+The spec-writer does NOT make design decisions. Its responsibilities are strictly
+mechanical:
+
+- Apply resolutions from `review-resolutions.md` in order
+- Update cross-references between documents
+- Maintain a "Changes from vN" appendix in each updated document
+- Verify self-consistency (e.g., field sizes, message type numbers match across docs)
+
+If a resolution is ambiguous or requires a judgment call, the spec-writer escalates
+to the team lead or the relevant core member rather than guessing.
+
+#### Why This Works
+
+The `sonnet` model is sufficient for copy-editing, search-and-replace across
+sections, and structural consistency checks. Using it for spec production reduces
+cost while reserving `opus` capacity for the intellectually demanding work (design
+debate, trade-off analysis, cross-component review). This is an exception to the
+general "use `opus` by default" policy stated in [Custom Agent Registration](#custom-agent-registration)
+— it applies specifically to the spec-writer role because the task is well-defined
+and non-creative.
 
 ---
 
@@ -204,16 +302,17 @@ domain, owned documents, and key decisions in every spawn prompt.
 
 ### Location
 
+Agent definitions are organized by team under `.claude/agents/`. Each team has its
+own directory containing Markdown files for its members.
+
+> For a list of all available teams and their purposes, see [Agent Team Definitions](agent-team-definition.md).
+
+Example structure:
 ```
-.claude/agents/protocol-team/
-├── protocol-architect.md    # Core: docs 01, 02
-├── systems-engineer.md      # Core: docs 03, 06
-├── cjk-specialist.md        # Core: docs 04, 05
-├── ime-expert.md             # Cross-component: IME contract
-├── ghostty-researcher.md    # Optional: ghostty source analysis
-├── tmux-researcher.md       # Optional: tmux source analysis
-├── zellij-researcher.md     # Optional: zellij source analysis
-└── iterm2-researcher.md     # Optional: iTerm2 source analysis
+.claude/agents/<team-name>/
+├── role-a.md          # Core member: owns specific docs
+├── role-b.md          # Core member: owns specific docs
+└── researcher.md      # Optional: reference codebase analysis
 ```
 
 ### File Format
@@ -222,21 +321,28 @@ Each agent is a Markdown file with YAML frontmatter:
 
 ```yaml
 ---
-name: protocol-architect
-description: When Claude should delegate to this agent
-tools: Read, Grep, Glob, Write, Edit, Bash
+name: agent-name
+description: >
+  When Claude should delegate to this agent
 model: opus
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Write
+  - Edit
+  - Bash
 ---
 
 System prompt body: role identity, domain, key decisions, output format.
 ```
 
-### Core vs. Researcher Agents
+### Core vs. Expert Agents
 
 | Type | Model | Tools | Writes docs? | Purpose |
 |------|-------|-------|-------------|---------|
 | Core | `opus` | All including Write/Edit | Yes | Design, review, write spec docs |
-| Researcher | `opus` | Read-only (Read, Grep, Glob, Bash) | No | Investigate reference codebases, report findings |
+| Expert | `opus` | Read-only (Read, Grep, Glob, Bash) | No | Investigate reference codebases, report findings |
 
 > **Model policy**: Use `opus` by default for all agents. Only use `sonnet` for
 > trivially mechanical tasks (e.g., file listing, simple string extraction). Never

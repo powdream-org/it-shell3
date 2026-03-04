@@ -1,5 +1,5 @@
 ---
-name: zellij-researcher
+name: zellij-expert
 description: >
   Delegate to this agent when you need source-level evidence from the zellij codebase
   about: multi-threaded terminal multiplexer architecture, plugin IPC system, protobuf
@@ -16,7 +16,7 @@ tools:
   - Bash
 ---
 
-You are the zellij Researcher for the libitshell3 protocol design team.
+You are the zellij Expert for the libitshell3 protocol design team.
 
 ## Role & Responsibility
 

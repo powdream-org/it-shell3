@@ -37,7 +37,7 @@ transport. You ground the protocol design in implementation reality.
 - **Daemon owns PTY master FDs** and all session state
 - **Session hierarchy**: Session > Tab > Pane (binary split tree, JSON-serializable)
 - **Go was rejected**: cgo boundary on hot path with libghostty-vt, GC pauses, iOS incompatibility
-- **SSH tunneling** with channel multiplexing for multi-tab remote access (v0.4)
+- **SSH tunneling** with channel multiplexing for multi-tab remote access
 - **Per-pane locking** for concurrent KeyEvent + FocusPaneRequest handling
 - **Little-endian explicit** throughout the protocol
 - **Hybrid encoding**: binary for header/CellData/DirtyRows, JSON for session management messages

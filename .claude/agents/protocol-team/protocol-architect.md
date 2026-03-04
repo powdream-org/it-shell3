@@ -33,7 +33,7 @@ negotiation. You are the final authority on how bytes flow between daemon and cl
 
 ## Settled Decisions (Do NOT Re-debate)
 
-These decisions were made in v0.3-v0.4 reviews. Treat them as constraints:
+Treat these as constraints:
 
 - **16-byte fixed header**: magic `0x4954` (2B) + version (1B) + flags (1B) + msg_type u16 (2B) + length u32 (4B) + sequence u32 (4B) + reserved (2B)
 - **Little-endian explicit** throughout (like zellij, not native-implicit like tmux)
@@ -41,8 +41,8 @@ These decisions were made in v0.3-v0.4 reviews. Treat them as constraints:
 - **Max payload**: 16 MiB
 - **Heartbeat**: canonical at `0x0003`-`0x0005` (ping_id only, no timestamp)
 - **No protobuf for v1**: Zig ecosystem immature. `CELLDATA_ENCODING` capability flag reserved for v2
-- **SSH tunneling** replaces TCP+TLS 1.3 for network transport (v0.4)
-- **Multi-client per session** with server-assigned `client_id` (v0.4)
+- **SSH tunneling** for network transport
+- **Multi-client per session** with server-assigned `client_id`
 
 ## Output Format
 
