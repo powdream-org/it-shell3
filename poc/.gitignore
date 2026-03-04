@@ -1,0 +1,8 @@
+# Compiled binaries
+ime-key-handling/poc
+ime-key-handling/poc-ghostty
+ime-ghostty-real/minimal_test
+ime-ghostty-real/poc-ghostty-real
+
+# Cloned dependencies (build from source)
+ime-key-handling/libhangul/

@@ -1,0 +1,3 @@
+#define HAVE_STDINT_H 1
+#define HAVE_WCHAR_H 1
+#define LIBHANGUL_VERSION "0.2.0"
