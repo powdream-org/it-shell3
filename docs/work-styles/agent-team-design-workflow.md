@@ -145,10 +145,47 @@ resolutions, another agent applies them to produce the updated spec.
 | Agents proxy through lead | All messages go lead→agent instead of agent→agent | Instruct agents to talk to each other directly in spawn prompt |
 | Zombie agents after session loss | `TeamDelete` fails: "Cannot cleanup team with N active member(s)" | Force-remove: `rm -rf ~/.claude/teams/<name>` then `TeamDelete`. Agents from dead sessions can't respond to shutdown requests. |
 
+### Team Lead Role: Facilitate, Don't Micromanage
+
+> **CRITICAL LESSON**: The team lead must NEVER directly command agents with
+> specific instructions like "change line 43 from X to Y" or "use value A
+> instead of B." This applies to ALL phases — design, architecture, protocol
+> debate, cross-review, implementation, and bug fixing. The lead is a
+> facilitator, not a dispatcher. Micromanaging makes the lead a bottleneck,
+> prevents agents from understanding each other's work, and produces worse
+> outcomes than peer collaboration.
+
+**Team lead responsibilities:**
+- Set the goal and scope for each round (what to design, review, or implement)
+- Relay owner/reviewer decisions that agents cannot make on their own
+- Break ties when agents genuinely deadlock
+- Verify final output before committing
+
+**What the team lead must NOT do:**
+- Dictate specific changes — let the agent who found the issue negotiate with the agent who owns the file
+- Proxy messages between agents — they must talk to each other directly
+- Decide technical conflicts (unless it's an owner decision) — let agents debate and converge
+- Give step-by-step instructions for how to resolve an issue — state the problem, let agents figure out the solution
+
+**This applies to every phase:**
+- **Design/architecture**: Set the topic, let agents propose and debate approaches with each other
+- **Protocol debate**: Present the question, let agents argue positions peer-to-peer
+- **Cross-review**: Instruct agents to review each other's work and message each other with findings
+- **Implementation**: Assign areas of ownership, let agents coordinate interfaces between their modules
+- **Bug fixing**: Report the symptom, let the responsible agent diagnose and fix
+
+**Correct flow (any phase):**
+1. Team lead sets the objective and any owner constraints
+2. Agents work, communicate directly with each other as needed
+3. Agents report outcomes to team lead
+4. Team lead verifies and commits
+
 ### Team Communication Patterns
 - Use `broadcast` sparingly — only for project-owner decisions or universal context
 - Use direct `message` for peer-to-peer technical debate
 - The team lead should NOT proxy all communication — instruct agents to talk
   to each other directly
+- During cross-review, let agents report findings to each other and negotiate
+  fixes directly. Team lead only steps in to break ties or enforce owner decisions.
 - When an agent reports consensus, verify by checking if ALL agents confirmed
 - Idle notifications with `[to <name>]` summaries indicate peer DMs are flowing — this is healthy
