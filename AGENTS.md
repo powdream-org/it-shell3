@@ -80,3 +80,7 @@ Located at `~/dev/git/references/`:
 > **⚠️ MANDATORY: You MUST read and strictly follow all convention docs under `docs/conventions/` before making any changes. No exceptions.**
 
 - [**Commit Messages**](docs/conventions/commit-messages.md) — Conventional commits format. **English only.**
+
+## Work Styles
+
+- [**Agent Team Design Workflow**](docs/work-styles/agent-team-design-workflow.md) — How to use agent teams for system design and versioned spec writing (parallel drafting → review discussion → resolution → revision)
