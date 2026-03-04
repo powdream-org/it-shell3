@@ -64,6 +64,30 @@ test(pty): add spawn and I/O roundtrip tests
 perf(protocol): use delta encoding for RenderState updates
 ```
 
+## Commit Granularity
+
+**One logical change per commit.** Split work into multiple commits when changes serve different purposes.
+
+> **⚠️ AI agents: Always read the actual `git diff` output to decide how to split commits. Do NOT rely solely on changed file names — a single file may contain multiple unrelated changes, and multiple files may belong to one logical change.**
+
+**Split when:**
+- Implementation and its tests are separate concerns (e.g., `feat(ime): ...` then `test(ime): ...`)
+- A refactor is needed before a feature (e.g., `refactor(client): ...` then `feat(client): ...`)
+- Docs are updated alongside code (e.g., `feat(protocol): ...` then `docs(protocol): ...`)
+- Multiple independent fixes are done in one session
+
+**Do NOT split:**
+- A single feature into arbitrary chunks — if it only works when all pieces are together, it's one commit
+- Formatting/style changes mixed into a logical commit — make a separate `style` commit before or after
+
+**Example — adding preedit support:**
+```
+refactor(protocol): extract message encoder into reusable module
+feat(protocol): add CJK preedit message types
+test(protocol): add preedit message roundtrip tests
+docs(protocol): document preedit message wire format
+```
+
 ## Multi-line Example
 
 ```
