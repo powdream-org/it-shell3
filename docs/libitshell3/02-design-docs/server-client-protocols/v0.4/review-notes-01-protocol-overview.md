@@ -97,3 +97,37 @@ Reference investigation needed: check how tmux handles the multi-window/multi-pa
 case — does `tmux` use multiple server connections, or a single connection with
 multiplexed window switching? This would inform whether our multi-connection model
 is aligned with or divergent from established patterns.
+
+---
+
+## Issue 2: Remove `ERR_DECOMPRESSION_FAILED` — dead error code for non-existent feature
+
+**Severity**: Minor (spec hygiene)
+
+### Problem
+
+The error code table includes:
+
+| `0x00000007` | `ERR_DECOMPRESSION_FAILED` | Decompression failed (COMPRESSED flag set but compression not supported in v1) |
+
+v0.3 Issue 5 resolved to **remove application-layer compression from v1** entirely.
+The COMPRESSED flag bit is reserved, and Section 3.5 states:
+
+> "Senders MUST NOT set the COMPRESSED flag."
+
+If no conforming implementation ever sets COMPRESSED=1, then `ERR_DECOMPRESSION_FAILED`
+has no legitimate sender. A non-conforming sender that sets a reserved flag is
+committing a **protocol violation**, which should be handled by the existing generic
+`ERR_PROTOCOL_ERROR` — not a dedicated error code for a feature that doesn't exist.
+
+Keeping `ERR_DECOMPRESSION_FAILED` in the spec implies compression is partially
+implemented, creating confusion about the feature's actual status.
+
+### Recommendation
+
+1. Remove `ERR_DECOMPRESSION_FAILED` (`0x00000007`) from the error code table
+2. Section 3.5: change "Receivers that encounter COMPRESSED=1 SHOULD send
+   `ERR_DECOMPRESSION_FAILED`" to "Receivers that encounter COMPRESSED=1 SHOULD
+   send `ERR_PROTOCOL_ERROR`" (or simply close the connection)
+3. Reserve error code `0x00000007` for future use (when compression is added in v2,
+   re-introduce the error code alongside the feature)
