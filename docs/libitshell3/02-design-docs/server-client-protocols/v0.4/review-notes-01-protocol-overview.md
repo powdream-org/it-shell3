@@ -133,6 +133,11 @@ if header.flags.compressed:
 
 This should be updated to match.
 
+Section 11.3 (Deferred Optimizations) also includes compression as a deferred item
+with language implying it is planned for v2. The v0.3 resolution was "remove from
+v1" — not "schedule for v2." This entry reinforces the false impression that
+compression is a committed future feature.
+
 ### Recommendation
 
 1. Remove `ERR_DECOMPRESSION_FAILED` (`0x00000007`) from the error code table
@@ -141,7 +146,9 @@ This should be updated to match.
    send `ERR_PROTOCOL_ERROR`" (or simply close the connection)
 3. Section 11.2 pseudocode: change `ERR_DECOMPRESSION_FAILED` to
    `ERR_PROTOCOL_ERROR`
-4. Reserve error code `0x00000007` for future use (if compression is ever
+4. Section 11.3: reword "Deferred to v2" to "Removed from v1. No commitment
+   to reintroduce." or remove the entry entirely
+5. Reserve error code `0x00000007` for future use (if compression is ever
    re-introduced, add the error code alongside the feature)
 
 ---
