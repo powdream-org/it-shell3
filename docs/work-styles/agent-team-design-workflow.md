@@ -142,6 +142,132 @@ resolutions, another agent applies them to produce the updated spec.
 
 ---
 
+## Phase 4: Handover Document
+
+When a session ends (context exhaustion, natural completion, or explicit stop), the
+team lead MUST write a handover document before closing. This enables the next session
+to continue without re-reading all review notes and re-discovering context.
+
+### Purpose
+
+The handover is a self-contained briefing that gives the next session's team lead
+everything needed to start work immediately. It replaces the need to read dozens of
+review notes, cross-review files, and discussion logs.
+
+### Location
+
+Place the handover in the **current version directory**:
+```
+docs/design/topic/v0.N/handover-for-v0.(N+1)-revision.md
+```
+
+### Required Sections
+
+| Section | Content |
+|---------|---------|
+| **What was done** | Summary of the completed work (review, revision, cross-review, etc.) |
+| **Review artifacts** | Table of all review note files with their locations |
+| **What needs to be done** | Detailed table of changes per document/section, split by source |
+| **No-action items** | Issues reviewed and explicitly decided as "no change needed" |
+| **Key decisions to remember** | Critical design decisions the next leader must not re-debate |
+| **Companion work** | Cross-component revisions that should happen in the same session |
+| **Team composition** | Recommended roles and which docs each role owns |
+| **Workflow lessons** | Pitfalls discovered in the current session |
+
+### Writing Guidelines
+
+1. **Be specific, not vague.** Instead of "apply review changes to doc 05," write
+   "Doc 05 Section 2.3: Fix Escape PreeditEnd reason from `\"cancelled\"` to
+   `\"committed\"`"
+2. **Distinguish decided vs. undecided issues.** Cross-review decisions (consensus
+   already reached) should be clearly separated from new review notes (need
+   discussion first)
+3. **Include the "why" for key decisions.** The next leader may be tempted to
+   re-debate a settled point. Stating the rationale prevents this.
+4. **Reference files by path, not description.** The next session may not have
+   the same context about which file is which.
+5. **Keep it self-contained.** The handover should be readable without opening
+   any other file. Include enough detail to start work immediately.
+
+### Example reference
+
+See `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/handover-for-v04-revision.md`
+for a well-structured handover document.
+
+---
+
+## Custom Agent Registration
+
+Protocol team members can be registered as Claude Code custom agents for consistent
+role assignment across sessions. This eliminates the need to re-describe each role's
+domain, owned documents, and key decisions in every spawn prompt.
+
+### Location
+
+```
+.claude/agents/protocol-team/
+├── protocol-architect.md    # Core: docs 01, 02
+├── systems-engineer.md      # Core: docs 03, 06
+├── cjk-specialist.md        # Core: docs 04, 05
+├── ime-expert.md             # Cross-component: IME contract
+├── ghostty-researcher.md    # Optional: ghostty source analysis
+├── tmux-researcher.md       # Optional: tmux source analysis
+├── zellij-researcher.md     # Optional: zellij source analysis
+└── iterm2-researcher.md     # Optional: iTerm2 source analysis
+```
+
+### File Format
+
+Each agent is a Markdown file with YAML frontmatter:
+
+```yaml
+---
+name: protocol-architect
+description: When Claude should delegate to this agent
+tools: Read, Grep, Glob, Write, Edit, Bash
+model: opus
+---
+
+System prompt body: role identity, domain, key decisions, output format.
+```
+
+### Core vs. Researcher Agents
+
+| Type | Model | Tools | Writes docs? | Purpose |
+|------|-------|-------|-------------|---------|
+| Core | `opus` | All including Write/Edit | Yes | Design, review, write spec docs |
+| Researcher | `opus` | Read-only (Read, Grep, Glob, Bash) | No | Investigate reference codebases, report findings |
+
+> **Model policy**: Use `opus` by default for all agents. Only use `sonnet` for
+> trivially mechanical tasks (e.g., file listing, simple string extraction). Never
+> use `haiku`.
+
+### Usage in Team Workflow
+
+Custom agents are invoked as slash commands. For example, typing `/protocol-architect`
+runs the agent with its predefined system prompt, model, and tool restrictions.
+
+When spawning agents via the Agent tool (e.g., for team workflows), use
+`subagent_type: "general-purpose"` and include the role-specific context from the
+custom agent file in the spawn prompt. The custom agent files serve as canonical
+role definitions — the team lead reads them to construct consistent spawn prompts.
+
+Researchers are spawned on-demand when a debate requires evidence from reference
+codebases. They report findings to core members who incorporate them into design docs.
+
+### Maintaining Agent Files
+
+Update agent files when:
+- A new protocol version introduces key decisions that should not be re-debated
+- A new reference codebase is added to `~/dev/git/references/`
+- A new core role or researcher type is needed
+- Tool requirements change (e.g., a researcher needs Write access for a special task)
+
+Do NOT update agent files with session-specific context (current task, in-progress
+work). Agent files should contain stable, reusable knowledge only.
+
+---
+
 ## Lessons Learned
 
 ### What Works Well
