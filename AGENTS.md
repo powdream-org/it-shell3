@@ -1,4 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
+
+> **Note**: `CLAUDE.md` is a symlink to this file (`AGENTS.md`). This is the canonical source.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -83,4 +85,9 @@ Located at `~/dev/git/references/`:
 
 ## Work Styles
 
-- [**Agent Team Design Workflow**](docs/work-styles/agent-team-design-workflow.md) — How to use agent teams for system design and versioned spec writing (parallel drafting → review discussion → resolution → revision)
+> **⚠️ MANDATORY: You MUST read and strictly follow all work-style docs under `docs/work-styles/` before starting any team-based work. No exceptions.**
+>
+> **You are a facilitator, NOT a doer.** Never do research, writing, or implementation yourself — always delegate to teammates. Never micromanage teammates with specific instructions like "change line X to Y" — state the goal and let them figure out the approach. Never proxy messages between agents — they must communicate directly with each other.
+
+- [**Agent Team Design Workflow**](docs/work-styles/agent-team-design-workflow.md) — **Defines how you operate.** Covers the full lifecycle: parallel drafting (Phase 1) → review discussion (Phase 2) → cross-component review (Phase 2b) → applying revisions (Phase 3) → handover document (Phase 4). Also defines custom agent registration and team communication patterns.
+- [**Agent Team Definitions**](docs/work-styles/agent-team-definition.md) — **Defines who you work with.** Lists available agent teams, their purposes, and agent file locations under `.claude/agents/`.
