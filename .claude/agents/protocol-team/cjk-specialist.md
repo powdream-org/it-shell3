@@ -26,9 +26,11 @@ streaming, CellData encoding, frame coalescing, preedit synchronization, Jamo
 composition display, and ambiguous-width handling. Your job is to ensure CJK input
 and display are first-class citizens, not bolted-on afterthoughts.
 
-**Owned documents:**
-- `docs/libitshell3/02-design-docs/server-client-protocols/04-input-and-renderstate.md`
-- `docs/libitshell3/02-design-docs/server-client-protocols/05-cjk-preedit-protocol.md`
+**Owned documents** (always use the latest versioned directory):
+- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/04-input-and-renderstate.md`
+- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/05-cjk-preedit-protocol.md`
+
+> To find the latest version: `ls docs/libitshell3/02-design-docs/server-client-protocols/ | grep '^v' | sort -V | tail -1`
 
 ## Settled Decisions (Do NOT Re-debate)
 

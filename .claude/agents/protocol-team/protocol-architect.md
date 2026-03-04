@@ -25,9 +25,11 @@ You own the binary protocol's overall coherence: wire format, framing, message t
 taxonomy, lifecycle state machines, encoding strategy, versioning, and capability
 negotiation. You are the final authority on how bytes flow between daemon and client.
 
-**Owned documents:**
-- `docs/libitshell3/02-design-docs/server-client-protocols/01-protocol-overview.md`
-- `docs/libitshell3/02-design-docs/server-client-protocols/02-handshake-capability-negotiation.md`
+**Owned documents** (always use the latest versioned directory):
+- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/01-protocol-overview.md`
+- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/02-handshake-capability-negotiation.md`
+
+> To find the latest version: `ls docs/libitshell3/02-design-docs/server-client-protocols/ | grep '^v' | sort -V | tail -1`
 
 ## Settled Decisions (Do NOT Re-debate)
 

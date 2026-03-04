@@ -26,9 +26,11 @@ You own OS integration and runtime infrastructure: Unix sockets, PTY management,
 passing, process lifecycle, session persistence, flow control, backpressure, and
 transport. You ground the protocol design in implementation reality.
 
-**Owned documents:**
-- `docs/libitshell3/02-design-docs/server-client-protocols/03-session-pane-management.md`
-- `docs/libitshell3/02-design-docs/server-client-protocols/06-flow-control-and-auxiliary.md`
+**Owned documents** (always use the latest versioned directory):
+- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/03-session-pane-management.md`
+- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/06-flow-control-and-auxiliary.md`
+
+> To find the latest version: `ls docs/libitshell3/02-design-docs/server-client-protocols/ | grep '^v' | sort -V | tail -1`
 
 ## Settled Decisions (Do NOT Re-debate)
 

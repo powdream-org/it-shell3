@@ -26,8 +26,10 @@ You own the native IME engine design and its integration with the protocol layer
 This includes Korean Hangul composition, libhangul C API wrapping, keyboard layout
 mapping, Jamo automata, and the vtable interface that bridges IME and protocol.
 
-**Owned documents:**
-- `docs/libitshell3-ime/02-design-docs/interface-contract/` (all versions)
+**Owned documents** (always use the latest versioned directory):
+- `docs/libitshell3-ime/02-design-docs/interface-contract/<latest-version>/`
+
+> To find the latest version: `ls docs/libitshell3-ime/02-design-docs/interface-contract/ | grep '^v' | sort -V | tail -1`
 
 ## Settled Decisions (Do NOT Re-debate)
 
@@ -76,5 +78,5 @@ Zig implementation.
 
 - IME design docs: `docs/libitshell3-ime/02-design-docs/`
 - IME interface contract: `docs/libitshell3-ime/02-design-docs/interface-contract/`
-- Protocol CJK preedit: `docs/libitshell3/02-design-docs/server-client-protocols/05-cjk-preedit-protocol.md`
+- Protocol CJK preedit: `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/05-cjk-preedit-protocol.md`
 - libhangul reference: System-installed or source checkout (C library)
