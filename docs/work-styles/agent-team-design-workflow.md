@@ -76,6 +76,24 @@ until manually cleaned up — read them to reconstruct context.
   can broadcast the project owner's decision to break the tie
 - Always cite the authority: "The reviewer's mapping is the final word"
 
+### PoC Validation as Review Input
+
+Review rounds can be triggered by **PoC test results** in addition to human-written
+review notes. When a PoC validates (or invalidates) spec assumptions:
+
+1. Include PoC test results as structured review input:
+   - Which tests passed/failed
+   - API patterns that worked vs. didn't work
+   - Known limitations discovered (e.g., library bugs, platform constraints)
+2. Frame PoC findings as review issues — e.g., "PoC proved Space key needs
+   special handling (flush + forward with `.text`), but spec doesn't document this"
+3. Agents use PoC source code as ground truth when debating API correctness
+4. PoC bugs themselves can become resolutions — e.g., "PoC used wrong keycode
+   type; spec should clarify the correct type"
+
+This was used successfully for the v0.2→v0.3 interface contract revision, where
+the real ghostty PoC (`poc/ime-ghostty-real/`) drove 6 new resolutions.
+
 ### Output
 - Consensus reporter synthesizes all peer-agreed positions into a single
   message to team-lead (not piecemeal per-agent reports)
@@ -144,6 +162,7 @@ resolutions, another agent applies them to produce the updated spec.
 | Idle agents need nudging | Agent goes idle repeatedly without output | Send direct message with explicit step-by-step instructions |
 | Agents proxy through lead | All messages go lead→agent instead of agent→agent | Instruct agents to talk to each other directly in spawn prompt |
 | Zombie agents after session loss | `TeamDelete` fails: "Cannot cleanup team with N active member(s)" | Force-remove: `rm -rf ~/.claude/teams/<name>` then `TeamDelete`. Agents from dead sessions can't respond to shutdown requests. |
+| Agent uses wrong approach/API | Agent implements with wrong technology (e.g., simulated instead of real dependency) or wrong API function (e.g., `ghostty_surface_text()` instead of `ghostty_surface_key()`) | Specify the exact technology/API in the task description; assign domain experts to cross-review before committing. Lead should verify critical API choices against reference docs. |
 
 ### Team Lead Role: Facilitate, Don't Micromanage
 
