@@ -26,13 +26,15 @@ purpose, author, and naming convention.
 All artifacts live in the **version directory** of the spec area they belong to:
 
 ```
-docs/{component}/02-design-docs/{topic}/v0.N/
+docs/{component}/02-design-docs/{topic}/v<X>/
 ```
+
+`<X>` is the version identifier (e.g., `0.6`, `1`, `2.1`).
 
 Examples:
 ```
 docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes-01-resize-policy.md
-docs/libitshell3-ime/02-design-docs/interface-contract/v0.5/handover-for-v06-revision.md
+docs/libitshell3-ime/02-design-docs/interface-contract/v1/handover-for-v2-revision.md
 ```
 
 **Exception**: `review-resolutions.md` MAY live at the topic level (not inside a
@@ -142,7 +144,7 @@ research-ghostty-dirty-tracking.md
 ### 3.5 Handover Documents
 
 ```
-handover-for-v{N+1}-revision.md        # Standard: next-version handover
+handover-for-v<next>-revision.md        # Standard: next-version handover
 handover-{topic}.md                     # Special: topic-specific handover
 ```
 
@@ -230,7 +232,7 @@ All review notes MUST follow this structure:
 ```markdown
 # Design Resolutions: {Topic}
 
-**Version**: v0.N
+**Version**: v<X>
 **Date**: YYYY-MM-DD
 **Status**: Resolved / Partially resolved
 **Participants**: {agent names}
@@ -255,7 +257,7 @@ All review notes MUST follow this structure:
 - If the resolution changes wire protocol, include a "Wire Protocol Changes Summary"
   section at the end listing: new message types, modified messages, affected docs.
 - If the resolution defers items to a future version, list them explicitly in a
-  "Deferred to v{N}" section.
+  "Deferred to v<next>" section.
 
 ### 4.3 Research Reports
 
@@ -295,7 +297,7 @@ All review notes MUST follow this structure:
 ### 4.4 Handover Documents
 
 ```markdown
-# Handover: {Spec Area} v0.N to v0.{N+1} Revision
+# Handover: {Spec Area} v<X> to v<next> Revision
 
 > **Date**: YYYY-MM-DD
 > **Author**: {team-lead or expert agent name}
@@ -390,7 +392,7 @@ Phase 3b (verification)
   └── review-notes-consistency.md           (verification findings)
 
 Phase 4 (handover)
-  └── handover-for-v{N+1}-revision.md       (session-end context transfer)
+  └── handover-for-v<next>-revision.md       (session-end context transfer)
 
 Owner review (any time)
   └── review-notes-owner-{topic}.md         (owner observations)

@@ -152,7 +152,7 @@ is complete and no further discussion is needed for the current session.
 | **File locations** | Paths to all relevant artifacts — review notes, resolution files, updated spec versions, PoC code |
 
 **Location:** Place in the current version directory, following the existing
-convention: `docs/design/topic/v0.N/handover-for-v0.(N+1)-revision.md`
+convention: `docs/design/topic/v<X>/handover-for-v<next>-revision.md`
 
 This convention complements Phase 4 (session-end handover written by the team
 lead). Phase 4 covers the overall session state; this convention ensures that
@@ -247,7 +247,7 @@ Use `TaskCreate` with `addBlockedBy` to enforce the correct ordering:
 ```
 Task #1: Discuss and reach consensus          (no blockers)
 Task #2: Write review-resolutions.md          (blocked by #1)
-Task #3: Write v0.N+1 docs with revisions     (blocked by #2)
+Task #3: Write v<next> docs with revisions      (blocked by #2)
 ```
 
 This prevents agents from starting to write before consensus is reached.
@@ -256,7 +256,7 @@ resolutions, another agent applies them to produce the updated spec.
 
 ### Execution
 - Move current docs to versioned directory **before** revision starts
-- Each agent reads their v0.N doc, applies resolutions, writes to v0.N+1
+- Each agent reads their v<X> doc, applies resolutions, writes to v<next>
 - **Important**: Be VERY explicit with agents about creating new files
   (they may think the resolutions doc IS the deliverable — tell them to
   produce updated spec files with changes applied inline)
@@ -402,7 +402,7 @@ review notes, cross-review files, and discussion logs.
 
 Place the handover in the **current version directory**:
 ```
-docs/design/topic/v0.N/handover-for-v0.(N+1)-revision.md
+docs/design/topic/v<X>/handover-for-v<next>-revision.md
 ```
 
 ### Required Sections
