@@ -49,6 +49,8 @@ Server (Daemon)                    Client (App)
 - `docs/libitshell3/` — 15 design documents (00–14) covering project overview, API analysis, protocol, PTY, CJK input, architecture, testing strategy, and validation
 - `docs/libitshell3/design/server-client-protocols/` — 6 detailed protocol specs (handshake, session/pane mgmt, input/renderstate, CJK preedit, flow control)
 - `docs/libitshell3-ime/` — 7 documents covering Korean composition rules, libhangul API, IME architecture, integration protocol, build/licensing
+- [**`docs/insights/`**](docs/insights/) — Cross-cutting architectural insights distilled from reference codebase research. Read before design discussions to avoid re-researching solved questions.
+  - [Reference Codebase Learnings](docs/insights/reference-codebase-learnings.md) — Multi-client output delivery, dirty tracking, frame recovery, concurrency, and backpressure patterns from ghostty, tmux, zellij.
 
 ## Reference Codebases
 
