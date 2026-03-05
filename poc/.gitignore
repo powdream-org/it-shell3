@@ -3,6 +3,7 @@ ime-key-handling/poc
 ime-key-handling/poc-ghostty
 ime-ghostty-real/minimal_test
 ime-ghostty-real/poc-ghostty-real
+macos-ime-suppression/poc-ime-suppression
 
 # Cloned dependencies (build from source)
 ime-key-handling/libhangul/
