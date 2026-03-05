@@ -129,7 +129,7 @@ The server decomposes the wire `modifiers` bitmask into the IME contract's separ
 | Bits 4-5 (CapsLock, NumLock) | Dropped | Intentionally not consumed by IME — see IME contract Section 3.1 |
 | Bits 6-7 | Reserved | Must be 0 |
 
-See IME Interface Contract v0.4, Section 3.1 for the rationale behind separating Shift from other modifiers.
+See IME Interface Contract Section 3.1 for the rationale behind separating Shift from other modifiers.
 
 #### HID Keycodes
 

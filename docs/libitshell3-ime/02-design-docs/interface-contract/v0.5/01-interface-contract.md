@@ -89,7 +89,7 @@ When the user presses Ctrl+C during Korean composition (preedit = "하"):
 
 1. **Phase 0 (shortcuts)**: libitshell3 checks — Ctrl+C is not a language toggle or global shortcut. Pass through.
 2. **Phase 1 (IME)**: Engine detects Ctrl modifier -> flushes "하" -> returns `{ committed: "하", forward_key: Ctrl+C }`
-3. **Phase 2 (ghostty)**: Committed text "하" is sent to PTY via `ghostty_surface_key`. Then Ctrl+C goes through ghostty's keybinding system. If Cmd+C is bound to "copy", it fires. If not, `ghostty_surface_key` encodes it as `0x03` (ETX).
+3. **Phase 2 (ghostty)**: Committed text "하" is sent to PTY via `ghostty_surface_key`. Then Ctrl+C goes through ghostty's keybinding system. If Ctrl+C is bound to a keybinding, it fires. If not, `ghostty_surface_key` encodes it as `0x03` (ETX).
 
 This ensures the user's in-progress composition is preserved before any keybinding action.
 
@@ -250,8 +250,8 @@ pub const ImeResult = struct {
 
 **Scenario matrix:**
 
-| Situation | committed | preedit | forward_key | preedit_changed | composition_state |
-|-----------|-----------|---------|-------------|-----------------|-------------------|
+| Situation | committed_text | preedit_text | forward_key | preedit_changed | composition_state |
+|-----------|----------------|--------------|-------------|-----------------|-------------------|
 | English 'a' (direct mode) | `"a"` | null | null | false | null |
 | English Shift+'a' (direct mode) | `"A"` | null | null | false | null |
 | Direct mode Enter | null | null | Enter key | false | null |
@@ -262,6 +262,7 @@ pub const ImeResult = struct {
 | Korean ㄱ (start composing) | null | `"ㄱ"` | null | true | `"ko_leading_jamo"` |
 | Korean 가 (add vowel) | null | `"가"` | null | true | `"ko_syllable_no_tail"` |
 | Korean 한 (add tail consonant) | null | `"한"` | null | true | `"ko_syllable_with_tail"` |
+| Korean 없 (double tail ㅂㅅ) | null | `"없"` | null | true | `"ko_double_tail"` |
 | Korean 간 -> new ㄱ (syllable break) | `"간"` | `"ㄱ"` | null | true | `"ko_leading_jamo"` |
 | Arrow during composition | `"한"` (flush) | null | arrow key | true | null |
 | Ctrl+C during composition | `"하"` (flush) | null | Ctrl+C key | true | null |
@@ -269,7 +270,7 @@ pub const ImeResult = struct {
 | Escape during composition | `"한"` (flush) | null | Escape key | true | null |
 | Tab during composition | `"한"` (flush) | null | Tab key | true | null |
 | Space during composition | `"한"` (flush) | null | Space key | true | null |
-| Backspace mid-composition | null | `"하"` (undo) | null | true | `"ko_syllable_no_tail"` |
+| Backspace removes tail (한→하) | null | `"하"` (undo) | null | true | `"ko_syllable_no_tail"` |
 | Backspace empty composition | null | null | Backspace | false | null |
 | Space with empty composition | null | null | Space key | false | null |
 | English Ctrl+C (no composition) | null | null | Ctrl+C key | false | null |
@@ -452,7 +453,7 @@ pub const ImeEngine = struct {
 2. Read the flushed string from libhangul.
 3. Set `active_input_method = new_method`.
 4. Update internal engine mode and libhangul keyboard if needed.
-5. Return `ImeResult{ .committed_text = flushed_text, .preedit_text = null, .forward_key = null, .preedit_changed = true }`.
+5. Return `ImeResult{ .committed_text = flushed_text, .preedit_text = null, .forward_key = null, .preedit_changed = true, .composition_state = null }`.
 
 **Case 2: "Switching" to the already-active input method (e.g., `"korean_2set"` -> `"korean_2set"`):**
 
@@ -670,6 +671,7 @@ test "committed text is sent to ghostty_surface_key" {
 | Per-pane ImeEngine lifecycle | **libitshell3** | Creates/destroys engine per pane. Calls activate/deactivate on focus change. |
 | Language indicator in FrameUpdate | **libitshell3** | Metadata field derived from `active_input_method` string (e.g., `"direct"` vs `"korean_2set"`). ghostty has no language state. See protocol doc 05 for wire encoding. |
 | Composing-capable check | **libitshell3** | Derives from input method string: `"direct" = no`, anything else = yes. Runtime check: `engine.isEmpty()`. No `LanguageDescriptor` needed. |
+| `display_width` / UAX #11 character width computation | **libitshell3** | East Asian Width property lookup (narrow/wide/ambiguous) for CellData encoding. IME engine has no knowledge of display width — it only deals with key events and composition text. |
 
 ### What libitshell3-ime Does NOT Do
 

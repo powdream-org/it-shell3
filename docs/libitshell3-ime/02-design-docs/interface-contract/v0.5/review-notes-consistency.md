@@ -1,50 +1,62 @@
 # Consistency Review Notes: IME Interface Contract v0.5
 
-> **Status**: CLEAN — all minor, deferred to v0.6
+> **Status**: CLEAN (round 3 unanimous)
 > **Date**: 2026-03-05
-> **Reviewers**: 3 fresh-context agents (no prior knowledge of changes)
-> **Rounds**: 2 (first round with fix application + second round with fresh agents)
+> **Process**: Phase 3b mandatory cross-document consistency verification
 
 ---
 
-## Verdict
+## Verification Rounds
 
-The document passed fresh-context verification. 7 minor/cosmetic issues found, no structural or correctness problems. All deferred to v0.6 polish pass.
+### Round 1: Same-context agents (3 reviewers)
 
-## Minor Issues (deferred to v0.6)
+Found 9 issues (3 medium, 6 low). All applied:
+- M-1: Space exception in direct mode behavior
+- M-2: Escape + Tab rows in scenario matrix
+- M-3: Header "2.4 deferred" wording
+- L-1: Shift row in flush policy table
+- L-2: ko_syllable_with_tail scenario row
+- L-3: E.8 forward reference to G.3
+- L-4: C.6 forward references to Appendix F
+- L-5: G.6 entry for V-1 anchor fix
+- L-6: Handover deferred protocol changes clarification
 
-### A-1: Ctrl+C vs Cmd+C confusion (Section 2, line ~92)
+### Round 2: Fresh-context agents (3 new reviewers, zero prior context)
 
-Example describes forwarding Ctrl+C but then says "If Cmd+C is bound to 'copy', it fires." Should stay consistent with Ctrl+C.
+Found 7 new minor issues. All applied:
+- A-1: Ctrl+C vs Cmd+C confusion fixed (Section 2)
+- A-2: Scenario matrix column headers updated to match struct field names
+- IME-1: ko_double_tail scenario row added
+- IME-2: Backspace row renamed to be specific
+- IME-3: .composition_state = null added to setActiveInputMethod Case 1
+- CJK-1: Stale v0.4 reference removed in protocol doc 04 v0.6 (versionless now)
+- CJK-2: display_width / UAX #11 row added to Responsibility Matrix
 
-### A-2: Scenario matrix column header brevity (Section 3.2)
+### Round 3: Fresh-context agents (3 new reviewers, zero prior context)
 
-Column headers use `committed` and `preedit` while struct fields are `committed_text` and `preedit_text`. Acceptable table brevity but noted.
+**Result: CLEAN — 3/3 unanimous, zero issues found.**
 
-### IME-1: Missing ko_double_tail scenario matrix row (Section 3.2)
-
-`ko_double_tail` is defined in CompositionStates but never appears in the scenario matrix. Unlike `ko_vowel_only` (which has a 3-set disclaimer), `ko_double_tail` IS reachable in 2-set (e.g., "없" with ㅂㅅ double tail).
-
-**Fix**: Add a scenario row OR add a disclaimer similar to the `ko_vowel_only` note.
-
-### IME-2: Generic backspace row name (Section 3.2, line ~272)
-
-"Backspace mid-composition" shows one specific case (한→하). Other backspace cases produce different states. Very low severity — the specific preedit value makes the case clear.
-
-### IME-3: Missing .composition_state in setActiveInputMethod Case 1 (Section 3.6, line ~455)
-
-ImeResult example omits `.composition_state = null`. Functionally correct (null is default) but inconsistent with the document's explicit-fields pattern.
-
-### CJK-1: Stale v0.4 reference in protocol doc 04 v0.6 (cross-doc)
-
-Protocol doc 04 v0.6 line ~132 says "See IME Interface Contract **v0.4**, Section 3.1" — should say v0.5 or be versionless. This is a protocol doc issue, not an IME contract issue.
-
-### CJK-2: display_width not in Responsibility Matrix (Section 4)
-
-UAX #11 / display_width computation is not explicitly assigned. Implicitly covered by server responsibility but an explicit row would clarify.
+Verified areas (25+ items across 3 reviewers):
+- All internal cross-reference links resolve
+- Field names/types consistent between spec text and code blocks
+- Vtable: 8 methods confirmed across all locations
+- CompositionStates: 5 constants, no residual "empty", null is canonical
+- Scenario matrix: 23 rows, all valid, column headers match struct fields
+- processKey() pipeline consistent across 6 sections
+- flush/reset/deactivate lifecycle consistent
+- Modifier handling consistent
+- libhangul API references accurate
+- Appendix G: all 6 entries accurate
+- Handover document consistent with actual state
+- Cross-doc references valid
+- Naming convention clear and internally consistent
+- Responsibility matrix complete (18 rows including display_width)
+- Future CJK extensibility properly designed
 
 ---
 
-## Verified Clean Areas (25 items)
+## Protocol Doc v0.6 Cross-Doc Notes
 
-All internal cross-references, struct definitions, vtable methods, composition state constants, null usage, terminology, section numbering, appendix accuracy, superseded references, memory ownership, modifier handling, processKey pipeline, flush/reset/deactivate lifecycle, libhangul API references, cross-doc references, naming convention, design principles, Korean text examples, and future CJK extensibility — all verified correct.
+The fixer agent also identified potential fixes in protocol docs 02 and 06 v0.6 (section number corrections, clipboard direction fix, `empty` → `null` in session persistence). These were NOT verified in round 3 and are left for the protocol v0.6 team to review:
+- Doc 02: Section 7.1 → 6.3 reference corrections (2 locations)
+- Doc 06: ClipboardRead/ClipboardReadResponse direction clarification, `empty` → null in session restoration
