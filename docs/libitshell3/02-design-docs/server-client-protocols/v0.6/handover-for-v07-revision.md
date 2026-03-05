@@ -405,6 +405,7 @@ Decisions made by the owner during the v0.6 review session that constrain v0.7 w
 
 | Decision | Context | Constraint |
 |----------|---------|------------|
+| `latest` as default (**strong preference**) | Owner tested zellij extensively — it behaves as `latest` despite documenting `smallest`, and the UX is excellent. `latest` is the right default. | **Owner's strong preference.** Do not reconsider `smallest` as default without compelling evidence. `smallest` remains available as opt-in server config. |
 | `latest` policy clipping | Under `latest`, smaller clients clip top-left (tmux-style) | Normative in doc 03. Per-client viewports deferred to v2. |
 | Keyframe self-containment | I-frames always carry full CellData, never reference previous frames | Non-negotiable. Defining property of keyframe. |
 | `unchanged` advisory hint | Keyframes MAY include `unchanged` boolean for client render optimization | Advisory only. Clients that jumped from distant cursor MUST ignore and render full data. |
