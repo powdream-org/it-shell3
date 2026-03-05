@@ -395,6 +395,7 @@ work). Agent files should contain stable, reusable knowledge only.
 | Agents proxy through lead | All messages go lead→agent instead of agent→agent | Instruct agents to talk to each other directly in spawn prompt |
 | Zombie agents after session loss | `TeamDelete` fails: "Cannot cleanup team with N active member(s)" | Force-remove: `rm -rf ~/.claude/teams/<name>` then `TeamDelete`. Agents from dead sessions can't respond to shutdown requests. |
 | Agent uses wrong approach/API | Agent implements with wrong technology (e.g., simulated instead of real dependency) or wrong API function (e.g., `ghostty_surface_text()` instead of `ghostty_surface_key()`) | Specify the exact technology/API in the task description; assign domain experts to cross-review before committing. Lead should verify critical API choices against reference docs. |
+| Single-pass verification misses fix regressions | Cross-doc verification finds issues, fixes are applied, but fixes themselves are not verified | **Always run a second verification round after fixes.** The first round finds issues; fixes applied during the first round are themselves unverified changes. A second round with fresh agents confirms the fixes are correct, complete, and did not introduce new inconsistencies. Both spec areas (e.g., IME + protocol) must participate in each round. |
 
 ### Team Lead Role: Facilitate, Don't Micromanage
 
