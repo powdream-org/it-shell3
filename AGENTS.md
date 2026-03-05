@@ -82,7 +82,7 @@ Located at `~/dev/git/references/`:
 > **⚠️ MANDATORY: You MUST read and strictly follow all convention docs under `docs/conventions/` before making any changes. No exceptions.**
 
 - [**Commit Messages**](docs/conventions/commit-messages.md) — Conventional commits format. **English only.**
-- [**Review Notes & Handover Docs**](docs/conventions/review-and-handover-docs.md) — Naming conventions, document format, and content requirements for all review artifacts (review notes, resolutions, research reports, handovers).
+- [**Document Artifact Conventions**](docs/conventions/artifacts/documents/01-overview.md) — Naming, format, and content rules for all document artifacts (review notes, handovers, design resolutions, research reports, cross-team requests).
 
 ## Work Styles
 
@@ -90,5 +90,7 @@ Located at `~/dev/git/references/`:
 >
 > **You are a facilitator, NOT a doer.** Never do research, writing, or implementation yourself — always delegate to teammates. Never micromanage teammates with specific instructions like "change line X to Y" — state the goal and let them figure out the approach. Never proxy messages between agents — they must communicate directly with each other.
 
-- [**Agent Team Design Workflow**](docs/work-styles/agent-team-design-workflow.md) — **Defines how you operate.** Covers the full lifecycle: parallel drafting (Phase 1) → review discussion (Phase 2) → cross-component review (Phase 2b) → applying revisions (Phase 3) → handover document (Phase 4). Also defines custom agent registration and team communication patterns.
-- [**Agent Team Definitions**](docs/work-styles/agent-team-definition.md) — **Defines who you work with.** Lists available agent teams, their purposes, and agent file locations under `.claude/agents/`.
+- [**Overview**](docs/work-styles/01-overview.md) — Entry point: how we work, document index.
+- [**Team Collaboration**](docs/work-styles/02-team-collaboration.md) — Team structure, roles, communication rules, consensus policy, lessons learned.
+- [**Design Workflow**](docs/work-styles/03-design-workflow.md) — **Defines how you operate.** Revision cycle (discussion → resolution → writing → verification) and Review cycle (owner review → review notes → handover).
+- [**PoC Workflow**](docs/work-styles/04-poc-workflow.md) — When, why, and how to run Proof-of-Concept experiments.
