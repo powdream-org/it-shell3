@@ -832,7 +832,7 @@ Multiple clients can attach to the same session simultaneously. The server handl
 
 1. **Terminal dimensions**: Uses the minimum (cols, rows) across all attached clients (like tmux `aggressive-resize`). See resize algorithm below.
 2. **Input forwarding**: All non-readonly clients can send input. The server processes input in arrival order.
-3. **Preedit exclusivity**: Only one client can have active preedit per pane. The server owns the IME engine -- if a client sends a `KeyEvent` that triggers composition while another client's composition is already active on the same pane, the server commits the first client's composition and sends `PreeditEnd` with reason `"replaced_by_other_client"` before starting the new one (see doc 05 Section 7.1).
+3. **Preedit exclusivity**: Only one client can have active preedit per pane. The server owns the IME engine -- if a client sends a `KeyEvent` that triggers composition while another client's composition is already active on the same pane, the server commits the first client's composition and sends `PreeditEnd` with reason `"replaced_by_other_client"` before starting the new one (see doc 05 Section 6.3).
 4. **Frame updates**: All clients receive `FrameUpdate` messages for all panes in the attached session that have dirty state, not just the focused pane. Each client renders at its own pace via per-(client, pane) coalescing tiers.
 5. **Client join/leave notifications**: When a client attaches or detaches, other clients attached to the same session receive `ClientAttached` (0x0183) or `ClientDetached` (0x0184) notifications carrying `session_id`, `client_id`, `client_name`, and `attached_clients` count.
 
@@ -841,7 +841,7 @@ Multiple clients can attach to the same session simultaneously. The server handl
 When `AttachSessionRequest.readonly` is `true`, the client attaches as a read-only viewer:
 
 - The client receives all server-to-client messages including FrameUpdate, preedit broadcasts (PreeditStart/Update/End/Sync, InputMethodAck), LayoutChanged, and notifications.
-- The client MUST NOT send any mutating input or session/pane management messages (KeyEvent, TextInput, MouseButton, PasteData, InputMethodSwitch, CreatePane, DestroyPane, ResizePane, etc.). Prohibited messages return `ERR_ACCESS_DENIED` (0x00000203).
+- The client MUST NOT send any mutating input or session/pane management messages (KeyEvent, TextInput, MouseButton, PasteData, InputMethodSwitch, CreatePane, ClosePaneRequest, ResizePane, etc.). Prohibited messages return `ERR_ACCESS_DENIED` (0x00000203).
 - The client MAY send: queries (ListSessions, LayoutGet, Search), viewport operations (Scroll, MouseScroll), connection management (Heartbeat, Disconnect, Detach, ClientDisplayInfo, Subscribe).
 
 See doc 03 for the full readonly permissions table.
@@ -1034,5 +1034,5 @@ For remote access, authentication is handled entirely by SSH. When a client conn
 - **ClientDisplayInfo deduplication** (Issue 6): Replaced inline schema definition in Section 7 with cross-reference to doc 06 Section 1.5 (authoritative). Retained handshake-context semantics and example.
 - **FrameAck reference removed** (Issue 9): Removed dangling `FrameAck` reference from Section 9.6 (message type was never defined).
 - **KeyInput renamed to KeyEvent** (Issue 10): Replaced `KeyInput` with `KeyEvent` (0x0200) to match doc 04 authoritative name.
-- **PreeditEnd reason fixed** (Issue 11): Changed preedit exclusivity description to use `"replaced_by_other_client"` (doc 05 Section 7.1) instead of undefined `CANCELLED`.
+- **PreeditEnd reason fixed** (Issue 11): Changed preedit exclusivity description to use `"replaced_by_other_client"` (doc 05 Section 6.3) instead of undefined `CANCELLED`.
 - **preedit_sync description tightened** (Issue 17): Clarified that `preedit_sync` gates only PreeditSync (0x0403) snapshots for late-joining clients. PreeditStart/Update/End are gated by `preedit` (bit 0) alone.

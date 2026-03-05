@@ -389,7 +389,7 @@ Sent by the client when a shell application requests clipboard contents via OSC 
 
 ### 3.3 ClipboardReadResponse (0x0602)
 
-Client responds with the current OS clipboard contents.
+Server responds with the current clipboard contents.
 
 **Payload** (JSON):
 
@@ -983,7 +983,7 @@ Generic wrapper for extension-specific messages. The extension defines its own p
 If a client or server receives a message with:
 - Unknown message type within a non-extension range: **ignore** the message (forward compatibility).
 - Unknown message type within the extension range (0xF000+): ignore if no matching extension is negotiated.
-- Payload shorter than expected: respond with `status = PROTOCOL_ERROR` in the next appropriate response, or send Disconnect (0x0005) with reason `"protocol_error"`.
+- Payload shorter than expected: respond with `status = PROTOCOL_ERROR` in the next appropriate response, or send Disconnect (0x0005) with reason `"error"` and detail describing the protocol violation.
 - Payload longer than expected: consume the full payload (based on header length), ignore extra fields (forward compatibility with JSON payloads).
 
 ### Timeout Handling
@@ -1026,6 +1026,8 @@ If a client or server receives a message with:
 - **ConnectionClosing renamed to Disconnect** (Issue 7): Replaced remaining `ConnectionClosing` references with `Disconnect (0x0005)` in Section 8 (Protocol Errors and Timeout Handling).
 - **num_dirty_rows terminology** (Issue 8): Standardized `dirty_row_count` to `num_dirty_rows` throughout, matching the authoritative binary wire format in doc 04.
 - **4-tier coalescing terminology clarified** (Issue 20): Added terminology note in Section 1 explaining the model has 4 active coalescing tiers (Preedit, Interactive, Active, Bulk) plus an Idle quiescent state. Updated v0.3 changelog entry to match.
+- **ClipboardReadResponse direction fix** (Round 4): Fixed Section 3.3 prose from "Client responds" to "Server responds" — ClipboardReadResponse (0x0602) is S->C.
+- **Disconnect reason aligned with doc 02 enum** (Round 4): Changed `reason "protocol_error"` in Section 10 to `reason "error"` with descriptive detail, matching doc 02 Section 11.1 Disconnect reason enum.
 
 ### v0.5 (2026-03-05)
 

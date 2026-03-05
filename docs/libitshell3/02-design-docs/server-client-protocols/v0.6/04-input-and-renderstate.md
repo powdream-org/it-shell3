@@ -52,7 +52,7 @@ All messages share a 16-byte binary header as defined in doc 01:
 Offset  Size  Field        Description
 ------  ----  -----        -----------
  0      2     magic        0x49 0x54 ("IT" in ASCII), little-endian
- 2      1     version      Protocol version (starts at 1)
+ 2      1     version      Header format version (current: 1; see doc 01 Section 3.1.1)
  3      1     flags        Per-message flags (bit 0 = ENCODING: 0=JSON/1=binary,
                                        bit 1 = COMPRESSED (reserved, v1 MUST NOT set),
                                        bit 2 = RESPONSE,
