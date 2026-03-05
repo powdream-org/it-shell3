@@ -61,26 +61,53 @@ IME contract changes (V-1) documented in Appendix G. Protocol doc changes (V-2, 
 
 ---
 
-## 2. Open Items for v0.6
+## 2. Owner Decisions on Section 10 Open Questions
 
-### 2.1 Section 10 Open Questions (carried forward)
+All four open questions in Section 10 have been decided by the owner (see `review-notes-02-owner-decisions.md`). The v0.6 revision must apply these decisions to the contract.
 
-Four open questions remain in Section 10 of the contract. None block v1 implementation:
+### 2.1 Hanja Key — Excluded (Q1)
 
-1. **Hanja key in Korean** -- deferred beyond v1 (uses candidate callback from Section 7)
-2. **Dead keys for European languages** -- deferred (separate engine implementation)
-3. **Multiple simultaneous modes (per-pane vs global)** -- per-pane only for v1
-4. **macOS client OS IME suppression** -- client-app concern, documented for completeness
+**Decision: Do not support Hanja conversion in Korean IME mode.**
 
-No action required unless the team wants to promote any of these into v1 scope.
+Korean Hanja conversion is explicitly excluded (not deferred). The candidate callback mechanism (Section 7) remains for future non-Korean engines (Chinese candidate selection), but will not be used for Korean.
 
-### 2.2 No New Design Issues Surfaced
+**v0.6 action**: Remove Section 10 Q1. No other contract changes needed — Section 7 stays as-is.
 
-The v0.5 review cycle resolved all outstanding issues cleanly. No new design questions were raised during discussion or cross-verification. The contract is stable for implementation.
+### 2.2 Dead Keys — Separate Engine (Q2)
 
-### 2.3 Potential Future Review Triggers
+**Decision: European dead key composition must be a separate engine (e.g., `"european_deadkey"`), NOT added to direct mode.**
 
-These are not open items but situations that would trigger a v0.6 revision:
+Direct mode remains the simplest possible passthrough (HID → ASCII, zero composition).
+
+**v0.6 action**: Replace Section 10 Q2 with the settled decision.
+
+### 2.3 Per-Pane → Per-Tab Engine Singleton (Q3)
+
+**Decision: Global singleton engine instance per tab (session), not per-pane.**
+
+All panes within a tab share the same input method state. Switching to Korean in one pane affects all panes in the same tab.
+
+**v0.6 action** (architectural change):
+- Update engine ownership model (one engine per tab/session, not per pane)
+- Update session persistence (one `input_method` per tab, not per pane)
+- Clarify preedit exclusivity (still one active preedit per focused pane, but the engine is shared)
+- Remove Section 10 Q3 and replace with the settled decision
+
+### 2.4 macOS IME Suppression — PoC Complete (Q4)
+
+**Decision: PoC validates feasibility. The approach is confirmed.**
+
+The PoC (`poc/macos-ime-suppression/`) validated all assumptions:
+- Not calling `interpretKeyEvents:` is sufficient to bypass OS IME — no other suppression technique needed
+- `performKeyEquivalent:` correctly handles system shortcuts (Cmd+Q, Cmd+H, etc.)
+- `NSTextInputClient` can be implemented for clipboard/services/accessibility without interfering with keyboard input
+- `NSEvent.keyCode` is physical key position (unchanged regardless of macOS input source), which is exactly what libitshell3-ime needs
+
+**v0.6 action**: Replace Section 10 Q4 with the settled decision and reference the PoC findings.
+
+### 2.5 Potential Future Review Triggers
+
+These are not open items but situations that would trigger further revision:
 
 - **Implementation begins**: Actual Zig code may reveal edge cases not covered by the spec (e.g., libhangul buffer behavior under rapid keystroke bursts, exact preedit_changed semantics for compound operations).
 - **3-set layout support**: When 3-set keyboard layouts are implemented (Phase 7), verify that `ko_vowel_only` transitions behave as documented.
@@ -116,6 +143,14 @@ The protocol team should apply these when producing protocol doc 05 v0.6. The IM
 | IME contract v0.5 (current) | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.5/01-interface-contract.md` |
 | Review notes (resolved) | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.4/review-notes-01.md` |
 | This handover | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.5/handover-for-v06-revision.md` |
+| Owner decisions on open questions | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.5/review-notes-02-owner-decisions.md` |
+
+### PoC
+
+| Document | Path |
+|----------|------|
+| macOS IME suppression PoC source | `poc/macos-ime-suppression/PoC.m` |
+| macOS IME suppression PoC findings | `poc/macos-ime-suppression/README.md` |
 
 ### Protocol Docs (v0.5, cross-reference targets)
 
