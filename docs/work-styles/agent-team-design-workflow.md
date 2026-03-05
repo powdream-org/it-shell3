@@ -268,10 +268,15 @@ resolutions, another agent applies them to produce the updated spec.
 
 ### Spec Writer Role Pattern
 
+> **⚠️ MANDATORY:** When all design decisions have been made and the task is
+> applying those decisions to spec documents, the team lead MUST assign
+> spec-writer agents — not core team members. Core team members (architects,
+> domain experts) are for design decisions, review, and debate. Using them for
+> mechanical application wastes capacity and conflates roles.
+
 Design decisions and mechanical spec production are separable concerns. Core team
-members (architects, domain experts) make the decisions; a dedicated spec-writer
-agent can handle the mechanical work of applying those decisions to produce the
-next version.
+members make the decisions; spec-writer agents MUST handle the mechanical work of
+applying those decisions to produce the next version.
 
 #### Division of Responsibility
 
@@ -279,6 +284,11 @@ next version.
 |---------|-----|-------|
 | Design decisions, review, debate | Core team members | `opus` |
 | Applying resolutions to produce vN+1 docs | Spec-writer agent | `sonnet` |
+
+**Decision test:** If the resolution document specifies *what* to change and
+*where* to change it, it is mechanical — assign a spec-writer. If it requires
+judgment about *how* to express a new concept or *whether* a change is correct,
+it is design — assign a core team member.
 
 The spec-writer does NOT make design decisions. Its responsibilities are strictly
 mechanical:
@@ -300,6 +310,38 @@ debate, trade-off analysis, cross-component review). This is an exception to the
 general "use `opus` by default" policy stated in [Custom Agent Registration](#custom-agent-registration)
 — it applies specifically to the spec-writer role because the task is well-defined
 and non-creative.
+
+### Scope Separation: Decouple Independent Changes from Pending Design Discussions
+
+> **⚠️ MANDATORY:** When a revision contains both (a) changes independent of
+> a pending design discussion and (b) changes that depend on its outcome, the
+> team lead MUST split them. Apply only independent changes, verify, and commit
+> before starting the design discussion. Do NOT apply model-dependent changes
+> speculatively.
+
+When a handover lists mechanical changes alongside open architectural questions,
+assess each change for dependency:
+
+| Category | Action | Example |
+|----------|--------|---------|
+| **Independent** | Apply now | Adding a message type to registry, updating a timeout field, adding a disconnect reason |
+| **Model-dependent** | Defer until design discussion resolves | Buffer sizing (per-client vs ring), discard-and-resync procedure (explicit vs skip-to-keyframe), dirty tracking model |
+
+**Workflow when both exist:**
+
+```
+Phase 3a: Apply independent changes only     (spec-writer)
+Phase 3b: Cross-document consistency review   (fresh agents)
+Commit
+Phase 3c: Design discussion                  (core team + research)
+Phase 3d: Apply discussion outcomes           (spec-writer)
+Phase 3e: Cross-document consistency review   (fresh agents)
+Commit
+```
+
+This prevents wasted work from applying changes that are likely to be rewritten
+after the design discussion. The changelog for Phase 3a should explicitly list
+which issues were deferred and why.
 
 ---
 
@@ -521,6 +563,8 @@ work). Agent files should contain stable, reusable knowledge only.
 | Zombie agents after session loss | `TeamDelete` fails: "Cannot cleanup team with N active member(s)" | Force-remove: `rm -rf ~/.claude/teams/<name>` then `TeamDelete`. Agents from dead sessions can't respond to shutdown requests. |
 | Agent uses wrong approach/API | Agent implements with wrong technology (e.g., simulated instead of real dependency) or wrong API function (e.g., `ghostty_surface_text()` instead of `ghostty_surface_key()`) | Specify the exact technology/API in the task description; assign domain experts to cross-review before committing. Lead should verify critical API choices against reference docs. |
 | Single-pass verification misses fix regressions | Cross-doc verification finds issues, fixes are applied, but fixes themselves are not verified | **Always run a second verification round after fixes.** The first round finds issues; fixes applied during the first round are themselves unverified changes. A second round with fresh agents confirms the fixes are correct, complete, and did not introduce new inconsistencies. Both spec areas (e.g., IME + protocol) must participate in each round. |
+| Core team assigned to mechanical work | Lead says "this is easy" but assigns architect/engineer instead of spec-writer | **If all decisions are made, use spec-writers.** The difficulty of a task does not determine role assignment — the nature of the task does. Mechanical application = spec-writer. Design judgment = core team. Misassignment wastes core team capacity and conflates roles. |
+| Model-dependent changes applied before design discussion | Lead applies all resolutions including ones that depend on an unresolved architectural question, then rewrites after discussion | **Split changes by dependency.** Assess each change: does it depend on the pending design decision? If yes, defer it. Apply only independent changes, verify, commit, then discuss. See [Scope Separation](#scope-separation-decouple-independent-changes-from-pending-design-discussions). |
 
 ### Team Lead Role: Facilitate, Don't Micromanage
 
