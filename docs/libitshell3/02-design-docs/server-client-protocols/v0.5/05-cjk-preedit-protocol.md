@@ -5,11 +5,6 @@
 **Date**: 2026-03-05
 **Depends on**: 01-protocol-overview.md (header format), 04-input-and-renderstate.md (FrameUpdate, KeyEvent)
 
-**Changes from v0.4** (second review round: Issues 2.1, 2.4, 2.5b):
-- **Issue 2.4: `"non_korean"` removed**: Removed `"non_korean"` row from Section 3.1 state table. Future language-specific states will use their own prefixed constants (e.g., `ja_`, `zh_pinyin_`) — not a single catch-all string.
-- **Issue 2.5b: `"empty"` removed**: Removed `"empty"` row from Section 3.1 state table. When no composition is active, `composition_state` is `null` (omitted from JSON). Removed `"composition_state": "empty"` from PreeditStart JSON example and field table. Added note that the first PreeditUpdate carries the initial composition state. Updated Section 3.3 transition table: all `empty` state labels replaced with `null`. Updated Section 11.1 error recovery: "Reset composition state to `empty`" changed to "Reset composition state to `null` (no active composition)".
-- **Issue 2.1: Naming convention cross-reference updated**: Section 3.1 now references IME Interface Contract Section 3.7 for the normative naming convention (ISO 639-1 prefix for single-state-graph languages; `{iso639}_{method}_` for languages with distinct state graphs per input method). Added note that `ko_vowel_only` description clarifies 2-set vs. 3-set reachability.
-
 **Changes from v0.4** (cross-review: Protocol v0.4 x IME Interface Contract v0.3):
 - **Issue 6: display_width computation**: Added UAX #11 reference and Korean preedit width rules to Section 2.2.
 - **Issue 9: Escape PreeditEnd reason**: Fixed Escape from `"cancelled"` to `"committed"` and clarified `"cancelled"` definition in Section 2.3.
@@ -113,6 +108,7 @@ Sent by the server to ALL attached clients when a new composition session begins
   "cursor_x": 5,
   "cursor_y": 10,
   "active_input_method": "korean_2set",
+  "composition_state": "empty",
   "preedit_session_id": 42
 }
 ```
@@ -124,9 +120,8 @@ Sent by the server to ALL attached clients when a new composition session begins
 | `cursor_x` | u16 | Composition start column |
 | `cursor_y` | u16 | Composition start row |
 | `active_input_method` | string | Input method identifier (e.g., `"korean_2set"`, `"direct"`) |
+| `composition_state` | string | Initial state (always `"empty"` for start) |
 | `preedit_session_id` | u32 | Unique ID for this composition session |
-
-**Note**: `composition_state` is omitted from PreeditStart. There is no "empty" state string — when no composition is active, `composition_state` is absent (`null`). The first PreeditUpdate following PreeditStart carries the initial composition state (e.g., `"ko_leading_jamo"`).
 
 The `preedit_session_id` is a monotonically increasing counter per pane. It disambiguates overlapping composition sessions (e.g., one ends and another starts quickly).
 
@@ -246,13 +241,13 @@ The `composition_state` field is a string encoding the current Korean Hangul com
 
 | Value | Description |
 |-------|-------------|
+| `"empty"` | No composition active (initial/terminal state) |
 | `"ko_leading_jamo"` | Single consonant: ㅎ, ㄴ, ㄱ, ... |
-| `"ko_vowel_only"` | Standalone vowel: ㅏ, ㅓ, ㅗ, ... (3-set only; 2-set produces `ko_syllable_no_tail` with implicit ㅇ) |
+| `"ko_vowel_only"` | Standalone vowel: ㅏ, ㅓ, ㅗ, ... (with implicit ㅇ leading) |
 | `"ko_syllable_no_tail"` | Consonant + vowel: 하, 나, 가, ... |
 | `"ko_syllable_with_tail"` | Full syllable (C+V+C): 한, 난, 간, ... |
 | `"ko_double_tail"` | Syllable with double final consonant: 읽 (ㅇ+ㅣ+ㄹㄱ) |
-
-When no composition is active, `composition_state` is `null` (omitted from JSON). See IME Interface Contract Section 3.7 for the canonical `CompositionStates` constants. Future languages (Japanese, Chinese) will use their own prefixed constants (e.g., `ja_`, `zh_pinyin_`) — see IME Interface Contract Section 3.7 for the naming convention.
+| `"non_korean"` | Non-Korean composition (future: Japanese, Chinese) |
 
 ### 3.2 State Transition Diagram
 
@@ -311,20 +306,20 @@ When no composition is active, `composition_state` is `null` (omitted from JSON)
 
 | Current State | Input | Next State | Preedit | Commit | Notes |
 |---------------|-------|------------|---------|--------|-------|
-| null | consonant | ko_leading_jamo | "ㅎ" | -- | Begin composition |
-| null | vowel | ko_syllable_no_tail | "ㅇ+V" | -- | Implicit ㅇ leading (Korean convention) |
-| null | non-jamo | null | -- | passthrough | Not a Korean character |
+| empty | consonant | ko_leading_jamo | "ㅎ" | -- | Begin composition |
+| empty | vowel | ko_syllable_no_tail | "ㅇ+V" | -- | Implicit ㅇ leading (Korean convention) |
+| empty | non-jamo | empty | -- | passthrough | Not a Korean character |
 | ko_leading_jamo | vowel | ko_syllable_no_tail | "하" | -- | Form syllable |
 | ko_leading_jamo | consonant | ko_leading_jamo | "ㄴ" | "ㅎ" | Commit previous, start new |
-| ko_leading_jamo | non-jamo | null | -- | "ㅎ" + passthrough | Commit consonant |
-| ko_leading_jamo | backspace | null | -- | -- | Remove consonant |
+| ko_leading_jamo | non-jamo | empty | -- | "ㅎ" + passthrough | Commit consonant |
+| ko_leading_jamo | backspace | empty | -- | -- | Remove consonant |
 | ko_syllable_no_tail | consonant | ko_syllable_with_tail | "한" | -- | Add tail consonant |
 | ko_syllable_no_tail | vowel | ko_syllable_no_tail | "해" | -- | Replace vowel (only certain transitions) |
-| ko_syllable_no_tail | non-jamo | null | -- | "하" + passthrough | Commit syllable |
+| ko_syllable_no_tail | non-jamo | empty | -- | "하" + passthrough | Commit syllable |
 | ko_syllable_no_tail | backspace | ko_leading_jamo | "ㅎ" | -- | Remove vowel |
 | ko_syllable_with_tail | vowel | ko_syllable_no_tail | "나" | "하" | Jamo reassignment |
 | ko_syllable_with_tail | consonant | ko_syllable_with_tail | "핝" | -- | Form double-tail (if valid) OR commit + new leading |
-| ko_syllable_with_tail | non-jamo | null | -- | "한" + passthrough | Commit syllable |
+| ko_syllable_with_tail | non-jamo | empty | -- | "한" + passthrough | Commit syllable |
 | ko_syllable_with_tail | backspace | ko_syllable_no_tail | "하" | -- | Remove tail consonant |
 | ko_double_tail | vowel | ko_syllable_no_tail | "가" | "읽" | Split: commit base, new syllable with split consonant |
 | ko_double_tail | backspace | ko_syllable_with_tail | "읽->일" | -- | Remove second tail consonant |
@@ -876,7 +871,7 @@ If the server's IME engine reaches an invalid state (should not happen with corr
 
 1. Log the error with full state dump
 2. Commit whatever preedit text exists to PTY
-3. Reset composition state to `null` (no active composition)
+3. Reset composition state to `empty`
 4. Send PreeditEnd with `reason="cancelled"` to all clients
 5. Send a diagnostic notification to the composing client (optional)
 
@@ -1005,7 +1000,7 @@ For composition end:
 
 ## 15. Open Questions
 
-1. **Japanese/Chinese composition states**: The `composition_state` string currently only covers Korean. When Japanese (Kana-to-Kanji) and Chinese (Pinyin/Bopomofo) are added, what states are needed? For Japanese: `ja_kana_composing`, `ja_clause_segment`, `ja_candidate_selection`. For Chinese Pinyin: `zh_pinyin_input`, `zh_pinyin_candidate_selection`. For Chinese Bopomofo: `zh_bopomofo_initial`, `zh_bopomofo_tone`, `zh_bopomofo_candidate_selection`. These can be added as new string constants without breaking the protocol.
+1. **Japanese/Chinese composition states**: The `composition_state` enum currently only covers Korean. When Japanese (Kana-to-Kanji) and Chinese (Pinyin) are added, what states are needed? For Japanese: `romaji_input`, `kana_input`, `candidate_selection`. For Chinese: `pinyin_input`, `candidate_selection`. These can be added as new enum values without breaking the protocol.
 
 2. **Candidate window protocol**: Japanese and Chinese IMEs present a candidate list. How should this be forwarded to the client? Options:
    - Embed candidate list in PreeditUpdate (simple but potentially large)
