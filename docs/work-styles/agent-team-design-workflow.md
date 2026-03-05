@@ -334,6 +334,7 @@ Phase 3a: Apply independent changes only     (spec-writer)
 Phase 3b: Cross-document consistency review   (fresh agents)
 Commit
 Phase 3c: Design discussion                  (core team + research)
+Phase 3c-review: Resolution document review  (SAME core team, context retained)
 Phase 3d: Apply discussion outcomes           (spec-writer)
 Phase 3e: Cross-document consistency review   (fresh agents)
 Commit
@@ -342,6 +343,44 @@ Commit
 This prevents wasted work from applying changes that are likely to be rewritten
 after the design discussion. The changelog for Phase 3a should explicitly list
 which issues were deferred and why.
+
+### Phase 3c-review: Resolution Document Review (MANDATORY)
+
+> **⚠️ After the design discussion (Phase 3c) produces a resolutions document,
+> the SAME core team members who participated in the discussion MUST review the
+> written document before it is handed to spec-writers.** This step uses the same
+> agents with their context retained — NOT fresh agents.
+
+The purpose is to verify that the resolutions document:
+
+1. **Accurately captures what was agreed** — no misrepresentation of consensus
+2. **Is internally consistent** — no contradictions between resolutions or with
+   existing spec content (e.g., a resolution citing "8ms" when the spec says "0ms")
+3. **Covers all ripple effects** — if a resolution replaces concept X with concept Y,
+   all fields, messages, and configurations that depend on X are addressed
+4. **Contains no ambiguities that a spec-writer could misinterpret** — every change
+   specifies *what* and *where* clearly enough for mechanical application
+
+**Why the same agents with retained context:** Fresh agents cannot verify whether a
+document accurately captures a discussion they did not participate in. The review
+requires memory of what was actually debated and agreed upon — not just what the
+document says. Only agents who were in the room can catch "we agreed on X, but the
+document says Y" errors.
+
+**Why this step exists:** Without it, bugs in the resolutions document (internal
+contradictions, missing coverage, ambiguous phrasing) propagate through spec-writers
+into the docs, where they surface during verification as apparent "design
+disagreements" — wasting a full verification-and-fix cycle on issues that should
+have been caught at the source.
+
+**Workflow:**
+
+1. The consensus reporter writes the resolutions document (end of Phase 3c)
+2. All core team members read the completed document
+3. Each member verifies their domain: does the document correctly represent what
+   was agreed? Are all implications for their owned docs covered?
+4. Issues are raised and fixed in the resolutions document directly
+5. Only after all members confirm does the document go to spec-writers (Phase 3d)
 
 ---
 
