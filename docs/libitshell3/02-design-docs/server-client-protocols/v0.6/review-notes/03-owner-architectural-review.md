@@ -6,8 +6,8 @@
 **Context**: Issues raised during owner review of `design-resolutions-resize-health.md` and protocol v0.6 specs. These are new architectural questions, not consistency fixes.
 
 > **Related review notes:**
-> - `review-notes-consistency.md` -- Team consistency review (17 items: Issues 1-20, unapplied design resolutions)
-> - `review-notes-01.md` -- Residual cosmetic issue (1 item)
+> - `02-cross-document-consistency.md` -- Team consistency review (17 items: Issues 1-20, unapplied design resolutions)
+> - `01-residual-empty-state.md` -- Residual cosmetic issue (1 item)
 
 ---
 

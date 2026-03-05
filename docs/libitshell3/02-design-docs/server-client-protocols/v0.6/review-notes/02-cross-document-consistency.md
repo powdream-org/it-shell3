@@ -6,8 +6,8 @@
 **Verdict**: 17 issues found (7 CRITICAL, 5 HIGH, 5 MEDIUM). Design resolutions not applied to specs.
 
 > **Related review notes:**
-> - `review-notes-01.md` -- Residual cosmetic issue (1 item)
-> - `review-notes-owner-review.md` -- Owner architectural review (4 items: Issues 21-24)
+> - `01-residual-empty-state.md` -- Residual cosmetic issue (1 item)
+> - `03-owner-architectural-review.md` -- Owner architectural review (4 items: Issues 21-24)
 
 ---
 

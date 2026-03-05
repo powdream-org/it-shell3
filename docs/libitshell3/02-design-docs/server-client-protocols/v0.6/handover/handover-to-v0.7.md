@@ -3,7 +3,7 @@
 > **Date**: 2026-03-05
 > **Author**: team-lead (with owner review)
 > **Scope**: All items requiring resolution in the v0.7 protocol revision
-> **Prerequisite reading**: `review-notes-consistency.md`, `design-resolutions-resize-health.md`
+> **Prerequisite reading**: `review-notes/02-cross-document-consistency.md`, `design-resolutions-resize-health.md`
 
 ---
 
@@ -54,7 +54,7 @@ A major 4-round design discussion produced `design-resolutions-resize-health.md`
 
 ### 1.3 What Was NOT Applied
 
-**Finding 0 from `review-notes-consistency.md`**: None of the 16 resolutions + 3 addenda
+**Finding 0 from `review-notes/02-cross-document-consistency.md`**: None of the 16 resolutions + 3 addenda
 were applied to the spec documents. The v0.6 docs labeled as such contain only v0.5 content
 + consistency fixes, not the v0.6 features. The design resolutions document's own "Doc changes
 needed" table (lines 421-434) was never executed.
@@ -68,7 +68,7 @@ Protocol doc 05 changes deferred from IME contract v0.5 were applied to v0.6:
 - `ko_vowel_only` reachability note added
 
 **Residual**: Two prose notes at lines 349 and 381 of doc 05 still say `empty + vowel`
-instead of `null + vowel` (see `review-notes-01.md`, Issue 01). Cosmetic.
+instead of `null + vowel` (see `review-notes/01-residual-empty-state.md`, Issue 01). Cosmetic.
 
 ---
 
@@ -77,7 +77,7 @@ instead of `null + vowel` (see `review-notes-01.md`, Issue 01). Cosmetic.
 ### Priority 1: Apply Design Resolutions to Spec Docs (17 issues, Issues 1-20)
 
 The design resolutions exist in `design-resolutions-resize-health.md` but are not in
-the normative spec documents. The consistency review (`review-notes-consistency.md`)
+the normative spec documents. The consistency review (`review-notes/02-cross-document-consistency.md`)
 catalogued exactly what's missing per document. These are pre-agreed changes that can
 be applied without further debate.
 
@@ -119,7 +119,7 @@ be applied without further debate.
 | Issue | Severity | Change |
 |-------|----------|--------|
 | 10 | MEDIUM | Add `"client_evicted"` to PreeditEnd reason values (Section 2.3). Required for Addendum B (preedit commit on eviction). |
-| 01 (review-notes-01) | LOW | Lines 349 and 381: replace `empty + vowel` with `null + vowel` in prose notes. Tables/diagrams already correct. |
+| 01 (review-notes/01-residual-empty-state) | LOW | Lines 349 and 381: replace `empty + vowel` with `null + vowel` in prose notes. Tables/diagrams already correct. |
 
 #### Doc 06 -- Flow Control & Auxiliary (9 issues)
 
@@ -343,14 +343,14 @@ recommendations — they report how reference codebases solve the same problems.
 ### Phase 1: Apply Design Resolutions (mechanical, parallelizable)
 
 Apply all 16 resolutions + 3 addenda from `design-resolutions-resize-health.md` to spec
-docs. Also apply Issues 1-20 from `review-notes-consistency.md`. These are pre-agreed
+docs. Also apply Issues 1-20 from `review-notes/02-cross-document-consistency.md`. These are pre-agreed
 changes with explicit instructions — no debate needed.
 
 **Owner assignments:**
 - **protocol-architect** (docs 01, 02): Issues 1, 2, 3
 - **systems-engineer** (docs 03, 06): Issues 4, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17,
   18, 19, 20, 21
-- **cjk-specialist** (docs 04, 05): Issue 10, plus review-notes-01 Issue 01 (cosmetic)
+- **cjk-specialist** (docs 04, 05): Issue 10, plus review-notes/01-residual-empty-state Issue 01 (cosmetic)
 
 Doc 04 has no mechanical changes. The cjk-specialist should review the systems-engineer's
 doc 06 changes for CJK/preedit consistency (preedit bypass, PreeditSync in resync, commit
@@ -440,10 +440,10 @@ Decisions made by the owner during the v0.6 review session that constrain v0.7 w
 
 | Document | Path |
 |----------|------|
-| Review Notes 01 (cosmetic, 1 issue) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes-01.md` |
-| Review Notes: Consistency (17 issues) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes-consistency.md` |
-| Review Notes: Owner Review (4 issues) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes-owner-review.md` |
-| This handover | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/handover-for-v07-revision.md` |
+| Review Notes 01 (cosmetic, 1 issue) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes/01-residual-empty-state.md` |
+| Review Notes: Consistency (17 issues) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes/02-cross-document-consistency.md` |
+| Review Notes: Owner Review (4 issues) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes/03-owner-architectural-review.md` |
+| This handover | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/handover/handover-to-v0.7.md` |
 
 ### v0.5 Handover (predecessor)
 
