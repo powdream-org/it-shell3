@@ -296,6 +296,85 @@ and non-creative.
 
 ---
 
+## Phase 3b: Cross-Document Consistency Verification (MANDATORY)
+
+> **⚠️ This phase is MANDATORY after every revision that modifies documents.**
+> The team lead MUST NOT skip this phase, even if the changes appear trivial.
+> Skipping verification has historically introduced regressions that were only
+> caught in subsequent sessions, wasting significant effort.
+
+### Purpose
+
+When multiple agents apply changes to different documents in parallel (Phase 3),
+each agent sees only their own docs. Cross-document inconsistencies — field name
+mismatches, stale cross-references, conflicting terminology, missing registry
+entries — are invisible to individual agents and can only be caught by a dedicated
+verification pass where agents read ALL docs.
+
+### Rules
+
+1. **Verification is a separate phase, not part of Phase 3.** Agents who wrote
+   the changes are too close to them to catch their own mistakes. Verification
+   requires fresh reads of the full document set.
+
+2. **Minimum two verification rounds.** The first round finds issues. If fixes
+   are applied, those fixes are themselves unverified changes. A second round
+   with fresh agents confirms the fixes are correct, complete, and did not
+   introduce new inconsistencies. If the second round finds no issues,
+   verification is complete. If the second round finds NEW issues, fix them
+   and run a third round. Repeat until a clean round is achieved — there is
+   no maximum. In practice, a third round is rare if fixes are careful.
+
+3. **All document owners participate.** Each agent reads ALL docs (not just their
+   own) and raises issues where cross-document references, field names, message
+   types, or terminology disagree. Agents message each other directly to resolve
+   findings.
+
+4. **One agent writes the verification report.** Designate one agent (typically
+   the architecture lead) to produce a `review-notes-consistency.md` listing all
+   issues found, their severity, and the fix applied.
+
+5. **Verification must complete before commit.** The team lead MUST NOT commit
+   revised documents until at least one clean verification round (no issues
+   found) is achieved.
+
+### Verification Checklist
+
+Agents should check at minimum:
+
+- [ ] Message type registry (doc 01 or equivalent) lists every message type
+  defined in all other docs
+- [ ] Error codes cover all error references across all docs
+- [ ] Field names are consistent (e.g., `num_dirty_rows` not `dirty_row_count`)
+- [ ] Message names are consistent (e.g., `KeyEvent` not `KeyInput`)
+- [ ] Cross-references point to correct doc/section and the target exists
+- [ ] Capability flags match their usage descriptions
+- [ ] State enums/constants match between protocol docs and any external contracts
+- [ ] Terminology is uniform (e.g., "4-tier" vs "5-tier", "stale" vs "degraded")
+- [ ] Version headers are updated in all modified docs
+- [ ] Changelog/appendix entries accurately describe what changed
+
+### Task Dependencies
+
+```
+Task: Apply revisions to docs          (Phase 3)
+Task: Verification round 1             (blocked by revisions)
+Task: Fix issues from round 1          (blocked by round 1, if issues found)
+Task: Verification round 2             (blocked by fixes, if fixes were needed)
+```
+
+### Workflow
+
+1. Create a new team (or reuse if agents are still alive)
+2. Each agent reads ALL docs in the current version directory
+3. Each agent raises issues via direct messages to the doc owner
+4. Doc owners fix issues in their docs
+5. Repeat until a clean round is achieved
+6. Architecture lead writes `review-notes-consistency.md`
+7. Team lead commits
+
+---
+
 ## Phase 4: Handover Document
 
 When a session ends (context exhaustion, natural completion, or explicit stop), the
