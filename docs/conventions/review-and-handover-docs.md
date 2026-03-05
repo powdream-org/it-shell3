@@ -1,398 +1,250 @@
 # Review Notes and Handover Document Conventions
 
-This document standardizes the naming, format, and content of review artifacts
-produced during the design workflow (see
+This document standardizes the structure, naming, format, and content of review
+artifacts produced during the design workflow (see
 [Agent Team Design Workflow](../work-styles/agent-team-design-workflow.md)).
 
 ---
 
-## 1. Artifact Types
+## 1. Directory Structure
 
-The design workflow produces the following artifact types. Each type has a distinct
-purpose, author, and naming convention.
-
-| Type | Purpose | Author | Workflow phase |
-|------|---------|--------|---------------|
-| **Review notes** | Issues found during review | Varies (see subtypes) | Phase 2, 2b, 3b, or owner |
-| **Review resolutions** | Agreed fixes to review-note issues | Consensus reporter | Phase 2 output |
-| **Design resolutions** | New design decisions from team discussion | Discussion participants | Phase 2 output |
-| **Research reports** | Findings from reference codebase analysis | Research agents | Pre-Phase 2 or Phase 2 |
-| **Handover documents** | Session-end context transfer for next revision | Team lead or doc owners | Phase 4 |
-
----
-
-## 2. File Location
-
-All artifacts live in the **version directory** of the spec area they belong to:
+Each version directory contains two subdirectories for review artifacts:
 
 ```
 docs/{component}/02-design-docs/{topic}/v<X>/
+├── 01-spec-doc.md
+├── 02-spec-doc.md
+├── ...
+├── design-resolutions-{topic}.md       (if produced during this version)
+├── research-{source}-{topic}.md        (if produced during this version)
+├── review-notes/
+│   ├── 01-{topic}.md
+│   ├── 02-{topic}.md
+│   ├── 03-{topic}.md
+│   └── ...
+└── handover/
+    └── handover-to-v<next>.md
 ```
 
-`<X>` is the version identifier (e.g., `0.6`, `1`, `2.1`).
-
-Examples:
-```
-docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes-01-resize-policy.md
-docs/libitshell3-ime/02-design-docs/interface-contract/v1/handover-for-v2-revision.md
-```
+**Design resolutions** and **research reports** remain at the version directory level
+(not inside subdirectories) because they are produced by the design team as part of
+the design process, not as review output.
 
 ---
 
-## 3. Naming Conventions
+## 2. Review Notes
 
-### 3.1 Review Notes
-
-Review notes are categorized by **who raised the issues** and **what type of review**
-produced them. The filename encodes both.
-
-#### Pattern
+### 2.1 Location and Naming
 
 ```
-review-notes-{type}-{topic}.md
+v<X>/review-notes/{NN}-{topic}.md
 ```
 
 | Component | Rule |
 |-----------|------|
-| `review-notes` | Fixed prefix. Always present. |
-| `{type}` | Review type identifier (see table below). |
-| `{topic}` | Optional. Short descriptive slug. Use when the version has multiple review-note files of the same type. Omit when there is only one file of that type. |
+| `{NN}` | Two-digit sequential number, starting at `01`. Monotonically increasing within the version — never reused, never reordered. |
+| `{topic}` | Short kebab-case slug describing the concern (e.g., `resize-clipping`, `output-delivery-architecture`, `stale-client-disconnect`). |
 
-#### Review Type Identifiers
+New issues get the next available number. There is no distinction by source (owner,
+team, verification) in the filename — who raised it is recorded inside the file.
 
-| Type ID | Workflow phase | Who raises issues | When to use |
-|---------|---------------|-------------------|-------------|
-| `{NN}` (two-digit number) | Phase 2 (team review) | Core team agents | Sequential numbering within a version. First team review = `01`, second = `02`, etc. |
-| `cross-{counterpart}` | Phase 2b (cross-component) | Mixed team from both spec areas | `{counterpart}` = the other spec area's short name (e.g., `ime`, `protocol`). |
-| `consistency` | Phase 3b (verification) | Fresh verification agents | One file per verification pass. If multiple rounds produce separate files, append round number: `consistency-r2`. |
-| `owner-{topic}` | Owner review | Project owner | Owner's own review observations. `{topic}` describes the concern area. |
+### 2.2 When Review Notes Are Created
 
-#### Examples
+| Source | When |
+|--------|------|
+| **Owner review** | Owner identifies issues during spec review. One file per topic. |
+| **Cross-document verification** (Phase 3b) | Verification agents find inconsistencies. One file per topic (not one giant file). |
+| **Cross-component review** (Phase 2b) | Cross-component reviewers find interface mismatches. One file per topic. |
+
+**Agent team design discussions (Phase 2) do NOT produce review-notes files.** The
+team discusses, reaches consensus, and produces `design-resolutions-{topic}.md` or
+`review-resolutions-{NN}.md` directly. Review notes are for issues that need to be
+tracked and resolved in a future revision, not for recording in-progress debate.
+
+### 2.3 File Format
+
+Every review note file MUST follow this structure:
+
+```markdown
+# {Title}
+
+**Date**: YYYY-MM-DD
+**Raised by**: {who — "owner", agent name, or "verification team"}
+**Severity**: CRITICAL | HIGH | MEDIUM | LOW
+**Affected docs**: {list of affected spec documents}
+**Status**: open | resolved in v<Y> | deferred to v<Y>
+
+---
+
+## Problem
+
+{What is wrong, what is missing, or what question needs answering.
+Be specific — cite section numbers, field names, line numbers where relevant.}
+
+## Analysis
+
+{Why this matters. Include:
+- Quantified impact if applicable (e.g., memory usage, bandwidth, O(N) complexity)
+- Trade-off analysis if multiple approaches exist
+- Prior art references if relevant
+- Relationship to other review notes (by number) if coupled}
+
+## Proposed Change
+
+{What should change. For open design questions, present options clearly:
+
+**Option A**: {description}
+- Pro: ...
+- Con: ...
+
+**Option B**: {description}
+- Pro: ...
+- Con: ...
+
+For straightforward fixes, just state the required change.}
+
+## Owner Decision
+
+{If the owner made a binding decision, record it here with rationale.
+If left to designers, state: "Left to designers for resolution."}
+
+## Resolution
+
+{Filled when the issue is resolved. State what was done and in which version.
+Leave empty while the issue is open.}
+```
+
+### 2.4 Severity Levels
+
+| Severity | Definition |
+|----------|-----------|
+| **CRITICAL** | Incorrect behavior, missing normative content, protocol inconsistency, architectural flaw |
+| **HIGH** | Important gap affecting implementors — missing fields, stale cross-references, undocumented behavior |
+| **MEDIUM** | Should be fixed but does not block implementation — terminology drift, unclear prose |
+| **LOW** | Cosmetic — typos, formatting, redundant descriptions |
+
+### 2.5 Cross-References
+
+When review notes reference each other (e.g., coupled issues), use the number:
+"See `03-keyframe-model.md`" or "Depends on issue 03 (keyframe model)."
+
+---
+
+## 3. Handover Documents
+
+### 3.1 Location and Naming
 
 ```
-# Team peer review, first round, about resize policy
-review-notes-01-resize-policy.md
-
-# Team peer review, second round, about encoding decisions
-review-notes-02-encoding-and-fps.md
-
-# Team peer review, only one review in this version (topic optional)
-review-notes-01.md
-
-# Cross-component review: protocol team reviewing against IME contract
-review-notes-cross-ime.md
-
-# Cross-component review: IME team reviewing against protocol docs
-review-notes-cross-protocol.md
-
-# Consistency verification (Phase 3b)
-review-notes-consistency.md
-
-# Owner review about output delivery architecture
-review-notes-owner-output-delivery.md
-
-# Owner review about general decisions
-review-notes-owner-decisions.md
+v<X>/handover/handover-to-v<next>.md
 ```
 
-### 3.2 Review Resolutions
+One handover per version. Written at session end when the review round completes.
+
+### 3.2 Purpose
+
+The handover captures **what is NOT in the review notes** — context, perspective,
+and judgment that would otherwise be lost between sessions. The reader is expected to
+read all review notes in `v<X>/review-notes/` independently; the handover does not
+repeat their content.
+
+### 3.3 File Format
+
+```markdown
+# Handover: {Spec Area} v<X> to v<next>
+
+**Date**: YYYY-MM-DD
+**Author**: {team lead or owner}
+
+---
+
+## Insights and New Perspectives
+
+{What was learned during the review that changed understanding of the
+design space. New mental models, reframed problems, shifted priorities.
+These are the "aha moments" that review notes don't capture.}
+
+## Design Philosophy
+
+{Architectural principles that emerged or were reinforced. Why certain
+directions feel right. The spirit behind the decisions, not just the
+letter.}
+
+## Owner Priorities
+
+{What the owner cares about most. Strong preferences, non-negotiable
+constraints, quality bars. Things the next session's team must respect
+even if they seem debatable in isolation.}
+
+## New Conventions and Procedures
+
+{Any work style changes, naming conventions, workflow adjustments, or
+process improvements decided during this session. Link to convention
+docs if they were created or updated.}
+
+## Pre-Discussion Research Tasks
+
+{Research that should happen before the next design round begins.
+Specify what to investigate, which reference codebases to consult,
+and what questions the research should answer.}
+```
+
+### 3.4 What Does NOT Go in a Handover
+
+| Do not include | Why | Where it belongs |
+|----------------|-----|-----------------|
+| Per-issue details (problem, analysis, proposed fix) | Duplicates review notes | `review-notes/{NN}-{topic}.md` |
+| Per-document change checklists | Derived from review notes at apply time | Phase 3 task descriptions |
+| File location indexes | Filesystem is the source of truth | `ls v<X>/review-notes/` |
+| Team composition recommendations | May not apply to next session | Workflow doc or agent definitions |
+
+---
+
+## 4. Design Resolutions
 
 ```
-review-resolutions-{NN}.md
+v<X>/design-resolutions-{topic}.md
 ```
 
-`{NN}` matches the review-notes number it resolves. If resolving multiple review
-rounds, use the latest round number.
+Produced by the design team (Phase 2) when discussion reaches consensus on new
+design decisions. Lives at the version directory level (not inside `review-notes/`).
 
-Example: `review-resolutions-01.md` resolves issues from `review-notes-01-*.md`.
+### Required Content
 
-### 3.3 Design Resolutions
+- Each resolution: consensus count (e.g., "3/3"), decision statement, rationale
+- Wire protocol changes summary (if applicable)
+- Items deferred to future versions (if any)
+- Prior art references used as evidence
 
-```
-design-resolutions-{topic}.md
-```
+---
 
-Design resolutions capture new design decisions that emerged from team discussion,
-as opposed to review resolutions which fix existing spec issues. The `{topic}` is
-a short descriptive slug.
-
-Example: `design-resolutions-resize-health.md`
-
-### 3.4 Research Reports
+## 5. Research Reports
 
 ```
-research-{source}-{topic}.md
+v<X>/research-{source}-{topic}.md
 ```
 
 | Component | Rule |
 |-----------|------|
-| `research` | Fixed prefix. |
-| `{source}` | Reference codebase analyzed (e.g., `tmux`, `zellij`, `ghostty`, `iterm2`). |
-| `{topic}` | What was researched (e.g., `resize-health`, `client-protocol`, `ime-handling`). |
+| `{source}` | Reference codebase analyzed (e.g., `tmux`, `zellij`, `ghostty`). |
+| `{topic}` | What was researched (e.g., `resize-health`, `dirty-tracking`). |
 
-Examples:
-```
-research-tmux-resize-health.md
-research-zellij-resize-health.md
-research-ghostty-dirty-tracking.md
-```
+### Required Content
 
-### 3.5 Handover Documents
-
-```
-handover-for-v<next>-revision.md        # Standard: next-version handover
-handover-{topic}.md                     # Special: topic-specific handover
-```
-
-Standard handovers are written at session end. Topic-specific handovers are written
-when a particular design area reaches a milestone (e.g., consensus on a contested
-topic) and needs its own focused context transfer.
-
-Examples:
-```
-handover-for-v07-revision.md
-handover-identifier-consensus.md
-```
+- Specific source file paths and function/struct names from the reference codebase
+- Factual findings only — no design recommendations
+- Trade-offs observed (what works well, what doesn't)
+- Known bugs or limitations in the reference implementation
 
 ---
 
-## 4. Document Format
-
-### 4.1 Review Notes
-
-All review notes MUST follow this structure:
-
-```markdown
-# Review Notes: {version} {Description}
-
-**Date**: YYYY-MM-DD
-**Reviewers**: {who reviewed — agent names, "owner", or "verification team"}
-**Scope**: {what was reviewed — which docs, which aspects}
-**Verdict**: {N} issues found ({breakdown by severity})
-
-> **Related review notes:**
-> - `other-review-notes-file.md` -- brief description
-> (list all sibling review-note files in the same version directory)
-
----
-
-## Issue List
-
-### {Document or Section Name}
-
-| # | Severity | Location | Description | Resolution ref |
-|---|----------|----------|-------------|----------------|
-| 1 | **CRITICAL** | Sec N.N | What is wrong and what needs to change | Which resolution/decision |
-
-(repeat per document or logical group)
-
----
-
-## Summary Statistics
-
-| Severity | Count | Affected docs |
-|----------|-------|---------------|
-| CRITICAL | N | Doc X (n), Doc Y (n) |
-| HIGH | N | ... |
-| MEDIUM | N | ... |
-| LOW | N | ... |
-
-**By document:**
-
-| Document | CRITICAL | HIGH | MEDIUM | LOW | Total |
-|----------|----------|------|--------|-----|-------|
-| Doc X | ... | ... | ... | ... | ... |
-```
-
-#### Severity Levels
-
-| Severity | Definition | Examples |
-|----------|-----------|---------|
-| **CRITICAL** | Incorrect behavior, missing normative content, protocol inconsistency | Missing message type, wrong algorithm, contradicting resolutions |
-| **HIGH** | Important gap or inconsistency that affects implementors | Missing fields, stale cross-references to wrong sections, undocumented behavior |
-| **MEDIUM** | Should be fixed but does not block implementation | Terminology drift, missing convenience fields, unclear prose |
-| **LOW** | Cosmetic or stylistic | Typos in prose notes, formatting inconsistencies, redundant descriptions |
-
-#### Issue Numbering
-
-- Issues are numbered **sequentially within a single review-notes file**, starting at 1.
-- Issue numbers are **local to the file** — different review-notes files in the same
-  version may reuse numbers.
-- When referencing issues across files, use the filename: "Issue 3 in
-  `review-notes-owner-output-delivery.md`".
-- Confirmations (verified-OK checks) use the same numbering but are marked as
-  severity `NONE`.
-
-### 4.2 Design Resolutions
-
-```markdown
-# Design Resolutions: {Topic}
-
-**Version**: v<X>
-**Date**: YYYY-MM-DD
-**Status**: Resolved / Partially resolved
-**Participants**: {agent names}
-**Discussion rounds**: {N}
-**Source issues**: {which review notes or owner questions triggered this}
-
----
-
-## Resolution {N}: {Title}
-
-**Consensus ({N}/{total}).** {Decision statement.}
-
-**Rationale**: {Why this was chosen over alternatives.}
-
-(optional: implementation sketch, prior art references, wire protocol changes)
-```
-
-#### Requirements
-
-- Each resolution MUST state the consensus count (e.g., "3/3" or "2/3 with dissent").
-- Each resolution MUST have a rationale — never just state the decision without why.
-- If the resolution changes wire protocol, include a "Wire Protocol Changes Summary"
-  section at the end listing: new message types, modified messages, affected docs.
-- If the resolution defers items to a future version, list them explicitly in a
-  "Deferred to v<next>" section.
-
-### 4.3 Research Reports
-
-```markdown
-# Research: {Source} — {Topic}
-
-**Date**: YYYY-MM-DD
-**Researcher**: {agent name}
-**Source codebase**: {path, e.g., ~/dev/git/references/tmux/}
-**Requested by**: {who asked for this research, e.g., review-notes-01 Issue 2}
-
----
-
-## Findings
-
-### {Subtopic}
-
-{How the reference codebase handles this problem.}
-
-**Source references:**
-- `path/to/file.c` -- {function/struct name}: {what it does}
-- `path/to/other.c` -- {function/struct name}: {what it does}
-
-### Trade-offs Observed
-
-{What works well, what doesn't, known issues in the reference implementation.}
-```
-
-#### Requirements
-
-- Research reports MUST include specific source file paths and function/struct names.
-- Research reports MUST NOT include design recommendations — only factual findings.
-  Core team members incorporate findings into their designs.
-- If the reference codebase has known bugs or limitations relevant to the topic,
-  document them explicitly.
-
-### 4.4 Handover Documents
-
-```markdown
-# Handover: {Spec Area} v<X> to v<next> Revision
-
-> **Date**: YYYY-MM-DD
-> **Author**: {team-lead or expert agent name}
-> **Scope**: {what this handover covers}
-> **Prerequisite reading**: {files the next session MUST read before starting}
-
----
-
-## 1. What was accomplished
-
-{Summary of completed work — review rounds, resolutions reached, docs revised.}
-
-## 2. Open items for next revision
-
-### Priority 1: {Category}
-
-{Detailed per-document breakdown of required changes, with issue references.}
-
-### Priority 2: {Category}
-
-{Design questions requiring team discussion, with full problem statements.}
-
-(continue with Priority 3, 4, etc. as needed)
-
-## 3. Pre-discussion research tasks
-
-{Research that MUST be completed before the team discusses open design questions.}
-
-## 4. Recommended workflow
-
-{Step-by-step plan for the next session, with phase ordering and dependencies.}
-
-## 5. Key decisions log
-
-{Owner decisions that constrain the next revision. Format as a table:}
-
-| Decision | Context | Constraint |
-|----------|---------|------------|
-
-## 6. File locations
-
-{Complete table of all artifacts — spec docs, review notes, research, handovers.}
-```
-
-#### Requirements
-
-- Handovers MUST be self-contained — readable without opening any other file.
-- Handovers MUST distinguish between decided issues (apply without debate) and
-  open questions (need team discussion first).
-- Handovers MUST include file paths, not just descriptions.
-- The "Key decisions log" section MUST include owner decisions that should not be
-  re-debated. State the rationale to prevent the next session from questioning them.
-
----
-
-## 5. Cross-References Between Files
-
-When a version directory contains multiple review-notes files, each file MUST include
-a "Related review notes" block in its header listing all sibling files:
-
-```markdown
-> **Related review notes:**
-> - `review-notes-01-resize-policy.md` -- Team review: resize and health issues (8 items)
-> - `review-notes-consistency.md` -- Verification: unapplied design resolutions (17 items)
-> - `review-notes-owner-output-delivery.md` -- Owner review: frame delivery architecture (4 items)
-```
-
-Handover documents MUST reference all review-notes files in their "File locations"
-section.
-
----
-
-## 6. Lifecycle: When to Create Each Artifact
+## 6. Review Resolutions
 
 ```
-Phase 1 (drafting)
-  └── research-{source}-{topic}.md          (if prior art needed)
-
-Phase 2 (review)
-  ├── review-notes-{NN}-{topic}.md          (team review findings)
-  ├── design-resolutions-{topic}.md         (new design decisions, if any)
-  └── review-resolutions-{NN}.md            (agreed fixes)
-
-Phase 2b (cross-component review)
-  ├── review-notes-cross-{counterpart}.md   (per component side)
-  └── review-resolutions-{NN}.md            (if changes agreed)
-
-Phase 3 (applying revisions)
-  └── (spec docs updated — no new artifacts)
-
-Phase 3b (verification)
-  └── review-notes-consistency.md           (verification findings)
-
-Phase 4 (handover)
-  └── handover-for-v<next>-revision.md       (session-end context transfer)
-
-Owner review (any time)
-  └── review-notes-owner-{topic}.md         (owner observations)
+v<X>/review-resolutions-{NN}.md
 ```
+
+`{NN}` matches the review round it resolves. Produced when the team agrees on fixes
+to review-note issues. Lives at the version directory level.
 
 ---
 
@@ -400,12 +252,9 @@ Owner review (any time)
 
 | Anti-pattern | Problem | Correct approach |
 |-------------|---------|-----------------|
-| Unnamed review notes (`review-notes.md`) | Ambiguous when multiple exist | Always include type ID |
-| Mixing team review and owner review in one file | Different authority levels, different audiences | Separate files per review type |
-| Review notes without severity levels | No prioritization for implementors | Always assign CRITICAL/HIGH/MEDIUM/LOW |
-| Review notes without summary statistics | Hard to gauge scope of work | Always include severity × document breakdown |
-| Handover without file paths | Next session wastes time finding artifacts | Always include full paths |
-| Handover that says "see review notes for details" | Not self-contained | Include enough detail to start work without opening other files |
-| Numbered issues that span multiple files | Confusing references ("Issue 23" — which file?) | Numbers are local to each file; cross-reference with filename |
-| Research reports with design recommendations | Mixes facts with opinions | Researchers report findings only; core members design |
-| Modifying review notes after issues are applied | Creates confusion about what was fixed | Mark issues as resolved inline or create a new review-notes file for the next round |
+| One giant review-notes file with 20+ issues | Hard to track, hard to resolve individually | One file per topic |
+| Handover that repeats review notes content | Duplication, divergence risk | Handover captures insights only; reader reads review notes separately |
+| Review notes without severity | No prioritization | Always assign severity |
+| Review notes without status | Can't tell what's resolved | Always maintain status field |
+| Agent team review producing review-notes files | Confuses tracking — team resolves issues inline | Team produces design-resolutions or review-resolutions, not review-notes |
+| Mixing multiple unrelated topics in one review note | Hard to track resolution independently | One topic per file, even if both are LOW severity |

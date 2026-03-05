@@ -151,8 +151,8 @@ is complete and no further discussion is needed for the current session.
 | **Pre-discussion research tasks** | Any research (reference codebase analysis, PoC experiments) that should happen before the next design round begins |
 | **File locations** | Paths to all relevant artifacts — review notes, resolution files, updated spec versions, PoC code |
 
-**Location:** Place in the current version directory, following the existing
-convention: `docs/design/topic/v<X>/handover-for-v<next>-revision.md`
+**Location:** `docs/design/topic/v<X>/handover/handover-to-v<next>.md`
+(see [Review Notes & Handover Docs](../conventions/review-and-handover-docs.md))
 
 This convention complements Phase 4 (session-end handover written by the team
 lead). Phase 4 covers the overall session state; this convention ensures that
@@ -232,8 +232,12 @@ docs/design/topic/
 ├── v0.1/                      # Initial drafts
 │   ├── 01-xxx.md
 │   ├── ...
-│   ├── review-notes-01.md
-│   └── review-resolutions-01.md
+│   ├── review-resolutions-01.md
+│   ├── review-notes/
+│   │   ├── 01-{topic}.md
+│   │   └── 02-{topic}.md
+│   └── handover/
+│       └── handover-to-v0.2.md
 ├── v0.2/                      # After first review round
 │   ├── 01-xxx.md              # Updated with resolutions applied
 │   └── ...
@@ -341,9 +345,9 @@ verification pass where agents read ALL docs.
    types, or terminology disagree. Agents message each other directly to resolve
    findings.
 
-5. **One agent writes the verification report.** Designate one agent (typically
-   the architecture lead) to produce a `review-notes-consistency.md` listing all
-   issues found, their severity, and the fix applied.
+5. **One file per issue.** Verification findings are written as individual
+   review-note files in `v<X>/review-notes/`, following the naming and format
+   conventions in [Review Notes & Handover Docs](../conventions/review-and-handover-docs.md).
 
 6. **Verification must complete before commit.** The team lead MUST NOT commit
    revised documents until at least one clean verification round (no issues
@@ -381,7 +385,7 @@ Task: Verification round 2             (blocked by fixes, if fixes were needed)
 3. Each agent raises issues via direct messages to the doc owner
 4. Doc owners fix issues in their docs
 5. Repeat until a clean round is achieved
-6. Architecture lead writes `review-notes-consistency.md`
+6. Write findings as individual files in `v<X>/review-notes/`
 7. Team lead commits
 
 ---
@@ -394,49 +398,24 @@ to continue without re-reading all review notes and re-discovering context.
 
 ### Purpose
 
-The handover is a self-contained briefing that gives the next session's team lead
-everything needed to start work immediately. It replaces the need to read dozens of
-review notes, cross-review files, and discussion logs.
+The handover captures **what is NOT in the review notes** — context, perspective,
+and judgment that would otherwise be lost between sessions. The reader is expected
+to read all review notes in `v<X>/review-notes/` independently; the handover does
+not repeat their content.
 
 ### Location
 
-Place the handover in the **current version directory**:
 ```
-docs/design/topic/v<X>/handover-for-v<next>-revision.md
+docs/design/topic/v<X>/handover/handover-to-v<next>.md
 ```
 
-### Required Sections
+### Content and Format
 
-| Section | Content |
-|---------|---------|
-| **What was done** | Summary of the completed work (review, revision, cross-review, etc.) |
-| **Review artifacts** | Table of all review note files with their locations |
-| **What needs to be done** | Detailed table of changes per document/section, split by source |
-| **No-action items** | Issues reviewed and explicitly decided as "no change needed" |
-| **Key decisions to remember** | Critical design decisions the next leader must not re-debate |
-| **Companion work** | Cross-component revisions that should happen in the same session |
-| **Team composition** | Recommended roles and which docs each role owns |
-| **Workflow lessons** | Pitfalls discovered in the current session |
+See [Review Notes & Handover Docs](../conventions/review-and-handover-docs.md)
+Section 3 for the full format specification.
 
-### Writing Guidelines
-
-1. **Be specific, not vague.** Instead of "apply review changes to doc 05," write
-   "Doc 05 Section 2.3: Fix Escape PreeditEnd reason from `\"cancelled\"` to
-   `\"committed\"`"
-2. **Distinguish decided vs. undecided issues.** Cross-review decisions (consensus
-   already reached) should be clearly separated from new review notes (need
-   discussion first)
-3. **Include the "why" for key decisions.** The next leader may be tempted to
-   re-debate a settled point. Stating the rationale prevents this.
-4. **Reference files by path, not description.** The next session may not have
-   the same context about which file is which.
-5. **Keep it self-contained.** The handover should be readable without opening
-   any other file. Include enough detail to start work immediately.
-
-### Example reference
-
-See `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/handover-for-v04-revision.md`
-for a well-structured handover document.
+**Key principle**: Handovers record insights, design philosophy, owner priorities,
+and new conventions — NOT per-issue checklists or file location indexes.
 
 ---
 
