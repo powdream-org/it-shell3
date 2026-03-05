@@ -382,10 +382,16 @@ verification pass where agents read ALL docs.
    reuse running agents by broadcasting "verify again" — this is explicitly
    prohibited.
 
-4. **All document owners participate.** Each agent reads ALL docs (not just their
-   own) and raises issues where cross-document references, field names, message
-   types, or terminology disagree. Agents message each other directly to resolve
-   findings.
+4. **Verification agents MUST be core team members (document owners), NOT
+   spec-writers.** Spec-writers perform mechanical application; they lack the
+   design context to judge whether a cross-document inconsistency is a real
+   semantic conflict or acceptable variation. Core team members (e.g.,
+   protocol-architect, systems-engineer, cjk-specialist) understand the design
+   intent behind each section and can catch issues that a spec-writer would
+   miss — such as coalescing tier contradictions, undocumented forced triggers,
+   or stale model descriptions disguised as current prose. Each core member
+   reads ALL docs (not just their own) and raises issues where cross-document
+   references, field names, message types, or terminology disagree.
 
 5. **One file per issue.** Verification findings are written as individual
    review-note files in `v<X>/review-notes/`, following the naming and format
@@ -565,6 +571,7 @@ work). Agent files should contain stable, reusable knowledge only.
 | Single-pass verification misses fix regressions | Cross-doc verification finds issues, fixes are applied, but fixes themselves are not verified | **Always run a second verification round after fixes.** The first round finds issues; fixes applied during the first round are themselves unverified changes. A second round with fresh agents confirms the fixes are correct, complete, and did not introduce new inconsistencies. Both spec areas (e.g., IME + protocol) must participate in each round. |
 | Core team assigned to mechanical work | Lead says "this is easy" but assigns architect/engineer instead of spec-writer | **If all decisions are made, use spec-writers.** The difficulty of a task does not determine role assignment — the nature of the task does. Mechanical application = spec-writer. Design judgment = core team. Misassignment wastes core team capacity and conflates roles. |
 | Model-dependent changes applied before design discussion | Lead applies all resolutions including ones that depend on an unresolved architectural question, then rewrites after discussion | **Split changes by dependency.** Assess each change: does it depend on the pending design decision? If yes, defer it. Apply only independent changes, verify, commit, then discuss. See [Scope Separation](#scope-separation-decouple-independent-changes-from-pending-design-discussions). |
+| Spec-writers used for verification | Verification misses semantic issues (coalescing contradictions, undocumented triggers, stale model descriptions) because spec-writers lack design context | **Verification MUST use core team members.** Spec-writers do mechanical application; core members (protocol-architect, systems-engineer, cjk-specialist) do verification. The nature of the task determines the role: mechanical edits = spec-writer, design-aware review = core member. |
 
 ### Team Lead Role: Facilitate, Don't Micromanage
 
