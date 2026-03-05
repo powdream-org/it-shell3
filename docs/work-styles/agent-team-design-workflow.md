@@ -25,6 +25,31 @@ Spawn 2-4 specialized agents based on the domain:
 | Systems engineer | OS integration, process mgmt, persistence | Session mgmt, flow control |
 | Domain specialist | Rendering, CJK, GPU, input handling | Input/output, domain-specific |
 
+### Research Prior Art Before Designing
+
+When tackling infrastructure or architecture problems (e.g., multi-client resize
+policy, client health detection, flow control/backpressure, session persistence),
+the team MUST research how reference codebases handle the same problem BEFORE
+designing a solution. This applies to both initial design (Phase 1) and new
+problems surfaced during review (Phase 2).
+
+**Workflow:**
+1. Identify the architectural problem to be solved
+2. Spawn research agents (e.g., `tmux-expert`, `zellij-expert`, `ghostty-expert`)
+   targeting the relevant reference codebases at `~/dev/git/references/`
+3. Each researcher produces a findings report with:
+   - How the reference codebase solves the problem
+   - Source file paths and relevant code references
+   - Trade-offs observed (what works well, what doesn't)
+4. Core team members read the findings reports and use them as input for their
+   design — they do NOT design in a vacuum
+5. Researchers do NOT write design docs; they report findings to core members
+   who incorporate them
+
+**Rationale:** Designing without prior-art research leads to reinventing solved
+problems or missing known pitfalls. Reference codebases (tmux, zellij, iTerm2,
+ghostty) have years of production experience with the same problems we face.
+
 ### Execution
 - Agents work in parallel on independent tasks
 - Each agent reads reference docs first, then writes their assigned specs
@@ -99,6 +124,37 @@ the real ghostty PoC (`poc/ime-ghostty-real/`) drove 6 new resolutions.
   message to team-lead (not piecemeal per-agent reports)
 - Team lead assigns an agent to write `review-resolutions.md` with agreed resolutions
 - Each resolution: issue summary, agreed change, which docs affected
+
+### Handover on Review Completion
+
+When the owner signals that review is done on a specific document (or all docs
+being tackled in the current session), the relevant expert agents MUST
+autonomously produce handover documents for the next revision. This is a
+**standard workflow step** — it should not require explicit instructions each
+time.
+
+**Who writes:** The expert agent(s) who own the reviewed documents, not the team
+lead. Each expert writes the handover for their area of ownership.
+
+**When to trigger:** Immediately after the owner confirms that the review round
+is complete and no further discussion is needed for the current session.
+
+**Required content:**
+
+| Section | Content |
+|---------|---------|
+| **What was accomplished** | Summary of the review round — issues raised, resolutions reached, docs revised |
+| **Open items for next revision** | Numbered list of unresolved issues, deferred decisions, or items explicitly punted to the next version |
+| **Pre-discussion research tasks** | Any research (reference codebase analysis, PoC experiments) that should happen before the next design round begins |
+| **File locations** | Paths to all relevant artifacts — review notes, resolution files, updated spec versions, PoC code |
+
+**Location:** Place in the current version directory, following the existing
+convention: `docs/design/topic/v0.N/handover-for-v0.(N+1)-revision.md`
+
+This convention complements Phase 4 (session-end handover written by the team
+lead). Phase 4 covers the overall session state; this convention ensures that
+domain-specific context is captured by the experts who understand it best,
+immediately when a review round closes rather than waiting for session end.
 
 ---
 
