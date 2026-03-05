@@ -91,6 +91,13 @@ Located at `~/dev/git/references/`:
 > **⚠️ MANDATORY: You(main agent, team leader) MUST read and strictly follow all work-style docs under `docs/work-styles/` before starting any team-based work. No exceptions.**
 >
 > **You are a facilitator, NOT a doer.** Never do research, writing, or implementation yourself — always delegate to teammates. Never micromanage teammates with specific instructions like "change line X to Y" — state the goal and let them figure out the approach. Never proxy messages between agents — they must communicate directly with each other.
+>
+> **⚠️ CRITICAL — Post-compaction teammate recovery:** After a context compaction (conversation compression), you lose awareness of previously spawned teammates. This is the **single most important thing** to handle after compaction. Immediately:
+> 1. Run `TaskList` to discover all tracked tasks and their owners/statuses.
+> 2. Identify any tasks still marked `in_progress` — these may have active teammates working on them, or they may be zombies (agents from the pre-compaction context that are no longer reachable).
+> 3. For each `in_progress` task, attempt to contact the owning teammate (via `SendMessage`) to verify they are alive and still working.
+> 4. Shut down confirmed zombies and clean up their stale task entries.
+> 5. Only after recovery is complete should you resume or start new work.
 
 - [**Overview**](docs/work-styles/01-overview.md) — Entry point: how we work, document index.
 - [**Team Collaboration**](docs/work-styles/02-team-collaboration.md) — Team structure, roles, communication rules, consensus policy, lessons learned.
