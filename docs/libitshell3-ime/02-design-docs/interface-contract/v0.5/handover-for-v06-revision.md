@@ -33,9 +33,9 @@ Key evidence: libhangul's `HangulInputContext` uses the same 3-slot buffer (chos
 
 **Impact**: Zero `ko_` constants renamed. Settled decision preserved.
 
-### 1.2 `"non_korean"` Removed from Protocol Doc 05 (Issue 2.4)
+### 1.2 `"non_korean"` Removal Agreed for Protocol Doc 05 (Issue 2.4)
 
-Removed the `"non_korean"` row from protocol doc 05 Section 3.1. A generic placeholder contradicts the method-based prefix convention -- future engines will define their own prefixed composition states (`ja_kana_composing`, `zh_pinyin_input`, etc.), never a catch-all `"non_korean"`.
+The team agreed (3-0) to remove the `"non_korean"` row from protocol doc 05 Section 3.1. A generic placeholder contradicts the method-based prefix convention -- future engines will define their own prefixed composition states (`ja_kana_composing`, `zh_pinyin_input`, etc.), never a catch-all `"non_korean"`. **Note**: This change is deferred to protocol v0.6. The required changes are documented in `protocol-changes-for-v06.md`. Protocol doc 05 v0.5 still contains `"non_korean"`.
 
 ### 1.3 `ko_vowel_only` Reachability Documented (Issue 2.5a)
 
@@ -43,7 +43,7 @@ Added reachability note to Section 3.7: `ko_vowel_only` is produced in 3-set (Se
 
 ### 1.4 `CompositionStates.empty` Removed (Issue 2.5b)
 
-Removed `pub const empty = "empty"` from `CompositionStates`. `ImeResult.composition_state = null` is the canonical representation for no active composition. Having both `null` and `"empty"` was a bug surface (callers would need to check both). Also removed `"empty"` from protocol doc 05 Section 3.1 state table, PreeditStart JSON example, Section 3.3 transition table, and Section 11.1 error recovery prose.
+Removed `pub const empty = "empty"` from `CompositionStates`. `ImeResult.composition_state = null` is the canonical representation for no active composition. Having both `null` and `"empty"` was a bug surface (callers would need to check both). The corresponding changes to protocol doc 05 (Section 3.1 state table, PreeditStart JSON example, Section 3.3 transition table, Section 11.1 error recovery prose) are deferred to protocol v0.6 -- see `protocol-changes-for-v06.md`.
 
 ### 1.5 Mechanical Fixes (Issues 2.2, 2.3)
 
@@ -53,11 +53,11 @@ Removed `pub const empty = "empty"` from `CompositionStates`. `ImeResult.composi
 ### 1.6 Verification Fixes (found during cross-verification)
 
 Three additional issues found and fixed during the cross-verification round:
-- **V-1**: Broken anchor in Section 3.7 `ko_vowel_only` note: `#32-imeresult-orthogonality-scenario-matrix` corrected to `#32-imeresult-output-from-ime`.
-- **V-2**: Protocol doc 05 Section 11.1: residual `empty` reference in error recovery prose corrected to `null`.
-- **V-3**: Protocol doc 05 Section 15 Open Questions: unprefixed state names and "enum" terminology updated to use prefixed names per the naming convention and "string constants" terminology.
+- **V-1**: Broken anchor in Section 3.7 `ko_vowel_only` note: `#32-imeresult-orthogonality-scenario-matrix` corrected to `#32-imeresult-output-from-ime`. Documented in Appendix G.6 of the contract.
+- **V-2**: Protocol doc 05 Section 11.1: residual `empty` reference in error recovery prose. Deferred to protocol v0.6 -- see `protocol-changes-for-v06.md`.
+- **V-3**: Protocol doc 05 Section 15 Open Questions: unprefixed state names and "enum" terminology. Deferred to protocol v0.6 -- see `protocol-changes-for-v06.md`.
 
-All changes documented in Appendix G of the contract.
+IME contract changes (V-1) documented in Appendix G. Protocol doc changes (V-2, V-3) deferred to protocol v0.6.
 
 ---
 
@@ -90,20 +90,20 @@ These are not open items but situations that would trigger a v0.6 revision:
 
 ## 3. Protocol Doc Coordination Note
 
-Protocol doc 05 (`05-cjk-preedit-protocol.md`) was updated as part of this revision round:
+Protocol doc 05 (`05-cjk-preedit-protocol.md`) requires the following changes, which are **deferred to protocol v0.6**. These changes are agreed (3-0) but not yet applied to protocol doc 05 v0.5. See `protocol-changes-for-v06.md` for the full specification.
 
-| Change | Location | Issue |
-|--------|----------|-------|
-| `"non_korean"` row removed | Section 3.1 state table | Issue 2.4 |
-| `"empty"` row removed | Section 3.1 state table | Issue 2.5b |
-| PreeditStart `composition_state` field removed | Section 2.1 | Issue 2.5b |
-| Transition table `empty` -> `null` | Section 3.3 | Issue 2.5b (verification fix V-2) |
-| Error recovery `empty` -> `null` | Section 11.1 | Issue 2.5b (verification fix V-2) |
-| Naming convention cross-reference added | Section 3.1 | Issue 2.1 |
-| `ko_vowel_only` 2-set/3-set note added | Section 3.1 | Issue 2.5a |
-| Open Questions prefixed names + terminology | Section 15 | Verification fix V-3 |
+| Change | Location | Issue | Status |
+|--------|----------|-------|--------|
+| `"non_korean"` row removed | Section 3.1 state table | Issue 2.4 | Deferred to v0.6 |
+| `"empty"` row removed | Section 3.1 state table | Issue 2.5b | Deferred to v0.6 |
+| PreeditStart `composition_state` field removed | Section 2.1 | Issue 2.5b | Deferred to v0.6 |
+| Transition table `empty` -> `null` | Section 3.3 | Issue 2.5b (V-2) | Deferred to v0.6 |
+| Error recovery `empty` -> `null` | Section 11.1 | Issue 2.5b (V-2) | Deferred to v0.6 |
+| Naming convention cross-reference added | Section 3.1 | Issue 2.1 | Deferred to v0.6 |
+| `ko_vowel_only` 2-set/3-set note added | Section 3.1 | Issue 2.5a | Deferred to v0.6 |
+| Open Questions prefixed names + terminology | Section 15 | V-3 | Deferred to v0.6 |
 
-The protocol team should be aware that protocol doc 05 v0.5 now references IME contract Section 3.7 as the normative source for composition state naming conventions.
+The protocol team should apply these when producing protocol doc 05 v0.6. The IME contract Section 3.7 is the normative source for composition state naming conventions.
 
 ---
 

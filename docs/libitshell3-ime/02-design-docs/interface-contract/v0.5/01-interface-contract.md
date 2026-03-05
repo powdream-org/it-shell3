@@ -1,6 +1,6 @@
 # 01 — libitshell3 <-> libitshell3-ime Interface Contract
 
-> **Status**: Draft v0.5 — Review issues 2.1, 2.2, 2.3, 2.4, 2.5a, 2.5b applied.
+> **Status**: Draft v0.5 — Review issues 2.1, 2.2, 2.3, 2.5a, 2.5b applied. Issue 2.4 deferred to protocol v0.6 (see `protocol-changes-for-v06.md`).
 > **Supersedes**: [v0.4/01-interface-contract.md](../v0.4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v0.3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v0.2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v0.1/01-interface-contract.md)
 > **Date**: 2026-03-05
 > **Review participants**: protocol-architect, ime-expert, cjk-specialist
@@ -261,10 +261,13 @@ pub const ImeResult = struct {
 | Direct mode Escape | null | null | Escape key | false | null |
 | Korean ㄱ (start composing) | null | `"ㄱ"` | null | true | `"ko_leading_jamo"` |
 | Korean 가 (add vowel) | null | `"가"` | null | true | `"ko_syllable_no_tail"` |
+| Korean 한 (add tail consonant) | null | `"한"` | null | true | `"ko_syllable_with_tail"` |
 | Korean 간 -> new ㄱ (syllable break) | `"간"` | `"ㄱ"` | null | true | `"ko_leading_jamo"` |
 | Arrow during composition | `"한"` (flush) | null | arrow key | true | null |
 | Ctrl+C during composition | `"하"` (flush) | null | Ctrl+C key | true | null |
 | Enter during composition | `"ㅎ"` (flush) | null | Enter key | true | null |
+| Escape during composition | `"한"` (flush) | null | Escape key | true | null |
+| Tab during composition | `"한"` (flush) | null | Tab key | true | null |
 | Space during composition | `"한"` (flush) | null | Space key | true | null |
 | Backspace mid-composition | null | `"하"` (undo) | null | true | `"ko_syllable_no_tail"` |
 | Backspace empty composition | null | null | Backspace | false | null |
@@ -274,7 +277,7 @@ pub const ImeResult = struct {
 | Release event | null | null | null | false | null |
 
 **Direct mode behavior**: In direct mode, `processKey()` performs a simple branch:
-- Printable key without modifiers -> HID-to-ASCII lookup -> `committed_text = ascii_char`, no forward.
+- Printable key without modifiers -> HID-to-ASCII lookup -> `committed_text = ascii_char`, no forward. **Exception: Space is always forwarded** (consistent across all modes — see Section 3.3).
 - Everything else (non-printable, modified, unmapped) -> `forward_key = original_key`, no committed text.
 - Direct mode never has preedit (no composition), so `preedit_changed` is always false and `composition_state` is always null.
 
@@ -292,6 +295,7 @@ When the IME has active preedit and a modifier+key or special key arrives, the e
 | Escape | **Flush** (commit preedit) | Commit what user typed, then forward Escape |
 | Arrow keys | **Flush** (commit preedit) | User is navigating -- commit what they have |
 | Space | **Flush** (commit preedit) | Word separator -- commit syllable, then insert space |
+| Shift+key | **No flush** (jamo selection) | Shift selects jamo variants (ㄱ->ㄲ), not a composition-breaking modifier |
 | Backspace | **IME handles** | `hangul_ic_backspace()` undoes last jamo; if empty, forward |
 
 **Example -- Ctrl+C during preedit "하":**
@@ -1202,11 +1206,11 @@ This section documents all changes made from the v0.1 interface contract based o
 
 ### C.6 ghostty Integration Additions
 
-**Language switch ghostty path**: Added `handleLanguageSwitch()` pseudocode showing `key = .unidentified` for committed text from `setActiveLanguage()`.
+**Language switch ghostty path**: Added `handleLanguageSwitch()` pseudocode showing `key = .unidentified` for committed text from `setActiveLanguage()`. (Later renamed to `handleInputMethodSwitch()` and `setActiveInputMethod()` — see [Appendix F](#appendix-f-identifier-consensus-changes).)
 
 **ghostty language awareness**: Explicitly documented that ghostty Surface has zero language-related state. Language indicator is purely FrameUpdate metadata.
 
-**Focus change behavior**: Documented that `active_language` persists across deactivate/activate cycles.
+**Focus change behavior**: Documented that `active_language` persists across deactivate/activate cycles. (Later renamed to `active_input_method` — see [Appendix F](#appendix-f-identifier-consensus-changes).)
 
 ### C.7 forward_key from setActiveLanguage
 
@@ -1358,7 +1362,7 @@ Review artifacts:
 
 **v0.3**: HangulImeEngine had no composition state constants.
 
-**v0.4**: Added `CompositionStates` nested struct to Section 3.7 with six string constants: `empty`, `ko_leading_jamo`, `ko_vowel_only`, `ko_syllable_no_tail`, `ko_syllable_with_tail`, `ko_double_tail`. Added naming convention note explaining the `ko_` prefix requirement for language-specific constants, and the rationale for `empty` being language-agnostic.
+**v0.4**: Added `CompositionStates` nested struct to Section 3.7 with six string constants: `empty`, `ko_leading_jamo`, `ko_vowel_only`, `ko_syllable_no_tail`, `ko_syllable_with_tail`, `ko_double_tail`. Added naming convention note explaining the `ko_` prefix requirement for language-specific constants, and the rationale for `empty` being language-agnostic. (Note: `empty` was subsequently removed in v0.5 — see [G.3](#g3-compositionstatesempty-removed-issue-25b).)
 
 **Rationale**: Provides canonical string values for `ImeResult.composition_state`. The `ko_` prefix prevents collision when future Japanese/Chinese engines define their own state strings.
 
@@ -1463,3 +1467,9 @@ The `ko_` prefix is reserved for composition state constants (`"ko_leading_jamo"
 **v0.4**: Appendix E.9 contained a broken link `[F.6](#f6-session-persistence-simplified)` pointing to a non-existent anchor.
 
 **v0.5**: Corrected to `[F.5](#f5-session-persistence-simplified)`, which is the correct anchor for the "Session Persistence Simplified" entry in Appendix F.
+
+### G.6 Section 3.7 Anchor Fix (Verification V-1)
+
+**v0.4**: The `ko_vowel_only` reachability note in Section 3.7 contained a broken anchor `#32-imeresult-orthogonality-scenario-matrix`.
+
+**v0.5**: Corrected to `#32-imeresult-output-from-ime`, which matches the actual heading of Section 3.2.
