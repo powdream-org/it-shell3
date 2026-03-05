@@ -232,11 +232,11 @@ docs/design/topic/
 ├── v0.1/                      # Initial drafts
 │   ├── 01-xxx.md
 │   ├── ...
-│   └── review-notes-01.md
+│   ├── review-notes-01.md
+│   └── review-resolutions-01.md
 ├── v0.2/                      # After first review round
 │   ├── 01-xxx.md              # Updated with resolutions applied
 │   └── ...
-├── review-resolutions.md      # Lives at top level, tracks all rounds
 └── v1/                        # Final consensus version (bumped when stable)
 ```
 

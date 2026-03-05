@@ -37,10 +37,6 @@ docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes-01-res
 docs/libitshell3-ime/02-design-docs/interface-contract/v1/handover-for-v2-revision.md
 ```
 
-**Exception**: `review-resolutions.md` MAY live at the topic level (not inside a
-version directory) when it tracks resolutions across multiple versions. This is
-discouraged for new work -- prefer per-version resolution files.
-
 ---
 
 ## 3. Naming Conventions
