@@ -325,16 +325,24 @@ verification pass where agents read ALL docs.
    and run a third round. Repeat until a clean round is achieved — there is
    no maximum. In practice, a third round is rare if fixes are careful.
 
-3. **All document owners participate.** Each agent reads ALL docs (not just their
+3. **Each round MUST use fresh agents.** Shut down agents from the previous round
+   and spawn new ones. Agents who applied fixes or verified in a prior round carry
+   confirmation bias — they remember what they wrote and tend to assume their own
+   work is correct rather than reading the document cold. Fresh agents read the
+   docs without preconceptions, which is the entire point of verification. Do NOT
+   reuse running agents by broadcasting "verify again" — this is explicitly
+   prohibited.
+
+4. **All document owners participate.** Each agent reads ALL docs (not just their
    own) and raises issues where cross-document references, field names, message
    types, or terminology disagree. Agents message each other directly to resolve
    findings.
 
-4. **One agent writes the verification report.** Designate one agent (typically
+5. **One agent writes the verification report.** Designate one agent (typically
    the architecture lead) to produce a `review-notes-consistency.md` listing all
    issues found, their severity, and the fix applied.
 
-5. **Verification must complete before commit.** The team lead MUST NOT commit
+6. **Verification must complete before commit.** The team lead MUST NOT commit
    revised documents until at least one clean verification round (no issues
    found) is achieved.
 
