@@ -67,6 +67,9 @@ ghostty) have years of production experience with the same problems we face.
 ### Review Input
 - Human reviewer writes review notes as a markdown file in the same directory
 - Notes should be structured: issue number, severity, what's wrong, what needs to change
+- **All review artifacts (review notes, resolutions, research reports, handovers) MUST
+  follow the naming and format conventions in
+  [Review Notes & Handover Docs](../conventions/review-and-handover-docs.md).**
 
 ### Team Discussion
 1. Create a **new team** (e.g., `protocol-review`) — don't reuse the old one

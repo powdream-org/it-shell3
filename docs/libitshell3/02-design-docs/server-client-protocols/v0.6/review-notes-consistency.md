@@ -3,7 +3,11 @@
 **Date**: 2026-03-05
 **Reviewers**: protocol-architect, systems-engineer, cjk-specialist
 **Scope**: All 6 protocol v0.6 design docs checked against each other and against `design-resolutions-resize-health.md`
-**Verdict**: 21 issues found (9 CRITICAL, 7 HIGH, 5 MEDIUM). Design resolutions not applied to specs.
+**Verdict**: 17 issues found (7 CRITICAL, 5 HIGH, 5 MEDIUM). Design resolutions not applied to specs.
+
+> **Related review notes:**
+> - `review-notes-01.md` -- Residual cosmetic issue (1 item)
+> - `review-notes-owner-review.md` -- Owner architectural review (4 items: Issues 21-24)
 
 ---
 
@@ -73,11 +77,11 @@ This means the protocol docs labeled "v0.6" do not actually contain the v0.6 fea
 
 | Severity | Count | Affected docs |
 |----------|-------|---------------|
-| CRITICAL | 9 | Doc 01 (1), Doc 03 (2), Doc 04 (2), Doc 06 (4) |
-| HIGH | 7 | Doc 01 (1), Doc 03 (3), Doc 06 (3) |
+| CRITICAL | 7 | Doc 01 (1), Doc 03 (2), Doc 06 (4) |
+| HIGH | 5 | Doc 01 (1), Doc 03 (2), Doc 06 (2) |
 | MEDIUM | 5 | Doc 02 (1), Doc 03 (1), Doc 05 (1), Doc 06 (2) |
 | NONE (confirmed OK) | 2 | Doc 04, Doc 05 Sec 7.3 |
-| **Total** | **23** (21 issues + 2 confirmations) | |
+| **Total** | **19** (17 issues + 2 confirmations) | |
 
 **By document:**
 
@@ -85,30 +89,10 @@ This means the protocol docs labeled "v0.6" do not actually contain the v0.6 fea
 |----------|----------|------|--------|-------------|
 | Doc 01 | 1 | 1 | 0 | 2 |
 | Doc 02 | 0 | 0 | 1 | 1 |
-| Doc 03 | 2 | 3 | 1 | 6 |
-| Doc 04 | 2 | 0 | 0 | 2 |
+| Doc 03 | 2 | 2 | 1 | 5 |
+| Doc 04 | 0 | 0 | 0 | 0 |
 | Doc 05 | 0 | 0 | 1 | 1 |
-| Doc 06 | 4 | 3 | 2 | 9 |
-
-### Doc 03 (continued)
-
-| # | Severity | Location | Description | Resolution ref |
-|---|----------|----------|-------------|----------------|
-| 21 | **HIGH** | Sec 5.1 or Sec 8 | Under `latest` policy, clients with smaller dimensions than the effective size receive FrameUpdates for a larger grid than they can display. The spec does not define what the smaller client should do. **Required addition**: Normative statement that clients MUST clip to their own viewport dimensions (top-left origin), matching tmux `latest` policy behavior. Per-client viewports (scroll to see clipped areas) remain deferred to v2. | Resolution 1 |
-
-### Doc 06 (continued)
-
-| # | Severity | Location | Description | Resolution ref |
-|---|----------|----------|-------------|----------------|
-| 22 | **HIGH** | Sec 2, Server Output Queue Management | Resolution 13 prescribes "512KB per (client, pane)" buffer allocation. This implies per-client copies of identical frame data. With N clients viewing the same pane, the server copies the same serialized frame N times — O(N) memory bandwidth for identical content. At 100 clients, a single 120×40 CJK scroll frame (~116KB) becomes 11.6MB of memcpy per frame, ~696MB/s at 60fps. **Required change**: Reframe Resolution 13 as a **delivery lag cap** ("a client may fall at most 512KB behind the current frame sequence") rather than a per-client buffer allocation. Document shared ring buffer with per-client read cursors as the recommended implementation pattern: server serializes each frame once into a shared per-pane ring; each client's socket write reads from the ring at its cursor position; when a cursor falls behind the ring tail, discard-and-resync. This preserves all protocol-visible behavior (same backpressure thresholds, same stale triggers, same discard-and-resync semantics) while reducing memory from O(clients × panes × buffer) to O(panes × ring) + O(clients) cursors, and memory bandwidth from O(clients) copies to O(1) write. | Resolution 13, Resolution 14 |
-
-| # | Severity | Location | Description | Resolution ref |
-|---|----------|----------|-------------|----------------|
-| 23 | **CRITICAL** | Sec 2 (output queue), Doc 04 Sec 4 (FrameUpdate dirty tracking) | **Per-client dirty bitmap model does not scale and lacks error recovery.** Three interconnected problems: **(a) Diff calculation cost**: Server maintains per-client dirty bitmaps per pane. With N clients, every terminal state change requires N bitmap updates, and frame generation requires N separate serializations (dirty sets diverge across coalescing tiers). At 100 clients this is O(N) bitmap maintenance + O(N) frame serialization per output event. **(b) No error tolerance**: Protocol relies on reliable transport (no frame loss), but client-side state can silently diverge from server state (application bugs, race conditions in delta application, coalescing artifacts). Current design has no detection or auto-recovery — corruption persists until an explicit trigger (resize, reattach, stale recovery). With many active clients, silent divergence is undetectable. **(c) Catch-up complexity**: A client behind by K frames needs either K coalesced deltas (complex union of dirty sets) or a full resync (heavyweight, requires special codepath). **Proposed change**: Adopt an I-frame/P-frame model with periodic keyframes, analogous to MPEG. The server emits dirty=full "keyframe" FrameUpdates at a configurable interval (e.g., every 1-2 seconds) alongside incremental "delta" FrameUpdates. Combined with Issue 22's shared ring buffer: server writes one frame (I or P) to a shared per-pane ring; clients read from the ring at their cursor position; clients behind by >= 1 keyframe interval skip to the latest keyframe instead of replaying deltas. This eliminates per-client dirty bitmaps (server tracks one bitmap per pane, cleared on each frame write), provides automatic self-healing of client state corruption within the keyframe interval, and reduces frame serialization from O(clients) to O(1) per interval. Cost: ~116KB/s per pane at 1 keyframe/s (negligible on local socket, <0.5MB/s total on SSH for 4 panes). Keyframes MUST always carry full CellData — never a reference to a previous frame in place of data. Self-containment is the defining property of a keyframe; a client that just skipped from a distant cursor has no previous state to reference. However, the keyframe MAY include an advisory `unchanged` boolean hint (default false). When true, it signals that the content is identical to the previous keyframe. Caught-up clients can use this hint to skip re-rendering; clients that jumped to this keyframe ignore the hint and render from the full data as normal. Discard-and-resync (Resolution 14) becomes simply "advance cursor to latest keyframe" — no special codepath needed. | Resolution 13, Resolution 14 |
-
-| # | Severity | Location | Description | Resolution ref |
-|---|----------|----------|-------------|----------------|
-| 24 | **CRITICAL** | Doc 04 (FrameUpdate), Doc 06 (flow control) | **Open design question: P-frame diff base.** If Issues 22-23 adopt an I-frame/P-frame model, the team must decide the P-frame's reference point. **Option A**: P-frame = diff from previous frame (P or I). Smallest individual P-frames, but creates sequential dependency chain — skipping any P invalidates all subsequent P-frames until the next I. Coalescing (clients at different tiers skip different P-frames) re-introduces per-client diff computation, defeating the shared ring buffer model. **Option B**: P-frame = diff from the most recent I-frame (cumulative). Every P is independently decodable given only the current I-frame. Clients can skip any number of intermediate P-frames and apply the latest P directly. No sequential dependency, no per-client dirty tracking. Trade-off: P-frames grow within a keyframe interval as the cumulative dirty set expands; bounded by terminal row count. This choice is architecturally fundamental — it determines whether the shared ring buffer (Issue 22) can truly eliminate per-client state tracking or merely defer it. **Leave to designers for resolution.** | Issues 22, 23 |
+| Doc 06 | 4 | 2 | 2 | 8 |
 
 ---
 

@@ -82,6 +82,7 @@ Located at `~/dev/git/references/`:
 > **⚠️ MANDATORY: You MUST read and strictly follow all convention docs under `docs/conventions/` before making any changes. No exceptions.**
 
 - [**Commit Messages**](docs/conventions/commit-messages.md) — Conventional commits format. **English only.**
+- [**Review Notes & Handover Docs**](docs/conventions/review-and-handover-docs.md) — Naming conventions, document format, and content requirements for all review artifacts (review notes, resolutions, research reports, handovers).
 
 ## Work Styles
 

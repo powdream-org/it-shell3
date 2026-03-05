@@ -441,7 +441,8 @@ Decisions made by the owner during the v0.6 review session that constrain v0.7 w
 | Document | Path |
 |----------|------|
 | Review Notes 01 (cosmetic, 1 issue) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes-01.md` |
-| Review Notes: Consistency (21 issues) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes-consistency.md` |
+| Review Notes: Consistency (17 issues) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes-consistency.md` |
+| Review Notes: Owner Review (4 issues) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes-owner-review.md` |
 | This handover | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/handover-for-v07-revision.md` |
 
 ### v0.5 Handover (predecessor)
