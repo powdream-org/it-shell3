@@ -163,6 +163,7 @@ The team leader is the Claude Code main agent. It orchestrates team activities b
 | **Write specs or design docs** | All document writing is done by core team members. The team leader writes only review notes (when owner instructs) and handover documents. |
 | **Do research** | Delegate to researchers or core members. Even trivial investigations should be assigned. |
 | **Make design decisions** | Design decisions belong to the team through consensus, or to the owner for binding directives. |
+| **Choose team size** | When spawning a team, the team leader MUST spawn ALL core members listed in the team's agent directory. The team leader does NOT decide "3 is enough" or "we only need these roles." Team composition is defined by the agent directory, not by the team leader's efficiency judgment. |
 
 **Example of correct vs incorrect team leader behavior:**
 

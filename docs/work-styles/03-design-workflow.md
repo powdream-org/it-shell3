@@ -102,9 +102,10 @@ The team leader receives requirements from the owner and assembles the team.
 
 **Actions:**
 
-1. Team leader assembles the appropriate team (opus core members). See
-   [Team Collaboration](./02-team-collaboration.md) for team structure and role
-   definitions.
+1. Team leader assembles the team by spawning **ALL** core members listed in
+   the team's agent directory (opus). The team leader does NOT choose a
+   subset. See [Team Collaboration](./02-team-collaboration.md) for team
+   structure and role definitions.
 2. Team leader passes all input materials to the team.
 
 ### 3.2 Team Discussion & Consensus
@@ -160,8 +161,10 @@ Fresh agents review the resolution document and negotiate ownership.
 
 **Steps:**
 
-1. Team leader spawns **fresh** core members (opus). These agents have no
-   memory of the discussion -- they work purely from the resolution document.
+1. Team leader spawns **ALL** core members of the team as **fresh** agents
+   (opus). The team leader does NOT choose a subset — every core member
+   listed in the team's agent directory is spawned. These agents have no
+   memory of the discussion — they work purely from the resolution document.
 2. Show them the resolution document and the previous version of the spec
    documents (if updating an existing version, not creating from scratch).
 3. Team members negotiate among themselves who handles which document or
@@ -189,7 +192,9 @@ Fresh agents verify that the written documents are correct and consistent.
 
 **Steps:**
 
-1. Team leader spawns **fresh** core members (opus). These agents have no
+1. Team leader spawns **ALL** core members of the team as **fresh** agents
+   (opus). The team leader does NOT choose a subset — every core member
+   listed in the team's agent directory is spawned. These agents have no
    memory of who wrote what.
 2. Show them **all** newly written documents and the resolution document.
 3. They verify:
