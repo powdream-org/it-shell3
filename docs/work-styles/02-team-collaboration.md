@@ -233,35 +233,52 @@ Without a designated reporter, the team leader receives fragmented, potentially 
 
 ## 6. Operational Tips
 
-### 6.1 Context Carry-Forward (Session Loss Recovery)
+### 6.1 Zombie Agent Detection
 
-If a session ends mid-discussion (context window exhaustion, crash, etc.), the previous team's agents become unreachable. To resume:
+**Compaction only affects the team leader** — teammates retain full memory and may still be executing pre-compaction instructions. Before taking any cleanup action, you MUST determine the state of existing agents.
 
-1. **Force-clean the stale team:** `rm -rf ~/.claude/teams/<name>` then `TeamDelete`
-2. **Create a new team** with fresh agents (same roles)
-3. **Feed prior discussion as structured context** in each agent's spawn prompt:
-   - Prior proposals and agreed positions (extracted from inbox JSON files)
-   - Specific unresolved questions with each agent's last position
-   - Which tasks were completed vs. still open
-4. This avoids re-discussing settled points and lets agents pick up mid-debate
+**Procedure:**
 
-Inbox files from the dead team persist at `~/.claude/teams/<old-name>/inboxes/*.json` until manually cleaned up. Read them to reconstruct context before spawning the new team.
+1. **Discover**: `TaskList` → find all `in_progress` tasks and their owners.
+2. **Inquire**: `SendMessage` to each owner asking **what they are currently working on**. Do NOT send `shutdown_request` at this stage.
+3. **Classify** each agent into one of three states:
+
+| State | How to identify | Action |
+|-------|----------------|--------|
+| **(a) Working** | Agent responds and is mid-task | Wait for completion. Do NOT interrupt. |
+| **(b) Idle** | Agent responds but is waiting for instructions | Give next instruction, or `shutdown_request` if no longer needed. |
+| **(c) Zombie** | No response at all | Confirmed dead. Proceed to Section 6.2. |
+
+**NEVER** skip this section. Assuming agents are dead without checking creates **dangling agents** — alive but unreachable — forcing the user to `/exit` Claude entirely.
 
 ### 6.2 Zombie Agent Cleanup
 
-Before cleaning up, you MUST verify whether agents are actually dead or still working. **Compaction only affects the team leader** — teammates retain full memory and may still be executing pre-compaction instructions. Skipping verification creates **dangling agents** — alive but unreachable — forcing the user to `/exit` Claude entirely.
+Only for agents **confirmed as zombies** in Section 6.1 (no response to `SendMessage`). These are orphaned processes from dead sessions that cannot respond.
 
-**Correct procedure:**
+1. Read inbox files at `~/.claude/teams/<name>/inboxes/*.json` to salvage context before deletion.
+2. Force-remove: `rm -rf ~/.claude/teams/<name>` then `TeamDelete`.
 
-1. **Detect**: `TaskList` → find `in_progress` tasks and their owners.
-2. **Inquire**: `SendMessage` to each owner asking **what they are currently working on**. Do NOT send `shutdown_request` at this stage.
-3. **Still working on a valid task?** → Do NOT interrupt. Wait for them to finish, then resume the workflow from where they report completion.
-4. **Idle and no longer needed?** → Send `shutdown_request` → wait for approval → graceful shutdown.
-5. **Truly unresponsive** (no response at all — real zombie): `rm -rf ~/.claude/teams/<name>` then `TeamDelete`. This is a last resort for agents from dead sessions that cannot respond.
+This is a **last resort**. If Section 6.1 was not performed first, do NOT proceed.
 
-**NEVER** skip steps 1–4 and jump straight to `rm -rf`. This is the single most destructive mistake — it turns alive agents into dangling processes that cannot be found or shut down.
+### 6.3 Context Carry-Forward (Session Loss Recovery)
 
-### 6.3 Explicit File Creation Instructions
+If a session ends mid-discussion (context window exhaustion, crash, etc.), first perform Section 6.1 (Zombie Agent Detection) to determine agent state.
+
+**If agents are still alive** (state a or b from Section 6.1):
+
+- Working agents → wait for completion, then resume the workflow.
+- Idle agents → give them the next instruction directly. No need to recreate the team.
+
+**If agents are confirmed dead** (state c, cleaned up via Section 6.2):
+
+1. Create a new team with fresh agents (same roles).
+2. Feed prior discussion as structured context in each agent's spawn prompt:
+   - Prior proposals and agreed positions (extracted from inbox JSON files read in Section 6.2)
+   - Specific unresolved questions with each agent's last position
+   - Which tasks were completed vs. still open
+3. This avoids re-discussing settled points and lets agents pick up mid-debate.
+
+### 6.4 Explicit File Creation Instructions
 
 Agents sometimes complete their reasoning but fail to actually create files on disk. When assigning a task that requires a file output, always be explicit:
 
@@ -280,7 +297,7 @@ ls -la .claude/agents/<team-name>/
 
 Some team members are assigned via **symlinks** (e.g., `ime-expert.md → ../ime-team/ime-expert.md`). `Glob` does not follow symlinks and will silently omit these members, causing the team leader to spawn an incomplete team.
 
-### 6.4 Cross-References Between Workflow Documents
+### 6.6 Cross-References Between Workflow Documents
 
 | If you need to know... | See |
 |------------------------|-----|
@@ -306,5 +323,5 @@ Some team members are assigned via **symlinks** (e.g., `ime-expert.md → ../ime
 | **Majority vote produces false consensus** | 2-vs-1 "decision" where the dissenter was never actually convinced; the real problem they identified resurfaces later | Require unanimous consensus through logical persuasion. Escalate genuine deadlocks to the owner. Do NOT manufacture false agreement. |
 | **Team leader micromanages** | Leader gives step-by-step instructions ("change line 43 from X to Y") instead of stating goals; agents become passive executors | State the objective and constraints. Let the team figure out the approach. If Agent A found the issue, let Agent A negotiate with the doc owner directly. |
 | **Agent starts work before team assembles** | First-spawned agent reads team config, sees only itself, and begins working alone — producing uncoordinated single-agent output | Use a two-phase spawn: (1) Spawn all agents with a minimal prompt ("Wait for the team leader's broadcast with your task. Do NOT start any work until then."), (2) Wait for ALL agents to go idle (confirming registration), (3) Broadcast the actual task with full context. Never put substantive work instructions in the spawn prompt when spawning multiple agents in parallel. |
-| **Zombie cleanup without verification** | Team leader runs `rm -rf` on team directory without checking if agents are alive; alive-but-idle agents become dangling — unreachable, unkillable, user forced to `/exit` | Always verify with `TaskList` + `SendMessage` first. Only force-remove truly unresponsive agents. See Section 6.2. |
+| **Zombie cleanup without verification** | Team leader runs `rm -rf` on team directory without checking if agents are alive; alive-but-idle agents become dangling — unreachable, unkillable, user forced to `/exit` | Always perform Section 6.1 (detection) first. Only force-remove truly unresponsive agents via Section 6.2. |
 | **Glob for team member discovery** | Team spawned with 3/5 members; symlinked agents silently omitted | Use `ls -la .claude/agents/<team>/` to see symlinks. `Glob` does not follow symlinks. See Section 6.5. |
