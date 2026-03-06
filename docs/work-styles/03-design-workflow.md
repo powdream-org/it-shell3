@@ -73,8 +73,9 @@ graph TD
     C -- "any member<br/>objects" --> B
     C -- "all members<br/>confirm" --> disband1(["Disband Team<br/>(memory wipe)"])
     disband1 --> spawn2(["Spawn Fresh Team"])
-    spawn2 --> D1["3.4 Assignment<br/>Negotiation"]
-    D1 --> D2["3.5 Document<br/>Writing"]
+    spawn2 --> D1["3.4 Assignment<br/>Negotiation<br/>(no editing)"]
+    D1 --> shutdown_unassigned(["Shutdown unassigned<br/>agents"])
+    shutdown_unassigned --> D2["3.5 Document<br/>Writing<br/>(leader gates)"]
     D2 --> disband2(["Disband Team"])
     disband2 --> spawn3(["Spawn Verification Team<br/>(3 sonnet verifiers)"])
     spawn3 --> E["3.6 Cross-Document<br/>Verification<br/>(independent)"]
@@ -159,7 +160,9 @@ it.
 
 ### 3.4 Assignment Negotiation
 
-Fresh agents review the resolution document and negotiate ownership.
+Fresh agents review the resolution document, negotiate ownership, and report
+the agreed assignment to the team leader. **No editing is allowed during this
+step.**
 
 **Steps:**
 
@@ -169,24 +172,39 @@ Fresh agents review the resolution document and negotiate ownership.
    memory of the discussion — they work purely from the resolution document.
 2. Show them the resolution document and the previous version of the spec
    documents (if updating an existing version, not creating from scratch).
+   **Explicitly instruct: negotiate assignments only — do NOT edit any files
+   yet.**
 3. Team members negotiate among themselves who handles which document or
    section. This includes cross-team request files if the resolution identified
    changes affecting other teams.
-4. Negotiation concludes when all members agree on the assignment.
+4. Negotiation concludes when all members agree on the assignment and report
+   the result to the team leader.
+5. The team leader shuts down all **unassigned** agents (those with no
+   editing tasks). Only agents with actual assignments remain.
+6. After all unassigned agents have shut down, proceed to **3.5**.
 
 ### 3.5 Document Writing
 
-Each member writes their assigned parts.
+The team leader tells the remaining assigned agents to begin writing. This
+is the gate — no agent may edit files until the team leader explicitly
+initiates this step.
 
 **Steps:**
 
-1. Each member writes their assigned spec documents: new files for v0.1,
+1. The team leader sends a message to each assigned agent: "Begin writing
+   your assigned changes." This is the signal that editing may start.
+2. Each member writes their assigned spec documents: new files for v0.1,
    updated files for v\<prev\> to v\<next\>.
-2. If assigned, the responsible core member writes cross-team request files
+3. If assigned, the responsible core member writes cross-team request files
    and places them in the target team's `v<X>/cross-team-requests/` directory.
    Format follows
    [Cross-Team Requests](../conventions/artifacts/documents/07-cross-team-requests.md).
-3. When all writing is complete, the team leader disbands the team.
+4. When all writing is complete, the team leader disbands the team.
+
+**Why the gate matters:** Without an explicit signal from the team leader,
+agents race to edit files before negotiation completes — causing duplicate
+edits, merge conflicts, and wasted work. The team leader is the gatekeeper
+between negotiation and execution.
 
 ### 3.6 Cross-Document Consistency Verification
 
