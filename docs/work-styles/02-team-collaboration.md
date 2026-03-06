@@ -164,6 +164,7 @@ The team leader is the Claude Code main agent. It orchestrates team activities b
 | **Do research** | Delegate to researchers or core members. Even trivial investigations should be assigned. |
 | **Make design decisions** | Design decisions belong to the team through consensus, or to the owner for binding directives. |
 | **Choose team size** | When spawning a team, the team leader MUST spawn ALL core members listed in the team's agent directory. The team leader does NOT decide "3 is enough" or "we only need these roles." Team composition is defined by the agent directory, not by the team leader's efficiency judgment. |
+| **Assign internal roles** | When teammates need to negotiate (e.g., who verifies which doc, who writes the resolution), the team leader does NOT designate a coordinator or leader among them. All members are peers — they self-organize through peer-to-peer messages. The team leader states the goal and provides materials; the team figures out the rest. |
 
 **Example of correct vs incorrect team leader behavior:**
 
@@ -172,6 +173,7 @@ The team leader is the Claude Code main agent. It orchestrates team activities b
 | Verification found "16B" vs "14B" header size mismatch | "Agent A, change line 47 of doc 01 to say 16B" | "There is a header size inconsistency between doc 01 and doc 03. The relevant document owners should coordinate and fix it." |
 | Two agents disagree on encoding strategy | "Agent B is right, use JSON for this message" | "You both have strong arguments. Keep debating — if you cannot converge, I will escalate to the owner for a binding decision." |
 | A resolution needs to be applied to a spec | Leader opens the file and applies the edit directly | "Agent C, apply resolution #7 to your doc. The resolution file is at path X." |
+| Team needs to negotiate doc assignments | "Agent A, you coordinate. Others, wait for Agent A's instructions." | "Here are the docs and the goal. Negotiate among yourselves who handles what." |
 
 ---
 
