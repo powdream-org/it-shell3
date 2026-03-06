@@ -24,12 +24,15 @@
 
 ## Phase 4: Cross-Document Verification
 
-- [ ] Round 1 (fresh team, all verifiers)
-- [ ] Round 2 (fresh team, confirms fixes if any)
+- [x] Round 1: 2 critical fixes (frame_sequence scope, ~110B), 3 dismissed
+- [x] Round 2: 9 minor fixes (terminology, wire traces, naming), 2 dismissed
+- [x] Round 3: 4 minor issues confirmed — design-level, deferred to review notes
+- [x] Verification terminated at Round 3 (owner decision)
 
-## Phase 5: Commit
+## Phase 5: Commit & Review
 
-- [ ] v0.7 commit
+- [x] v0.7 commit (verification results + R1/R2 fixes)
+- [x] Review notes created (3 files: scroll delivery, PreeditEnd reason, resolution doc text)
 
 ## Phase 6a: Open Questions Batch 1 (docs 03-04, ~12 questions)
 
