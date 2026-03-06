@@ -27,14 +27,27 @@ broken reference or structural error you find.
    doc]", that section must exist in that document with that exact number.
 2. **Document references**: If a document references another document by
    name or filename, that document must exist.
-3. **Tables and registries**: If multiple documents contain tables that
+3. **Anchor link validation**: Every `[text](file.md#anchor)` and
+   `[text](#anchor)` link must resolve to a real heading in the target
+   file. You MUST use **GitHub-Flavored Markdown (GFM) anchor generation
+   rules** to derive the expected anchor from the heading text:
+   - Convert to lowercase
+   - Replace spaces with hyphens (`-`)
+   - Remove all characters except alphanumerics, hyphens, and underscores
+     (strip backticks, parentheses, periods, colons, commas, slashes,
+     plus signs, quotes, etc.)
+   - Example: `## 3.2 ImeResult (Output from IME)` → `#32-imeresult-output-from-ime`
+   - Example: `## Resolution 3: activate()/deactivate()` → `#resolution-3-activatedeactivate`
+   - To verify, use Grep to find the exact heading text in the target
+     file, then apply the rules above to confirm the anchor matches.
+4. **Tables and registries**: If multiple documents contain tables that
    list the same items (e.g., a registry, a catalog, a summary table),
    the entries must match across all occurrences.
-4. **Version numbers and changelogs**: Version headers, "since version X"
+5. **Version numbers and changelogs**: Version headers, "since version X"
    annotations, and changelog entries must be accurate and consistent.
-5. **Numbered lists and enumerations**: If items are numbered and
+6. **Numbered lists and enumerations**: If items are numbered and
    referenced by number elsewhere, the numbering must match.
-6. **Resolution traceability**: Every change described in the resolution
+7. **Resolution traceability**: Every change described in the resolution
    document must appear in the spec documents. No resolution item should
    be missing from the specs.
 
