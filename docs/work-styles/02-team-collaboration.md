@@ -1,5 +1,23 @@
 # Team Collaboration
 
+## Table of Contents
+
+1. [Overview](#1-overview)
+2. [Team Composition](#2-team-composition) — Core members, researchers, teams registry
+3. [Custom Agent Registration](#3-custom-agent-registration) — File location, format, update rules
+4. [Team Leader: Role and Constraints](#4-team-leader-role-and-constraints) — MUST do / MUST NOT do
+5. [Team Member Conduct](#5-team-member-conduct) — Peer-to-peer communication, consensus rules, prior art research
+6. [Operational Tips](#6-operational-tips)
+   - 6.1 Zombie Agent Detection
+   - 6.2 Zombie Agent Cleanup
+   - 6.3 Context Carry-Forward (Session Loss Recovery)
+   - 6.4 Explicit File Creation Instructions
+   - 6.5 Team Member Discovery
+   - 6.6 Cross-References Between Workflow Documents
+7. [Lessons Learned and Anti-Patterns](#7-lessons-learned-and-anti-patterns)
+
+---
+
 ## 1. Overview
 
 We work as agent teams. The team leader (Claude Code main agent) facilitates; teammates (sub-agents) do the actual work; the owner (human) provides requirements, reviews output, and makes binding decisions.
