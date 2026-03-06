@@ -219,15 +219,24 @@ Fresh agents verify that the written documents are correct and consistent.
 
 **Outcomes:**
 
-- If **any** issues are found: disband the team, go back to **3.4** (fresh
-  agents renegotiate and rewrite). There is NO limit on how many rounds of 3.4 to 3.6 can
-  repeat. Continue until a clean verification pass is achieved.
+- If **any** issues are found:
+  1. The team leader collects all issues from every verifier's report and
+     writes them to `v<X>/verification/round-{N}-issues.md` (where `{N}`
+     is the verification round number, starting at 1). Record each issue
+     verbatim: severity, document, location, description, expected fix.
+  2. Disband the verification team.
+  3. Go back to **3.4** — spawn fresh agents and pass the issue file as
+     input alongside the resolution document. The fresh team uses this
+     list to know exactly what needs fixing.
+  4. There is NO limit on how many rounds of 3.4 to 3.6 can repeat.
+     Continue until a clean verification pass is achieved.
 - If **clean** (no issues): proceed to 3.7.
 
 **Key invariant:** Verification does NOT produce review notes. During the
-Revision Cycle, no review-note files are created. If verification finds issues,
-the team goes back to 3.4 to renegotiate and fix them. Issues are communicated verbally (via
-agent messages), not written as review-note files.
+Revision Cycle, no review-note files are created. The team leader records
+verification issues as structured input for the next 3.4 round, not as
+review-note files. Issues are transient — they exist only to guide the fix
+team and are superseded once the fix is applied and verified clean.
 
 ### 3.7 Commit & Report
 
@@ -326,6 +335,7 @@ spec documents + review notes + handover as input.
 | `review-notes/{NN}-{topic}.md` | Review 4.2 | Team leader | `v<X>/review-notes/` | [review-notes.md](../conventions/artifacts/documents/02-review-notes.md) |
 | `handover-to-v<next>.md` | Review 4.3 | Team leader | `v<X>/handover/` | [handover.md](../conventions/artifacts/documents/03-handover.md) |
 | `cross-team-requests/{NN}-{topic}.md` | Revision 3.5 | Core member | Target team's `v<X>/cross-team-requests/` | [cross-team-requests.md](../conventions/artifacts/documents/07-cross-team-requests.md) |
+| `round-{N}-issues.md` | Revision 3.6 | Team leader | `v<X>/verification/` | -- |
 
 ### Version Directory Structure
 
@@ -342,6 +352,9 @@ docs/{component}/02-design-docs/{topic}/
 |   |   +-- 01-{topic}.md
 |   +-- cross-team-requests/
 |   |   +-- 01-{source-team}-{topic}.md
+|   +-- verification/
+|   |   +-- round-1-issues.md
+|   |   +-- round-2-issues.md
 |   +-- handover/
 |       +-- handover-to-v0.2.md
 +-- v0.2/

@@ -149,8 +149,9 @@ The team leader is the Claude Code main agent. It orchestrates team activities b
 | **Facilitate** | Set goals and scope for each round. Define what the team should produce, not how to produce it. |
 | **Relay owner instructions** | When the owner makes a binding decision, broadcast it to the team with clear attribution: "Owner decision: ..." |
 | **Report to owner** | Provide progress, status, and opinion summaries. Summarize ALL positions fairly — do not filter or editorialize. |
-| **Write review notes** | ONLY when the owner explicitly instructs. Follow the format in `docs/conventions/artifacts/documents/01-overview.md`. This is one of two artifacts the team leader writes directly. |
-| **Write handover** | At the end of a review cycle, capture insights and new knowledge for the next revision. Follow handover conventions. This is the other artifact the team leader writes directly. |
+| **Write review notes** | ONLY when the owner explicitly instructs. Follow the format in `docs/conventions/artifacts/documents/01-overview.md`. |
+| **Write handover** | At the end of a review cycle, capture insights and new knowledge for the next revision. Follow handover conventions. |
+| **Write verification issues** | After a verification round finds issues, collect all verifier reports and record the issues verbatim in `v<X>/verification/round-{N}-issues.md`. This file is passed to the next 3.4 fix team as input. |
 | **Manage team lifecycle** | Create teams, spawn agents, shut down agents, clean up resources. |
 
 ### 4.2 MUST NOT Do
