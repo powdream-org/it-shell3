@@ -97,7 +97,7 @@ KeyEvent(HID keycode)  ----->    IME Composition Engine
 
 **Dual-channel design**: Preedit state is communicated through TWO mechanisms:
 
-1. **FrameUpdate JSON metadata blob (0x0300)**: For rendering. Contains the preedit text and cursor position as a JSON object within the FrameUpdate's metadata blob. This is the **authoritative rendering source** — clients MUST use this to draw the preedit overlay. The preedit section is always included when preedit is active, regardless of `CJK_CAP_PREEDIT` capability. Example:
+1. **FrameUpdate JSON metadata blob (0x0300)**: For rendering. Contains the preedit text and cursor position as a JSON object within the FrameUpdate's metadata blob. This is the **authoritative rendering source** — clients MUST use this to draw the preedit overlay. The preedit section is always included when preedit is active, regardless of `"preedit"` capability. Example:
 
    ```json
    {
@@ -111,7 +111,7 @@ KeyEvent(HID keycode)  ----->    IME Composition Engine
    }
    ```
 
-2. **Dedicated preedit messages (0x0400-0x04FF)**: For state tracking. Contains composition state details (Korean Jamo state, input method info) useful for debugging, multi-client conflict resolution, and session snapshots. Observers (non-typing clients) can use these to display composition state indicators. These messages are sent only to clients that negotiated `CJK_CAP_PREEDIT`.
+2. **Dedicated preedit messages (0x0400-0x04FF)**: For state tracking. Contains composition state details (Korean Jamo state, input method info) useful for debugging, multi-client conflict resolution, and session snapshots. Observers (non-typing clients) can use these to display composition state indicators. These messages are sent only to clients that negotiated `"preedit"`.
 
 **Rendering rule**: Clients MUST use FrameUpdate's preedit JSON for rendering, NOT PreeditUpdate's text field. PreeditUpdate provides metadata (composition_state, session_id, owner) for state tracking only.
 
@@ -236,7 +236,12 @@ Sent by the server to ALL attached clients when composition ends, either by comm
 
 ### 2.4 PreeditSync (type = 0x0403, S->C)
 
-Server -> specific client. Sent when a client attaches to a pane that has an active composition session (e.g., a second client connects while Client A is mid-composition). This is a full state snapshot — self-contained, unlike PreeditUpdate which assumes the client has PreeditStart context.
+Server -> specific client. Sent in two scenarios:
+
+1. **Late-joining client**: When a client attaches to a pane that has an active composition session (e.g., a second client connects while Client A is mid-composition).
+2. **Stale recovery**: When a stale client recovers (ring cursor advanced to latest I-frame), PreeditSync is enqueued in the direct message queue if preedit is active on any pane. Per the socket write priority model (doc 06), PreeditSync arrives BEFORE the I-frame, providing composition context for the subsequent grid render.
+
+This is a full state snapshot — self-contained, unlike PreeditUpdate which assumes the client has PreeditStart context.
 
 #### JSON Payload
 
@@ -426,7 +431,7 @@ State              Preedit  Composition State      Backspace Result
    + FrameUpdate: JSON preedit {"active":true,"cursor_x":5,"cursor_y":10,"text":"ㅎ","display_width":1}
      cursor: style=block (1 cell)
 
-3. PreeditEnd: pane=1, reason=cancelled, committed_text=""
+3. PreeditEnd: pane=1, reason="cancelled", committed_text=""
    + FrameUpdate: JSON preedit {"active":false}
      cursor: style restored to pre-composition value
 ```
@@ -565,7 +570,7 @@ The server maintains preedit ownership state per pane. At most one pane in a ses
 ```
 struct PanePreeditState {
     owner: ?u32,              // client_id of the composing client, null = no active composition
-    session_id: u32,          // monotonic counter for composition sessions
+    preedit_session_id: u32,  // monotonic counter for composition sessions
     state: CompositionState,  // Korean state machine state
     preedit_text: []u8,       // current preedit string (UTF-8)
     cursor_x: u16,
@@ -609,8 +614,8 @@ KeyEvent(H) ------>    Preedit owner = A
 
                         [Conflict! Commit A's preedit]
                         Write "ㅎ" to PTY
-                        PreeditEnd(reason=replaced) -------->
-<-- PreeditEnd(reason=replaced)
+                        PreeditEnd(reason="replaced_by_other_client") -------->
+<-- PreeditEnd(reason="replaced_by_other_client")
 
                         [New session for B]
                         Preedit owner = B
@@ -795,7 +800,7 @@ The following rules are normative (MUST):
 
 1. **Immediate flush on preedit state change**: When the preedit state changes (PreeditStart, PreeditUpdate, PreeditEnd), the server MUST flush the FrameUpdate immediately, regardless of the current coalescing tier. The preedit tier overrides all other tiers.
 
-2. **Preedit bypasses the ring buffer**: Preedit-only frames (`frame_type=0` with preedit state change, ~110 bytes) MUST bypass the shared ring buffer and be delivered directly to each client via a per-client latest-wins priority buffer (see doc 06). This ensures preedit frames are not delayed behind unread ring frames for slow clients. Even when a client is paused or stale, preedit FrameUpdates MUST still be delivered. The cost (~110 bytes/frame at typing speed ~15/s) is negligible compared to the user-perceived latency harm of dropping preedit frames.
+2. **Preedit bypasses the ring buffer**: Preedit-only frames that satisfy the bypass condition — `frame_type=0 AND preedit JSON present AND (preedit.active changed OR preedit.text changed)` — MUST bypass the shared ring buffer and be delivered directly to each client via a per-client latest-wins priority buffer (see doc 06). Cursor-only metadata updates without preedit state changes do NOT trigger bypass; they go into the ring as normal `frame_type=0` entries. This ensures preedit frames are not delayed behind unread ring frames for slow clients. Even when a client is paused or stale, preedit FrameUpdates MUST still be delivered. The cost (~110 bytes/frame at typing speed ~15/s) is negligible compared to the user-perceived latency harm of dropping preedit frames.
 
 3. **Preedit bypasses power throttling**: When the client reports `power_state` indicating battery/low-power mode via `ClientDisplayInfo`, the server reduces frame rates for Active and Bulk tiers (e.g., cap Active at 20fps, Bulk at 10fps). However, preedit FrameUpdates MUST always be delivered immediately regardless of `power_state`. Composition latency is a user-facing interaction that must never be degraded.
 
@@ -1068,7 +1073,7 @@ Both mechanisms are used because they serve different purposes:
 
 A client that only needs to render can ignore PreeditUpdate messages and rely solely on FrameUpdate's JSON preedit section.
 
-**Capability interaction**: The FrameUpdate JSON preedit section is always included when preedit is active, regardless of whether the client negotiated `CJK_CAP_PREEDIT`. The `CJK_CAP_PREEDIT` capability controls only the dedicated PreeditStart/Update/End/Sync messages. This means any client can render preedit overlays even without understanding the composition state machine — it simply paints the text at the specified position with an underline.
+**Capability interaction**: The FrameUpdate JSON preedit section is always included when preedit is active, regardless of whether the client negotiated `"preedit"`. The `"preedit"` capability controls only the dedicated PreeditStart/Update/End/Sync messages. This means any client can render preedit overlays even without understanding the composition state machine — it simply paints the text at the specified position with an underline.
 
 **Ring buffer interaction**: The dedicated preedit protocol messages (0x0400-0x0405: PreeditStart, PreeditUpdate, PreeditEnd, PreeditSync, InputMethodSwitch, InputMethodAck) remain entirely outside the shared ring buffer. They are separate message types sent directly per-client via the direct message queue. PreeditSync is enqueued in the direct message queue (priority 2) during resync/recovery, arriving BEFORE the I-frame from the ring. This follows the "context before content" principle — the client processes PreeditSync first (records composition metadata), then processes the I-frame (renders grid + preedit overlay with full context). Preedit-only FrameUpdates (`frame_type=0` with preedit state change) bypass the ring via the per-client preedit bypass buffer (priority 1). See doc 06 for the full socket write priority model.
 

@@ -576,7 +576,7 @@ When `active` is false, the client clears its preedit overlay. The `text` field 
 
 The preedit text is rendered as an overlay at the specified cursor position, typically with an underline decoration. The client draws it on top of the terminal grid after the main cell rendering pass.
 
-**Capability interaction**: The preedit section is part of the visual render state and is always included in FrameUpdate when preedit is active, regardless of whether the client negotiated `CJK_CAP_PREEDIT`. Any client that can render cells can also render the preedit overlay. The `CJK_CAP_PREEDIT` capability controls only the dedicated preedit messages (PreeditStart/Update/End/Sync in the 0x0400 range, see doc 05), which provide composition metadata for state tracking, observer UIs, and conflict resolution.
+**Capability interaction**: The preedit section is part of the visual render state and is always included in FrameUpdate when preedit is active, regardless of whether the client negotiated `"preedit"`. Any client that can render cells can also render the preedit overlay. The `"preedit"` capability controls only the dedicated preedit messages (PreeditStart/Update/End/Sync in the 0x0400 range, see doc 05), which provide composition metadata for state tracking, observer UIs, and conflict resolution.
 
 #### Dimensions fields
 
@@ -756,7 +756,7 @@ Client -> server. Requests scrolling the viewport.
 | `direction` | u8 | 0=up, 1=down, 2=top, 3=bottom |
 | `lines` | u32 | Number of lines to scroll (ignored for direction=top/bottom) |
 
-**Server response**: A FrameUpdate with `frame_type=2` (I-frame) showing the scrolled viewport.
+**Server response**: A FrameUpdate with `frame_type=2` (I-frame) showing the scrolled viewport. This I-frame is delivered via the per-client direct message queue (priority 2), NOT the shared ring buffer, because scroll is a per-client viewport operation — writing it to the shared ring would expose a scrolled viewport to all clients, including those that did not request the scroll.
 
 ### 6.2 ScrollPosition (type = 0x0302)
 

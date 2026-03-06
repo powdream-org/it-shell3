@@ -143,7 +143,7 @@ Sent by the client during handshake (after capability negotiation) and whenever 
 | `battery` | 20 fps | 10 fps | Always immediate |
 | `low_battery` | 10 fps | 5 fps | Always immediate |
 
-> **Preedit is always immediate regardless of power state.** A preedit-only frame is ~90 bytes, which is negligible for both bandwidth and power. Throttling preedit would make CJK input unusable.
+> **Preedit is always immediate regardless of power state.** A preedit-only frame is ~110 bytes, which is negligible for both bandwidth and power. Throttling preedit would make CJK input unusable.
 
 The `display_refresh_hz` field allows the server to set the Active tier ceiling to match the client's display. On a 120 Hz ProMotion Mac, Active tier uses 8 ms intervals; on a 60 Hz display, 16 ms.
 
@@ -410,7 +410,7 @@ T=120s:  `stale` health state transition (SSH tunnel transport).
 (SSH)    Same behavior as T=60s. Longer timeout accounts for higher latency
          and more variable behavior over SSH tunnels.
 
-T=300s:  Eviction. Server sends Disconnect(STALE_CLIENT) and tears down
+T=300s:  Eviction. Server sends Disconnect("stale_client") and tears down
          the connection. Transport-independent.
 ```
 

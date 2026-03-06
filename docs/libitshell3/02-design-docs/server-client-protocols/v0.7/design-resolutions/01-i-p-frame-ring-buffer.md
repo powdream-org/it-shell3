@@ -371,7 +371,7 @@ v0.7:
 | I-frame self-containment | Doc 04, Section 4.1 | Added: all rows present, never references previous frame |
 | `frame_type=3` unchanged rule | Doc 04, Section 4.1 | Added: entire payload identical, caught-up clients MAY skip, seeked clients MUST process |
 | Implicit I-frame reference | Doc 04, Section 4.1 | Added: client tracks last I-frame frame_sequence locally |
-| frame_sequence scope | Doc 04, Section 4.1 | Updated: incremented only for grid-state frames (section_flags bit 4 set) |
+| frame_sequence scope | Doc 04, Section 4.1 | Updated: incremented for every frame written to the ring buffer (preedit-bypass frames excluded) |
 
 ### FlowControlConfig Field Changes
 
@@ -396,7 +396,7 @@ v0.7:
 
 | Document | Changes Required |
 |----------|-----------------|
-| **Doc 04** (Input/RenderState) | Replace `dirty` field with `frame_type` (4 values). Replace per-client dirty bitmap normative note with per-pane bitmap. Add I/P-frame cumulative semantics. Add keyframe self-containment rule. Add `unchanged` hint normative note. Update `frame_sequence` scope (grid-state frames only). |
+| **Doc 04** (Input/RenderState) | Replace `dirty` field with `frame_type` (4 values). Replace per-client dirty bitmap normative note with per-pane bitmap. Add I/P-frame cumulative semantics. Add keyframe self-containment rule. Add `unchanged` hint normative note. Update `frame_sequence` scope (every ring frame, preedit-bypass excluded). |
 | **Doc 06** (Flow Control) | Replace per-client output buffer model with shared ring buffer. Retire 512KB buffer limit. Add keyframe interval configuration. Update PausePane semantics (advisory signal). Update discard-and-resync to "advance cursor to latest I-frame." Collapse three recovery procedures into one. Update FlowControlConfig fields (retire max_queue_bytes, max_queue_frames). Add ring invariant (at least one I-frame). Add preedit PausePane bypass. Add socket write priority order. |
 | **Doc 01** (Protocol Overview) | Update architecture overview to mention I/P-frame model and shared ring buffer. |
 | **Doc 03** (Session/Pane Mgmt) | Update multi-client output model references. |

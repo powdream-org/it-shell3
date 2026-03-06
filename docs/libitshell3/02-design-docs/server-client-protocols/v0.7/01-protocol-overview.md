@@ -680,7 +680,7 @@ The protocol defines two health states orthogonal to connection lifecycle:
 | State | Definition | Resize participation | Frame delivery |
 |-------|-----------|---------------------|----------------|
 | `healthy` | Normal operation | Yes | Full (per coalescing tier) |
-| `stale` | Paused too long or output queue stagnant | No (excluded from resize) | None (except preedit bypass) |
+| `stale` | Paused too long or output queue stagnant | No (excluded from resize) | None (except preedit bypass). Recovery sends LayoutChanged + PreeditSync via direct queue before the I-frame. |
 
 `paused` (PausePane active) is an orthogonal flow-control state, not a health state. A paused client remains `healthy` until the stale timeout fires.
 
@@ -691,7 +691,7 @@ T=0s:    PausePane. Client still healthy. Still participates in resize.
 T=5s:    Resize exclusion. Server recalculates effective size without this client.
 T=60s:   Stale transition (local transport). ClientHealthChanged (0x0185) sent to peers.
 T=120s:  Stale transition (SSH tunnel transport).
-T=300s:  Eviction. Server sends Disconnect(STALE_CLIENT) and tears down connection.
+T=300s:  Eviction. Server sends Disconnect("stale_client") and tears down connection.
 ```
 
 Health state transitions are communicated via `ClientHealthChanged` (0x0185) notifications, sent to all peer clients attached to the same session. See doc 06 Section 2 for full escalation details, timeout configuration, and the stale recovery procedure.
@@ -897,7 +897,7 @@ The server uses a 4-tier adaptive cadence model for FrameUpdate delivery, inform
 
 | Tier | Condition | Frame interval | Notes |
 |------|-----------|----------------|-------|
-| **Preedit** | Active composition + keystroke | Immediate (0ms) | Bypasses all coalescing; 90B/frame = negligible cost |
+| **Preedit** | Active composition + keystroke | Immediate (0ms) | Bypasses all coalescing; ~110B/frame = negligible cost |
 | **Interactive** | PTY output <1KB/s + recent keystroke | Immediate (0ms) | First frame after idle sends immediately |
 | **Active** | PTY 1-100 KB/s | 16ms (display Hz) | Matches client display refresh rate |
 | **Bulk** | PTY >100KB/s sustained 500ms | 33ms | Reduced rate during heavy throughput |
