@@ -20,7 +20,7 @@ The following existing documents contain outdated information that conflicts wit
 
 For Phase 1.5 (native IME), implement only:
 
-- **HangulImeEngine** with dubeolsik (`"korean_2set"`) as default.
+- **HangulImeEngine** as the single engine type, supporting dubeolsik (`"korean_2set"`) and direct mode. Initial active input method is `"direct"` (pass-through); user toggles to `"korean_2set"` via the input method switch key.
 - **Direct mode** passthrough (`"direct"`, HID -> ASCII, no composition).
 - **Input method toggle** via `setActiveInputMethod()` called by libitshell3.
 - **No candidate support** (Korean doesn't need it; Hanja is explicitly excluded).

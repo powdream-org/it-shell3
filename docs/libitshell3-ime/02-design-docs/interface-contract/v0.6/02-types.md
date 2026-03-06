@@ -159,7 +159,8 @@ pub const ImeResult = struct {
 | Backspace empty composition | null | null | Backspace | false | null |
 | Space with empty composition | null | null | Space key | false | null |
 | English Ctrl+C (no composition) | null | null | Ctrl+C key | false | null |
-| Input method switch (korean_2set->direct) | `"한"` (flush) | null | null | true | null |
+| Input method switch with composition (korean_2set->direct) | `"한"` (flush) | null | null | true | null |
+| Input method switch without composition (korean_2set->direct) | null | null | null | false | null |
 | Release event | null | null | null | false | null |
 
 **Direct mode behavior**: In direct mode, `processKey()` performs a simple branch:

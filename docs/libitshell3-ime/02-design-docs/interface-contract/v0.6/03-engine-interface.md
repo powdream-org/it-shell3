@@ -127,7 +127,11 @@ pub const ImeEngine = struct {
 2. Read the flushed string from libhangul.
 3. Set `active_input_method = new_method`.
 4. Update internal engine mode and libhangul keyboard if needed.
-5. Return `ImeResult{ .committed_text = flushed_text, .preedit_text = null, .forward_key = null, .preedit_changed = true, .composition_state = null }`.
+5. Return `ImeResult`:
+   - If composition was active (flushed text is non-empty): `ImeResult{ .committed_text = flushed_text, .preedit_text = null, .forward_key = null, .preedit_changed = true, .composition_state = null }`.
+   - If composition was not active (engine was already empty): `ImeResult{ .committed_text = null, .preedit_text = null, .forward_key = null, .preedit_changed = false, .composition_state = null }`.
+
+`preedit_changed` follows Section 3.2's definition: it is `true` only when the preedit state actually transitions (here, non-null to null from flushing). When the engine was already empty, preedit remains null throughout (null to null) — no transition occurred, so `preedit_changed` is `false`.
 
 **Case 2: "Switching" to the already-active input method (e.g., `"korean_2set"` -> `"korean_2set"`):**
 
@@ -270,7 +274,7 @@ pub const CompositionStates = struct {
 
 `ko_vowel_only` is produced when a vowel is entered without a preceding consonant. This occurs naturally in 3-set (Sebeolsik) layouts where consonant and vowel keys are physically separated. In 2-set (Dubeolsik), libhangul inserts an implicit ㅇ leading consonant, producing `ko_syllable_no_tail` instead. The scenario matrix in [Section 3.2](02-types.md#32-imeresult-output-from-ime) illustrates 2-set behavior (v1 default) and is not exhaustive of all reachable states.
 
-**Session persistence**: `active_input_method` (string) is the only field that must be saved **per session** for session persistence. On session restore, the server creates a new `HangulImeEngine` with the saved `input_method` string. Composition state is never persisted — it is flushed on session deactivation before the session is saved. See [Section 9](05-extensibility-and-deployment.md#9-session-persistence) for the full persistence schema.
+**Session persistence**: `active_input_method` (string) is the only **engine-internal** field needed to reconstruct a `HangulImeEngine` on session restore — the server creates a new engine with the saved `input_method` string. However, the full per-session persistence schema also saves `keyboard_layout` (orthogonal to `input_method`). Composition state is never persisted — it is flushed on session deactivation before the session is saved. See [Section 9](05-extensibility-and-deployment.md#9-session-persistence) for the full persistence schema.
 
 ### 3.8 MockImeEngine (For Testing)
 
