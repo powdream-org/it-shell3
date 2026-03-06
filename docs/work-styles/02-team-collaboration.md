@@ -249,16 +249,17 @@ Inbox files from the dead team persist at `~/.claude/teams/<old-name>/inboxes/*.
 
 ### 6.2 Zombie Agent Cleanup
 
-Before cleaning up, you MUST verify whether agents are actually dead or just idle (waiting for instructions). Skipping verification creates **dangling agents** — alive but unreachable — forcing the user to `/exit` Claude entirely.
+Before cleaning up, you MUST verify whether agents are actually dead or still working. **Compaction only affects the team leader** — teammates retain full memory and may still be executing pre-compaction instructions. Skipping verification creates **dangling agents** — alive but unreachable — forcing the user to `/exit` Claude entirely.
 
 **Correct procedure:**
 
 1. **Detect**: `TaskList` → find `in_progress` tasks and their owners.
-2. **Verify**: `SendMessage` to each owner to check if they are alive. Most "zombies" are actually idle agents waiting for instructions.
-3. **Graceful shutdown** (alive agents): Send `shutdown_request` → wait for approval.
-4. **Force cleanup** (truly unresponsive agents only): `rm -rf ~/.claude/teams/<name>` then `TeamDelete`. This is a last resort for agents from dead sessions that cannot respond.
+2. **Inquire**: `SendMessage` to each owner asking **what they are currently working on**. Do NOT send `shutdown_request` at this stage.
+3. **Still working on a valid task?** → Do NOT interrupt. Wait for them to finish, then resume the workflow from where they report completion.
+4. **Idle and no longer needed?** → Send `shutdown_request` → wait for approval → graceful shutdown.
+5. **Truly unresponsive** (no response at all — real zombie): `rm -rf ~/.claude/teams/<name>` then `TeamDelete`. This is a last resort for agents from dead sessions that cannot respond.
 
-**NEVER** skip steps 1–3 and jump straight to `rm -rf`. This is the single most destructive mistake — it turns alive-but-idle agents into dangling processes that cannot be found or shut down.
+**NEVER** skip steps 1–4 and jump straight to `rm -rf`. This is the single most destructive mistake — it turns alive agents into dangling processes that cannot be found or shut down.
 
 ### 6.3 Explicit File Creation Instructions
 
