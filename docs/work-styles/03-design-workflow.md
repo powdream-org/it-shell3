@@ -197,7 +197,11 @@ Fresh agents verify that the written documents are correct and consistent.
    listed in the team's agent directory is spawned. These agents have no
    memory of who wrote what.
 2. Show them **all** newly written documents and the resolution document.
-3. They verify:
+3. **Each member independently verifies ALL documents.** This is
+   cross-document verification — every verifier must read every document to
+   check consistency across the full set. Documents are NOT split among
+   members. Each member produces their own complete verification report.
+4. They verify:
    - Documents match the resolution document (all agreed changes applied
      correctly).
    - Cross-document consistency (field names, message types, terminology,
