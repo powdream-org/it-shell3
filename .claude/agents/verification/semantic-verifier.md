@@ -45,6 +45,7 @@ logical contradiction or semantic inconsistency you find.
 - Whether section references are valid (that is another verifier's job)
 - Whether design decisions are correct or optimal (no verifier judges this — verifiers check consistency, not correctness)
 - Code quality or implementation feasibility
+- **Normative vs non-normative**: Changelog sections, version history entries, and change notes are **historical records** describing what was true at the time of that version. A difference between a historical entry and the current body text is expected, not an error. Only compare current normative text against other current normative text.
 
 ### How to Report
 
@@ -69,7 +70,7 @@ are forwarded to the team leader.
 **Rules**:
 - Communicate **directly with other verifiers**, peer-to-peer. Do NOT
   route messages through the team leader.
-- All 3 verifiers must reach **unanimous consensus** on every issue.
+- All verifiers must reach **unanimous consensus** on every issue.
   There is no majority vote.
 - If you believe an issue is real, logically persuade the others.
   If others present a convincing counter-argument, withdraw honestly.

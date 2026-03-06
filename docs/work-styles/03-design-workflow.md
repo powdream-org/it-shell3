@@ -77,7 +77,7 @@ graph TD
     D1 --> shutdown_unassigned(["Shutdown unassigned<br/>agents"])
     shutdown_unassigned --> D2["3.5 Document<br/>Writing<br/>(leader gates)"]
     D2 --> disband2(["Disband Team"])
-    disband2 --> spawn3(["Spawn Verification Team<br/>(3 sonnet verifiers)"])
+    disband2 --> spawn3(["Spawn Verification Team"])
     spawn3 --> E["3.6 Cross-Document<br/>Verification<br/>(independent)"]
     E --> F["3.7 Issue<br/>Cross-Validation<br/>(verifiers debate)"]
     F -- "all issues<br/>dismissed" --> disband4(["Disband Team"])
@@ -214,8 +214,9 @@ are correct and consistent.
 **Steps:**
 
 1. Team leader spawns **ALL** members of the verification team as **fresh**
-   agents (sonnet). The team leader does NOT choose a subset — every member
-   listed in `.claude/agents/verification/` is spawned. These agents have
+   agents. The team leader does NOT choose a subset — every member
+   listed in `.claude/agents/verification/` is spawned. Each agent's
+   model is defined in its own agent file. These agents have
    no memory of who wrote what.
 2. Show them **all** newly written documents and the resolution document.
 3. Present the goal: verify that documents are consistent. Do NOT give
