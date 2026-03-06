@@ -26,6 +26,10 @@ v<X>/
 ├── cross-team-requests/
 │   ├── 01-{source-team}-{topic}.md
 │   └── ...
+├── verification/
+│   ├── round-1-issues.md
+│   ├── round-2-issues.md
+│   └── ...
 └── handover/
     └── handover-to-v<next>.md
 ```
@@ -42,6 +46,7 @@ v<X>/
 | Research Reports | [05-research-reports.md](./05-research-reports.md) |
 | Review Resolutions | [06-review-resolutions.md](./06-review-resolutions.md) |
 | Cross-Team Requests | [07-cross-team-requests.md](./07-cross-team-requests.md) |
+| Verification Issues | [08-verification-issues.md](./08-verification-issues.md) |
 
 ---
 

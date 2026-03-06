@@ -76,13 +76,15 @@ graph TD
     spawn2 --> D1["3.4 Assignment<br/>Negotiation"]
     D1 --> D2["3.5 Document<br/>Writing"]
     D2 --> disband2(["Disband Team"])
-    disband2 --> spawn3(["Spawn Fresh Team"])
-    spawn3 --> E["3.6 Cross-Document<br/>Verification"]
-    E -- "issues found" --> disband3(["Disband Team"])
+    disband2 --> spawn3(["Spawn Verification Team<br/>(3 sonnet verifiers)"])
+    spawn3 --> E["3.6 Cross-Document<br/>Verification<br/>(independent)"]
+    E --> F["3.7 Issue<br/>Cross-Validation<br/>(verifiers debate)"]
+    F -- "all issues<br/>dismissed" --> disband4(["Disband Team"])
+    F -- "true alarms<br/>confirmed" --> G["3.8 Issue Recording<br/>& Decision"]
+    G --> disband3(["Disband Team"])
     disband3 --> spawn2
-    E -- "clean pass" --> disband4(["Disband Team"])
-    disband4 --> F["3.7 Commit & Report"]
-    F --> G["4.1 Owner Review<br/>Session"]
+    disband4 --> H["3.9 Commit & Report"]
+    H --> I["4.1 Owner Review<br/>Session"]
 ```
 
 ### 3.1 Requirements Intake
@@ -188,49 +190,70 @@ Each member writes their assigned parts.
 
 ### 3.6 Cross-Document Consistency Verification
 
-Fresh agents verify that the written documents are correct and consistent.
+Fresh verification agents independently verify that the written documents
+are correct and consistent.
 
 **Steps:**
 
-1. Team leader spawns **ALL** core members of the team as **fresh** agents
-   (opus). The team leader does NOT choose a subset — every core member
-   listed in the team's agent directory is spawned. These agents have no
-   memory of who wrote what.
+1. Team leader spawns **ALL** members of the verification team as **fresh**
+   agents (sonnet). The team leader does NOT choose a subset — every member
+   listed in `.claude/agents/verification/` is spawned. These agents have
+   no memory of who wrote what.
 2. Show them **all** newly written documents and the resolution document.
-3. **Each member independently verifies ALL documents.** This is
+3. Present the goal: verify that documents are consistent. Do NOT give
+   detailed instructions, assign verification areas, or direct their work.
+4. **Each verifier independently reads ALL documents.** This is
    cross-document verification — every verifier must read every document to
    check consistency across the full set. Documents are NOT split among
-   members. Each member produces their own complete verification report.
-4. They verify:
-   - Documents match the resolution document (all agreed changes applied
-     correctly).
-   - Cross-document consistency (field names, message types, terminology,
-     cross-references all agree).
+   members. Each verifier produces their own complete issue list.
 
-**Verification checklist** (agents check at minimum):
+### 3.7 Issue Cross-Validation
 
-- [ ] Message type registry lists every message type defined across all docs
-- [ ] Error codes cover all error references
-- [ ] Field names are consistent across documents
-- [ ] Cross-references point to correct sections and targets exist
-- [ ] Terminology is uniform
-- [ ] Version headers and changelogs are updated
-- [ ] Cross-team requests (if any) are consistent with the source documents and resolution
+The verifiers discuss and filter their combined findings.
+
+**Team leader's role:**
+
+1. **EXPLICITLY** initiate step 3.7 by presenting the goal: "Reach
+   unanimous consensus on every raised issue. Dismiss false alarms,
+   confirm true alarms."
+2. Do NOT direct the discussion, assign speaking order, judge issues,
+   or suggest which issues are true or false.
+3. Wait for the verifiers to deliver a consolidated list.
+
+**Verifier rules:**
+
+- Verifiers communicate **peer-to-peer, directly with each other**.
+  The team leader is NOT a message proxy.
+- Unanimous consensus required for every issue — no majority vote.
+  If a verifier believes an issue is real, they must logically persuade
+  the others. If others present a convincing counter-argument, the
+  verifier withdraws honestly.
+- Discussion continues until every issue is confirmed or dismissed.
+- Verifiers self-organize: they decide how to discuss among themselves.
 
 **Outcomes:**
 
-- If **any** issues are found:
-  1. The team leader collects all issues from every verifier's report and
-     writes them to `v<X>/verification/round-{N}-issues.md` (where `{N}`
-     is the verification round number, starting at 1). Record each issue
-     verbatim: severity, document, location, description, expected fix.
-  2. Disband the verification team.
-  3. Go back to **3.4** — spawn fresh agents and pass the issue file as
-     input alongside the resolution document. The fresh team uses this
-     list to know exactly what needs fixing.
-  4. There is NO limit on how many rounds of 3.4 to 3.6 can repeat.
-     Continue until a clean verification pass is achieved.
-- If **clean** (no issues): proceed to 3.7.
+- If **all issues are dismissed**: the verifiers report a clean result.
+  Proceed to **3.9**.
+- If **true alarms are confirmed**: the verifiers deliver a single
+  consolidated list of unanimously confirmed issues. Proceed to **3.8**.
+
+### 3.8 Issue Recording & Decision
+
+The team leader records confirmed issues and decides the next step.
+
+**Steps:**
+
+1. The team leader writes confirmed issues to
+   `v<X>/verification/round-{N}-issues.md` (where `{N}` is the
+   verification round number, starting at 1). Format follows
+   [Verification Issues](../conventions/artifacts/documents/08-verification-issues.md).
+2. Disband the verification team.
+3. Go back to **3.4** — spawn fresh agents and pass the issue file as
+   input alongside the resolution document. The fresh team uses this
+   list to know exactly what needs fixing.
+4. There is NO limit on how many rounds of 3.4 to 3.8 can repeat.
+   Continue until a clean verification pass is achieved.
 
 **Key invariant:** Verification does NOT produce review notes. During the
 Revision Cycle, no review-note files are created. The team leader records
@@ -238,7 +261,7 @@ verification issues as structured input for the next 3.4 round, not as
 review-note files. Issues are transient — they exist only to guide the fix
 team and are superseded once the fix is applied and verified clean.
 
-### 3.7 Commit & Report
+### 3.9 Commit & Report
 
 The team leader finalizes and reports.
 
@@ -248,6 +271,7 @@ The team leader finalizes and reports.
 2. Team leader commits the documents.
 3. Team leader reports to the owner: what was produced, which version, and a
    summary of key decisions.
+4. This ends the Revision Cycle. Proceed to the Review Cycle (Section 4).
 
 ---
 
@@ -310,7 +334,7 @@ complete.
 
 1. The owner declares the review cycle complete.
 2. The team leader writes `v<X>/handover/handover-to-v<next>.md`.
-3. Content: insights learned during the Revision Cycle (3.1-3.7) and Review
+3. Content: insights learned during the Revision Cycle (3.1-3.9) and Review
    Cycle (4.1-4.2) that the NEXT revision cycle's team should know. This
    includes design philosophy, owner priorities, new conventions, and any
    context that review notes alone do not capture.
@@ -335,7 +359,7 @@ spec documents + review notes + handover as input.
 | `review-notes/{NN}-{topic}.md` | Review 4.2 | Team leader | `v<X>/review-notes/` | [review-notes.md](../conventions/artifacts/documents/02-review-notes.md) |
 | `handover-to-v<next>.md` | Review 4.3 | Team leader | `v<X>/handover/` | [handover.md](../conventions/artifacts/documents/03-handover.md) |
 | `cross-team-requests/{NN}-{topic}.md` | Revision 3.5 | Core member | Target team's `v<X>/cross-team-requests/` | [cross-team-requests.md](../conventions/artifacts/documents/07-cross-team-requests.md) |
-| `round-{N}-issues.md` | Revision 3.6 | Team leader | `v<X>/verification/` | -- |
+| `round-{N}-issues.md` | Revision 3.8 | Team leader | `v<X>/verification/` | [verification-issues.md](../conventions/artifacts/documents/08-verification-issues.md) |
 
 ### Version Directory Structure
 
