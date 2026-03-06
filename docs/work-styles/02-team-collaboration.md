@@ -249,10 +249,16 @@ Inbox files from the dead team persist at `~/.claude/teams/<old-name>/inboxes/*.
 
 ### 6.2 Zombie Agent Cleanup
 
-When `TeamDelete` fails with "Cannot cleanup team with N active member(s)":
+Before cleaning up, you MUST verify whether agents are actually dead or just idle (waiting for instructions). Skipping verification creates **dangling agents** — alive but unreachable — forcing the user to `/exit` Claude entirely.
 
-- Force-remove: `rm -rf ~/.claude/teams/<name>` then `TeamDelete`
-- Agents from dead sessions cannot respond to shutdown requests — they are orphaned processes that no longer exist. The only recourse is filesystem cleanup.
+**Correct procedure:**
+
+1. **Detect**: `TaskList` → find `in_progress` tasks and their owners.
+2. **Verify**: `SendMessage` to each owner to check if they are alive. Most "zombies" are actually idle agents waiting for instructions.
+3. **Graceful shutdown** (alive agents): Send `shutdown_request` → wait for approval.
+4. **Force cleanup** (truly unresponsive agents only): `rm -rf ~/.claude/teams/<name>` then `TeamDelete`. This is a last resort for agents from dead sessions that cannot respond.
+
+**NEVER** skip steps 1–3 and jump straight to `rm -rf`. This is the single most destructive mistake — it turns alive-but-idle agents into dangling processes that cannot be found or shut down.
 
 ### 6.3 Explicit File Creation Instructions
 
@@ -262,6 +268,16 @@ Agents sometimes complete their reasoning but fail to actually create files on d
 - Good: "Use the Write tool to create the analysis at `docs/.../v0.7/research-tmux-resize.md`"
 
 This is especially important for resolution documents, research reports, and new spec versions where the agent might confuse the discussion itself with the deliverable.
+
+### 6.5 Team Member Discovery
+
+When checking which agents belong to a team, use `ls -la` instead of `Glob`:
+
+```bash
+ls -la .claude/agents/<team-name>/
+```
+
+Some team members are assigned via **symlinks** (e.g., `ime-expert.md → ../ime-team/ime-expert.md`). `Glob` does not follow symlinks and will silently omit these members, causing the team leader to spawn an incomplete team.
 
 ### 6.4 Cross-References Between Workflow Documents
 
@@ -289,3 +305,5 @@ This is especially important for resolution documents, research reports, and new
 | **Majority vote produces false consensus** | 2-vs-1 "decision" where the dissenter was never actually convinced; the real problem they identified resurfaces later | Require unanimous consensus through logical persuasion. Escalate genuine deadlocks to the owner. Do NOT manufacture false agreement. |
 | **Team leader micromanages** | Leader gives step-by-step instructions ("change line 43 from X to Y") instead of stating goals; agents become passive executors | State the objective and constraints. Let the team figure out the approach. If Agent A found the issue, let Agent A negotiate with the doc owner directly. |
 | **Agent starts work before team assembles** | First-spawned agent reads team config, sees only itself, and begins working alone — producing uncoordinated single-agent output | Use a two-phase spawn: (1) Spawn all agents with a minimal prompt ("Wait for the team leader's broadcast with your task. Do NOT start any work until then."), (2) Wait for ALL agents to go idle (confirming registration), (3) Broadcast the actual task with full context. Never put substantive work instructions in the spawn prompt when spawning multiple agents in parallel. |
+| **Zombie cleanup without verification** | Team leader runs `rm -rf` on team directory without checking if agents are alive; alive-but-idle agents become dangling — unreachable, unkillable, user forced to `/exit` | Always verify with `TaskList` + `SendMessage` first. Only force-remove truly unresponsive agents. See Section 6.2. |
+| **Glob for team member discovery** | Team spawned with 3/5 members; symlinked agents silently omitted | Use `ls -la .claude/agents/<team>/` to see symlinks. `Glob` does not follow symlinks. See Section 6.5. |
