@@ -24,7 +24,7 @@
 
 ## Phase 4: Cross-Document Verification
 
-- [ ] Round 1 (fresh team, all core members)
+- [ ] Round 1 (fresh team, all verifiers)
 - [ ] Round 2 (fresh team, confirms fixes if any)
 
 ## Phase 5: Commit
