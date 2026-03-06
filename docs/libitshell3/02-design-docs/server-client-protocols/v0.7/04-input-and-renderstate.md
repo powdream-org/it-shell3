@@ -1014,7 +1014,7 @@ All input messages use JSON payloads (16-byte binary header + JSON body).
 
 1. **Cell deduplication**: Should the server maintain a cell style palette (assign IDs to unique style combinations) and send style IDs per cell instead of inline PackedColor+flags? This could reduce per-cell size from 20 bytes to ~10 bytes but adds complexity.
 
-2. **Image protocol**: Sixel and Kitty image protocol support is not covered here. Image data is potentially large and may need a dedicated message type with out-of-band transfer. Deferred to a future spec.
+2. **~~Image protocol~~** **Closed (v0.7)**: Moved to `99-post-v1-features.md` Section 1. Out of scope for v0.x through v1. Owner decision.
 
 3. **Selection protocol**: Text selection is currently encoded as a range per row in DirtyRows. Should there be dedicated SelectionStart/SelectionUpdate/SelectionEnd messages for multi-client selection sync?
 

@@ -1104,17 +1104,17 @@ Readonly clients receive ALL server-to-client messages, including:
 
 ## 10. Open Questions
 
-1. **Last-pane-close behavior**: Should closing the last pane in a session auto-destroy the session? Current design: yes, the session is destroyed when its last pane is closed (ClosePaneResponse `side_effect = 1`).
+1. **~~Last-pane-close behavior~~** **Closed (v0.7)**: Yes, auto-destroy. Already reflected in the design (`ClosePaneResponse` `side_effect = 1`). Owner confirmed.
 
 2. **Pane minimum size**: What is the minimum pane size below which splits are rejected? Suggestion: 2 columns x 1 row (matching tmux's minimum).
 
-3. **Session auto-destroy**: Should sessions with no attached clients be destroyed after a timeout? Current design: never (daemon keeps sessions alive indefinitely until explicitly destroyed or the daemon exits).
+3. **~~Session auto-destroy~~** **Closed (v0.7)**: Never. Keeping sessions alive indefinitely with no attached clients is a core design principle — the daemon preserves session state so users can reconnect later. Owner confirmed.
 
-4. **Zoom + split interaction**: If a pane is zoomed and the user requests a split, should we unzoom first and then split? Or reject the split while zoomed? tmux unzooms, which seems correct.
+4. **Zoom + split interaction**: If a pane is zoomed and the user requests a split, should we unzoom first and then split? Or reject the split while zoomed? Transferred to review note `06-zoom-split-interaction` for open discussion in v0.8.
 
 5. **Layout tree compression**: For deep trees or large numbers of panes, should we support a compressed layout wire format? The current JSON format is readable but verbose for large trees. This can be deferred -- the maximum practical size (~50 panes) would be under a few KB of JSON.
 
-6. **Pane reuse after exit**: When a shell process exits, should the pane remain visible (showing exit status) until explicitly closed, or auto-close? tmux has the `remain-on-exit` option. We should support both modes via per-pane or per-session configuration.
+6. **~~Pane reuse after exit~~** **Closed (v0.7)**: Auto-close. When a pane's process exits, the server automatically closes the pane. Remain-on-exit functionality deferred to post-v1 (see `99-post-v1-features.md`). Owner decision.
 
 ---
 

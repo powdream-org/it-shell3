@@ -13,6 +13,7 @@ v<X>/research/{NN}-{source}-{topic}.md
 ## Required Content
 
 - Specific source file paths and function/struct names from the reference codebase
+- **Git SHA or tag of the referenced repository at time of research** — source code may change after the report is written, so the exact commit must be recorded to keep findings reproducible
 - Factual findings only — no design recommendations
 - Trade-offs observed (what works well, what doesn't)
 - Known bugs or limitations in the reference implementation

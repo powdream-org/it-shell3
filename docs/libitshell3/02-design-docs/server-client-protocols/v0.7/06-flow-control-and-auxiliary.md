@@ -1218,7 +1218,7 @@ If a client or server receives a message with:
 
 8. **Silence detection scope**: Should SilenceDetected fire only for panes with recent activity (activity-then-silence pattern), or for any pane that has been silent? The activity-then-silence pattern is more useful (build completion notification). Suggestion: only fire after at least one byte of output has been seen since the last silence notification.
 
-9. **Tier transition telemetry**: Should the server notify clients when a pane's coalescing tier changes? Currently exposed via RendererHealth's `coalescing_tier` field. A dedicated notification might be useful for debugging but adds protocol surface. Suggestion: defer; RendererHealth is sufficient for v1.
+9. **~~Tier transition telemetry~~** **Closed (v0.7)**: RendererHealth's `coalescing_tier` field is sufficient. No dedicated notification needed. Owner confirmed.
 
 ---
 

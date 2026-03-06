@@ -1098,7 +1098,7 @@ For composition end:
 
 ## 15. Open Questions
 
-1. **Japanese/Chinese composition states**: The `composition_state` string currently only covers Korean (`ko_` prefix). When Japanese and Chinese are added, what states are needed? For Japanese: `ja_kana_composing`, `ja_clause_segment`, `ja_candidate_selection`. For Chinese (Pinyin): `zh_pinyin_input`, `zh_pinyin_candidate_selection`. For Chinese (Bopomofo): `zh_bopomofo_initial`, `zh_bopomofo_tone`, `zh_bopomofo_candidate_selection`. These can be added as new string constants without breaking the protocol (following the naming convention in IME Interface Contract Section 3.7).
+1. **~~Japanese/Chinese composition states~~** **Closed (v0.7)**: Moot — review note `04-composition-state-removal` removes the `composition_state` field entirely. This question was predicated on the field existing. The underlying need (CJK language extension) will be addressed as a design decision in v0.8 without the `composition_state` mechanism.
 
 2. **Candidate window protocol**: Japanese and Chinese IMEs present a candidate list. How should this be forwarded to the client? Options:
    - Embed candidate list in PreeditUpdate (simple but potentially large)
