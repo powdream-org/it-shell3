@@ -6,9 +6,10 @@
 
 ## IME Contract Changes (tracked in Protocol v0.8 Phase 3)
 
-- [ ] Remove `composition_state` field from `ImeResult` (Section 3.2)
-- [ ] Remove `CompositionStates` struct from `HangulImeEngine` (Section 3.7)
-- [ ] Remove `composition_state` column from scenario matrix (Section 3.2)
-- [ ] Remove `composition_state` memory model note (Section 6)
-- [ ] Remove composition-state naming convention (Section 3.7)
-- [ ] Update `setActiveInputMethod` return value examples (Section 3.6)
+- [x] 02-types.md: Remove `composition_state` field from `ImeResult` (Section 3.2)
+- [x] 02-types.md: Remove `composition_state` column from scenario matrix (Section 3.2)
+- [x] 03-engine-interface.md: Remove `CompositionStates` struct from `HangulImeEngine` (Section 3.7)
+- [x] 03-engine-interface.md: Remove composition-state naming convention (Section 3.7)
+- [x] 03-engine-interface.md: Update `setActiveInputMethod` return value examples (Section 3.6)
+- [x] 04-ghostty-integration.md: Remove `composition_state` memory model note (Section 6)
+- [x] 05-extensibility-and-deployment.md: Add `itshell3_preedit_cb` revision note (Section 8)

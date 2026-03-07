@@ -258,8 +258,11 @@ Without a designated reporter, the team leader receives fragmented, potentially 
 
 **Procedure:**
 
-1. **Discover**: `TaskList` → find all `in_progress` tasks and their owners.
-2. **Inquire**: `SendMessage` to each owner asking **what they are currently working on**. Do NOT send `shutdown_request` at this stage.
+1. **Discover**: `TaskList` alone is unreliable after compaction — it may return empty. The **ground truth** for active team membership is the team config file:
+   - `cat ~/.claude/teams/<team-name>/config.json` → read the `members` array to get every agent name in the team. This is the authoritative source.
+   - `TaskList` → cross-reference with any `in_progress` tasks if available.
+   - The team config `members` list is the **primary** source; TaskList is supplementary.
+2. **Inquire**: `SendMessage` to each discovered agent asking **what they are currently working on**. Do NOT send `shutdown_request` at this stage.
 3. **Classify** each agent into one of three states:
 
 | State | How to identify | Action |
