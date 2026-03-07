@@ -1,0 +1,6 @@
+ghostty
+itshell
+libghostty
+libhangul
+libitshell
+preedit

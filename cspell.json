@@ -1,0 +1,19 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "dictionaries": ["project-words"],
+  "dictionaryDefinitions": [
+    {
+      "name": "project-words",
+      "path": "./.cspell/dictionaries/project-words.txt",
+      "addWords": true
+    }
+  ],
+  "ignorePaths": [
+    "node_modules",
+    ".git",
+    "*.lock",
+    ".zig-cache",
+    "zig-out"
+  ]
+}
