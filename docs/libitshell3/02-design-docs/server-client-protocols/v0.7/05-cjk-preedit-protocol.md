@@ -1100,12 +1100,9 @@ For composition end:
 
 1. **~~Japanese/Chinese composition states~~** **Closed (v0.7)**: Moot — review note `04-composition-state-removal` removes the `composition_state` field entirely. This question was predicated on the field existing. The underlying need (CJK language extension) will be addressed as a design decision in v0.8 without the `composition_state` mechanism.
 
-2. **Candidate window protocol**: Japanese and Chinese IMEs present a candidate list. How should this be forwarded to the client? Options:
-   - Embed candidate list in PreeditUpdate (simple but potentially large)
-   - Separate CandidateList message with pagination
-   - Defer to v2 (current recommendation)
+2. **~~Candidate window protocol~~** **Closed (v0.7)**: Out of scope through v1. Moved to `99-post-v1-features.md` Section 3. Review note `05-preedit-rendering-model` includes a v2 `candidates` schema sketch for reference. Owner decision.
 
-3. **Client-side prediction**: For high-latency connections via SSH tunnel, should the client perform local Korean composition prediction and display it immediately, then reconcile with the server's authoritative state? This would improve perceived latency but adds significant complexity.
+3. **~~Client-side prediction~~** **Closed (v0.7)**: Will not discuss. Preedit rendering requires server-side libghostty-vt for width computation and line wrapping (`lines[]` + `segments[]` model). Moving IME to client does not eliminate the server roundtrip for preedit display. Owner decision.
 
 4. **Preedit and selection interaction**: If a user selects text on a pane where preedit is active, should the selection replace the preedit? Current design: selection operations commit the preedit first, then proceed with selection.
 

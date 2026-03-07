@@ -51,16 +51,13 @@ Owner review session produced 2 additional review notes (04, 05) beyond the 3 ve
 | Doc 05 Q1 (Japanese/Chinese composition states) | **Moot** | Review note `04-composition-state-removal` removes the `composition_state` field entirely. Q1 was predicated on this field existing. CJK language extension will be addressed as a v0.8 design decision without the `composition_state` mechanism. |
 | Doc 03 Q1 (Last-pane-close behavior) | **Closed** | Already reflected in the design (`ClosePaneResponse` `side_effect = 1`). Owner confirmed: yes, auto-destroy. |
 | Doc 03 Q3 (Session auto-destroy) | **Closed** | Core design principle: daemon keeps sessions alive indefinitely with no attached clients. This is fundamental to the daemon's purpose (reconnect later). Owner confirmed: never. |
-| Doc 04 Q2 (Image protocol) | **Closed — out of scope through v1** | Sixel/Kitty image support is not to be discussed until post-v1. Moved to `99-post-v1-features.md`. Owner decision. |
 | Doc 06 Q9 (Tier transition telemetry) | **Closed** | RendererHealth's `coalescing_tier` field is sufficient. No dedicated notification needed. Owner confirmed. |
-| Doc 03 Q6 (Pane reuse after exit) | **Closed** | Auto-close in v1. Remain-on-exit deferred to post-v1 (see `99-post-v1-features.md`). Owner decision. |
+| Doc 05 Q3 (Client-side prediction) | **Closed — will not discuss** | Preedit rendering requires server-side libghostty-vt for width/wrapping. Client-side IME does not eliminate server roundtrip. Owner decision. |
 
 **Instruction to v0.8 writers**: These questions are fully closed. Do NOT carry them into v0.8 open questions. Specifically:
-- Remove Q5 and Q1 from Doc 05 Section 15.
+- Remove Q5, Q1, Q3 from Doc 05 Section 15.
 - Remove Q1 and Q3 from Doc 03 Section 10.
-- Remove Q2 from Doc 04 Section 11. Image protocol is out of scope through v1 — do NOT reopen.
 - Remove Q9 from Doc 06 Section 11.
-- Remove Q6 from Doc 03 Section 10.
 
 ### 5.1b Transferred to Review Notes
 
@@ -78,7 +75,18 @@ Owner review session produced 2 additional review notes (04, 05) beyond the 3 ve
 
 ### 5.4 Defer Beyond v1
 
-{TODO}
+All items below are moved to `99-post-v1-features.md`. Do NOT discuss or design these during v0.x through v1.
+
+| Question | Post-v1 Section | Rationale |
+|----------|-----------------|-----------|
+| Doc 04 Q2 (Image protocol) | Section 1 | Sixel/Kitty requires dedicated message type and out-of-band transfer. Entirely different problem domain. Owner decision. |
+| Doc 03 Q6 (Pane reuse after exit) | Section 2 | v1 uses auto-close. Remain-on-exit requires ghostty `wait-after-command` integration. Owner decision. |
+| Doc 05 Q2 (Candidate window protocol) | Section 3 | Japanese/Chinese candidate list. v2 schema sketch in review note 05. Owner decision. |
+
+**Instruction to v0.8 writers**: Do NOT carry these into v0.8 open questions. Remove from their respective sections:
+- Remove Q2 from Doc 04 Section 11.
+- Remove Q6 from Doc 03 Section 10.
+- Remove Q2 from Doc 05 Section 15.
 
 ## 6. Pre-Discussion Research Tasks
 

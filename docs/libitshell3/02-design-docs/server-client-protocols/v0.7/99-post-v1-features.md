@@ -26,3 +26,28 @@ v1 uses auto-close: when a pane's process exits, the server automatically closes
 Post-v1, add a `remain-on-exit` option (per-pane or per-session configuration) that keeps the pane visible with exit status displayed until the user explicitly closes it. tmux supports this via `set -g remain-on-exit on`.
 
 **Implementation note**: When implementing remain-on-exit, ghostty's `wait-after-command` option MUST be considered. libghostty already has the plumbing — the embedder passes `wait_after_command = true` via `Surface.Options` and the Surface stays open after process exit. However, ghostty's behavior (show "Press any key to close" message, close on any keypress) may not match our desired UX (pane stays until explicit `ClosePane`). The daemon may need to handle the process exit callback independently rather than relying on ghostty's built-in wait behavior. See `v0.7/research/04-ghostty-wait-after-command.md` for the full ghostty implementation details.
+
+## 3. Candidate Window Protocol
+
+**Origin**: Doc 05 Open Question #2 (closed in v0.7, owner decision)
+
+Japanese and Chinese IMEs present a candidate list for character selection. This requires:
+- Candidate list data delivery to the client (potentially large for Chinese)
+- Pagination support
+- Candidate selection feedback (client → server)
+- Candidate window positioning relative to preedit text
+
+Review note `v0.7/review-notes/05-preedit-rendering-model` includes a v2 `candidates` JSON schema sketch:
+
+```json
+{
+  "candidates": {
+    "items": ["日本語を", "二本後を"],
+    "selected": 0,
+    "page": 1,
+    "total_pages": 3
+  }
+}
+```
+
+This schema is a starting point for post-v1 design, not a commitment.
