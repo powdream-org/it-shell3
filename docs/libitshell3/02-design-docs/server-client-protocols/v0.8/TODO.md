@@ -194,4 +194,4 @@
 - [x] Clean verification pass achieved (3/4 CLEAN in round 11; owner stopped loop)
 - [x] Commit protocol v0.8 + IME contract v0.7 (`670e105`)
 - [x] Carry forward 15 unclosed review notes to v0.9 (renumbered by severity)
-- [ ] Report to owner
+- [x] Report to owner (handover document: `v0.8/handover/handover-to-v0.9.md`)
