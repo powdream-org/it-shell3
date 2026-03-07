@@ -133,7 +133,7 @@ Research needed (carried forward from v0.7 handover): how does ghostty internall
 - How are URIs stored and deduplicated?
 - What data is available through the public API for serialization?
 
-Source: `~/dev/git/references/ghostty/`, look for `hyperlink` in the terminal page/cell structures.
+Source: `vendors/ghostty/`, look for `hyperlink` in the terminal page/cell structures.
 
 ### 6.2 For `01-scroll-delivery-design`
 

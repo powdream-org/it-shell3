@@ -34,7 +34,7 @@ Team argued "10K cells x 60fps requires binary for bandwidth." All three special
 
 ### Reference findings
 
-**ghostty** (source: ~/dev/git/references/ghostty/):
+**ghostty** (source: vendors/ghostty/):
 - Event-driven rendering, NO fixed fps. xev.Async coalescing.
 - CVDisplayLink on macOS (vsync). Commented-out 10ms coalescing timer.
 - GPU struct (`CellText`, 32B) is 70%+ client-local data (font shaping, atlas coords).

@@ -99,7 +99,7 @@ When reporting analysis:
 
 - tmux: `~/dev/git/references/tmux/` (daemon/client IPC, session persistence)
 - zellij: `~/dev/git/references/zellij/` (multi-threaded architecture)
-- ghostty: `~/dev/git/references/ghostty/` (PTY handling)
+- ghostty: `vendors/ghostty/` (PTY handling)
 
 ## Protocol Documents Location
 

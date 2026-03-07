@@ -524,7 +524,7 @@ This causes the renderer to hold its previous frame until the application signal
 | `src/termio/Exec.zig` | 1310-1390 | PTY read loop — reads into 1KB buffer, calls processOutput per read |
 | `src/Surface.zig` | 2408-2416 | queueRender() → renderer_thread.wakeup.notify() |
 
-All file paths are relative to `~/dev/git/references/ghostty/`.
+All file paths are relative to `vendors/ghostty/`.
 
 ---
 

@@ -66,7 +66,7 @@ When reporting analysis:
 
 ## Reference Codebases
 
-- ghostty: `~/dev/git/references/ghostty/` (RenderState, CellData, dirty flags)
+- ghostty: `vendors/ghostty/` (RenderState, CellData, dirty flags)
 - iTerm2: `~/dev/git/references/iTerm2/` (adaptive fps, ProMotion)
 
 ## Document Locations

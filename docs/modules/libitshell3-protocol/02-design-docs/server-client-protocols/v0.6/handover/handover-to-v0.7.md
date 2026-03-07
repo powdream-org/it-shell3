@@ -465,5 +465,5 @@ Decisions made by the owner during the v0.6 review session that constrain v0.7 w
 |-----------|------|
 | tmux | `~/dev/git/references/tmux/` |
 | zellij | `~/dev/git/references/zellij/` |
-| ghostty | `~/dev/git/references/ghostty/` |
+| ghostty | `vendors/ghostty/` |
 | iTerm2 | `~/dev/git/references/iTerm2/` |

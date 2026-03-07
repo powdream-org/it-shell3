@@ -2,7 +2,7 @@
 
 **Date**: 2026-03-07
 **Source**: ghostty (https://github.com/ghostty-org/ghostty)
-**Git SHA (source reading)**: `2502ca294efe5aa9722c36e25b2252b0150054e9` (reference repo `~/dev/git/references/ghostty/`)
+**Git SHA (source reading)**: `2502ca294efe5aa9722c36e25b2252b0150054e9` (reference repo `vendors/ghostty/`)
 **Git SHA (pre-built binary)**: `76b7704783e411d035c6ab3036ecaa0454e3f7de` (it-shell v1 fork, `GhosttyKit.xcframework/macos-arm64_x86_64/libghostty.a`)
 **Cross-reference**: Research 06 (ghostty preedit rendering), `poc/02-ime-ghostty-real/FINDINGS.md`
 

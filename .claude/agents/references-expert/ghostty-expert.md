@@ -162,7 +162,7 @@ and constants. Do not speculate beyond what the source code shows.
 
 ## Reference Codebases
 
-- ghostty (primary): `~/dev/git/references/ghostty/`
+- ghostty (primary): `vendors/ghostty/`
   - `src/input/key.zig` — Key enum, modifier system
   - `src/input/key_mods.zig` — Modifier packed struct, aliases
   - `src/renderer/State.zig` — RenderState, cell data, dirty tracking

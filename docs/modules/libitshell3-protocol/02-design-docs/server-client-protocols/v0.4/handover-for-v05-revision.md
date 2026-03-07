@@ -226,7 +226,7 @@ Custom agents for the protocol team are registered at `.claude/agents/protocol-t
 
 **Optional researchers** (spawn on demand):
 - **tmux Researcher**: For Issue 1 — investigate how tmux handles multi-window (single connection with multiplexed switching? or multiple connections?). Source: `~/dev/git/references/tmux/`
-- **ghostty Researcher**: For Issue 4d — verify ghostty's internal key/modifier naming for alignment. Source: `~/dev/git/references/ghostty/`
+- **ghostty Researcher**: For Issue 4d — verify ghostty's internal key/modifier naming for alignment. Source: `vendors/ghostty/`
 
 ---
 

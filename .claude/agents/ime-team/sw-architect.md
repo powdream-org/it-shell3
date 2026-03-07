@@ -102,7 +102,7 @@ When making architectural decisions:
 
 ## Reference Codebases
 
-- ghostty: `~/dev/git/references/ghostty/`
+- ghostty: `vendors/ghostty/`
 - ibus-hangul / fcitx5-hangul: Research via web search or known patterns
 - libhangul: C library, `hangul_ic_process()`, `hangul_ic_flush()`, `hangul_ic_reset()`
 

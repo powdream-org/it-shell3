@@ -63,7 +63,7 @@ When reporting analysis or recommendations:
 
 ## Reference Codebases
 
-- ghostty: `~/dev/git/references/ghostty/`
+- ghostty: `vendors/ghostty/`
 - tmux: `~/dev/git/references/tmux/` (daemon/protocol patterns)
 - zellij: `~/dev/git/references/zellij/` (LE encoding, protobuf usage)
 

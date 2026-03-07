@@ -12,7 +12,7 @@ The full embedding API is what cmux uses and what it-shell3 will use.
 ## Source Locations
 
 ```
-~/dev/git/references/ghostty/
+vendors/ghostty/
 ├── include/
 │   ├── ghostty.h              # Full embedding API (1170 lines)
 │   ├── module.modulemap       # Swift/Clang module map

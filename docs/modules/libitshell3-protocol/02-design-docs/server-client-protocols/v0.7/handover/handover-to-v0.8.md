@@ -169,4 +169,4 @@ Research needed: how does ghostty internally represent OSC 8 hyperlinks in its c
 - How are URIs stored and deduplicated?
 - What data is available through the public API for serialization?
 
-Source: `~/dev/git/references/ghostty/`, look for `hyperlink` in the terminal page/cell structures.
+Source: `vendors/ghostty/`, look for `hyperlink` in the terminal page/cell structures.

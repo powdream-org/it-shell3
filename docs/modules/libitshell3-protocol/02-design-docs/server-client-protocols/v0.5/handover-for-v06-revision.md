@@ -297,4 +297,4 @@ function/struct names). Reports are input to team discussion on Issues 2a and 2b
 |-----------|------|
 | tmux | `~/dev/git/references/tmux/` |
 | zellij | `~/dev/git/references/zellij/` |
-| ghostty | `~/dev/git/references/ghostty/` |
+| ghostty | `vendors/ghostty/` |

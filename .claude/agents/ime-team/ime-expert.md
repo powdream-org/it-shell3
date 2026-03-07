@@ -148,7 +148,7 @@ When reporting analysis or PoC findings:
 
 - libhangul: C library, `hangul_ic_process()`, `hangul_ic_flush()`, `hangul_ic_reset()`
 - ibus-hangul / fcitx5-hangul: Reference for modifier flush policy and composition behavior
-- ghostty: `~/dev/git/references/ghostty/` (surface API for integration layer)
+- ghostty: `vendors/ghostty/` (surface API for integration layer)
 
 ## Document Locations
 

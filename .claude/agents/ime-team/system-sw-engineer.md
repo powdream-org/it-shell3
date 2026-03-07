@@ -122,7 +122,7 @@ When reporting analysis:
 
 ## Reference Codebases
 
-- ghostty: `~/dev/git/references/ghostty/` (surface API, event handling)
+- ghostty: `vendors/ghostty/` (surface API, event handling)
 - tmux: `~/dev/git/references/tmux/` (session/pane lifecycle, daemon architecture)
 - libhangul: C library, buffer lifetime semantics
 

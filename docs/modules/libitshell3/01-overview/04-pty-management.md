@@ -8,7 +8,7 @@ PTY (pseudo-terminal) management is the foundation of terminal multiplexing. The
 
 ## 1. Ghostty PTY Implementation
 
-**Source**: `~/dev/git/references/ghostty/src/pty.zig`
+**Source**: `vendors/ghostty/src/pty.zig`
 
 ### Platform Abstraction
 
@@ -76,7 +76,7 @@ The `IUTF8` flag on the PTY slave is essential:
 
 ## 2. Ghostty Terminal I/O Architecture
 
-**Source**: `~/dev/git/references/ghostty/src/termio/`
+**Source**: `vendors/ghostty/src/termio/`
 
 ### Termio Layer
 
