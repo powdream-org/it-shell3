@@ -270,26 +270,26 @@ function/struct names). Reports are input to team discussion on Issues 2a and 2b
 
 | Document | Path |
 |----------|------|
-| Doc 01 (Protocol Overview) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/01-protocol-overview.md` |
-| Doc 02 (Handshake) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/02-handshake-capability-negotiation.md` |
-| Doc 03 (Session/Pane Mgmt) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/03-session-pane-management.md` |
-| Doc 04 (Input/RenderState) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/04-input-and-renderstate.md` |
-| Doc 05 (CJK Preedit) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/05-cjk-preedit-protocol.md` |
-| Doc 06 (Flow Control) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/06-flow-control-and-auxiliary.md` |
+| Doc 01 (Protocol Overview) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/01-protocol-overview.md` |
+| Doc 02 (Handshake) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/02-handshake-capability-negotiation.md` |
+| Doc 03 (Session/Pane Mgmt) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/03-session-pane-management.md` |
+| Doc 04 (Input/RenderState) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/04-input-and-renderstate.md` |
+| Doc 05 (CJK Preedit) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/05-cjk-preedit-protocol.md` |
+| Doc 06 (Flow Control) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/06-flow-control-and-auxiliary.md` |
 
 ### v0.5 Review Notes and Handovers
 
 | Document | Path |
 |----------|------|
-| Review Notes: Focus, Resize, Health | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/review-notes-01-per-client-focus-indicators.md` |
-| Review Notes: Consistency (20 issues) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/review-notes-consistency.md` |
-| Handover: Identifier Consensus | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/handover-identifier-consensus.md` |
+| Review Notes: Focus, Resize, Health | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/review-notes-01-per-client-focus-indicators.md` |
+| Review Notes: Consistency (20 issues) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/review-notes-consistency.md` |
+| Handover: Identifier Consensus | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/handover-identifier-consensus.md` |
 
 ### IME Interface Contract
 
 | Document | Path |
 |----------|------|
-| IME Contract v0.4 | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.4/01-interface-contract.md` |
+| IME Contract v0.4 | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.4/01-interface-contract.md` |
 
 ### Reference Codebases
 

@@ -118,7 +118,7 @@ This separation is important: libhangul produces UTF-8 text (e.g., "한"), which
 
 ### Preedit Fields in FrameUpdate
 
-From `docs/libitshell3/13-render-state-protocol.md`:
+From `docs/modules/libitshell3/13-render-state-protocol.md`:
 
 ```
 FrameUpdate {

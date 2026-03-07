@@ -4,7 +4,7 @@
 > **Date**: 2026-03-05
 > **Review type**: Cross-document consistency review (IME contract v0.3 x Protocol v0.4)
 > **Participants**: protocol-architect, ime-expert, cjk-specialist
-> **Companion file**: `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-cross-review-ime.md`
+> **Companion file**: `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-cross-review-ime.md`
 
 ---
 

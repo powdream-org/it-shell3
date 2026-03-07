@@ -4,7 +4,7 @@
 > **Date**: 2026-03-05
 > **Review type**: Cross-document consistency review — protocol-side notes
 > **Participants**: protocol-architect, ime-expert, cjk-specialist
-> **Companion file**: `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-notes-cross-review.md`
+> **Companion file**: `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-notes-cross-review.md`
 
 ---
 

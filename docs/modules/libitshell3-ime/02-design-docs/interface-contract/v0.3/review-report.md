@@ -13,18 +13,18 @@
 
 | Doc | Title | Path |
 |-----|-------|------|
-| 01 | Protocol Overview | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/01-protocol-overview.md` |
-| 02 | Handshake & Capability Negotiation | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/02-handshake-capability-negotiation.md` |
-| 03 | Session & Pane Management | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/03-session-pane-management.md` |
-| 04 | Input & RenderState | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/04-input-and-renderstate.md` |
-| 05 | CJK Preedit Protocol | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/05-cjk-preedit-protocol.md` |
-| 06 | Flow Control & Auxiliary | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/06-flow-control-and-auxiliary.md` |
+| 01 | Protocol Overview | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/01-protocol-overview.md` |
+| 02 | Handshake & Capability Negotiation | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/02-handshake-capability-negotiation.md` |
+| 03 | Session & Pane Management | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/03-session-pane-management.md` |
+| 04 | Input & RenderState | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/04-input-and-renderstate.md` |
+| 05 | CJK Preedit Protocol | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/05-cjk-preedit-protocol.md` |
+| 06 | Flow Control & Auxiliary | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/06-flow-control-and-auxiliary.md` |
 
 ### IME Interface Contract v0.3
 
 | Doc | Title | Path |
 |-----|-------|------|
-| 01 | Interface Contract | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/01-interface-contract.md` |
+| 01 | Interface Contract | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/01-interface-contract.md` |
 
 ---
 

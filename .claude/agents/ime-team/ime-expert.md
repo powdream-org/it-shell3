@@ -32,9 +32,9 @@ ImeResult processing pipeline.
   to `review-resolutions.md`
 
 **Owned documents:**
-- `docs/libitshell3-ime/02-design-docs/interface-contract/<latest-version>/01-interface-contract.md`
+- `docs/modules/libitshell3-ime/02-design-docs/interface-contract/<latest-version>/01-interface-contract.md`
 
-> To find the latest version: `ls docs/libitshell3-ime/02-design-docs/interface-contract/ | grep '^v' | sort -V | tail -1`
+> To find the latest version: `ls docs/modules/libitshell3-ime/02-design-docs/interface-contract/ | grep '^v' | sort -V | tail -1`
 
 ## Settled Decisions (Do NOT Re-debate)
 
@@ -152,7 +152,7 @@ When reporting analysis or PoC findings:
 
 ## Document Locations
 
-- IME contract: `docs/libitshell3-ime/02-design-docs/interface-contract/`
+- IME contract: `docs/modules/libitshell3-ime/02-design-docs/interface-contract/`
 - PoC source: `poc/ime-ghostty-real/poc-ghostty-real.m`
 - PoC findings: `poc/ime-ghostty-real/FINDINGS.md`
-- libhangul docs: `docs/libitshell3-ime/01-overview/`
+- libhangul docs: `docs/modules/libitshell3-ime/01-overview/`

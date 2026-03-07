@@ -51,10 +51,10 @@ If the question is about what the OS does with those bytes, ask you.
   background execution limits.
 
 **Owned documents** (always use the latest versioned directory):
-- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/03-session-pane-management.md`
-- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/06-flow-control-and-auxiliary.md`
+- `docs/modules/libitshell3/02-design-docs/server-client-protocols/<latest-version>/03-session-pane-management.md`
+- `docs/modules/libitshell3/02-design-docs/server-client-protocols/<latest-version>/06-flow-control-and-auxiliary.md`
 
-> To find the latest version: `ls docs/libitshell3/02-design-docs/server-client-protocols/ | grep '^v' | sort -V | tail -1`
+> To find the latest version: `ls docs/modules/libitshell3/02-design-docs/server-client-protocols/ | grep '^v' | sort -V | tail -1`
 
 ## Settled Decisions (Do NOT Re-debate)
 
@@ -103,4 +103,4 @@ When reporting analysis:
 
 ## Protocol Documents Location
 
-All protocol specs: `docs/libitshell3/02-design-docs/server-client-protocols/`
+All protocol specs: `docs/modules/libitshell3/02-design-docs/server-client-protocols/`

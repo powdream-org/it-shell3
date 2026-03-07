@@ -25,7 +25,7 @@ themselves are correct — only the explanatory notes below them are inconsisten
 ### Origin
 
 These were missed when applying Change 2 from
-`docs/libitshell3-ime/02-design-docs/interface-contract/v0.5/protocol-changes-for-v06.md`,
+`docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.5/protocol-changes-for-v06.md`,
 which specified removing all `"empty"` state labels. The table rows were updated but the
 prose notes were overlooked.
 

@@ -421,43 +421,43 @@ Decisions made by the owner during the v0.6 review session that constrain v0.7 w
 
 | Document | Path |
 |----------|------|
-| Doc 01 (Protocol Overview) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/01-protocol-overview.md` |
-| Doc 02 (Handshake) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/02-handshake-capability-negotiation.md` |
-| Doc 03 (Session/Pane Mgmt) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/03-session-pane-management.md` |
-| Doc 04 (Input/RenderState) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/04-input-and-renderstate.md` |
-| Doc 05 (CJK Preedit) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/05-cjk-preedit-protocol.md` |
-| Doc 06 (Flow Control) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/06-flow-control-and-auxiliary.md` |
+| Doc 01 (Protocol Overview) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/01-protocol-overview.md` |
+| Doc 02 (Handshake) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/02-handshake-capability-negotiation.md` |
+| Doc 03 (Session/Pane Mgmt) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/03-session-pane-management.md` |
+| Doc 04 (Input/RenderState) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/04-input-and-renderstate.md` |
+| Doc 05 (CJK Preedit) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/05-cjk-preedit-protocol.md` |
+| Doc 06 (Flow Control) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/06-flow-control-and-auxiliary.md` |
 
 ### v0.6 Design Artifacts
 
 | Document | Path |
 |----------|------|
-| Design Resolutions (resize + health) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/design-resolutions-resize-health.md` |
-| Research: tmux resize/health | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/research-tmux-resize-health.md` |
-| Research: zellij resize/health | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/research-zellij-resize-health.md` |
+| Design Resolutions (resize + health) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/design-resolutions-resize-health.md` |
+| Research: tmux resize/health | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/research-tmux-resize-health.md` |
+| Research: zellij resize/health | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/research-zellij-resize-health.md` |
 
 ### v0.6 Review Notes
 
 | Document | Path |
 |----------|------|
-| Review Notes 01 (cosmetic, 1 issue) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes/01-residual-empty-state.md` |
-| Review Notes: Consistency (17 issues) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes/02-cross-document-consistency.md` |
-| Review Notes: Owner Review (4 issues) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes/03-owner-architectural-review.md` |
-| This handover | `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/handover/handover-to-v0.7.md` |
+| Review Notes 01 (cosmetic, 1 issue) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes/01-residual-empty-state.md` |
+| Review Notes: Consistency (17 issues) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes/02-cross-document-consistency.md` |
+| Review Notes: Owner Review (4 issues) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/review-notes/03-owner-architectural-review.md` |
+| This handover | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/handover/handover-to-v0.7.md` |
 
 ### v0.5 Handover (predecessor)
 
 | Document | Path |
 |----------|------|
-| v0.5→v0.6 handover | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/handover-for-v06-revision.md` |
-| v0.5 identifier consensus | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/handover-identifier-consensus.md` |
+| v0.5→v0.6 handover | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/handover-for-v06-revision.md` |
+| v0.5 identifier consensus | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/handover-identifier-consensus.md` |
 
 ### IME Interface Contract (cross-reference)
 
 | Document | Path |
 |----------|------|
-| IME contract v0.5 (current) | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.5/01-interface-contract.md` |
-| IME v0.5→v0.6 handover | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.5/handover-for-v06-revision.md` |
+| IME contract v0.5 (current) | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.5/01-interface-contract.md` |
+| IME v0.5→v0.6 handover | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.5/handover-for-v06-revision.md` |
 
 ### Reference Codebases
 

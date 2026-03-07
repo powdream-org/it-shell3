@@ -93,7 +93,7 @@ None identified. The identifier consensus is fully applied and verified across a
 
 | Document | Path |
 |---|---|
-| IME contract v0.4 | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.4/01-interface-contract.md` |
-| Protocol doc 04 (v0.5) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/04-input-and-renderstate.md` |
-| Protocol doc 05 (v0.5) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/05-cjk-preedit-protocol.md` |
-| Protocol doc 06 (v0.5) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/06-flow-control-and-auxiliary.md` |
+| IME contract v0.4 | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.4/01-interface-contract.md` |
+| Protocol doc 04 (v0.5) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/04-input-and-renderstate.md` |
+| Protocol doc 05 (v0.5) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/05-cjk-preedit-protocol.md` |
+| Protocol doc 06 (v0.5) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/06-flow-control-and-auxiliary.md` |

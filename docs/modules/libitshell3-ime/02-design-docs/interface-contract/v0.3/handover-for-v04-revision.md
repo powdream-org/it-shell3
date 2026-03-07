@@ -13,10 +13,10 @@ A cross-document consistency review between **Protocol v0.4** (6 docs) and **IME
 
 | File | Location | Commit |
 |------|----------|--------|
-| Initial review report | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-report.md` | `cf0a0fe` |
-| IME-side cross-review notes | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-notes-cross-review.md` | `7ed134c` |
-| Protocol-side cross-review notes | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-cross-review-ime.md` | `7ed134c` |
-| User's own protocol review notes | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-01-protocol-overview.md` | `99ff5b9` |
+| Initial review report | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-report.md` | `cf0a0fe` |
+| IME-side cross-review notes | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-notes-cross-review.md` | `7ed134c` |
+| Protocol-side cross-review notes | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-cross-review-ime.md` | `7ed134c` |
+| User's own protocol review notes | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-01-protocol-overview.md` | `99ff5b9` |
 
 ---
 
@@ -65,7 +65,7 @@ The cross-review produced **review notes only** — no design documents were mod
 ## User's own review notes (NOT from cross-review)
 
 The user has their own review notes for protocol doc 01 at:
-`docs/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-01-protocol-overview.md`
+`docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-01-protocol-overview.md`
 
 This file contains 2 issues the user raised independently:
 

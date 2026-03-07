@@ -55,7 +55,7 @@ v1 PreeditUpdate is 3 fields: `pane_id`, `preedit_session_id`, `text`. That's it
 
 5. **Update `setActiveInputMethod` examples** — remove `.composition_state = null` from all `ImeResult` examples in Section 3.6.
 
-All of these are tracked in `docs/libitshell3-ime/02-design-docs/interface-contract/v0.6/cross-team-requests/01-protocol-composition-state-removal.md`.
+All of these are tracked in `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.6/cross-team-requests/01-protocol-composition-state-removal.md`.
 
 ---
 
@@ -73,7 +73,7 @@ Before writing v0.7, research how the server should inject preedit cells into th
 - How does ghostty's `renderer.State.preedit` interact with cell serialization?
 - What cell attributes should preedit cells have (foreground color, decoration flags)?
 - How should dirty tracking handle preedit changes (preedit is not in the terminal grid, so grid dirty bits don't naturally cover it)?
-- `docs/libitshell3/02-design-docs/server-client-protocols/v0.7/research/07-ghostty-preedit-cell-serialization.md` has initial findings, but implementation-level details are needed.
+- `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.7/research/07-ghostty-preedit-cell-serialization.md` has initial findings, but implementation-level details are needed.
 
 ### 2. Verify ghostty preedit behavior on latest upstream
 

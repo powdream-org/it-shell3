@@ -182,7 +182,7 @@ Client → raw HID keycodes → Server → NSTextInputContext → committed text
 
 ### Why It Was Rejected
 
-Documented in `docs/libitshell3/14-architecture-validation-report.md`:
+Documented in `docs/modules/libitshell3/14-architecture-validation-report.md`:
 
 | Risk | Severity | Details |
 |------|----------|---------|

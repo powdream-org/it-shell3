@@ -3,7 +3,7 @@
 > **Date**: 2026-03-05
 > **Source**: IME interface contract v0.5 revision (Issues 2.1, 2.4, 2.5b)
 > **Target**: Protocol doc 05 v0.6 revision team
-> **File**: `docs/libitshell3/02-design-docs/server-client-protocols/v0.6/05-cjk-preedit-protocol.md`
+> **File**: `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.6/05-cjk-preedit-protocol.md`
 
 ---
 

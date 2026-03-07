@@ -27,10 +27,10 @@ composition display, and ambiguous-width handling. Your job is to ensure CJK inp
 and display are first-class citizens, not bolted-on afterthoughts.
 
 **Owned documents** (always use the latest versioned directory):
-- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/04-input-and-renderstate.md`
-- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/05-cjk-preedit-protocol.md`
+- `docs/modules/libitshell3/02-design-docs/server-client-protocols/<latest-version>/04-input-and-renderstate.md`
+- `docs/modules/libitshell3/02-design-docs/server-client-protocols/<latest-version>/05-cjk-preedit-protocol.md`
 
-> To find the latest version: `ls docs/libitshell3/02-design-docs/server-client-protocols/ | grep '^v' | sort -V | tail -1`
+> To find the latest version: `ls docs/modules/libitshell3/02-design-docs/server-client-protocols/ | grep '^v' | sort -V | tail -1`
 
 ## Settled Decisions (Do NOT Re-debate)
 
@@ -71,6 +71,6 @@ When reporting analysis:
 
 ## Document Locations
 
-- Protocol specs: `docs/libitshell3/02-design-docs/server-client-protocols/`
-- IME design docs: `docs/libitshell3-ime/02-design-docs/`
-- IME interface contract: `docs/libitshell3-ime/02-design-docs/interface-contract/`
+- Protocol specs: `docs/modules/libitshell3/02-design-docs/server-client-protocols/`
+- IME design docs: `docs/modules/libitshell3-ime/02-design-docs/`
+- IME interface contract: `docs/modules/libitshell3-ime/02-design-docs/interface-contract/`

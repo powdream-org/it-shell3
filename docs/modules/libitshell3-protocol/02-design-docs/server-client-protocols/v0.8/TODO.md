@@ -1,7 +1,7 @@
 # Protocol v0.8 TODO
 
 > **Cross-team revision** with IME Contract v0.7. Single topic: preedit protocol overhaul.
-> IME Contract TODO: `docs/libitshell3-ime/02-design-docs/interface-contract/v0.7/TODO.md`
+> IME Contract TODO: `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.7/TODO.md`
 
 ## Phase 1: Discussion & Consensus (cross-team, 7 core members)
 

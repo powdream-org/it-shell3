@@ -11,10 +11,10 @@ The following existing documents contain outdated information that conflicts wit
 
 | Document | Issue | Status |
 |----------|-------|--------|
-| `docs/libitshell3/01-overview/13-render-state-protocol.md` | References NSTextInputContext for server-side preedit (lines 277-284). Should reference libitshell3-ime's `processKey()` flow. | Stale -- needs update |
-| `docs/libitshell3/01-overview/09-recommended-architecture.md` | Contains client-driven preedit API (`itshell3_preedit_start/update/end`). With native IME, preedit is server-driven. | Stale -- needs update |
-| `docs/libitshell3/01-overview/14-architecture-validation-report.md` | States "~300-400 lines of pure Zig, no external library needed" (line 113). We chose libhangul wrapper instead. | Inconsistent -- note the decision |
-| `docs/libitshell3-ime/01-overview/04-architecture.md` | `InputMode` uses `english` (should be `direct`). `flush()` returns `?[]const u8` (should return `ImeResult`). `KeyboardLayout` is an enum (should be string ID). No `ImeEngine` trait. | Superseded by this document |
+| `docs/modules/libitshell3/01-overview/13-render-state-protocol.md` | References NSTextInputContext for server-side preedit (lines 277-284). Should reference libitshell3-ime's `processKey()` flow. | Stale -- needs update |
+| `docs/modules/libitshell3/01-overview/09-recommended-architecture.md` | Contains client-driven preedit API (`itshell3_preedit_start/update/end`). With native IME, preedit is server-driven. | Stale -- needs update |
+| `docs/modules/libitshell3/01-overview/14-architecture-validation-report.md` | States "~300-400 lines of pure Zig, no external library needed" (line 113). We chose libhangul wrapper instead. | Inconsistent -- note the decision |
+| `docs/modules/libitshell3-ime/01-overview/04-architecture.md` | `InputMode` uses `english` (should be `direct`). `flush()` returns `?[]const u8` (should return `ImeResult`). `KeyboardLayout` is an enum (should be string ID). No `ImeEngine` trait. | Superseded by this document |
 | `interface-design.md` (deleted) | Was the predecessor document. Section 1.4 Modifier Flush Policy specified RESET (discard) -- incorrect. All unique content merged into this document (v0.2). Deleted. |
 
 ## Appendix B: v1 Scope
@@ -166,8 +166,8 @@ This section documents all changes made from the v0.2 interface contract based o
 This section documents all changes made from the v0.3 interface contract based on cross-document consistency review between Protocol v0.4 and IME Contract v0.3. Review participants: protocol-architect, ime-expert, cjk-specialist.
 
 Review artifacts:
-- `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-notes-cross-review.md`
-- `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-cross-review-ime.md`
+- `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-notes-cross-review.md`
+- `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-cross-review-ime.md`
 
 ### E.1 HID_KEYCODE_MAX Constant (Issue 1)
 
@@ -441,7 +441,7 @@ Section 10 is removed entirely as it has no remaining content.
 
 ## Appendix I: Changes from v0.6
 
-This section documents all changes made from the v0.6 interface contract. Sources: cross-team preedit overhaul design resolutions (`docs/libitshell3/02-design-docs/server-client-protocols/v0.8/design-resolutions/01-preedit-overhaul.md`, Resolutions 15–16), cross-team request (`docs/libitshell3-ime/02-design-docs/interface-contract/v0.6/cross-team-requests/01-protocol-composition-state-removal.md`), v0.6 handover (`docs/libitshell3-ime/02-design-docs/interface-contract/v0.6/handover/handover-to-v0.7.md`).
+This section documents all changes made from the v0.6 interface contract. Sources: cross-team preedit overhaul design resolutions (`docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.8/design-resolutions/01-preedit-overhaul.md`, Resolutions 15–16), cross-team request (`docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.6/cross-team-requests/01-protocol-composition-state-removal.md`), v0.6 handover (`docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.6/handover/handover-to-v0.7.md`).
 
 ### I.1 `composition_state` Field Removed from ImeResult (Resolution 15, Change 1)
 

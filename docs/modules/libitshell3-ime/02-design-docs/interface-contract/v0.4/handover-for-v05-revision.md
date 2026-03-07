@@ -120,27 +120,27 @@ No action required unless the team wants to promote any of these into v1 scope.
 
 | Document | Path |
 |----------|------|
-| IME contract v0.4 (current) | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.4/01-interface-contract.md` |
-| Review notes (open issues) | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.4/review-notes-01.md` |
-| Identifier consensus handover | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.4/handover-identifier-consensus.md` |
-| This handover | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.4/handover-for-v05-revision.md` |
+| IME contract v0.4 (current) | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.4/01-interface-contract.md` |
+| Review notes (open issues) | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.4/review-notes-01.md` |
+| Identifier consensus handover | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.4/handover-identifier-consensus.md` |
+| This handover | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.4/handover-for-v05-revision.md` |
 
 ### Protocol Docs (v0.5, cross-reference targets)
 
 | Document | Path |
 |----------|------|
-| Protocol doc 04 (input/renderstate) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/04-input-and-renderstate.md` |
-| Protocol doc 05 (CJK preedit) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/05-cjk-preedit-protocol.md` |
-| Protocol doc 06 (flow control) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/06-flow-control-and-auxiliary.md` |
+| Protocol doc 04 (input/renderstate) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/04-input-and-renderstate.md` |
+| Protocol doc 05 (CJK preedit) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/05-cjk-preedit-protocol.md` |
+| Protocol doc 06 (flow control) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/06-flow-control-and-auxiliary.md` |
 
 ### Earlier Review Artifacts
 
 | Document | Path |
 |----------|------|
-| v0.3 cross-review notes (IME side) | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-notes-cross-review.md` |
-| v0.3 cross-review notes (protocol side) | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-cross-review-ime.md` |
-| v0.3 review report | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-report.md` |
-| v0.3 handover | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/handover-for-v04-revision.md` |
+| v0.3 cross-review notes (IME side) | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-notes-cross-review.md` |
+| v0.3 cross-review notes (protocol side) | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-cross-review-ime.md` |
+| v0.3 review report | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-report.md` |
+| v0.3 handover | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/handover-for-v04-revision.md` |
 
 ### PoC
 

@@ -25,17 +25,17 @@ The user independently reviewed doc 01 (protocol overview) and raised 4 addition
 
 | File | Location |
 |------|----------|
-| Protocol v0.4 doc 01 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/01-protocol-overview.md` |
-| Protocol v0.4 doc 02 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/02-handshake-capability-negotiation.md` |
-| Protocol v0.4 doc 03 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/03-session-pane-management.md` |
-| Protocol v0.4 doc 04 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/04-input-and-renderstate.md` |
-| Protocol v0.4 doc 05 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/05-cjk-preedit-protocol.md` |
-| Protocol v0.4 doc 06 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/06-flow-control-and-auxiliary.md` |
-| User's protocol review notes | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-01-protocol-overview.md` |
-| Protocol-side cross-review notes | `docs/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-cross-review-ime.md` |
-| IME-side cross-review notes | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-notes-cross-review.md` |
-| IME cross-review report | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-report.md` |
-| IME handover for v0.4 revision | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/handover-for-v04-revision.md` |
+| Protocol v0.4 doc 01 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/01-protocol-overview.md` |
+| Protocol v0.4 doc 02 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/02-handshake-capability-negotiation.md` |
+| Protocol v0.4 doc 03 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/03-session-pane-management.md` |
+| Protocol v0.4 doc 04 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/04-input-and-renderstate.md` |
+| Protocol v0.4 doc 05 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/05-cjk-preedit-protocol.md` |
+| Protocol v0.4 doc 06 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/06-flow-control-and-auxiliary.md` |
+| User's protocol review notes | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-01-protocol-overview.md` |
+| Protocol-side cross-review notes | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.4/review-notes-cross-review-ime.md` |
+| IME-side cross-review notes | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-notes-cross-review.md` |
+| IME cross-review report | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/review-report.md` |
+| IME handover for v0.4 revision | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/handover-for-v04-revision.md` |
 
 ---
 
@@ -195,7 +195,7 @@ These decisions were made in previous sessions. The v0.5 revision must preserve 
 The IME Interface Contract v0.3 also needs a v0.4 revision applying cross-review decisions. That handover is at:
 
 ```
-docs/libitshell3-ime/02-design-docs/interface-contract/v0.3/handover-for-v04-revision.md
+docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.3/handover-for-v04-revision.md
 ```
 
 Both revisions should ideally happen in the **same session** to maintain cross-document consistency. The IME-side changes and protocol-side changes reference each other (e.g., Issue 10's cross-reference table appears in both documents). Revising one without the other risks introducing new inconsistencies.
@@ -234,7 +234,7 @@ Custom agents for the protocol team are registered at `.claude/agents/protocol-t
 
 ### Phase 1: Source B — Mechanical application (no discussion needed)
 
-1. Create v0.5 directory: `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/`
+1. Create v0.5 directory: `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/`
 2. Copy all 6 docs from v0.4 into v0.5
 3. Apply all 8 Source B changes mechanically (exact text is in `review-notes-cross-review-ime.md`)
 4. Each role applies changes to their assigned documents in parallel

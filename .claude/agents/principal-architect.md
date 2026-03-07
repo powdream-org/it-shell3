@@ -130,5 +130,5 @@ Server (Daemon)                    Client (App)
 
 ## Document Locations
 
-- IME contract: `docs/libitshell3-ime/02-design-docs/interface-contract/`
-- Protocol specs: `docs/libitshell3/02-design-docs/server-client-protocols/`
+- IME contract: `docs/modules/libitshell3-ime/02-design-docs/interface-contract/`
+- Protocol specs: `docs/modules/libitshell3-protocol/02-design-docs/server-client-protocols/`

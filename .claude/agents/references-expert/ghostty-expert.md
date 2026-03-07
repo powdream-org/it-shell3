@@ -175,5 +175,5 @@ and constants. Do not speculate beyond what the source code shows.
 
 ## Document Locations
 
-- Protocol specs: `docs/libitshell3/02-design-docs/server-client-protocols/`
-- IME contract: `docs/libitshell3-ime/02-design-docs/interface-contract/`
+- Protocol specs: `docs/modules/libitshell3/02-design-docs/server-client-protocols/`
+- IME contract: `docs/modules/libitshell3-ime/02-design-docs/interface-contract/`

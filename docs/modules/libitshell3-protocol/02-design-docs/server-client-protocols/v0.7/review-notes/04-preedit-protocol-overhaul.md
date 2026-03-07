@@ -133,7 +133,7 @@ Lifecycle/metadata only. Not used for rendering.
 
 ### 9. Cross-team: IME Interface Contract v0.6
 
-Filed at `docs/libitshell3-ime/02-design-docs/interface-contract/v0.6/cross-team-requests/01-protocol-composition-state-removal.md`:
+Filed at `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.6/cross-team-requests/01-protocol-composition-state-removal.md`:
 - Remove `ImeResult.composition_state` field
 - Remove `CompositionStates` struct from `HangulImeEngine`
 - Remove `composition_state` column from scenario matrix

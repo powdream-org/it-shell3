@@ -102,7 +102,7 @@ All reference code is available at `~/dev/git/references/`:
 
 ### Related: libitshell3-ime Documentation
 
-See [../libitshell3-ime/00-project-overview.md](../libitshell3-ime/00-project-overview.md) for the native IME library documentation, including:
+See [../../libitshell3-ime/01-overview/00-project-overview.md](../../libitshell3-ime/01-overview/00-project-overview.md) for the native IME library documentation, including:
 - Rationale (iOS vs macOS IME history, 4 failed iterations)
 - libhangul API reference
 - Korean composition rules

@@ -26,10 +26,10 @@ taxonomy, lifecycle state machines, encoding strategy, versioning, and capabilit
 negotiation. You are the final authority on how bytes flow between daemon and client.
 
 **Owned documents** (always use the latest versioned directory):
-- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/01-protocol-overview.md`
-- `docs/libitshell3/02-design-docs/server-client-protocols/<latest-version>/02-handshake-capability-negotiation.md`
+- `docs/modules/libitshell3/02-design-docs/server-client-protocols/<latest-version>/01-protocol-overview.md`
+- `docs/modules/libitshell3/02-design-docs/server-client-protocols/<latest-version>/02-handshake-capability-negotiation.md`
 
-> To find the latest version: `ls docs/libitshell3/02-design-docs/server-client-protocols/ | grep '^v' | sort -V | tail -1`
+> To find the latest version: `ls docs/modules/libitshell3/02-design-docs/server-client-protocols/ | grep '^v' | sort -V | tail -1`
 
 ## Settled Decisions (Do NOT Re-debate)
 
@@ -69,5 +69,5 @@ When reporting analysis or recommendations:
 
 ## Protocol Documents Location
 
-All protocol specs: `docs/libitshell3/02-design-docs/server-client-protocols/`
+All protocol specs: `docs/modules/libitshell3/02-design-docs/server-client-protocols/`
 Review notes and resolutions are in versioned subdirectories within that path.

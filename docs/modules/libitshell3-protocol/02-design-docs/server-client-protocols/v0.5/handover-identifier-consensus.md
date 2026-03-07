@@ -161,10 +161,10 @@ No blocking open items from the identifier consensus work.
 
 | Document | Path |
 |----------|------|
-| Protocol doc 01 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/01-protocol-overview.md` |
-| Protocol doc 02 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/02-handshake-capability-negotiation.md` |
-| Protocol doc 03 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/03-session-pane-management.md` |
-| Protocol doc 04 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/04-input-and-renderstate.md` |
-| Protocol doc 05 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/05-cjk-preedit-protocol.md` |
-| Protocol doc 06 | `docs/libitshell3/02-design-docs/server-client-protocols/v0.5/06-flow-control-and-auxiliary.md` |
-| IME contract v0.4 | `docs/libitshell3-ime/02-design-docs/interface-contract/v0.4/01-interface-contract.md` |
+| Protocol doc 01 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/01-protocol-overview.md` |
+| Protocol doc 02 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/02-handshake-capability-negotiation.md` |
+| Protocol doc 03 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/03-session-pane-management.md` |
+| Protocol doc 04 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/04-input-and-renderstate.md` |
+| Protocol doc 05 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/05-cjk-preedit-protocol.md` |
+| Protocol doc 06 | `docs/modules/libitshell3/02-design-docs/server-client-protocols/v0.5/06-flow-control-and-auxiliary.md` |
+| IME contract v0.4 | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.4/01-interface-contract.md` |
