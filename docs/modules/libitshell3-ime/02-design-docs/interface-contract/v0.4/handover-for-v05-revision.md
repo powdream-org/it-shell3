@@ -146,5 +146,5 @@ No action required unless the team wants to promote any of these into v1 scope.
 
 | Document | Path |
 |----------|------|
-| PoC source | `poc/ime-ghostty-real/poc-ghostty-real.m` |
-| PoC findings | `poc/ime-ghostty-real/FINDINGS.md` |
+| PoC source | `poc/02-ime-ghostty-real/poc-ghostty-real.m` |
+| PoC findings | `poc/02-ime-ghostty-real/FINDINGS.md` |

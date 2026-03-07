@@ -4,7 +4,7 @@
 **Source**: ghostty (https://github.com/ghostty-org/ghostty)
 **Git SHA (source reading)**: `2502ca294efe5aa9722c36e25b2252b0150054e9` (reference repo `~/dev/git/references/ghostty/`)
 **Git SHA (pre-built binary)**: `76b7704783e411d035c6ab3036ecaa0454e3f7de` (it-shell v1 fork, `GhosttyKit.xcframework/macos-arm64_x86_64/libghostty.a`)
-**Cross-reference**: Research 06 (ghostty preedit rendering), `poc/ime-ghostty-real/FINDINGS.md`
+**Cross-reference**: Research 06 (ghostty preedit rendering), `poc/02-ime-ghostty-real/FINDINGS.md`
 
 ---
 
@@ -62,7 +62,7 @@ When the server serializes cell data for FrameUpdate:
 - Trigger any VT sequence processing
 - Modify the dirty row bitmap of the terminal grid
 
-This means calling `ghostty_surface_preedit()` alone will NOT cause the preedit to appear in `ghostty_surface_read_text()` output (confirmed by `poc/ime-ghostty-real` — readback reads grid, not overlay).
+This means calling `ghostty_surface_preedit()` alone will NOT cause the preedit to appear in `ghostty_surface_read_text()` output (confirmed by `poc/02-ime-ghostty-real` — readback reads grid, not overlay).
 
 ### 5. macOS system IME overlay is separate from ghostty
 

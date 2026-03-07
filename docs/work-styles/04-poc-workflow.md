@@ -154,9 +154,9 @@ removed at the owner's discretion.
 
 | PoC | Directory | Purpose | Key Findings |
 |-----|-----------|---------|--------------|
-| ime-ghostty-real | `poc/ime-ghostty-real/` | Validate ghostty Surface API for IME key input | `ghostty_surface_key()` is the correct API (not `_text()`). Space key needs flush + forward with `.text`. 22/24 tests passed. Results drove 6 resolutions in the IME contract v0.2 to v0.3 revision. |
-| ime-key-handling | `poc/ime-key-handling/` | Explore IME key handling patterns | Key handling exploration for IME input pipeline |
-| macos-ime-suppression | `poc/macos-ime-suppression/` | Validate macOS IME suppression viability | Confirmed that macOS built-in IME can be suppressed programmatically, supporting the native IME architecture decision (libitshell3-ime replaces OS IME) |
+| ime-ghostty-real | `poc/02-ime-ghostty-real/` | Validate ghostty Surface API for IME key input | `ghostty_surface_key()` is the correct API (not `_text()`). Space key needs flush + forward with `.text`. 22/24 tests passed. Results drove 6 resolutions in the IME contract v0.2 to v0.3 revision. |
+| ime-key-handling | `poc/01-ime-key-handling/` | Explore IME key handling patterns | Key handling exploration for IME input pipeline |
+| macos-ime-suppression | `poc/03-macos-ime-suppression/` | Validate macOS IME suppression viability | Confirmed that macOS built-in IME can be suppressed programmatically, supporting the native IME architecture decision (libitshell3-ime replaces OS IME) |
 
 ---
 

@@ -83,7 +83,7 @@ When the user presses Ctrl+C during Korean composition (preedit = "하"):
 
 This ensures the user's in-progress composition is preserved before any keybinding action.
 
-**Verified by PoC** (`poc/ime-key-handling/`): All 10 test scenarios pass — arrows, Ctrl+C, Ctrl+D, Enter, Escape, Tab, backspace jamo-undo, shifted keys, and mixed compose-arrow-compose sequences all work correctly with libhangul.
+**Verified by PoC** (`poc/01-ime-key-handling/`): All 10 test scenarios pass — arrows, Ctrl+C, Ctrl+D, Enter, Escape, Tab, backspace jamo-undo, shifted keys, and mixed compose-arrow-compose sequences all work correctly with libhangul.
 
 ---
 

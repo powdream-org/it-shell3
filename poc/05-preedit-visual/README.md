@@ -12,7 +12,7 @@ This design was based on source code analysis of ghostty's renderer, which sugge
 - Preedit uses foreground color + single underline, no background color
 - Terminal cursor is completely suppressed during preedit (`if (preedit != null) break :cursor`)
 
-However, source code reading alone could not confirm the actual visual output. A previous PoC (`poc/ime-ghostty-real`) validated the IME pipeline and text readback, but used `ghostty_surface_read_text()` (text extraction) — not visual observation of the Metal renderer output.
+However, source code reading alone could not confirm the actual visual output. A previous PoC (`poc/02-ime-ghostty-real`) validated the IME pipeline and text readback, but used `ghostty_surface_read_text()` (text extraction) — not visual observation of the Metal renderer output.
 
 This PoC answers: **what does the human actually see?**
 
@@ -34,7 +34,7 @@ This PoC answers: **what does the human actually see?**
 | 8 | Vowel-only `ㅏ` | 2-cell block cursor (compatibility jamo U+314F is East Asian Wide) |
 | 9 | `ab` + preedit `가` — alignment | Correct position after 1-cell ASCII chars |
 
-### How it differs from `poc/ime-ghostty-real`
+### How it differs from `poc/02-ime-ghostty-real`
 
 | | ime-ghostty-real | preedit-visual |
 |---|---|---|
@@ -108,7 +108,7 @@ Client action:
 - `cursor_x`, `cursor_y` — ghostty positions at terminal cursor
 - `lines[]` — ghostty handles line wrapping
 - `segments[]` — ghostty handles decoration
-- `composition_state` — no consumer (see `poc/libhangul-states`)
+- `composition_state` — no consumer (see `poc/04-libhangul-states`)
 
 ### v2 candidate window anchor
 
@@ -127,6 +127,6 @@ Japanese IME per-segment styling (reverse for converting clause, underline for u
 
 ## See Also
 
-- `poc/libhangul-states/` — composition state observability PoC
-- `poc/ime-ghostty-real/` — IME pipeline + text readback PoC
+- `poc/04-libhangul-states/` — composition state observability PoC
+- `poc/02-ime-ghostty-real/` — IME pipeline + text readback PoC
 - Protocol v0.7 review note: `review-notes/05-preedit-rendering-model.md`

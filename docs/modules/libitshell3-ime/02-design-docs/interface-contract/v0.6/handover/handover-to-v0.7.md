@@ -9,7 +9,7 @@
 
 ### Preedit rendering is ghostty's job, not the protocol's
 
-The biggest lesson from this review cycle: we were over-engineering preedit delivery. The original model had FrameUpdate carrying a separate preedit JSON section (`cursor_x`, `cursor_y`, `text`, `display_width`) and the client interpreting it to draw a preedit overlay. A visual PoC (`poc/preedit-visual/preedit-visual.m`) proved this is unnecessary.
+The biggest lesson from this review cycle: we were over-engineering preedit delivery. The original model had FrameUpdate carrying a separate preedit JSON section (`cursor_x`, `cursor_y`, `text`, `display_width`) and the client interpreting it to draw a preedit overlay. A visual PoC (`poc/05-preedit-visual/preedit-visual.m`) proved this is unnecessary.
 
 In our daemon-client architecture, the **server** calls `ghostty_surface_preedit()` on its own ghostty surface. ghostty internally renders the preedit as an overlay (block cursor for Korean, 2-cell wide, automatic positioning at terminal cursor). When the server serializes the frame, it injects preedit cells into the cell data. The **client** just renders cells — it has no concept of preedit. It never calls `ghostty_surface_preedit()`.
 
@@ -17,7 +17,7 @@ This insight cascaded into removing the dual-channel design, ring buffer bypass,
 
 ### composition_state was a documentation exercise, not a feature
 
-We spent multiple versions refining `composition_state` — 5 named states, state diagram, transition table, backspace trace, naming conventions. The libhangul PoC (`poc/libhangul-states/probe.c`, findings at `poc/libhangul-states/README.md`) showed that our documented states had factual errors (vowel_only reachability, double_tail distinguishability, missing 3-set state). More importantly, no component ever consumed these values. Rendering uses preedit text. Debugging uses preedit text. Session snapshots flush on save.
+We spent multiple versions refining `composition_state` — 5 named states, state diagram, transition table, backspace trace, naming conventions. The libhangul PoC (`poc/04-libhangul-states/probe.c`, findings at `poc/04-libhangul-states/README.md`) showed that our documented states had factual errors (vowel_only reachability, double_tail distinguishability, missing 3-set state). More importantly, no component ever consumed these values. Rendering uses preedit text. Debugging uses preedit text. Session snapshots flush on save.
 
 The entire `CompositionStates` struct in `HangulImeEngine` and `composition_state` field in `ImeResult` exist solely to populate a protocol field that nothing reads. The lesson: don't model what you don't consume.
 

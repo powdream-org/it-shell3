@@ -106,7 +106,7 @@ This section documents all changes made from the v0.1 interface contract based o
 
 ## Appendix D: Changes from v0.2
 
-This section documents all changes made from the v0.2 interface contract based on PoC validation (`poc/ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass, 2 skipped due to libghostty VT parser bug).
+This section documents all changes made from the v0.2 interface contract based on PoC validation (`poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass, 2 skipped due to libghostty VT parser bug).
 
 ### D.1 Space Key Handling (Resolution 12)
 
@@ -422,7 +422,7 @@ Section 10 is removed entirely as it has no remaining content.
 - Platform comparison table (macOS vs iOS key capture mechanisms)
 - Key findings: `event.characters` unreliable, `keyCode` rock-solid across input sources
 - Validation that `processKey(hid_keycode, shift, modifiers)` maps naturally to both platforms
-- Reference to `poc/macos-ime-suppression/`
+- Reference to `poc/03-macos-ime-suppression/`
 
 ### H.9 Section 3.4 keyboard_layout Scope Updated
 

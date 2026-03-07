@@ -13,12 +13,12 @@
 
 During protocol v0.7 owner review, two related decisions were made:
 
-**1. `composition_state` removal (review note 04):** The `composition_state` field in PreeditUpdate (0x0401) has no practical consumer. No component uses this value for rendering, branching, or decision-making. A PoC (`poc/libhangul-states/probe.c`) confirmed factual errors in the documented states:
+**1. `composition_state` removal (review note 04):** The `composition_state` field in PreeditUpdate (0x0401) has no practical consumer. No component uses this value for rendering, branching, or decision-making. A PoC (`poc/04-libhangul-states/probe.c`) confirmed factual errors in the documented states:
 - `ko_vowel_only` IS reachable in 2-set (contrary to doc claim)
 - `ko_double_tail` is not distinguishable from `ko_syllable_with_tail` via libhangul's public API
 - 3-set keyboards produce `(0,0,1)` jongseong-only state with no corresponding constant
 
-**2. Preedit rendering model change (review note 05, revised 2026-03-07):** A visual PoC (`poc/preedit-visual/`) confirmed that ghostty's Metal renderer handles preedit rendering (block cursor, positioning, width) when `ghostty_surface_preedit()` is called. In the daemon-client architecture, the server calls this on its own surface and serializes preedit as cell data in I/P-frames. The client does not know what is preedit. The FrameUpdate preedit JSON section, dual-channel design, and ring buffer bypass are all removed. `cursor_x`, `cursor_y`, `display_width` are removed from all preedit protocol messages.
+**2. Preedit rendering model change (review note 05, revised 2026-03-07):** A visual PoC (`poc/05-preedit-visual/`) confirmed that ghostty's Metal renderer handles preedit rendering (block cursor, positioning, width) when `ghostty_surface_preedit()` is called. In the daemon-client architecture, the server calls this on its own surface and serializes preedit as cell data in I/P-frames. The client does not know what is preedit. The FrameUpdate preedit JSON section, dual-channel design, and ring buffer bypass are all removed. `cursor_x`, `cursor_y`, `display_width` are removed from all preedit protocol messages.
 
 The IME contract's `ImeResult` and `HangulImeEngine` need corresponding changes.
 

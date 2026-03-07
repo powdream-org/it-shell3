@@ -3,7 +3,7 @@
 > **Status**: Draft v0.3 — PoC-validated, all resolutions applied.
 > **Supersedes**: [v0.2/01-interface-contract.md](../v0.2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v0.1/01-interface-contract.md), interface-design.md (deleted, merged here), portions of [04-architecture.md](../../../01-overview/04-architecture.md), and [05-integration-with-libitshell3.md](../../../01-overview/05-integration-with-libitshell3.md).
 > **Review participants**: principal-architect, ime-expert, ghostty-expert
-> **PoC validation**: `poc/ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code)
+> **PoC validation**: `poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code)
 > **Changes from v0.2**: See [Appendix D: Changes from v0.2](#appendix-d-changes-from-v02)
 
 ## 1. Overview
@@ -90,7 +90,7 @@ When the user presses Ctrl+C during Korean composition (preedit = "하"):
 
 This ensures the user's in-progress composition is preserved before any keybinding action.
 
-**Verified by PoC** (`poc/ime-key-handling/`): All 10 test scenarios pass — arrows, Ctrl+C, Ctrl+D, Enter, Escape, Tab, backspace jamo-undo, shifted keys, and mixed compose-arrow-compose sequences all work correctly with libhangul.
+**Verified by PoC** (`poc/01-ime-key-handling/`): All 10 test scenarios pass — arrows, Ctrl+C, Ctrl+D, Enter, Escape, Tab, backspace jamo-undo, shifted keys, and mixed compose-arrow-compose sequences all work correctly with libhangul.
 
 ### Phase 1: hangul_ic_process() Return-False Handling
 
@@ -112,7 +112,7 @@ When `hangul_ic_process()` returns `false`, libhangul rejected the key (it is no
 - Since not consumed: flush "ㅎ", forward ".".
 - Result: `{ committed: "ㅎ", preedit: null, forward_key: '.', preedit_changed: true }`.
 
-**Verified by PoC** (`poc/ime-ghostty-real/poc-ghostty-real.m` lines 298–324).
+**Verified by PoC** (`poc/02-ime-ghostty-real/poc-ghostty-real.m` lines 298–324).
 
 ---
 
@@ -794,7 +794,7 @@ These layers are orthogonal. Layer 1 replaces ghostty's `embedded.zig:KeyEvent.c
 
 The `mapHidToGhosttyKey()` function produces these platform-native keycodes. The mapping can be derived from ghostty's `keycodes.zig` `raw_entries` table, which contains `{ USB_HID, evdev, xkb, win, mac, W3C_code }` tuples. At compile time, the correct platform column is selected.
 
-> **PoC note**: The PoC (`poc/ime-ghostty-real/poc-ghostty-real.m`) uses `ghostty_input_key_e` enum values as keycodes instead of platform-native keycodes. This is a bug masked by two factors: (1) committed text uses `.text` for PTY output, so keycode is irrelevant; (2) forwarded key escape sequence output was not verified in tests. The production implementation MUST use platform-native keycodes. This was identified and documented in the v0.2 review cycle (Resolution 14).
+> **PoC note**: The PoC (`poc/02-ime-ghostty-real/poc-ghostty-real.m`) uses `ghostty_input_key_e` enum values as keycodes instead of platform-native keycodes. This is a bug masked by two factors: (1) committed text uses `.text` for PTY output, so keycode is irrelevant; (2) forwarded key escape sequence output was not verified in tests. The production implementation MUST use platform-native keycodes. This was identified and documented in the v0.2 review cycle (Resolution 14).
 
 ### ghostty Language Awareness
 
@@ -1126,7 +1126,7 @@ This section documents all changes made from the v0.1 interface contract based o
 
 ## Appendix D: Changes from v0.2
 
-This section documents all changes made from the v0.2 interface contract based on PoC validation (`poc/ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass, 2 skipped due to libghostty VT parser bug).
+This section documents all changes made from the v0.2 interface contract based on PoC validation (`poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass, 2 skipped due to libghostty VT parser bug).
 
 ### D.1 Space Key Handling (Resolution 12)
 

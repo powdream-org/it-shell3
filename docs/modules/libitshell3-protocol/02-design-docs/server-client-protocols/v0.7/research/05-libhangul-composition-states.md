@@ -2,8 +2,8 @@
 
 **Date**: 2026-03-06
 **Source**: libhangul (https://github.com/libhangul/libhangul)
-**Git SHA**: `a34aef73378c0992316861bbf13fc914ee7577d9` (cloned in `poc/ime-key-handling/libhangul/`)
-**Verified by**: `poc/libhangul-states/probe.c`
+**Git SHA**: `a34aef73378c0992316861bbf13fc914ee7577d9` (cloned in `poc/01-ime-key-handling/libhangul/`)
+**Verified by**: `poc/04-libhangul-states/probe.c`
 
 ---
 

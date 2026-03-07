@@ -98,7 +98,7 @@ Unlike 2-set, romaja produces `has_choseong()=true` for a standalone vowel input
 - Only tested lowercase a-z keys. Shift variants (uppercase) tested selectively.
 - Did not test `"2y"`, `"3s"`, `"3y"`, `"ahn"` keyboard layouts.
 - Did not test extended/historical jamo (`JAMO_YET`, `JASO_YET` keyboard types).
-- libhangul version: whatever is cloned in `poc/ime-key-handling/libhangul/` (main branch).
+- libhangul version: whatever is cloned in `poc/01-ime-key-handling/libhangul/` (main branch).
 
 ## Impact on Design
 

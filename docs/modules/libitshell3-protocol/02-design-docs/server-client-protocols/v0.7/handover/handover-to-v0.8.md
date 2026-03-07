@@ -37,7 +37,7 @@ See `v0.7/review-notes/` for the full list.
 
 ### 2.1 Preedit is cell data, not metadata
 
-The most significant insight from v0.7: the visual PoC (`poc/preedit-visual/`) proved that ghostty renders preedit as cell data (2-cell block cursor overlay), not as a separate metadata layer. In the daemon-client architecture, the server calls `ghostty_surface_preedit()` and injects preedit cells into FrameUpdate. The client never calls preedit APIs — it just renders cells. This eliminates the dual-channel design (ring buffer + preedit bypass), `composition_state`, and the FrameUpdate preedit JSON section.
+The most significant insight from v0.7: the visual PoC (`poc/05-preedit-visual/`) proved that ghostty renders preedit as cell data (2-cell block cursor overlay), not as a separate metadata layer. In the daemon-client architecture, the server calls `ghostty_surface_preedit()` and injects preedit cells into FrameUpdate. The client never calls preedit APIs — it just renders cells. This eliminates the dual-channel design (ring buffer + preedit bypass), `composition_state`, and the FrameUpdate preedit JSON section.
 
 ### 2.2 Globally singleton session model
 

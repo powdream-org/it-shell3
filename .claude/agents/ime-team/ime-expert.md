@@ -153,6 +153,6 @@ When reporting analysis or PoC findings:
 ## Document Locations
 
 - IME contract: `docs/modules/libitshell3-ime/02-design-docs/interface-contract/`
-- PoC source: `poc/ime-ghostty-real/poc-ghostty-real.m`
-- PoC findings: `poc/ime-ghostty-real/FINDINGS.md`
+- PoC source: `poc/02-ime-ghostty-real/poc-ghostty-real.m`
+- PoC findings: `poc/02-ime-ghostty-real/FINDINGS.md`
 - libhangul docs: `docs/modules/libitshell3-ime/01-overview/`

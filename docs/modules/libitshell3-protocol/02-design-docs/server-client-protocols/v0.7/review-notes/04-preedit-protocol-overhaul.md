@@ -15,7 +15,7 @@ Three related issues discovered during protocol v0.7 owner review. They must be 
 
 ### Issue A: `composition_state` has no consumer
 
-`composition_state` is a string field in PreeditUpdate (0x0401) and PreeditSync (0x0403). No component uses it for rendering, branching, or decision-making. Additionally, the documented state values have factual errors confirmed by PoC (`poc/libhangul-states/probe.c`, research `05-libhangul-composition-states.md`):
+`composition_state` is a string field in PreeditUpdate (0x0401) and PreeditSync (0x0403). No component uses it for rendering, branching, or decision-making. Additionally, the documented state values have factual errors confirmed by PoC (`poc/04-libhangul-states/probe.c`, research `05-libhangul-composition-states.md`):
 
 1. `ko_vowel_only` IS reachable in 2-set (doc claims it is not)
 2. `ko_double_tail` not distinguishable from `ko_syllable_with_tail` via libhangul public API
@@ -23,7 +23,7 @@ Three related issues discovered during protocol v0.7 owner review. They must be 
 
 ### Issue B: Preedit rendering model is wrong
 
-The FrameUpdate preedit JSON (`cursor_x`, `cursor_y`, `text`, `display_width`) assumes the client renders preedit as a separate overlay. A visual PoC (`poc/preedit-visual/`, research `06-ghostty-preedit-rendering.md`) proved this is incorrect:
+The FrameUpdate preedit JSON (`cursor_x`, `cursor_y`, `text`, `display_width`) assumes the client renders preedit as a separate overlay. A visual PoC (`poc/05-preedit-visual/`, research `06-ghostty-preedit-rendering.md`) proved this is incorrect:
 
 - ghostty renders preedit as a **2-cell block cursor** (not underline/reverse as source analysis suggested)
 - Terminal cursor is **not suppressed** during preedit (vertical bar blinks alongside)

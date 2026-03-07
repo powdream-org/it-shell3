@@ -24,7 +24,7 @@
 > **Supersedes**: [v0.6/01-overview.md](../v0.6/01-overview.md), [v0.5/01-interface-contract.md](../v0.5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v0.4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v0.3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v0.2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v0.1/01-interface-contract.md)
 > **Date**: 2026-03-07
 > **Review participants**: protocol-architect, protocol-swe, cjk-specialist, ime-expert, principal-architect, ime-architect, ime-swe
-> **PoC validation**: `poc/ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code); `poc/macos-ime-suppression/` — macOS IME suppression validated; `poc/libhangul-states/probe.c` — composition_state factual errors confirmed; `poc/preedit-visual/` — preedit-as-cell-data rendering validated
+> **PoC validation**: `poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code); `poc/03-macos-ime-suppression/` — macOS IME suppression validated; `poc/04-libhangul-states/probe.c` — composition_state factual errors confirmed; `poc/05-preedit-visual/` — preedit-as-cell-data rendering validated
 > **Changes from v0.3**: See [Appendix E: Changes from v0.3](99-appendices.md#appendix-e-changes-from-v03)
 > **Changes from v0.4-pre**: See [Appendix F: Identifier Consensus Changes](99-appendices.md#appendix-f-identifier-consensus-changes)
 > **Changes from v0.4**: See [Appendix G: Changes from v0.4](99-appendices.md#appendix-g-changes-from-v04)
@@ -115,7 +115,7 @@ When the user presses Ctrl+C during Korean composition (preedit = "하"):
 
 This ensures the user's in-progress composition is preserved before any keybinding action.
 
-**Verified by PoC** (`poc/ime-key-handling/`): All 10 test scenarios pass — arrows, Ctrl+C, Ctrl+D, Enter, Escape, Tab, backspace jamo-undo, shifted keys, and mixed compose-arrow-compose sequences all work correctly with libhangul.
+**Verified by PoC** (`poc/01-ime-key-handling/`): All 10 test scenarios pass — arrows, Ctrl+C, Ctrl+D, Enter, Escape, Tab, backspace jamo-undo, shifted keys, and mixed compose-arrow-compose sequences all work correctly with libhangul.
 
 ### Phase 1: hangul_ic_process() Return-False Handling
 
@@ -137,7 +137,7 @@ When `hangul_ic_process()` returns `false`, libhangul rejected the key (it is no
 - Since not consumed: flush "ㅎ", forward ".".
 - Result: `{ committed: "ㅎ", preedit: null, forward_key: '.', preedit_changed: true }`.
 
-**Verified by PoC** (`poc/ime-ghostty-real/poc-ghostty-real.m` lines 298–324).
+**Verified by PoC** (`poc/02-ime-ghostty-real/poc-ghostty-real.m` lines 298–324).
 
 ---
 

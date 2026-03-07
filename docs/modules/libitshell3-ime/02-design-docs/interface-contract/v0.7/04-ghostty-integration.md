@@ -269,7 +269,7 @@ These layers are orthogonal. Layer 1 replaces ghostty's `embedded.zig:KeyEvent.c
 
 The `mapHidToGhosttyKey()` function produces these platform-native keycodes. The mapping can be derived from ghostty's `keycodes.zig` `raw_entries` table, which contains `{ USB_HID, evdev, xkb, win, mac, W3C_code }` tuples. At compile time, the correct platform column is selected.
 
-> **PoC note**: The PoC (`poc/ime-ghostty-real/poc-ghostty-real.m`) uses `ghostty_input_key_e` enum values as keycodes instead of platform-native keycodes. This is a bug masked by two factors: (1) committed text uses `.text` for PTY output, so keycode is irrelevant; (2) forwarded key escape sequence output was not verified in tests. The production implementation MUST use platform-native keycodes. This was identified and documented in the v0.2 review cycle (Resolution 14).
+> **PoC note**: The PoC (`poc/02-ime-ghostty-real/poc-ghostty-real.m`) uses `ghostty_input_key_e` enum values as keycodes instead of platform-native keycodes. This is a bug masked by two factors: (1) committed text uses `.text` for PTY output, so keycode is irrelevant; (2) forwarded key escape sequence output was not verified in tests. The production implementation MUST use platform-native keycodes. This was identified and documented in the v0.2 review cycle (Resolution 14).
 
 ### ghostty Language Awareness
 
@@ -340,7 +340,7 @@ Key findings:
 - The `processKey(hid_keycode, shift, modifiers)` interface maps naturally to both platforms: macOS needs one mapping table (VK → HID), iOS needs zero.
 - Korean 2-Set IM has an internal English/Korean sub-mode toggle that is irrelevant — our engine owns the toggle via `setActiveInputMethod()`.
 
-This is a client-app concern. It is documented here because it validates the contract's `KeyEvent` design (physical HID keycode as input). See `poc/macos-ime-suppression/` for the PoC source.
+This is a client-app concern. It is documented here because it validates the contract's `KeyEvent` design (physical HID keycode as input). See `poc/03-macos-ime-suppression/` for the PoC source.
 
 ---
 

@@ -9,7 +9,7 @@
 
 ### OS IME suppression is a solved problem on both platforms
 
-The macOS IME suppression PoC (`poc/macos-ime-suppression/`) proved that a single mechanism — not calling `interpretKeyEvents:` — is sufficient to fully bypass the OS IME. No special tricks, no `inputContext` override, no runtime swizzling. The feared complexity was unfounded.
+The macOS IME suppression PoC (`poc/03-macos-ime-suppression/`) proved that a single mechanism — not calling `interpretKeyEvents:` — is sufficient to fully bypass the OS IME. No special tricks, no `inputContext` override, no runtime swizzling. The feared complexity was unfounded.
 
 More importantly, the PoC revealed that **iOS is even cleaner than macOS**:
 

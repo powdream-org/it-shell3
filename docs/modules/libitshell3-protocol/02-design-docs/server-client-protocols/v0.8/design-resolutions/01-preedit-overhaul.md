@@ -39,7 +39,7 @@
 
 **Preedit is cell data, not metadata.**
 
-The visual PoC (`poc/preedit-visual/`) proved that ghostty renders preedit as a 2-cell block cursor overlay. In the daemon-client architecture, the server calls `ghostty_surface_preedit()` on its own surface, and preedit cells are injected into frame cell data when serializing FrameUpdate. The client renders cells — it has no concept of preedit and never calls `ghostty_surface_preedit()`.
+The visual PoC (`poc/05-preedit-visual/`) proved that ghostty renders preedit as a 2-cell block cursor overlay. In the daemon-client architecture, the server calls `ghostty_surface_preedit()` on its own surface, and preedit cells are injected into frame cell data when serializing FrameUpdate. The client renders cells — it has no concept of preedit and never calls `ghostty_surface_preedit()`.
 
 This insight eliminates the dual-channel design (ring buffer for grid + bypass for preedit), the FrameUpdate preedit JSON section, `composition_state`, cursor/width fields in preedit messages, and the ring buffer bypass. All rendering goes through one path: cell data in I/P-frames via the ring buffer. PreeditUpdate (0x0401) becomes lifecycle/metadata only.
 
@@ -50,7 +50,7 @@ This insight eliminates the dual-channel design (ring buffer for grid + bypass f
 **Consensus (7/7).** Remove the `composition_state` field from PreeditUpdate (0x0401) and PreeditSync (0x0403). No component uses this value for rendering, branching, or decision-making.
 
 **Rationale:**
-- The libhangul PoC (`poc/libhangul-states/probe.c`) confirmed three factual errors in the documented states: `ko_vowel_only` IS reachable in 2-set, `ko_double_tail` is indistinguishable from `ko_syllable_with_tail` via the public API, and 3-set produces states with no corresponding constant.
+- The libhangul PoC (`poc/04-libhangul-states/probe.c`) confirmed three factual errors in the documented states: `ko_vowel_only` IS reachable in 2-set, `ko_double_tail` is indistinguishable from `ko_syllable_with_tail` via the public API, and 3-set produces states with no corresponding constant.
 - No component consumes `composition_state`. The server passes it through to PreeditUpdate JSON, and no client reads it.
 - The field was a documentation exercise, not a feature (IME handover insight).
 
@@ -503,8 +503,8 @@ typedef void (*itshell3_preedit_cb)(
 
 | Evidence | Finding | Impact |
 |----------|---------|--------|
-| `poc/libhangul-states/probe.c` | `ko_vowel_only` reachable in 2-set; `ko_double_tail` indistinguishable from `ko_syllable_with_tail`; 3-set produces unmapped state | composition_state has factual errors and no consumer |
-| `poc/preedit-visual/` | ghostty renders preedit as 2-cell block cursor; cursor NOT suppressed; ghostty handles positioning/width automatically | Preedit is cell data, not a separate metadata layer |
+| `poc/04-libhangul-states/probe.c` | `ko_vowel_only` reachable in 2-set; `ko_double_tail` indistinguishable from `ko_syllable_with_tail`; 3-set produces unmapped state | composition_state has factual errors and no consumer |
+| `poc/05-preedit-visual/` | ghostty renders preedit as 2-cell block cursor; cursor NOT suppressed; ghostty handles positioning/width automatically | Preedit is cell data, not a separate metadata layer |
 | Research `07-ghostty-preedit-cell-serialization.md` | Server calls `ghostty_surface_preedit()`, injects preedit cells into frame cell data; client never calls preedit APIs | Single delivery path through I/P-frames suffices |
 
 ---
