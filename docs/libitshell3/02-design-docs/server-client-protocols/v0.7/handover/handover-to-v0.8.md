@@ -3,7 +3,7 @@
 > **Date**: 2026-03-07
 > **Author**: team-lead (with owner review)
 > **Scope**: Review notes, open questions triage, and design insights from the v0.7 revision and verification cycle
-> **Prerequisite reading**: All files in `v0.7/review-notes/` (5 files), `v0.7/verification/round-3-issues.md`
+> **Prerequisite reading**: All files in `v0.7/review-notes/`, `v0.7/verification/round-3-issues.md`
 
 ---
 
@@ -25,7 +25,12 @@ Applied cross-team request from IME contract v0.6: one `ImeEngine` per session (
 
 ### 1.4 Owner Design Review
 
-Owner review session produced 2 additional review notes (04, 05) beyond the 3 verification-derived notes. Total: 5 review notes for v0.8.
+Owner review session produced review notes beyond the 3 verification-derived notes:
+- `04-preedit-protocol-overhaul` (CRITICAL): Preedit is cell data, not metadata. Removes `composition_state`, FrameUpdate preedit JSON, dual-channel design, ring buffer bypass, cursor/width fields, Section 3, Section 10.1. Consolidated from earlier separate notes after visual PoC confirmed ghostty's preedit rendering model.
+- `06-zoom-split-interaction` (MEDIUM): Open discussion, no pre-selected direction.
+- `07-pane-auto-close-on-exit` (MEDIUM): Auto-close on process exit, cascade to session destroy.
+
+See `v0.7/review-notes/` for the full list.
 
 ---
 
@@ -48,7 +53,7 @@ Owner review session produced 2 additional review notes (04, 05) beyond the 3 ve
 | Question | Status | Rationale |
 |----------|--------|-----------|
 | Doc 05 Q5 (Multiple simultaneous compositions) | **Resolved** | Per-session engine makes simultaneous compositions within a session physically impossible. Preedit exclusivity invariant is the normative statement. |
-| Doc 05 Q1 (Japanese/Chinese composition states) | **Moot** | Review note `04-composition-state-removal` removes the `composition_state` field entirely. Q1 was predicated on this field existing. CJK language extension will be addressed as a v0.8 design decision without the `composition_state` mechanism. |
+| Doc 05 Q1 (Japanese/Chinese composition states) | **Moot** | Review note `04-preedit-protocol-overhaul` removes the `composition_state` field entirely. Q1 was predicated on this field existing. CJK language extension will be addressed as a v0.8 design decision without the `composition_state` mechanism. |
 | Doc 03 Q1 (Last-pane-close behavior) | **Closed** | Already reflected in the design (`ClosePaneResponse` `side_effect = 1`). Owner confirmed: yes, auto-destroy. |
 | Doc 03 Q3 (Session auto-destroy) | **Closed** | Core design principle: daemon keeps sessions alive indefinitely with no attached clients. This is fundamental to the daemon's purpose (reconnect later). Owner confirmed: never. |
 | Doc 06 Q9 (Tier transition telemetry) | **Closed** | RendererHealth's `coalescing_tier` field is sufficient. No dedicated notification needed. Owner confirmed. |
@@ -81,7 +86,7 @@ All items below are moved to `99-post-v1-features.md`. Do NOT discuss or design 
 |----------|-----------------|-----------|
 | Doc 04 Q2 (Image protocol) | Section 1 | Sixel/Kitty requires dedicated message type and out-of-band transfer. Entirely different problem domain. Owner decision. |
 | Doc 03 Q6 (Pane reuse after exit) | Section 2 | v1 uses auto-close. Remain-on-exit requires ghostty `wait-after-command` integration. Owner decision. |
-| Doc 05 Q2 (Candidate window protocol) | Section 3 | Japanese/Chinese candidate list. v2 schema sketch in review note 05. Owner decision. |
+| Doc 05 Q2 (Candidate window protocol) | Section 3 | Japanese/Chinese candidate list. v2 schema sketch in review note `04-preedit-protocol-overhaul` Section 8. Owner decision. |
 
 **Instruction to v0.8 writers**: Do NOT carry these into v0.8 open questions. Remove from their respective sections:
 - Remove Q2 from Doc 04 Section 11.

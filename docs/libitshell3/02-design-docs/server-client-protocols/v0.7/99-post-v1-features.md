@@ -30,6 +30,7 @@ Post-v1, add a `remain-on-exit` option (per-pane or per-session configuration) t
 ## 3. Candidate Window Protocol
 
 **Origin**: Doc 05 Open Question #2 (closed in v0.7, owner decision)
+**Updated**: 2026-03-07 (review note `v0.7/review-notes/04-preedit-protocol-overhaul.md`)
 
 Japanese and Chinese IMEs present a candidate list for character selection. This requires:
 - Candidate list data delivery to the client (potentially large for Chinese)
@@ -37,10 +38,20 @@ Japanese and Chinese IMEs present a candidate list for character selection. This
 - Candidate selection feedback (client → server)
 - Candidate window positioning relative to preedit text
 
-Review note `v0.7/review-notes/05-preedit-rendering-model` includes a v2 `candidates` JSON schema sketch:
+### v1 preedit model context
+
+v1 preedit is cell data — the server calls `ghostty_surface_preedit()` on its own surface and injects preedit cells into I/P-frame cell data. The client does not know what is preedit. PreeditUpdate (0x0401) carries only `pane_id`, `preedit_session_id`, and `text` for lifecycle tracking.
+
+### v2 additions needed
+
+**Anchor position**: The client needs to know where to place the candidate floating window. The server knows the cursor position in cell coordinates from libghostty-vt terminal state. PreeditUpdate gains an optional `anchor` field:
 
 ```json
 {
+  "pane_id": 1,
+  "preedit_session_id": 42,
+  "text": "にほんご",
+  "anchor": {"row": 10, "col": 5},
   "candidates": {
     "items": ["日本語を", "二本後を"],
     "selected": 0,
@@ -49,5 +60,9 @@ Review note `v0.7/review-notes/05-preedit-rendering-model` includes a v2 `candid
   }
 }
 ```
+
+Cell-to-pixel conversion is the client's responsibility using `ghostty_surface_size()` cell dimensions plus the surface's screen origin.
+
+**Per-segment styling**: Japanese IME needs per-segment decoration (reverse for converting clause, underline for unconverted). The current `ghostty_surface_preedit()` API accepts only flat UTF-8 — no styling information. This would require either a ghostty API extension or a separate overlay mechanism. Design deferred.
 
 This schema is a starting point for post-v1 design, not a commitment.
