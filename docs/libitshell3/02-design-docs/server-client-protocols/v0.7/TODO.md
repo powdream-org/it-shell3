@@ -34,23 +34,14 @@
 - [x] v0.7 commit (verification results + R1/R2 fixes)
 - [x] Review notes created (3 files: scroll delivery, PreeditEnd reason, resolution doc text)
 
-## Phase 6a: Open Questions Batch 1 (docs 03-04, ~12 questions)
+## Phase 6: Open Questions Triage (all docs)
 
-- [ ] Core team triage doc 03 open questions (6 questions)
-- [ ] Core team triage doc 04 open questions (6 questions)
-- [ ] Resolution document
-- [ ] Writing
-- [ ] Verification
-- [ ] Commit
-
-## Phase 6b: Open Questions Batch 2 (docs 05-06, ~15 questions)
-
-- [ ] Core team triage doc 05 open questions (6 questions)
-- [ ] Core team triage doc 06 open questions (9 questions)
-- [ ] Resolution document
-- [ ] Writing
-- [ ] Verification
-- [ ] Commit
+- [x] Owner triage of all open questions across docs 03, 04, 05, 06
+- [x] 14 questions closed (unnecessary / already resolved)
+- [x] 1 question transferred to review note (`17-hyperlink-celldata-encoding`)
+- [x] 8 confirm-and-close review notes created (09–16)
+- [x] 2 items deferred to post-v1 (echo_nonce, per-client focus indicators)
+- [x] Handover updated (Sections 5.1, 5.1b, 5.4)
 
 ## ~~Phase 6c: Per-Client Focus Indicators~~ — Deferred to post-v1
 

@@ -1016,13 +1016,13 @@ All input messages use JSON payloads (16-byte binary header + JSON body).
 
 2. **~~Image protocol~~** **Closed (v0.7)**: Moved to `99-post-v1-features.md` Section 1. Out of scope for v0.x through v1. Owner decision.
 
-3. **Selection protocol**: Text selection is currently encoded as a range per row in DirtyRows. Should there be dedicated SelectionStart/SelectionUpdate/SelectionEnd messages for multi-client selection sync?
+3. **~~Selection protocol~~** **Closed (v0.7)**: Unnecessary. Selection is per-pane shared state delivered via RowData `selection_flags`/`selection_start`/`selection_end` in FrameUpdate. No dedicated messages needed. Owner decision.
 
-4. **Hyperlink data**: OSC 8 hyperlinks in cell data are not currently encoded in CellData. They may need an extension field or a separate hyperlink table.
+4. **~~Hyperlink data~~** **Transferred (v0.7)**: Transferred to review note `17-hyperlink-celldata-encoding`. OSC 8 hyperlink encoding in CellData. Open discussion in v0.8.
 
 5. **~~FrameUpdate acknowledgment~~** **Closed (v0.7)**: Unnecessary. Ring buffer with cursor stagnation detection provides implicit flow control. PausePane escalation handles slow clients. SSH TCP flow control covers WAN backpressure. Owner decision.
 
-6. **Notification coalescing**: When multiple panes have updates in the same frame interval, should they be batched into a single message or sent as separate FrameUpdate messages? Separate messages are simpler; batching reduces syscall overhead.
+6. **~~Notification coalescing~~** **Closed (v0.7)**: Unnecessary. Per-pane individual FrameUpdate messages are the current design and align with the per-pane ring buffer model. `writev()` makes multiple small writes nearly zero overhead. Owner decision.
 
 ---
 

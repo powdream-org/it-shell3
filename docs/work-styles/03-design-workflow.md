@@ -103,13 +103,20 @@ The team leader receives requirements from the owner and assembles the team.
 | Cross-team requests | From other teams' `v<X>/cross-team-requests/` directories (see [Cross-Team Requests](../conventions/artifacts/documents/07-cross-team-requests.md)) |
 | Extra notes / constraints | Owner provides as additional context |
 
+**Outputs:**
+
+| Output | Location |
+|--------|----------|
+| `TODO.md` | `v<X>/TODO.md` — Tracks all phases and tasks for this revision cycle. See [TODO Convention](../conventions/artifacts/documents/09-todo.md). |
+
 **Actions:**
 
-1. Team leader assembles the team by spawning **ALL** core members listed in
+1. Team leader creates `TODO.md` in the version directory, breaking down the revision cycle into phases with checkboxes for each task.
+2. Team leader assembles the team by spawning **ALL** core members listed in
    the team's agent directory (opus). The team leader does NOT choose a
    subset. See [Team Collaboration](./02-team-collaboration.md) for team
    structure and role definitions.
-2. Team leader passes all input materials to the team.
+3. Team leader passes all input materials to the team.
 
 ### 3.2 Team Discussion & Consensus
 
