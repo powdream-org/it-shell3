@@ -57,18 +57,21 @@ See `v0.7/review-notes/` for the full list.
 | Doc 03 Q1 (Last-pane-close behavior) | **Closed** | Already reflected in the design (`ClosePaneResponse` `side_effect = 1`). Owner confirmed: yes, auto-destroy. |
 | Doc 03 Q3 (Session auto-destroy) | **Closed** | Core design principle: daemon keeps sessions alive indefinitely with no attached clients. This is fundamental to the daemon's purpose (reconnect later). Owner confirmed: never. |
 | Doc 06 Q9 (Tier transition telemetry) | **Closed** | RendererHealth's `coalescing_tier` field is sufficient. No dedicated notification needed. Owner confirmed. |
+| Doc 05 Q6 (Undo during composition) | **Closed** | Not a protocol concern. IME contract governs modifier key handling — Cmd+key flushes preedit and forwards. See IME Interface Contract v0.6 Section 3.3. Owner decision. |
 | Doc 05 Q3 (Client-side prediction) | **Closed — will not discuss** | Preedit rendering requires server-side libghostty-vt for width/wrapping. Client-side IME does not eliminate server roundtrip. Owner decision. |
+| Doc 06 Q5 (Clipboard sync mode) | **Closed — not a protocol concern** | Clipboard access policy is implementation-defined by the client app. Normative note added to Doc 06 §3.1. Owner decision. |
 
 **Instruction to v0.8 writers**: These questions are fully closed. Do NOT carry them into v0.8 open questions. Specifically:
-- Remove Q5, Q1, Q3 from Doc 05 Section 15.
+- Remove Q5, Q1, Q3, Q6 from Doc 05 Section 15.
 - Remove Q1 and Q3 from Doc 03 Section 10.
-- Remove Q9 from Doc 06 Section 11.
+- Remove Q9 and Q5 from Doc 06 Section 11.
 
 ### 5.1b Transferred to Review Notes
 
 | Question | Review Note | Note |
 |----------|-------------|------|
 | Doc 03 Q4 (Zoom + split interaction) | `06-zoom-split-interaction` | Owner requests open discussion with no pre-selected direction. Do NOT bias toward any option. |
+| Doc 05 Q4 (Preedit and mouse interaction) | `05-mouse-preedit-interaction` | MouseButton commits preedit; MouseScroll does not. Viewport restoration is libghostty auto-behavior (`scroll-to-bottom` default). |
 
 ### 5.2 Resolve in v0.8
 

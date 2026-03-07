@@ -556,7 +556,7 @@ Sent by the server when a shell application writes to the clipboard via OSC 52. 
 2. Sends a ClipboardWrite to all attached clients with the decoded data.
 3. The `clipboard_type` maps from the OSC 52 selection parameter: `c` = system, `p`/`s` = selection.
 
-**Security**: The server may be configured to prompt before clipboard writes (matching iTerm2's security model). If prompting is enabled, the ClipboardWrite message includes a confirmation token and the client must display a user prompt before writing to the OS clipboard. This is controlled via capabilities negotiation.
+**Security**: How the client handles clipboard requests (auto-allow, prompt the user, or deny) is implementation-defined. The protocol delivers the clipboard data; the client decides the policy. For example, a client may auto-allow clipboard writes from local Unix socket connections but prompt the user for SSH tunnel connections. This is a client app concern, not a protocol concern.
 
 ### 3.2 ClipboardRead (0x0601)
 
@@ -1210,7 +1210,7 @@ If a client or server receives a message with:
 
 4. **Multi-session snapshots**: Should one snapshot file contain multiple sessions, or one file per session? cmux uses one file for the entire app state. Per-session files are simpler for partial restore. Suggestion: per-session files with a manifest.
 
-5. **Clipboard sync mode**: Should clipboard sync be automatic (like iTerm2's auto mode), manual (user triggers), or configurable? Suggestion: configurable via capabilities, default to "ask" for security.
+5. **~~Clipboard sync mode~~** **Closed (v0.7)**: Not a protocol concern. Clipboard access policy (auto-allow, prompt, deny) is implementation-defined by the client app. Normative note added to Section 3.1. Owner decision.
 
 6. **RendererHealth interval**: How frequently should RendererHealth reports be sent? Too frequent = noise, too infrequent = useless for debugging. The subscription system allows per-client configuration, but what should the minimum be? Suggestion: 1000 ms minimum.
 

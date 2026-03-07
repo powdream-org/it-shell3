@@ -1104,8 +1104,8 @@ For composition end:
 
 3. **~~Client-side prediction~~** **Closed (v0.7)**: Will not discuss. Preedit rendering requires server-side libghostty-vt for width computation and line wrapping (`lines[]` + `segments[]` model). Moving IME to client does not eliminate the server roundtrip for preedit display. Owner decision.
 
-4. **Preedit and selection interaction**: If a user selects text on a pane where preedit is active, should the selection replace the preedit? Current design: selection operations commit the preedit first, then proceed with selection.
+4. **~~Preedit and mouse interaction~~** **Transferred (v0.7)**: Transferred to review note `05-mouse-preedit-interaction`. MouseButton commits preedit; MouseScroll does not. Owner decision.
 
 5. **~~Multiple simultaneous compositions~~** **Resolved (v0.7)**: Simultaneous compositions within a session are not possible. The per-session engine (one `HangulInputContext` per session) enforces the preedit exclusivity invariant — at most one pane in a session can have active preedit at any time. See Section 1 for the normative statement. Focus change to a different pane commits the active preedit (Section 7.7).
 
-6. **Undo during composition**: Should Cmd+Z during composition undo the last Jamo addition (similar to Backspace)? Or should it be forwarded to the terminal? Current thinking: Backspace handles decomposition; Cmd+Z is forwarded.
+6. **~~Undo during composition~~** **Closed (v0.7)**: Not a protocol concern. IME contract governs modifier key handling — all Cmd+key combinations flush (commit) preedit and forward the key. Cmd+Z flushes preedit, then forwards Cmd+Z to the terminal. See IME Interface Contract v0.6, Section 3.3 (Modifier Flush Policy). Owner decision.
