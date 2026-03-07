@@ -1,0 +1,14 @@
+# IME Contract v0.7 TODO
+
+> **Cross-team revision** with Protocol v0.8. Single topic: composition_state removal.
+> Protocol TODO: `docs/libitshell3/02-design-docs/server-client-protocols/v0.8/TODO.md`
+> See protocol TODO for full phase tracking. This file tracks IME-specific deliverables only.
+
+## IME Contract Changes (tracked in Protocol v0.8 Phase 3)
+
+- [ ] Remove `composition_state` field from `ImeResult` (Section 3.2)
+- [ ] Remove `CompositionStates` struct from `HangulImeEngine` (Section 3.7)
+- [ ] Remove `composition_state` column from scenario matrix (Section 3.2)
+- [ ] Remove `composition_state` memory model note (Section 6)
+- [ ] Remove composition-state naming convention (Section 3.7)
+- [ ] Update `setActiveInputMethod` return value examples (Section 3.6)

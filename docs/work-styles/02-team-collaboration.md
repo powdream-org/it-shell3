@@ -244,6 +244,7 @@ In every discussion phase, the team leader MUST explicitly designate one agent (
 - Synthesize all peer-agreed positions into a single coherent report
 - Report the final consensus to the team leader — not piecemeal per-agent summaries
 - Clearly distinguish between unanimously agreed items, items with noted caveats, and unresolved items
+- Decide **autonomously** when consensus has been reached and deliver the report **without prompting** from the team leader. The team leader has no authority to request, expedite, or schedule this report.
 
 Without a designated reporter, the team leader receives fragmented, potentially contradictory summaries from multiple agents and must reconstruct the consensus — which violates the "do not do research" constraint.
 
@@ -344,3 +345,4 @@ Some team members are assigned via **symlinks** (e.g., `ime-expert.md → ../ime
 | **Zombie cleanup without verification** | Team leader runs `rm -rf` on team directory without checking if agents are alive; alive-but-idle agents become dangling — unreachable, unkillable, user forced to `/exit` | Always perform Section 6.1 (detection) first. Only force-remove truly unresponsive agents via Section 6.2. |
 | **Glob for team member discovery** | Team spawned with 3/5 members; symlinked agents silently omitted | Use `ls -la .claude/agents/<team>/` to see symlinks. `Glob` does not follow symlinks. See Section 6.5. |
 | **Editing before negotiation completes** | Agents start editing files before assignment is agreed; fastest agent applies all fixes, others find nothing to do — duplicate edits, merge conflicts, wasted work | Separate negotiation from execution with an explicit gate. In 3.4, agents negotiate and report assignments — no editing allowed. Team leader shuts down unassigned agents, then explicitly tells assigned agents to start in 3.5. See [Design Workflow](./03-design-workflow.md). |
+| **Leader prompts consensus reporter** | Leader judges "discussion looks converged" from DM summaries and requests the consensus report, pre-empting the reporter's autonomous judgment | The consensus reporter decides when consensus is reached, not the leader. Wait for the reporter to deliver unprompted. See Section 5.4. |

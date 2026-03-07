@@ -140,11 +140,15 @@ consensus.
 - **ALL disputes are resolved by unanimous consensus.** There is no majority
   vote. Team members must logically persuade each other. If a genuine deadlock
   occurs, the team leader escalates to the owner for a binding decision.
+- The team leader **MUST NOT** judge whether discussion has converged or prompt
+  the consensus reporter to deliver their report. The 3.2 → 3.3 transition is
+  triggered **solely** by the consensus reporter's unprompted delivery. Until
+  that report arrives, the team leader waits.
 
 ### 3.3 Resolution Document & Verification
 
-When consensus is reached, the team produces a resolution document and verifies
-it.
+When the consensus reporter delivers their report, the team produces a
+resolution document and verifies it.
 
 **Steps:**
 
@@ -184,11 +188,25 @@ step.**
 3. Team members negotiate among themselves who handles which document or
    section. This includes cross-team request files if the resolution identified
    changes affecting other teams.
-4. Negotiation concludes when all members agree on the assignment and report
-   the result to the team leader.
-5. The team leader shuts down all **unassigned** agents (those with no
+4. When each member individually judges that negotiation is complete, they
+   send a **direct message** to the team leader with their negotiation result
+   (who owns which document/section). The team leader does NOT prompt or
+   ask for reports — each member reports autonomously when they believe
+   agreement has been reached.
+5. The team leader waits until **ALL** members have reported. Once all
+   reports are in, the team leader checks whether the reports are
+   **identical** (same assignment mapping). This is a mechanical equality
+   check only — the team leader does NOT judge correctness, fairness, or
+   optimality of the assignments.
+   - **If identical**: Negotiation is complete. Proceed to step 6.
+   - **If not identical**: The team leader broadcasts ALL received reports
+     to the entire team, states that the reports do not match, and
+     instructs the team to re-negotiate. The team leader does NOT
+     diagnose the discrepancy or suggest a resolution. Then wait for
+     all members to report again (repeat from step 4).
+6. The team leader shuts down all **unassigned** agents (those with no
    editing tasks). Only agents with actual assignments remain.
-6. After all unassigned agents have shut down, proceed to **3.5**.
+7. After all unassigned agents have shut down, proceed to **3.5**.
 
 ### 3.5 Document Writing
 
