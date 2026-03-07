@@ -56,6 +56,14 @@ Specify what to investigate, which reference codebases to consult,
 and what questions the research should answer.}
 ```
 
+## Post-Handover: Update Design Principles
+
+After writing the handover, review its §2 (Insights) and §3 (Design Philosophy) against
+[`docs/insights/design-principles.md`](../../../../insights/design-principles.md). If a
+principle is new, add it. If it reinforces an existing one, update the Origin column. This
+ensures validated knowledge graduates from version-specific handovers into a single living
+document that agents and humans can consult without reading every handover in history.
+
 ## What Does NOT Go in a Handover
 
 | Do not include | Why | Where it belongs |
