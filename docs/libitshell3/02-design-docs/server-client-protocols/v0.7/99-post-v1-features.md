@@ -66,3 +66,57 @@ Cell-to-pixel conversion is the client's responsibility using `ghostty_surface_s
 **Per-segment styling**: Japanese IME needs per-segment decoration (reverse for converting clause, underline for unconverted). The current `ghostty_surface_preedit()` API accepts only flat UTF-8 — no styling information. This would require either a ghostty API extension or a separate overlay mechanism. Design deferred.
 
 This schema is a starting point for post-v1 design, not a commitment.
+
+## 4. Application-Level Heartbeat (echo_nonce)
+
+**Origin**: v0.5 review note Issue 3 (Client Health Model), gap 1.5. v0.6 Resolution 11 deferred to v2.
+
+v1 heartbeat (Heartbeat 0x0003 / HeartbeatAck 0x0004) only proves the TCP connection is alive. It does not prove the client application is actually processing messages — a frozen app whose OS TCP stack continues to ACK packets passes heartbeat checks.
+
+v1 mitigates this through ring cursor stagnation detection and the PausePane escalation timeline (5s/60s/300s). Combined with `latest` as the default resize policy, a frozen client's stale dimensions do not affect healthy clients. This covers all practical scenarios where PTY output is flowing.
+
+**Blind spot**: When the PTY is idle (no terminal output), there are no new ring frames, so cursor stagnation cannot trigger. A frozen client in an idle session is undetectable by v1 mechanisms. Under `latest` policy this is harmless (frozen client's dimensions are irrelevant). Under `smallest` policy, the frozen client's stale dimensions permanently constrain healthy clients.
+
+### v2 design
+
+Add `echo_nonce` as a `HEARTBEAT_NONCE` capability (negotiated at handshake):
+
+```
+Server -> Client: EchoNonce (0x0900) { "nonce": u64 }
+Client -> Server: EchoNonceAck (0x0901) { "nonce": u64 }
+```
+
+The client **application layer** must read the nonce from its message queue and echo it back. TCP-level ACK is insufficient — the nonce proves the app is alive and processing. Failure to respond within a configured timeout triggers the same health escalation as ring cursor stagnation.
+
+**Message range**: 0x0900–0x09FF reserved for connection health extensions.
+
+**References**: Doc 06 v0.7 Section 7 (heartbeat orthogonality note), design-resolutions-resize-health.md Resolution 11.
+
+## 5. Per-Client Focus Indicators
+
+**Origin**: v0.5 review note `review-notes-01-per-client-focus-indicators.md` Issue 1. Carried forward through v0.6 handover (Priority 4), v0.7 TODO (Phase 6c), v0.7 review note `08-per-client-focus-indicators.md`. Deferred to post-v1 by owner decision.
+
+When multiple clients are attached to the same session, show which clients are focused on which tabs and panes — spatial awareness for collaborative or multi-device usage (e.g., macOS + iPad viewing the same session).
+
+### What exists (v0.7)
+
+`client_id`, `client_name`, `ClientAttached` (0x0183), `ClientDetached` (0x0184), `ClientHealthChanged` (0x0185) provide multi-client awareness infrastructure. But no per-client focus tracking.
+
+### What is missing
+
+- **Per-client focus tracking**: Server does not track which pane each client is viewing. v1 uses shared focus (all clients share one `active_pane_id` per session, tmux model).
+- **`ClientFocusChanged` notification**: No message to broadcast when a client changes focused pane.
+- **`ListAttachedClients` query**: No way to query attached clients and their focus state on demand.
+- **Per-client cursor broadcasting**: No "fake cursors" mechanism.
+
+### Design decisions needed
+
+1. **Display-only focus vs independent input routing**: Display-only (each client tracks what they *look at*, input goes to shared `active_pane_id`) vs independent (each client's input goes to their own focused pane, zellij independent mode). Independent mode requires per-client PTY size negotiation.
+2. **Message ID allocation**: 0x0185 is occupied by `ClientHealthChanged`. New IDs needed.
+3. **Client-side rendering**: RenderState architecture means client renders focus indicators locally (tab bar markers, pane frame indicators, optional fake cursors).
+
+### Zellij reference
+
+Zellij supports mirrored (shared view) and independent (per-client focus) modes. Color assignment via `client_id % 10`. Server computes per-client `other_focused_clients` lists. Tab bar and pane frame rendering with graceful text degradation. Full details in v0.5 source document Section 3.
+
+**References**: `v0.5/review-notes-01-per-client-focus-indicators.md` (full original analysis), `v0.7/review-notes/08-per-client-focus-indicators.md` (summary).

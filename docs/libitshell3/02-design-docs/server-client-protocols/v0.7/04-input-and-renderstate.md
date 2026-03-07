@@ -1012,7 +1012,7 @@ All input messages use JSON payloads (16-byte binary header + JSON body).
 
 ## 11. Open Questions
 
-1. **Cell deduplication**: Should the server maintain a cell style palette (assign IDs to unique style combinations) and send style IDs per cell instead of inline PackedColor+flags? This could reduce per-cell size from 20 bytes to ~10 bytes but adds complexity.
+1. **~~Cell deduplication~~** **Closed (v0.7)**: Unnecessary. The I/P-frame model already reduces bandwidth via dirty-row-only P-frames. 20 bytes/cell is acceptable. Owner decision.
 
 2. **~~Image protocol~~** **Closed (v0.7)**: Moved to `99-post-v1-features.md` Section 1. Out of scope for v0.x through v1. Owner decision.
 
@@ -1020,7 +1020,7 @@ All input messages use JSON payloads (16-byte binary header + JSON body).
 
 4. **Hyperlink data**: OSC 8 hyperlinks in cell data are not currently encoded in CellData. They may need an extension field or a separate hyperlink table.
 
-5. **FrameUpdate acknowledgment**: Should the client acknowledge FrameUpdate messages? This could enable flow control (server pauses if client falls behind). Currently not specified — the server sends at its own rate. May be needed for slow WAN connections via SSH tunnel.
+5. **~~FrameUpdate acknowledgment~~** **Closed (v0.7)**: Unnecessary. Ring buffer with cursor stagnation detection provides implicit flow control. PausePane escalation handles slow clients. SSH TCP flow control covers WAN backpressure. Owner decision.
 
 6. **Notification coalescing**: When multiple panes have updates in the same frame interval, should they be batched into a single message or sent as separate FrameUpdate messages? Separate messages are simpler; batching reduces syscall overhead.
 

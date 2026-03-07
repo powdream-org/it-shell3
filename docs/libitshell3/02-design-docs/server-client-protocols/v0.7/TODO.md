@@ -52,10 +52,6 @@
 - [ ] Verification
 - [ ] Commit
 
-## Phase 6c: Per-Client Focus Indicators
+## ~~Phase 6c: Per-Client Focus Indicators~~ — Deferred to post-v1
 
-- [ ] Core team discussion
-- [ ] Resolution document
-- [ ] Writing
-- [ ] Verification
-- [ ] Commit
+Moved to `99-post-v1-features.md` Section 5. Owner decision.

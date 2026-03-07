@@ -1112,7 +1112,7 @@ Readonly clients receive ALL server-to-client messages, including:
 
 4. **Zoom + split interaction**: If a pane is zoomed and the user requests a split, should we unzoom first and then split? Or reject the split while zoomed? Transferred to review note `06-zoom-split-interaction` for open discussion in v0.8.
 
-5. **Layout tree compression**: For deep trees or large numbers of panes, should we support a compressed layout wire format? The current JSON format is readable but verbose for large trees. This can be deferred -- the maximum practical size (~50 panes) would be under a few KB of JSON.
+5. **~~Layout tree compression~~** **Closed (v0.7)**: Unnecessary. Maximum practical size (~50 panes) produces a few KB of JSON — no compression needed. Owner decision.
 
 6. **~~Pane reuse after exit~~** **Closed (v0.7)**: Auto-close. When a pane's process exits, the server automatically closes the pane. Remain-on-exit functionality deferred to post-v1 (see `99-post-v1-features.md`). Owner decision.
 
