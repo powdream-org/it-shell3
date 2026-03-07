@@ -66,7 +66,8 @@ it-shell3/
 │   ├── libitshell3-ime/     # CJK IME Engine (Shared/Server)
 │   └── libitshell3-protocol/# Shared binary protocol definitions
 └── vendors/                # External Source Dependencies
-    └── ghostty/             # Ghostty repository (Git Submodule)
+    ├── ghostty/             # Ghostty repository (Git Submodule)
+    └── libhangul/           # Korean Hangul composition library (Git Submodule)
 ```
 
 ---
@@ -141,5 +142,6 @@ itshell_connect(config)
 ---
 
 ## Dependencies
-- [Ghostty](https://github.com/ghostty-org/ghostty) (Located in ../vendors/ghostty)
+- [Ghostty](https://github.com/ghostty-org/ghostty) (Git Submodule at vendors/ghostty)
+- [libhangul](https://github.com/libhangul/libhangul) (Git Submodule at vendors/libhangul)
 - [libssh2](https://github.com/allyourcodebase/libssh2) (Managed via daemon/build.zig.zon)
