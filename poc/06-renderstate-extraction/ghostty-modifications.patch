@@ -1,8 +1,8 @@
 diff --git a/build.zig b/build.zig
-index f9d861b19..2b6b6450b 100644
+index f9d861b19..87f93569c 100644
 --- a/build.zig
 +++ b/build.zig
-@@ -325,4 +325,42 @@ pub fn build(b: *std.Build) !void {
+@@ -325,4 +325,62 @@ pub fn build(b: *std.Build) !void {
      } else {
          try translations_step.addError("cannot update translations when i18n is disabled", .{});
      }
@@ -43,6 +43,26 @@ index f9d861b19..2b6b6450b 100644
 +        const run_bench = b.addRunArtifact(bench_exe);
 +        bench_step.dependOn(&run_bench.step);
 +        b.installArtifact(bench_exe);
++    }
++
++    // PoC 08: Re-injection — feed FlatCell data back into a separate Terminal
++    {
++        const reinject_step = b.step("poc-reinject", "Run PoC re-injection");
++        const reinject_mod = b.createModule(.{
++            .root_source_file = b.path(
++                "../../../08-renderstate-reinjection/src/main.zig",
++            ),
++            .target = config.baselineTarget(),
++            .optimize = .ReleaseFast,
++        });
++        reinject_mod.addImport("ghostty-vt", mod.vt);
++        const reinject_exe = b.addExecutable(.{
++            .name = "poc-reinject",
++            .root_module = reinject_mod,
++        });
++        const run_reinject = b.addRunArtifact(reinject_exe);
++        reinject_step.dependOn(&run_reinject.step);
++        b.installArtifact(reinject_exe);
 +    }
  }
 diff --git a/src/lib_vt.zig b/src/lib_vt.zig
