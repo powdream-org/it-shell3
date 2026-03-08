@@ -276,6 +276,185 @@ pub fn freeExport(alloc: Allocator, result: *ExportResult) void {
     result.* = undefined;
 }
 
+/// Convert PackedColor back to Style.Color.
+pub fn toStyleColor(pc: PackedColor) Style.Color {
+    return switch (pc.tag) {
+        1 => .{ .palette = pc.r },
+        2 => .{ .rgb = .{ .r = pc.r, .g = pc.g, .b = pc.b } },
+        else => .none,
+    };
+}
+
+/// Populate a RenderState directly from FlatCell data, bypassing Terminal.
+///
+/// This is the client-side counterpart to bulkExport():
+///   Server: Terminal → update() → RenderState → bulkExport() → FlatCell[]
+///   Client: FlatCell[] → importFlatCells() → RenderState → rebuildCells() → GPU
+///
+/// The client never needs a Terminal instance.
+pub fn importFlatCells(
+    alloc: Allocator,
+    state: *RenderState,
+    result: *const ExportResult,
+) Allocator.Error!void {
+    const rows = result.rows;
+    const cols = result.cols;
+
+    // Resize row_data — matches the pattern in RenderState.update()
+    if (state.row_data.len != rows) {
+        if (state.row_data.len < rows) {
+            const old_len = state.row_data.len;
+            try state.row_data.resize(alloc, rows);
+            var rd = state.row_data.slice();
+            for (old_len..rows) |y| {
+                rd.set(y, .{
+                    .arena = .{},
+                    .pin = undefined,
+                    .raw = undefined,
+                    .cells = .empty,
+                    .dirty = true,
+                    .selection = null,
+                    .highlights = .empty,
+                });
+            }
+        } else {
+            const rd = state.row_data.slice();
+            for (
+                rd.items(.arena)[rows..],
+                rd.items(.cells)[rows..],
+            ) |arena_state, *cell| {
+                var arena = arena_state.promote(alloc);
+                arena.deinit();
+                cell.deinit(alloc);
+            }
+            state.row_data.shrinkRetainingCapacity(rows);
+        }
+    }
+
+    state.rows = rows;
+    state.cols = cols;
+    state.dirty = .full;
+    state.cursor.active = .{
+        .x = @intCast(result.cursor_x),
+        .y = @intCast(result.cursor_y),
+    };
+
+    // Populate each row's cells
+    const slice = state.row_data.slice();
+    const row_cells_arr = slice.items(.cells);
+    const row_dirties = slice.items(.dirty);
+
+    for (0..rows) |y| {
+        var cells = &row_cells_arr[y];
+
+        // Resize cells to cols — matches update() pattern
+        if (cells.len != cols) {
+            try cells.resize(alloc, cols);
+        }
+
+        const cells_raw = cells.slice().items(.raw);
+        const cells_style = cells.slice().items(.style);
+        const cells_grapheme = cells.slice().items(.grapheme);
+        const src_offset = y * @as(usize, cols);
+
+        for (0..cols) |x| {
+            const flat = result.cells[src_offset + x];
+
+            // Construct page.Cell packed u64
+            var raw_cell: page.Cell = @bitCast(@as(u64, 0));
+            raw_cell.content_tag = @enumFromInt(flat.content_tag);
+            raw_cell.content = .{ .codepoint = @intCast(flat.codepoint) };
+            raw_cell.wide = @enumFromInt(flat.wide);
+
+            // Set style_id nonzero if cell has styling, so hasStyling() returns true
+            const has_style = flat.fg.tag != 0 or flat.bg.tag != 0 or flat.flags != 0;
+            if (has_style) raw_cell.style_id = 1;
+
+            cells_raw[x] = raw_cell;
+            cells_grapheme[x] = &.{};
+            cells_style[x] = if (has_style) Style{
+                .fg_color = toStyleColor(flat.fg),
+                .bg_color = toStyleColor(flat.bg),
+                .underline_color = .none,
+                .flags = @bitCast(flat.flags),
+            } else undefined;
+        }
+
+        // Check dirty bitmap
+        row_dirties[y] = if (y < 256)
+            (result.dirty_bitmap[y / 64] & (@as(u64, 1) << @intCast(y % 64))) != 0
+        else
+            true;
+    }
+}
+
+/// Export FlatCell[] from an already-populated RenderState.
+///
+/// Unlike bulkExport(), this does NOT call state.update().
+/// Use this when RenderState was populated via importFlatCells()
+/// rather than update().
+pub fn flattenExport(
+    alloc: Allocator,
+    state: *const RenderState,
+) Allocator.Error!ExportResult {
+    const rows = state.rows;
+    const cols = state.cols;
+    const total_cells: usize = @as(usize, rows) * @as(usize, cols);
+
+    const flat_cells = try alloc.alloc(FlatCell, total_cells);
+
+    const row_data = state.row_data.slice();
+    const row_cells_arr = row_data.items(.cells);
+    const row_dirties = row_data.items(.dirty);
+
+    var dirty_bitmap: [4]u64 = .{ 0, 0, 0, 0 };
+
+    for (0..rows) |y| {
+        const cells_slice = row_cells_arr[y].slice();
+        const cells_raw = cells_slice.items(.raw);
+        const cells_style = cells_slice.items(.style);
+        const cell_count = @min(cells_raw.len, cols);
+
+        if (row_dirties[y] and y < 256) {
+            dirty_bitmap[y / 64] |= @as(u64, 1) << @intCast(y % 64);
+        }
+
+        const row_offset = y * cols;
+        const dest = flat_cells[row_offset .. row_offset + cols];
+
+        for (0..cell_count) |x| {
+            const raw = cells_raw[x];
+            const style = cells_style[x];
+
+            dest[x] = .{
+                .codepoint = raw.codepoint(),
+                .fg = PackedColor.fromStyleColor(if (raw.hasStyling()) style.fg_color else .none),
+                .bg = PackedColor.fromStyleColor(if (raw.hasStyling()) style.bg_color else .none),
+                .flags = if (raw.hasStyling()) @bitCast(style.flags) else 0,
+                .wide = @intFromEnum(raw.wide),
+                .content_tag = @intFromEnum(raw.content_tag),
+            };
+        }
+
+        if (cell_count < cols) {
+            @memset(dest[cell_count..], .{});
+        }
+    }
+
+    return .{
+        .cells = flat_cells.ptr,
+        .rows = rows,
+        .cols = cols,
+        .dirty_bitmap = dirty_bitmap,
+        .cursor_x = @intCast(state.cursor.active.x),
+        .cursor_y = @intCast(state.cursor.active.y),
+        .bg = .{ .tag = 2, .r = state.colors.background.r, .g = state.colors.background.g, .b = state.colors.background.b },
+        .fg = .{ .tag = 2, .r = state.colors.foreground.r, .g = state.colors.foreground.g, .b = state.colors.foreground.b },
+        .dirty_state = @intFromEnum(state.dirty),
+        ._pad = .{ 0, 0, 0, 0, 0 },
+    };
+}
+
 test "FlatCell size and alignment" {
     const testing = std.testing;
     try testing.expectEqual(16, @sizeOf(FlatCell));

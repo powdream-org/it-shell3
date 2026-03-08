@@ -1,15 +1,13 @@
-/// PoC 08: RenderState Re-injection
+/// PoC 08: RenderState Direct Population (No Terminal on Client)
 ///
 /// Proves that:
-/// 1. FlatCell data extracted from Terminal A can be re-injected into a
-///    completely separate Terminal B using the high-level print/setAttribute API
-/// 2. The re-injected Terminal B produces identical RenderState cell data
-/// 3. Round-trip performance (export → reinject → re-export) is measured
+/// 1. FlatCell[] data can directly populate a RenderState WITHOUT a Terminal
+/// 2. The populated RenderState produces identical cell data when re-exported
+/// 3. This validates the client-side rendering path for the it-shell3 protocol:
+///    Server: Terminal → update() → bulkExport() → FlatCell[] → wire
+///    Client: wire → FlatCell[] → importFlatCells() → RenderState → rebuildCells() → GPU
 ///
-/// This validates the full server→wire→client pipeline for the it-shell3
-/// protocol: the server extracts RenderState, serializes to FlatCell[],
-/// the client receives it and feeds it into a fresh ghostty Terminal
-/// for GPU rendering.
+/// The client never creates a Terminal instance.
 const std = @import("std");
 const vt = @import("ghostty-vt");
 
@@ -19,29 +17,32 @@ const FlatCell = vt.render_export.FlatCell;
 const PackedColor = vt.render_export.PackedColor;
 const ExportResult = vt.render_export.ExportResult;
 const bulkExport = vt.render_export.bulkExport;
+const importFlatCells = vt.render_export.importFlatCells;
+const flattenExport = vt.render_export.flattenExport;
 const freeExport = vt.render_export.freeExport;
 
 const print = std.debug.print;
 
 const BENCH_ITERS = 1000;
+const WARMUP_ITERS = 100;
 
 pub fn main() !void {
     var gpa_state: std.heap.GeneralPurposeAllocator(.{}) = .init;
     defer _ = gpa_state.deinit();
     const alloc = gpa_state.allocator();
 
-    print("=== PoC 08: RenderState Re-injection ===\n\n", .{});
+    print("=== PoC 08: RenderState Direct Population ===\n\n", .{});
 
     // Phase 1: Correctness
     print("--- Phase 1: Correctness Verification ---\n\n", .{});
-    try verifyReinjection(alloc);
+    try verifyDirectPopulation(alloc);
 
     // Phase 2: Performance
-    print("\n--- Phase 2: Round-trip Performance ---\n", .{});
-    print("{} iterations per size\n\n", .{BENCH_ITERS});
+    print("\n--- Phase 2: Import Performance ---\n", .{});
+    print("{} warmup + {} bench iterations\n\n", .{ WARMUP_ITERS, BENCH_ITERS });
 
     print("{s:<25} {s:>10} {s:>12} {s:>12} {s:>12}\n", .{
-        "Size", "Cells", "export us", "reinj us", "total us",
+        "Size", "Cells", "import us", "flatten us", "total us",
     });
     print("{s:-<25} {s:->10} {s:->12} {s:->12} {s:->12}\n", .{
         "", "", "", "", "",
@@ -51,10 +52,11 @@ pub fn main() !void {
         .{ .cols = 80, .rows = 24, .label = "80x24 (standard)" },
         .{ .cols = 120, .rows = 40, .label = "120x40 (large)" },
         .{ .cols = 200, .rows = 50, .label = "200x50 (wide)" },
+        .{ .cols = 300, .rows = 80, .label = "300x80 (ultra)" },
     };
 
     for (sizes) |sz| {
-        try benchmarkRoundtrip(alloc, sz.cols, sz.rows, sz.label);
+        try benchmarkImport(alloc, sz.cols, sz.rows, sz.label);
     }
 
     print("\n=== PoC 08 COMPLETE ===\n", .{});
@@ -62,73 +64,71 @@ pub fn main() !void {
 
 // ─── Phase 1: Correctness ───────────────────────────────────────────
 
-fn verifyReinjection(alloc: std.mem.Allocator) !void {
-    // Source terminal with mixed content
-    var term_a = try Terminal.init(alloc, .{ .cols = 80, .rows = 24 });
-    defer term_a.deinit(alloc);
-    try fillSourceTerminal(&term_a);
+fn verifyDirectPopulation(alloc: std.mem.Allocator) !void {
+    // SERVER SIDE: Create terminal, fill, export
+    var term = try Terminal.init(alloc, .{ .cols = 80, .rows = 24 });
+    defer term.deinit(alloc);
+    try fillSourceTerminal(&term);
 
-    // Export from A
-    var state_a: RenderState = .empty;
-    defer state_a.deinit(alloc);
-    var export_a = try bulkExport(alloc, &state_a, &term_a);
-    defer freeExport(alloc, &export_a);
+    var state_server: RenderState = .empty;
+    defer state_server.deinit(alloc);
+    var export_server = try bulkExport(alloc, &state_server, &term);
+    defer freeExport(alloc, &export_server);
 
-    print("  Source: {}x{} = {} cells\n", .{
-        export_a.cols, export_a.rows,
-        @as(usize, export_a.cols) * @as(usize, export_a.rows),
+    print("  Server: {}x{} = {} cells exported\n", .{
+        export_server.cols, export_server.rows,
+        @as(usize, export_server.cols) * @as(usize, export_server.rows),
     });
 
-    // Destination terminal — completely separate instance
-    var term_b = try Terminal.init(alloc, .{ .cols = 80, .rows = 24 });
-    defer term_b.deinit(alloc);
+    // CLIENT SIDE: No Terminal — populate RenderState directly from FlatCell[]
+    var state_client: RenderState = .empty;
+    defer state_client.deinit(alloc);
 
-    // Re-inject
-    try reinject(&term_b, export_a.cells, export_a.rows, export_a.cols);
+    try importFlatCells(alloc, &state_client, &export_server);
 
-    // Export from B
-    var state_b: RenderState = .empty;
-    defer state_b.deinit(alloc);
-    var export_b = try bulkExport(alloc, &state_b, &term_b);
-    defer freeExport(alloc, &export_b);
+    print("  Client: RenderState populated directly (no Terminal)\n", .{});
 
-    // Cell-by-cell comparison
-    const total = @as(usize, export_a.rows) * @as(usize, export_a.cols);
+    // Re-export from client RenderState (flatten only, no update)
+    var export_client = try flattenExport(alloc, &state_client);
+    defer freeExport(alloc, &export_client);
+
+    // Compare cell-by-cell
+    const total = @as(usize, export_server.rows) * @as(usize, export_server.cols);
     var match: usize = 0;
     var mismatch: usize = 0;
     var both_empty: usize = 0;
 
     for (0..total) |i| {
-        const ca = export_a.cells[i];
-        const cb = export_b.cells[i];
+        const cs = export_server.cells[i];
+        const cc = export_client.cells[i];
 
-        if (ca.codepoint == 0 and cb.codepoint == 0) {
+        if (cs.codepoint == 0 and cc.codepoint == 0) {
             both_empty += 1;
             continue;
         }
 
-        if (ca.codepoint == cb.codepoint and
-            ca.wide == cb.wide and
-            ca.flags == cb.flags and
-            eqlColor(ca.fg, cb.fg) and
-            eqlColor(ca.bg, cb.bg))
+        if (cs.codepoint == cc.codepoint and
+            cs.wide == cc.wide and
+            cs.flags == cc.flags and
+            eqlColor(cs.fg, cc.fg) and
+            eqlColor(cs.bg, cc.bg))
         {
             match += 1;
         } else {
             mismatch += 1;
             if (mismatch <= 5) {
-                const row = i / export_a.cols;
-                const col = i % export_a.cols;
+                const row = i / export_server.cols;
+                const col = i % export_server.cols;
                 print("  MISMATCH ({},{}):\n", .{ row, col });
-                print("    A: U+{X:0>4} w={} fl=0x{X:0>4} fg={}/{}/{}/{} bg={}/{}/{}/{}\n", .{
-                    ca.codepoint, ca.wide, ca.flags,
-                    ca.fg.tag,    ca.fg.r,    ca.fg.g,    ca.fg.b,
-                    ca.bg.tag,    ca.bg.r,    ca.bg.g,    ca.bg.b,
+                print("    Server: U+{X:0>4} w={} fl=0x{X:0>4} fg={}/{}/{}/{} bg={}/{}/{}/{}\n", .{
+                    cs.codepoint, cs.wide, cs.flags,
+                    cs.fg.tag, cs.fg.r, cs.fg.g, cs.fg.b,
+                    cs.bg.tag, cs.bg.r, cs.bg.g, cs.bg.b,
                 });
-                print("    B: U+{X:0>4} w={} fl=0x{X:0>4} fg={}/{}/{}/{} bg={}/{}/{}/{}\n", .{
-                    cb.codepoint, cb.wide, cb.flags,
-                    cb.fg.tag,    cb.fg.r,    cb.fg.g,    cb.fg.b,
-                    cb.bg.tag,    cb.bg.r,    cb.bg.g,    cb.bg.b,
+                print("    Client: U+{X:0>4} w={} fl=0x{X:0>4} fg={}/{}/{}/{} bg={}/{}/{}/{}\n", .{
+                    cc.codepoint, cc.wide, cc.flags,
+                    cc.fg.tag, cc.fg.r, cc.fg.g, cc.fg.b,
+                    cc.bg.tag, cc.bg.r, cc.bg.g, cc.bg.b,
                 });
             }
         }
@@ -139,18 +139,17 @@ fn verifyReinjection(alloc: std.mem.Allocator) !void {
     });
 
     if (mismatch == 0) {
-        print("  *** ALL CELLS MATCH — Re-injection PASSED ***\n", .{});
+        print("  *** ALL CELLS MATCH — Direct population PASSED ***\n", .{});
     } else {
-        print("  *** {} MISMATCHES — Re-injection FAILED ***\n", .{mismatch});
+        print("  *** {} MISMATCHES — Direct population FAILED ***\n", .{mismatch});
+        return;
     }
 
-    // Verify specific rows for extra confidence
-    print("\n  Row-level checks:\n", .{});
+    // Row-level spot checks on the CLIENT-side RenderState
+    print("\n  Row-level checks (from client RenderState):\n", .{});
 
-    // Row 0: ASCII
-    const r0 = export_b.cells[0..80];
+    const r0 = export_client.cells[0..80];
     std.debug.assert(r0[0].codepoint == 'H');
-    std.debug.assert(r0[4].codepoint == 'o');
     print("    Row 0 ASCII: '{c}{c}{c}{c}{c}...' OK\n", .{
         @as(u8, @intCast(r0[0].codepoint)),
         @as(u8, @intCast(r0[1].codepoint)),
@@ -159,45 +158,26 @@ fn verifyReinjection(alloc: std.mem.Allocator) !void {
         @as(u8, @intCast(r0[4].codepoint)),
     });
 
-    // Row 1: Korean wide
-    const r1 = export_b.cells[80..160];
+    const r1 = export_client.cells[80..160];
     std.debug.assert(r1[0].codepoint == 0xD55C);
-    std.debug.assert(r1[0].wide == 1); // wide
-    std.debug.assert(r1[1].wide == 2); // spacer_tail
+    std.debug.assert(r1[0].wide == 1);
+    std.debug.assert(r1[1].wide == 2);
     print("    Row 1 Korean: U+{X:0>4} wide={} spacer={} OK\n", .{
         r1[0].codepoint, r1[0].wide, r1[1].wide,
     });
 
-    // Row 2: Bold red
-    const r2 = export_b.cells[160..240];
+    const r2 = export_client.cells[160..240];
     std.debug.assert(r2[0].codepoint == 'B');
-    std.debug.assert(r2[0].fg.tag == 2); // RGB
-    std.debug.assert(r2[0].fg.r == 255);
-    std.debug.assert(r2[0].fg.g == 0);
+    std.debug.assert(r2[0].fg.tag == 2 and r2[0].fg.r == 255);
     std.debug.assert(r2[0].flags & 1 == 1); // bold
     print("    Row 2 Bold Red: fg=rgb({},{},{}) bold={} OK\n", .{
         r2[0].fg.r, r2[0].fg.g, r2[0].fg.b, r2[0].flags & 1 == 1,
     });
 
-    // Row 3: Italic green on blue
-    const r3 = export_b.cells[240..320];
-    std.debug.assert(r3[0].codepoint == 'I');
-    std.debug.assert(r3[0].fg.tag == 2 and r3[0].fg.g == 255);
-    std.debug.assert(r3[0].bg.tag == 2 and r3[0].bg.b == 128);
-    std.debug.assert(r3[0].flags & 2 == 2); // italic
-    print("    Row 3 Italic Green/Blue: fg=rgb({},{},{}) bg=rgb({},{},{}) italic={} OK\n", .{
-        r3[0].fg.r, r3[0].fg.g, r3[0].fg.b,
-        r3[0].bg.r, r3[0].bg.g, r3[0].bg.b,
-        r3[0].flags & 2 == 2,
-    });
-
-    // Row 5: Palette colors
-    const r5 = export_b.cells[400..480];
+    const r5 = export_client.cells[400..480];
     std.debug.assert(r5[0].codepoint == 'P');
-    std.debug.assert(r5[0].fg.tag == 1); // palette
-    std.debug.assert(r5[0].fg.r == 196); // palette index
-    std.debug.assert(r5[0].bg.tag == 1);
-    std.debug.assert(r5[0].bg.r == 21);
+    std.debug.assert(r5[0].fg.tag == 1 and r5[0].fg.r == 196);
+    std.debug.assert(r5[0].bg.tag == 1 and r5[0].bg.r == 21);
     print("    Row 5 Palette: fg=palette({}) bg=palette({}) OK\n", .{
         r5[0].fg.r, r5[0].bg.r,
     });
@@ -205,7 +185,7 @@ fn verifyReinjection(alloc: std.mem.Allocator) !void {
 
 fn fillSourceTerminal(term: *Terminal) !void {
     // Row 0: Plain ASCII
-    for ("Hello, it-shell3! PoC 08 re-injection test.") |c| try term.print(c);
+    for ("Hello, it-shell3! PoC 08 direct population.") |c| try term.print(c);
     term.carriageReturn();
     try term.linefeed();
 
@@ -246,168 +226,63 @@ fn fillSourceTerminal(term: *Terminal) !void {
     try term.setAttribute(.unset);
 }
 
-// ─── Re-injection Algorithm ─────────────────────────────────────────
-
-/// Re-inject FlatCell data into a fresh Terminal instance.
-///
-/// Uses the high-level Terminal API (setCursorPos + setAttribute + print)
-/// to reconstruct the screen content. This is the recommended approach
-/// because:
-/// - print() automatically handles wide characters (spacer_tail generation)
-/// - setAttribute() correctly manages the page-local StyleSet
-/// - No direct page.Cell manipulation needed
-fn reinject(term: *Terminal, cells: [*]FlatCell, rows: u16, cols: u16) !void {
-    var cur_fg = PackedColor{};
-    var cur_bg = PackedColor{};
-    var cur_flags: u16 = 0;
-    var style_set = false;
-
-    for (0..rows) |y| {
-        var cursor_x: usize = 0;
-        var row_started = false;
-
-        for (0..cols) |x| {
-            const cell = cells[y * cols + x];
-
-            // Skip spacer cells — auto-generated by print() for wide chars
-            if (cell.wide == 2 or cell.wide == 3) continue;
-
-            // Skip empty cells
-            if (cell.codepoint == 0) continue;
-
-            // Position cursor if needed
-            if (!row_started or cursor_x != x) {
-                term.setCursorPos(@intCast(y + 1), @intCast(x + 1));
-                cursor_x = x;
-                row_started = true;
-            }
-
-            // Update style only when it changes (minimize setAttribute calls)
-            if (!style_set or
-                cell.flags != cur_flags or
-                !eqlColor(cell.fg, cur_fg) or
-                !eqlColor(cell.bg, cur_bg))
-            {
-                try term.setAttribute(.unset);
-                try applyStyle(term, cell);
-                cur_flags = cell.flags;
-                cur_fg = cell.fg;
-                cur_bg = cell.bg;
-                style_set = true;
-            }
-
-            // Print codepoint — handles wide char mechanics automatically
-            try term.print(@intCast(cell.codepoint));
-            cursor_x += if (cell.wide == 1) @as(usize, 2) else @as(usize, 1);
-        }
-    }
-}
-
-/// Apply FlatCell style to the terminal pen state.
-/// Called after setAttribute(.unset) has cleared all attributes.
-fn applyStyle(term: *Terminal, cell: FlatCell) !void {
-    // Style flags — bit positions match Style.Flags packed struct(u16):
-    //   0=bold, 1=italic, 2=faint, 3=blink, 4=inverse,
-    //   5=invisible, 6=strikethrough, 7=overline, 8-10=underline(u3)
-    if (cell.flags & 0x0001 != 0) try term.setAttribute(.bold);
-    if (cell.flags & 0x0002 != 0) try term.setAttribute(.italic);
-    if (cell.flags & 0x0004 != 0) try term.setAttribute(.faint);
-    if (cell.flags & 0x0008 != 0) try term.setAttribute(.blink);
-    if (cell.flags & 0x0010 != 0) try term.setAttribute(.inverse);
-    if (cell.flags & 0x0020 != 0) try term.setAttribute(.invisible);
-    if (cell.flags & 0x0040 != 0) try term.setAttribute(.strikethrough);
-    if (cell.flags & 0x0080 != 0) try term.setAttribute(.overline);
-
-    const underline_val: u3 = @intCast((cell.flags >> 8) & 0x7);
-    if (underline_val != 0) {
-        try term.setAttribute(.{ .underline = @enumFromInt(underline_val) });
-    }
-
-    // Foreground color
-    switch (cell.fg.tag) {
-        1 => try term.setAttribute(.{ .@"256_fg" = cell.fg.r }),
-        2 => try term.setAttribute(.{ .direct_color_fg = .{
-            .r = cell.fg.r, .g = cell.fg.g, .b = cell.fg.b,
-        } }),
-        else => {},
-    }
-
-    // Background color
-    switch (cell.bg.tag) {
-        1 => try term.setAttribute(.{ .@"256_bg" = cell.bg.r }),
-        2 => try term.setAttribute(.{ .direct_color_bg = .{
-            .r = cell.bg.r, .g = cell.bg.g, .b = cell.bg.b,
-        } }),
-        else => {},
-    }
-}
-
 fn eqlColor(a: PackedColor, b: PackedColor) bool {
     return a.tag == b.tag and a.r == b.r and a.g == b.g and a.b == b.b;
 }
 
 // ─── Phase 2: Performance ───────────────────────────────────────────
 
-fn benchmarkRoundtrip(
+fn benchmarkImport(
     alloc: std.mem.Allocator,
     cols: vt.size.CellCountInt,
     rows: vt.size.CellCountInt,
     label: []const u8,
 ) !void {
-    // Source terminal
-    var term_src = try Terminal.init(alloc, .{ .cols = cols, .rows = rows });
-    defer term_src.deinit(alloc);
-    fillBench(&term_src, cols, rows) catch {};
+    // Create source data (server side)
+    var term = try Terminal.init(alloc, .{ .cols = cols, .rows = rows });
+    defer term.deinit(alloc);
+    fillBench(&term, cols, rows) catch {};
 
     var state_src: RenderState = .empty;
     defer state_src.deinit(alloc);
-    var export_src = try bulkExport(alloc, &state_src, &term_src);
+    var export_src = try bulkExport(alloc, &state_src, &term);
     defer freeExport(alloc, &export_src);
 
+    // Client-side RenderState — reused across iterations
+    var state_client: RenderState = .empty;
+    defer state_client.deinit(alloc);
+
     // Warmup
-    for (0..100) |_| {
-        var td = try Terminal.init(alloc, .{ .cols = cols, .rows = rows });
-        reinject(&td, export_src.cells, export_src.rows, export_src.cols) catch {};
-        var sd: RenderState = .empty;
-        var ed = bulkExport(alloc, &sd, &td) catch {
-            sd.deinit(alloc);
-            td.deinit(alloc);
-            continue;
-        };
-        freeExport(alloc, &ed);
-        sd.deinit(alloc);
-        td.deinit(alloc);
+    for (0..WARMUP_ITERS) |_| {
+        try importFlatCells(alloc, &state_client, &export_src);
+        var ex = try flattenExport(alloc, &state_client);
+        freeExport(alloc, &ex);
     }
 
     // Benchmark
-    var export_ns: u64 = 0;
-    var reinject_ns: u64 = 0;
+    var import_ns: u64 = 0;
+    var flatten_ns: u64 = 0;
 
     for (0..BENCH_ITERS) |_| {
-        var td = try Terminal.init(alloc, .{ .cols = cols, .rows = rows });
-
         const t0 = std.time.nanoTimestamp();
-        reinject(&td, export_src.cells, export_src.rows, export_src.cols) catch {};
+        try importFlatCells(alloc, &state_client, &export_src);
         const t1 = std.time.nanoTimestamp();
 
-        var sd: RenderState = .empty;
-        var ed = try bulkExport(alloc, &sd, &td);
+        var ex = try flattenExport(alloc, &state_client);
         const t2 = std.time.nanoTimestamp();
 
-        freeExport(alloc, &ed);
-        sd.deinit(alloc);
-        td.deinit(alloc);
+        freeExport(alloc, &ex);
 
-        reinject_ns += @intCast(t1 - t0);
-        export_ns += @intCast(t2 - t1);
+        import_ns += @intCast(t1 - t0);
+        flatten_ns += @intCast(t2 - t1);
     }
 
     const total_cells: usize = @as(usize, cols) * @as(usize, rows);
-    const export_us = export_ns / BENCH_ITERS / 1000;
-    const reinject_us = reinject_ns / BENCH_ITERS / 1000;
+    const import_us = import_ns / BENCH_ITERS / 1000;
+    const flatten_us = flatten_ns / BENCH_ITERS / 1000;
 
     print("{s:<25} {d:>10} {d:>12} {d:>12} {d:>12}\n", .{
-        label, total_cells, export_us, reinject_us, export_us + reinject_us,
+        label, total_cells, import_us, flatten_us, import_us + flatten_us,
     });
 }
 
@@ -419,7 +294,7 @@ fn fillBench(term: *Terminal, cols: vt.size.CellCountInt, rows: vt.size.CellCoun
         const fill_cols = @min(cols, 78);
         for (0..fill_cols) |c| {
             const cp: u21 = if (r % 4 == 1 and c % 3 == 0)
-                0xD55C // 한 (wide)
+                0xD55C
             else
                 @intCast('A' + (c + r) % 26);
             try term.print(cp);
