@@ -48,7 +48,7 @@ Priority 0 only (PoC-validated items: review notes 16–21). All other review no
 ## Phase 7: Commit & Report
 
 - [x] Verification clean for v0.9 scope
-- [ ] Commit v0.9 documents
+- [x] Commit v0.9 documents (`5119f59`)
 - [ ] Report to owner
 
 ## Carryover to v0.10
