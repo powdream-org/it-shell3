@@ -1,9 +1,9 @@
 # Handover: Protocol v0.8 to v0.9 Revision
 
-> **Date**: 2026-03-07
+> **Date**: 2026-03-08 (updated from 2026-03-07)
 > **Author**: team-lead (with owner review)
-> **Scope**: Preedit protocol overhaul — cross-team revision with IME Contract v0.7
-> **Prerequisite reading**: All files in `v0.9/review-notes/`, `v0.8/design-resolutions/01-preedit-overhaul.md`
+> **Scope**: Preedit protocol overhaul — cross-team revision with IME Contract v0.7; **PoC 06–08 findings added 2026-03-08**
+> **Prerequisite reading**: All files in `v0.8/review-notes/` (01–21), `v0.8/design-resolutions/01-preedit-overhaul.md`, PoC READMEs (`poc/06-renderstate-extraction/`, `poc/07-renderstate-bulk-api/`, `poc/08-renderstate-reinjection/`)
 
 ---
 
@@ -75,44 +75,106 @@ v0.8 was scoped to exactly one topic (preedit overhaul) and its mechanical conse
 
 ## 4. Owner Priorities
 
-v0.9 review notes should be processed in the following order:
+v0.9 review notes should be processed in the following order. **PoC-validated items (16–21) are highest priority** because they align the protocol spec with proven implementation reality.
 
-### Priority 1: CRITICAL
+### Priority 0: PoC-VALIDATED (highest — align spec with proven reality)
 
-1. **`01-scroll-delivery-design`** — Revert incorrect V2-04 text. Scroll I-frames go through ring buffer. Affects doc 04 §6.1. This is a correctness issue from v0.7 that was deferred through v0.8 (single-topic scope).
+> These items are backed by working code (PoC 06–08) with actual GPU rendering on macOS. They are not speculative design — they describe what has been proven to work.
 
-### Priority 2: HIGH
+1. **`16-celldata-format-poc-validation`** [HIGH] — CellData format revision. PoC validated 16-byte fixed-size FlatCell; current spec is 20-byte variable-length. Fixed-size enables O(1) access, 20% bandwidth reduction. Design discussion needed: grapheme cluster separation, underline_color handling.
+2. **`17-client-rendering-pipeline-revision`** [HIGH] — Fundamental architectural update. Client uses `importFlatCells()` → RenderState → `rebuildCells()` → `drawFrame()`, reusing ghostty's entire renderer. Doc 04 §3.2 and §4.1 normative notes need rewriting.
+3. **`18-row-metadata-wire-format`** [MEDIUM] — `semantic_prompt` and `wrap` flags missing from RowData. `neverExtendBg()` needs `semantic_prompt` for correct padding rendering. Proposed: repurpose bits in existing `selection_flags` byte.
+4. **`20-palette-sync-rendering-correctness`** [MEDIUM] — Colors/palette must be REQUIRED in I-frames, not optional. `neverExtendBg()` uses `default_background`; palette-indexed cells need palette for resolution.
+5. **`19-minimum-terminal-dimensions`** [MEDIUM] — PoC crashed in `rebuildRow()` with small dimensions. Protocol should specify minimum rendering dimensions and server/client behavior.
+6. **`21-poc-performance-baseline`** [LOW] — Replace size estimates with measured data (34 µs export+import for 80×24, ~4 ns/cell).
 
-2. **`02-preeditend-reason-cleanup`** — Remove `"input_method_changed"` as a PreeditEnd reason. Use `"cancelled"` for `commit_current=false`, `"committed"` for `commit_current=true`. Affects doc 05 §4.1, §7.9.
+### Priority 1: CRITICAL (from original v0.8 review)
+
+7. **`01-scroll-delivery-design`** — Revert incorrect V2-04 text. Scroll I-frames go through ring buffer. Affects doc 04 §6.1. This is a correctness issue from v0.7 that was deferred through v0.8 (single-topic scope).
+
+### Priority 2: HIGH (from original v0.8 review)
+
+8. **`02-preeditend-reason-cleanup`** — Remove `"input_method_changed"` as a PreeditEnd reason. Use `"cancelled"` for `commit_current=false`, `"committed"` for `commit_current=true`. Affects doc 05 §4.1, §7.9.
 
 ### Priority 3: MEDIUM (design discussion needed)
 
-3. **`03-mouse-preedit-interaction`** — Direction decided: MouseButton commits preedit, MouseScroll does not. Needs spec text.
-4. **`04-zoom-split-interaction`** — Open discussion, no pre-selected direction.
-5. **`05-pane-auto-close-on-exit`** — Direction decided: auto-close on process exit, cascade to session destroy. Needs spec text.
-6. **`06-hyperlink-celldata-encoding`** — Open discussion. Pre-discussion research needed (ghostty hyperlink representation).
+9. **`03-mouse-preedit-interaction`** — Direction decided: MouseButton commits preedit, MouseScroll does not. Needs spec text.
+10. **`04-zoom-split-interaction`** — Open discussion, no pre-selected direction.
+11. **`05-pane-auto-close-on-exit`** — Direction decided: auto-close on process exit, cascade to session destroy. Needs spec text.
+12. **`06-hyperlink-celldata-encoding`** — Open discussion. Pre-discussion research needed (ghostty hyperlink representation).
 
 ### Priority 4: LOW (confirm-and-close)
 
-7. **`07-resolution-doc-text-fixes`** — Text corrections in v0.7 resolution doc.
-8. **`08` through `15`** — 8 confirm-and-close items with owner-approved direction. Apply mechanically to spec docs. See each review note for the specific change.
+13. **`07-resolution-doc-text-fixes`** — Text corrections in v0.7 resolution doc.
+14. **`08` through `15`** — 8 confirm-and-close items with owner-approved direction. Apply mechanically to spec docs. See each review note for the specific change.
 
 ### Owner note on scope
 
-v0.8 was intentionally single-topic. v0.9 has 15 review notes spanning CRITICAL to LOW across multiple docs. The owner may choose to:
-- (a) Process all in one revision cycle (large scope, longer verification)
-- (b) Split into multiple focused revisions (e.g., v0.9 = CRITICAL+HIGH, v0.10 = MEDIUM+LOW)
-- (c) Batch confirm-and-close items (08–15) as mechanical changes with a lighter verification pass
+v0.8 was intentionally single-topic. v0.9 now has **21 review notes** (6 PoC-validated + 15 original) spanning CRITICAL to LOW across multiple docs. The owner may choose to:
+- (a) Process PoC items (16–21) as a focused "PoC alignment" revision cycle (v0.9), then remaining items in v0.10
+- (b) Process all in one revision cycle (large scope, longer verification)
+- (c) Split by priority: v0.9 = Priority 0 + Priority 1, v0.10 = Priority 2–4
+- (d) Batch confirm-and-close items (08–15) as mechanical changes with a lighter verification pass
+
+**Recommended**: Option (a) — the PoC items are cohesive (all affect doc 04, specifically CellData/FrameUpdate/rendering pipeline), and aligning the spec with proven reality should take priority over theoretical design discussions.
 
 ---
 
-## 5. New Conventions and Procedures
+## 5. PoC 06–08 Findings Summary (2026-03-08)
 
-### 5.1 Verification loop termination criteria
+> Added post-v0.8 review. These findings are the primary driver for review notes 16–21.
+
+### 5.1 Full rendering pipeline validated
+
+The complete pipeline was proven with actual Metal GPU rendering on macOS:
+
+```
+Server: Terminal → RenderState.update() → bulkExport() → FlatCell[]
+  ↓ wire
+Client: FlatCell[] → importFlatCells() → RenderState → rebuildCells() → Metal drawFrame() → GPU → pixels
+```
+
+All cell types rendered correctly: ASCII, Korean wide chars (한글), bold/italic, RGB colors, 256-palette colors.
+
+### 5.2 Key discovery: client reuses ghostty's entire renderer
+
+The client does NOT need to manually resolve fonts, build CellText/CellBg buffers, or drive Metal shaders. By populating `RenderState` via `importFlatCells()`, the client calls ghostty's existing `rebuildCells()` which handles all rendering internally. This dramatically simplifies the client and means the protocol carries **semantic cell data for RenderState population**, not GPU-ready data.
+
+### 5.3 Performance budget confirmed
+
+| Operation | 80×24 | 300×80 |
+|-----------|-------|--------|
+| Server export | 22 µs | 217 µs |
+| Client import | 12 µs | 96 µs |
+| **Total** | **34 µs** | **313 µs** |
+| % of 16.6 ms (60fps) | 0.2% | 1.9% |
+
+Wire serialization is NOT the bottleneck. Font shaping and GPU rendering are.
+
+### 5.4 FlatCell 16-byte format works
+
+The PoC used a 16-byte fixed-size FlatCell (codepoint + wide + flags + fg + bg). No underline_color, no grapheme clusters. This was sufficient for all tested rendering scenarios. The current spec's 20-byte variable-length CellData may need revision.
+
+### 5.5 Missing data identified
+
+- Row metadata (`semantic_prompt`, `wrap`) not in wire format — needed by `neverExtendBg()`
+- Palette/colors must be sent for rendering correctness (not optional)
+- Minimum terminal size guard needed (crash at rows < 6 or cols < 60)
+- Grapheme clusters (multi-codepoint) not tested — need arena allocation in importFlatCells()
+
+### 5.6 Impact on design philosophy
+
+Reinforces the v0.8 principle "ghostty is the rendering authority" — now with empirical proof. The client is a thin RenderState populator, not a custom renderer. All rendering decisions (font shaping, padding, cursor decoration) are made by ghostty's code running on the client, fed by server-provided semantic data.
+
+---
+
+## 6. New Conventions and Procedures
+
+### 6.1 Verification loop termination criteria
 
 Added to operational knowledge (not yet formalized in conventions): the owner may stop the verification loop when issues have declined to minor severity, new issues are cascading from the same section, and a supermajority (3/4) of verifiers report CLEAN. This should be considered for formalization in `docs/work-styles/03-design-workflow.md`.
 
-### 5.2 Cross-team revision workflow
+### 6.2 Cross-team revision workflow
 
 v0.8 demonstrated the full cross-team revision workflow for the first time:
 - Phase 1: 7-person cross-team discussion (protocol + IME members)
@@ -124,9 +186,9 @@ This workflow is documented in the v0.8 TODO.md and can serve as a template for 
 
 ---
 
-## 6. Pre-Discussion Research Tasks
+## 7. Pre-Discussion Research Tasks
 
-### 6.1 For `06-hyperlink-celldata-encoding`
+### 7.1 For `06-hyperlink-celldata-encoding`
 
 Research needed (carried forward from v0.7 handover): how does ghostty internally represent OSC 8 hyperlinks in its cell/page structure? Specifically:
 - What is the hyperlink ID type and lifecycle?
@@ -135,12 +197,33 @@ Research needed (carried forward from v0.7 handover): how does ghostty internall
 
 Source: `vendors/ghostty/`, look for `hyperlink` in the terminal page/cell structures.
 
-### 6.2 For `01-scroll-delivery-design`
+### 7.2 For `01-scroll-delivery-design`
 
 No research needed. The owner decision is clear: scroll I-frames go through the ring buffer. The fix is a revert of V2-04 text plus replacement wording. The review note contains the exact proposed change.
 
-### 6.3 For `04-zoom-split-interaction`
+### 7.3 For `04-zoom-split-interaction`
 
 Research may help: how do tmux and zellij handle zoom + split interactions? What happens when a zoomed pane's parent is split? What happens when a split target is inside a zoomed subtree?
 
 Source: `~/dev/git/references/tmux/`, `~/dev/git/references/zellij/`.
+
+### 7.4 For `16-celldata-format-poc-validation`
+
+Research needed: how does ghostty internally handle grapheme clusters in `page.Cell`? Specifically:
+- How is `content_tag = codepoint_grapheme` stored (page-level GraphemeData)?
+- What is the frequency of multi-codepoint cells in real-world terminal output?
+- Can grapheme data be separated from the cell array without breaking `importFlatCells()`?
+
+This informs the decision between fixed-size CellData (with separate grapheme table) vs. variable-length CellData (current spec).
+
+Source: `poc/06-renderstate-extraction/vendors/ghostty/src/terminal/page.zig`, `src/terminal/render.zig`.
+
+### 7.5 For `17-client-rendering-pipeline-revision`
+
+No research needed. PoC 08 proves the pipeline. The change is to update doc 04 §3.2 and §4.1 normative notes to match the validated architecture.
+
+### 7.6 For `18-row-metadata-wire-format`
+
+Research may help: which `page.Row` fields does ghostty's renderer actually read? Beyond `semantic_prompt` and `wrap`, are there other row-level flags that affect rendering? Check `src/renderer/generic.zig` for row-level accesses.
+
+Source: `poc/06-renderstate-extraction/vendors/ghostty/src/renderer/`.
