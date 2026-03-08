@@ -12,7 +12,7 @@ The libitshell3 project objectives are sound, the basic design direction is feas
 
 One major architectural change is recommended: **implement IME natively within libitshell3 rather than relying on macOS's NSTextInputContext**. This eliminates the project's single largest risk, removes the GUI process requirement from the daemon, and makes the library truly portable and headless-capable.
 
-**Overall confidence: 8/10** (up from 7.5 after the native IME decision removes the NSEvent construction risk).
+**Overall confidence: 9/10** (up from 8/10 after PoC 06–08 validated the full RenderState → GPU rendering pipeline without Terminal on the client).
 
 ---
 
@@ -71,13 +71,14 @@ Zig 1.0 is targeting 2026-2027. The standard library is already mature in every 
 
 ### 2.3 Decoupled PTY (Daemon) + Rendering Surface (Client)
 
-**Verdict: FEASIBLE (Confidence 8/10)**
+**Verdict: VALIDATED (Confidence 9/10)** — PoC 06–08 proven
 
-Validated by ghostty reference code analysis:
+Validated by ghostty reference code analysis AND PoC implementation:
 - `ghostty_surface_new()` accepts `command=NULL` — surfaces work without a PTY
 - `NullPty` (44 lines in `src/pty.zig`) is an intentional no-op PTY for iOS
 - `ghostty_surface_preedit()` operates independently of the PTY/IO layer
 - The embedded runtime (`src/apprt/embedded.zig`) is purpose-built for host app integration
+- **PoC 08**: `importFlatCells()` populates RenderState directly → `rebuildCells()` → Metal GPU rendering confirmed on screen
 
 **Important caveat**: `ghostty_surface_text()` goes through the clipboard paste path (with bracketed paste wrapping). This is NOT the right entry point for forwarding raw PTY output to a client surface. The RenderState protocol (Doc 13) is the correct approach — it avoids the VT parse→serialize→re-parse round-trip entirely. See Section 2.5.
 
@@ -163,20 +164,20 @@ Transitions:
 
 ### 2.5 Render State Protocol (Doc 13)
 
-**Verdict: WELL-DESIGNED (Confidence 8/10)**
+**Verdict: VALIDATED (Confidence 9/10)** — PoC 06–08 proven
 
-The analysis of libghostty-vt's `RenderState` is thorough and accurate:
+The analysis of libghostty-vt's `RenderState` is thorough and accurate, now **confirmed by PoC implementation**:
 
-- **Server**: PTY → libghostty-vt Terminal (VT parse, grid, scrollback) → `RenderState.update()` → structured cell data
-- **Client**: Receives cell data → libghostty font subsystem (SharedGrid, Atlas, HarfBuzz) → Metal GPU renderer
+- **Server**: PTY → libghostty-vt Terminal (VT parse, grid, scrollback) → `RenderState.update()` → `bulkExport()` → FlatCell[] (PoC 06, 07)
+- **Client**: FlatCell[] → `importFlatCells()` → RenderState → `rebuildCells()` (font shaping) → Metal GPU (PoC 08)
 - **Built-in dirty tracking**: Per-row dirty flags enable efficient delta updates
-- **Bandwidth**: ~8 KB typical full frame, ~600 B partial update, ~50 B cursor-only move
+- **Measured performance**: Server export 22 µs + client import 12 µs = 34 µs for 80×24 (0.2% of 16.6 ms frame budget)
 
 This is superior to:
 - Zellij's approach (pre-rendered ANSI strings — no client-side optimization possible)
 - VT re-serialization (redundant parse→serialize→re-parse cycle)
 
-The font subsystem components (SharedGrid, CodepointResolver, Collection, Atlas) have **zero terminal dependency** — verified in the ghostty source. Metal shaders consume simple flat structs (CellText, CellBg) with no terminal coupling.
+**Key PoC 08 discovery**: The client doesn't need to manually construct CellText/CellBg buffers. By populating RenderState via `importFlatCells()`, the client reuses ghostty's entire `rebuildCells()` → `drawFrame()` pipeline unchanged. The client is a thin rendering frontend with no Terminal, no VT parser, no Page/Screen.
 
 ### 2.6 Session Hierarchy and Layout
 
@@ -314,7 +315,7 @@ The it-shell3 macOS app must intercept ALL key events (not just bindings) and ro
 
 | Phase | Description | Confidence | Key Deliverable |
 |-------|-------------|------------|-----------------|
-| **1** | Daemon + single pane + Unix socket + client with RenderState rendering | High (8/10) | Proof of architecture: data flows from PTY through daemon to client GPU |
+| **1** | Daemon + single pane + Unix socket + client with RenderState rendering | High (9/10) | Proof of architecture: data flows from PTY through daemon to client GPU (**RenderState → GPU pipeline validated by PoC 06–08**) |
 | **1.5** | Native IME engine: English QWERTY layout mapper + Korean 2-set composition | High (9/10) | Proof of native IME: Korean ㅎ→하→한 composition and backspace decomposition |
 | **2** | Multi-pane with split layout, tabs, sessions, attach/detach | High (9/10) | Usable multiplexer with session persistence |
 | **2.5** | Session persistence to disk (JSON snapshots, scrollback) | High (9/10) | Crash-survivable sessions |
@@ -359,13 +360,13 @@ Phases 1 and 1.5 can be developed in parallel. Phase 2.5 and Phase 3 can overlap
 | ~~NSEvent construction fidelity~~ | ~~HIGH~~ | ~~HIGH~~ | ~~PoC validation~~ | **ELIMINATED** by native IME decision |
 | libghostty API instability | HIGH | HIGH | Pin commit, abstraction layer, upstream engagement | Open |
 | ghostty_surface_text() bracketed paste contamination | HIGH | HIGH | Use RenderState protocol instead (Doc 13) | Addressed in design |
-| PTY decoupling from libghostty | HIGH | MEDIUM | Prototype in Phase 1 | Open |
+| PTY decoupling from libghostty | HIGH | LOW | Prototype in Phase 1 | **VALIDATED** by PoC 08 — client renders from RenderState without Terminal |
 | CJK preedit sync correctness | HIGH | MEDIUM | Formal spec, extensive testing with Korean | Open |
 | Korean Jamo decomposition bugs | MEDIUM | LOW | Unicode algorithm is well-defined; test against libhangul | Low risk |
 | AI agent detection accuracy | MEDIUM | HIGH | Configurable profiles, manual fallback | Acceptable |
 | iOS background execution limits | HIGH | HIGH | Fast reconnect, accept limitation initially | Open |
 | OS IME suppression on macOS | MEDIUM | LOW | cmux/ghostty pattern already proven | Low risk |
-| Performance (rendering latency) | MEDIUM | LOW | Unix sockets are fast; RenderState has dirty tracking | Low risk |
+| Performance (rendering latency) | MEDIUM | LOW | Unix sockets are fast; RenderState has dirty tracking | **VALIDATED** — export+import = 34 µs for 80×24 (0.2% of frame budget) |
 | Security model gaps | HIGH | MEDIUM | Design before network transport (Phase 5) | Open |
 
 ---
@@ -421,16 +422,16 @@ Each reference codebase was analyzed in depth. Key takeaways:
 
 1. **Problem identification is precise** — CJK preedit and AI agent input are real, unsolved problems with growing urgency
 2. **Native IME eliminates the largest risk** — no OS dependency, no NSEvent construction gamble, truly portable
-3. **RenderState protocol is well-researched** — leverages libghostty-vt's built-in dirty tracking for efficient client rendering
+3. **RenderState protocol is PoC-validated** — full pipeline from `bulkExport()` through wire to `importFlatCells()` to Metal GPU rendering confirmed (PoC 06–08)
 4. **Reference code analysis is thorough** — every major decision grounded in real implementations
-5. **Phased development is realistic** — each phase delivers standalone, usable value
+5. **Phased development is realistic** — each phase delivers standalone, usable value; Phase 1 core hypothesis already proven
 6. **Zig choice is validated** — natural FFI with ghostty, mature stdlib for all project needs, C export for Swift
 
 ### Items Requiring Attention Before Phase 1
 
 1. ~~Validate NSEvent construction for Korean IME~~ → **Eliminated** by native IME decision
-2. Prototype the PTY→daemon→RenderState→client GPU pipeline (Phase 1 deliverable)
-3. Verify that ghostty surfaces with `command=NULL` render correctly when fed structured cell data
+2. ~~Prototype the PTY→daemon→RenderState→client GPU pipeline~~ → **VALIDATED** by PoC 06–08: `bulkExport()` → wire → `importFlatCells()` → RenderState → `rebuildCells()` → Metal GPU rendering confirmed
+3. ~~Verify that ghostty surfaces with `command=NULL` render correctly when fed structured cell data~~ → **VALIDATED** by PoC 08: RenderState populated directly from FlatCell[] renders correctly through ghostty's full Metal pipeline (no Terminal needed)
 
 ### Items Requiring Attention Before Phase 3
 

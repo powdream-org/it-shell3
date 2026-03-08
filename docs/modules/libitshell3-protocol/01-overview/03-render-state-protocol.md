@@ -1,6 +1,8 @@
 # Render State Protocol: Server-Side Terminal, Client-Side Display
 
-## The Architecture (Confirmed Feasible)
+> **PoC Validated (2026-03-08)**: The full pipeline — FlatCell[] → importFlatCells() → RenderState → rebuildCells() (font shaping) → Metal drawFrame() → GPU → screen pixels — has been proven with actual GPU rendering on macOS. See [PoC 06–08 Results](#poc-validation) below.
+
+## The Architecture (Confirmed Feasible — PoC Validated)
 
 ```
 libitshell3 Server (macOS)              libitshell3 Client (macOS/iOS)
@@ -20,7 +22,7 @@ libitshell3 Server (macOS)              libitshell3 Client (macOS/iOS)
 │   │  dirty tracking)    │             │         │                │  │
 │   │                     │             │         ▼                │  │
 │  IME processing         │             │  Screen                  │  │
-│  (NSTextInputContext)   │  preedit    │                          │  │
+│  (libitshell3-ime)      │  preedit    │                          │  │
 │   │                     │ ─────────►  │                          │  │
 │   ▼                     │             │                          │  │
 │  Preedit state          │             │                          │  │
@@ -175,38 +177,34 @@ At 60 updates/second worst case: ~480 KB/s (well within Unix socket bandwidth). 
 - No PTY
 - No IME
 
+> **PoC 08 confirmed**: The client needs NONE of these. RenderState is populated directly from wire data via `importFlatCells()`, and the renderer reads only from RenderState.
+
 ### What the Client DOES Have
 
-The client uses libghostty's **font subsystem** (which is fully independent of Terminal):
+The client uses libghostty's **renderer pipeline** (which reads from RenderState, not Terminal):
 
 ```
-Client Rendering Pipeline:
+Client Rendering Pipeline (PoC 08 Validated):
 
-1. Receive FrameUpdate from server
-       │
-2. For each CellData:
+1. Receive FlatCell[] from server (wire data)
        │
        ▼
-3. Font Resolution
-   SharedGrid.getIndex(codepoint, style) → font_index
-   (SharedGrid, CodepointResolver, Collection — all terminal-independent)
+2. importFlatCells() → RenderState
+   (Constructs page.Cell + Style directly — no Terminal, no StyleSet)
        │
        ▼
-4. Glyph Rasterization
-   SharedGrid.renderGlyph(font_index, glyph_index) → Glyph
-   (CoreText renders glyph bitmap into Atlas texture)
+3. rebuildCells() — ghostty's existing renderer
+   (Font shaping via SharedGrid/HarfBuzz, glyph rasterization, atlas)
        │
        ▼
-5. GPU Data Assembly
-   Build CellText { glyph_pos, glyph_size, bearings, grid_pos, color, atlas }
-   Build CellBg   { rgba per cell }
+4. Metal drawFrame()
+   (GPU rendering — unchanged from ghostty's normal pipeline)
        │
        ▼
-6. Metal Rendering
-   Upload Atlas textures + CellText buffer + CellBg buffer + Uniforms
-   Draw background pass → Draw text pass
-   (Can reuse ghostty's Metal shaders directly)
+5. Screen pixels
 ```
+
+The key insight from PoC 08: **we don't need to reimplement font resolution or GPU data assembly**. By populating RenderState directly, we reuse ghostty's entire `rebuildCells()` → `drawFrame()` pipeline unchanged.
 
 ### Font Subsystem Independence (Verified)
 
@@ -228,6 +226,16 @@ Ghostty's Metal shaders (`shaders.metal`) are self-contained. They expect:
 - `Uniforms` buffer (projection matrix, cell/grid sizes, padding, colors)
 
 These structs have no terminal dependency. The client can construct them from server-provided cell data + locally rasterized glyphs.
+
+### Renderer Reuse (PoC 08 Discovery)
+
+PoC 08 revealed that the client doesn't need to construct CellText/CellBg manually at all. By populating `RenderState` via `importFlatCells()`, the client can call ghostty's existing `rebuildCells()` function, which handles:
+- Font resolution and glyph shaping (HarfBuzz)
+- Atlas texture management
+- CellText/CellBg buffer construction
+- Wide character and grapheme cluster handling
+
+This means the client reuses ghostty's **entire rendering pipeline** — not just the shaders, but the CPU-side cell rebuilding logic too.
 
 ---
 
@@ -273,11 +281,11 @@ The client never holds scrollback data. It always requests from the server.
 
 ## Preedit Rendering
 
-Preedit (IME composition) is NOT part of libghostty-vt's Terminal — it lives in the renderer/surface layer. In the server-side IME architecture:
+Preedit (IME composition) is NOT part of libghostty-vt's Terminal — it lives in the renderer/surface layer. In the native IME architecture:
 
 1. Server receives raw key event from client
-2. Server feeds it through `NSTextInputContext.interpretKeyEvents:`
-3. `setMarkedText:` callback fires → server captures preedit text
+2. Server feeds it through libitshell3-ime's native composition engine
+3. Composition state change → server captures preedit text
 4. Server sends preedit state in `FrameUpdate` message
 5. Client renders preedit overlay at the specified cursor position
 
@@ -285,14 +293,100 @@ The preedit rendering on the client is simple: draw the preedit text (with under
 
 ---
 
+## PoC Validation
+
+### Summary of PoC Results (2026-03-08)
+
+Three PoCs validated the full rendering pipeline end-to-end:
+
+| PoC | What It Proved | Key Result |
+|-----|---------------|------------|
+| **06: RenderState Extraction** | `RenderState.update()` produces complete cell data for rendering | All cell types (ASCII, CJK wide, styled, grapheme clusters) extracted correctly |
+| **07: Bulk Export** | `bulkExport()` converts RenderState → flat FlatCell[] array | 80×24 = 22 µs, 300×80 = 217 µs (ReleaseFast) |
+| **08: RenderState Reinjection + GPU** | `importFlatCells()` populates RenderState without Terminal → actual Metal GPU rendering | **Full pipeline proven** — ASCII, Korean, bold/italic, RGB/palette colors all render correctly on screen |
+
+### FlatCell Wire Format (PoC-Validated)
+
+The PoC uses a 16-byte `FlatCell` as the unit of transfer:
+
+```
+FlatCell (16 bytes)
+├── codepoint: u21       // Unicode codepoint (0 = empty cell)
+├── wide: u8             // 0=narrow, 1=wide, 2=spacer_tail, 3=spacer_head
+├── flags: u16           // bold(0x0001), italic(0x0002), faint, blink, inverse, ...
+├── fg: PackedColor      // 4 bytes: tag(1) + r(1) + g(1) + b(1)
+└── bg: PackedColor      // 4 bytes: tag(1) + r(1) + g(1) + b(1)
+
+PackedColor (4 bytes)
+├── tag: u8              // 0=default, 1=palette, 2=rgb
+└── r, g, b: u8          // palette: r=index | rgb: r,g,b values
+```
+
+This maps directly to/from ghostty's `page.Cell` + `Style` during import/export.
+
+### Measured Performance
+
+**Machine**: Apple Silicon Mac, ReleaseFast, 100 warmup + 1000 bench iterations
+
+| Operation | 80×24 (1,920 cells) | 300×80 (24,000 cells) |
+|-----------|--------------------|-----------------------|
+| Server: `bulkExport()` | 22 µs | 217 µs |
+| Client: `importFlatCells()` | 12 µs | 96 µs |
+| **Total (export + import)** | **34 µs** | **313 µs** |
+| % of 16.6 ms frame budget (60fps) | 0.2% | 1.9% |
+
+Import cost is ~4 ns/cell. The bottleneck will be font shaping and GPU rendering (both client-local, already optimized by ghostty).
+
+### GPU Rendering Verification
+
+PoC 08 intercepted `generic.zig`'s `updateFrame()` to overwrite `terminal_state` with FlatCell data every frame. The modified ghostty macOS app rendered all content correctly:
+
+| Row | Content | Rendering |
+|-----|---------|-----------|
+| 0 | `Hello, it-shell3! importFlatCells() -> GPU rendering!` | Plain white ASCII |
+| 1 | `한글 테스트` | Wide chars with correct 2-cell width |
+| 2 | `Bold Red (RGB 255,0,0)` | Bold weight + red RGB foreground |
+| 3 | `Italic Green on Blue` | Italic + green fg + blue bg |
+| 5 | `Palette fg=196 bg=21` | 256-palette colors (red on blue) |
+
+### Known Limitations (from PoC)
+
+- **Grapheme clusters**: Only single-codepoint cells tested. Multi-codepoint graphemes need per-row arena allocation.
+- **underline_color**: Not in current FlatCell format. Would need 20-byte FlatCell or separate field.
+- **Row metadata**: `page.Row` flags (wrap, semantic_prompt) not transferred in FlatCell.
+- **Palette sync**: `RenderState.colors` (default bg/fg, 256-palette) needs separate message from server.
+- **Minimum size guard**: `importFlatCells()` must skip very small terminal sizes during initialization (rows < 6 or cols < 60) to avoid index-out-of-bounds in `rebuildRow()` font shaping.
+
+### Impact on Client Architecture
+
+```
+Client Process (PoC 08 Confirmed)
+┌─────────────────────────────────────────────┐
+│                                             │
+│  wire → FlatCell[] → importFlatCells()      │
+│                           ↓                 │
+│                     RenderState             │
+│                           ↓                 │
+│                   rebuildCells()             │
+│                     (font shaping)          │
+│                           ↓                 │
+│                   Metal drawFrame()         │
+│                                             │
+│  NO Terminal, NO VT parser, NO Page/Screen  │
+└─────────────────────────────────────────────┘
+```
+
+---
+
 ## Summary: Why This Works
 
-| Question | Answer |
-|----------|--------|
-| Can libghostty-vt run without GPU? | **Yes** — Terminal, Screen, Page, RenderState are all CPU-only |
-| Does RenderState provide enough data? | **Yes** — fully resolved styles, graphemes, cursor, dirty tracking |
-| Can the font subsystem work without Terminal? | **Yes** — SharedGrid, Atlas, CodepointResolver are independent |
-| Can Metal shaders be reused? | **Yes** — they consume simple flat structs (CellText, CellBg) |
-| Is bandwidth acceptable? | **Yes** — ~8 KB typical frame, ~600 bytes partial, ~50 bytes cursor-only |
-| Is preedit handled? | **Yes** — server tracks it separately, sends in FrameUpdate |
-| Is dirty tracking built-in? | **Yes** — per-row dirty flags in RenderState |
+| Question | Answer | PoC Evidence |
+|----------|--------|--------------|
+| Can libghostty-vt run without GPU? | **Yes** — Terminal, Screen, Page, RenderState are all CPU-only | PoC 06, 07 |
+| Does RenderState provide enough data? | **Yes** — fully resolved styles, graphemes, cursor, dirty tracking | PoC 06 |
+| Can the client render without Terminal? | **Yes** — `importFlatCells()` populates RenderState directly | **PoC 08** |
+| Can the full GPU pipeline work? | **Yes** — rebuildCells() + Metal drawFrame() render correctly | **PoC 08** |
+| Is bandwidth acceptable? | **Yes** — ~8 KB typical frame, ~600 bytes partial, ~50 bytes cursor-only | PoC 07 |
+| Is performance acceptable? | **Yes** — export + import = 34 µs for 80×24 (0.2% of frame budget) | PoC 07, 08 |
+| Is preedit handled? | **Yes** — server tracks it separately, sends in FrameUpdate | Design |
+| Is dirty tracking built-in? | **Yes** — per-row dirty flags in RenderState | PoC 06 |

@@ -291,7 +291,9 @@ src/
 
 ## Integration with Terminal App (it-shell3)
 
-The future it-shell3 is a **complete terminal emulator** for macOS and iOS (starting with macOS). It replaces apps like Terminal.app, iTerm2, or Ghostty.app — not a wrapper around them. It will consume libitshell3:
+The future it-shell3 is a **complete terminal emulator** for macOS and iOS (starting with macOS). It replaces apps like Terminal.app, iTerm2, or Ghostty.app — not a wrapper around them. It will consume libitshell3.
+
+> **PoC Validated (2026-03-08)**: PoC 06–08 confirmed that the client needs only libghostty's renderer (RenderState → rebuildCells → Metal drawFrame) — no Terminal, VT parser, or Page/Screen required. The server exports cell data via `bulkExport()`, and the client imports via `importFlatCells()` for direct GPU rendering. See `poc/06-renderstate-extraction/`, `poc/07-renderstate-bulk-api/`, `poc/08-renderstate-reinjection/`.
 
 ```
 ┌─────────────────────────────────────────────────┐

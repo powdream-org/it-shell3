@@ -38,6 +38,8 @@ Instead of writing a custom VT emulator, we leverage Ghostty's battle-tested ter
 
 ## Architecture Summary
 
+> **PoC Validated**: The core rendering pipeline (server RenderState → FlatCell[] → client importFlatCells() → rebuildCells() → Metal GPU) has been proven end-to-end with actual GPU rendering. See `poc/06-renderstate-extraction/`, `poc/07-renderstate-bulk-api/`, `poc/08-renderstate-reinjection/`.
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    it-shell3 Client                      │
