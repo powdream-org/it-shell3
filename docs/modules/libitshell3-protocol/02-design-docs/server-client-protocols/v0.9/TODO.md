@@ -6,24 +6,24 @@ Priority 0 only (PoC-validated items: review notes 16–21). All other review no
 
 ## Phase 1: Pre-Discussion Research
 
-- [ ] ghostty grapheme cluster internals (for review note 16 — CellData format)
-- [ ] ghostty row metadata fields used by renderer (for review note 18 — row metadata wire format)
+- [x] ghostty grapheme cluster internals (for review note 16 — CellData format)
+- [x] ghostty row metadata fields used by renderer (for review note 18 — row metadata wire format)
 
 ## Phase 2: Discussion & Consensus (review notes 16–21)
 
-- [ ] RN-16: CellData format — 16-byte FlatCell vs 20-byte spec, grapheme separation, underline_color
-- [ ] RN-17: Client rendering pipeline — importFlatCells() → rebuildCells() → drawFrame()
-- [ ] RN-18: Row metadata wire format — semantic_prompt, wrap flags
-- [ ] RN-19: Minimum terminal dimensions — server/client behavior
-- [ ] RN-20: Palette sync rendering correctness — colors REQUIRED in I-frames
-- [ ] RN-21: PoC performance baseline — replace estimates with measured data
-- [ ] Consensus reporter delivers final report
+- [x] RN-16: CellData format — 16-byte FlatCell vs 20-byte spec, grapheme separation, underline_color
+- [x] RN-17: Client rendering pipeline — importFlatCells() → rebuildCells() → drawFrame()
+- [x] RN-18: Row metadata wire format — semantic_prompt, wrap flags
+- [x] RN-19: Minimum terminal dimensions — server/client behavior
+- [x] RN-20: Palette sync rendering correctness — colors REQUIRED in I-frames
+- [x] RN-21: PoC performance baseline — replace estimates with measured data
+- [x] Consensus reporter delivers final report
 
 ## Phase 3: Resolution Document & Verification
 
-- [ ] Representative writes design-resolutions document
-- [ ] All team members verify resolution against consensus (same agents)
-- [ ] Disband discussion team
+- [x] Representative writes design-resolutions document
+- [x] All team members verify resolution against consensus (same agents) — 5/5 APPROVED
+- [x] Disband discussion team
 
 ## Phase 4: Assignment Negotiation
 
