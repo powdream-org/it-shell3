@@ -853,10 +853,11 @@ The `Error` message (`0x00FF`) uses JSON encoding (ENCODING=0):
 | Component | Size | Notes |
 |-----------|------|-------|
 | Binary frame header | 20 B | session_id, pane_id, frame_sequence, frame_type, screen, section_flags |
-| DirtyRows count + row headers | ~122 B | num_dirty_rows (2 B) + 24 RowData headers (y + selection_flags + num_cells = 5 B each) |
-| CellData (all 1920 cells) | ~38 KB | Binary: ~20 bytes/cell (codepoint + style + fg/bg + flags) |
-| JSON metadata blob | ~200 B | Cursor position/style, dimensions |
-| **Total** | **~38 KB** | |
+| DirtyRows count + row headers | ~218 B | num_dirty_rows (2 B) + 24 RowData headers (y + row_flags + selection_start + selection_end + num_cells = 9 B each) |
+| CellData (all 1920 cells) | ~30 KB | Binary: 16 bytes/cell (fixed-size CellData) |
+| Per-row side tables | ~96 B | 24 rows × 4 B side-table overhead |
+| JSON metadata blob | ~1,700 B | Full I-frame: cursor, colors (fg + bg + 256-entry palette = 768 B), dimensions, terminal modes, mouse state. P-frames: ~200 B cursor-only. |
+| **Total** | **~33 KB** | |
 
 **Equivalent in JSON (for comparison):** ~120+ KB per full frame (3x larger).
 
@@ -878,8 +879,8 @@ Periodic I-frames add a baseline bandwidth cost per pane:
 
 | Terminal size | I-frame size | At 1 keyframe/s | 4 panes |
 |---------------|-------------|-----------------|---------|
-| 80x24 (standard) | ~38 KB | ~38 KB/s | ~152 KB/s |
-| 120x40 (large CJK) | ~116 KB | ~116 KB/s | ~464 KB/s |
+| 80x24 (standard) | ~33 KB | ~33 KB/s | ~132 KB/s |
+| 120x40 (large CJK) | ~82 KB | ~82 KB/s | ~328 KB/s |
 
 This overhead is negligible on Unix socket (>1 GB/s capacity) and acceptable on SSH (<0.5 MB/s). The keyframe interval is configurable (0.5-5 seconds) for bandwidth-constrained links.
 

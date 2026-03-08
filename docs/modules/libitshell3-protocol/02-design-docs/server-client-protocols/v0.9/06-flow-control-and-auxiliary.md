@@ -230,9 +230,9 @@ The server maintains a shared ring buffer per pane. All frame data (I-frames and
 
 | Component | Size |
 |-----------|------|
-| 1 I-frame | ~116 KB |
+| 1 I-frame | ~82 KB |
 | 60 P-frames (typical) | ~10-30 KB each = ~600KB-1.8MB |
-| Minimum ring (2 I-frames) | ~232 KB |
+| Minimum ring (2 I-frames) | ~164 KB |
 | Typical interactive ring usage | ~1.3 MB |
 | Worst case (sustained full-screen rewrite) | ~7 MB |
 
@@ -241,7 +241,7 @@ The server maintains a shared ring buffer per pane. All frame data (I-frames and
 > **Normative**: The ring MUST always contain at least one complete I-frame for each pane. When the ring write head is about to overwrite the only remaining I-frame in the ring, the server MUST first write a new I-frame before the overwrite proceeds. This ensures that any client seeking to the latest I-frame (recovery, attach, ContinuePane) always finds one.
 
 **Implementation model**:
-- Variable-length byte-level ring (not fixed-slot) — frames vary from ~100 bytes to ~116KB.
+- Variable-length byte-level ring (not fixed-slot) — frames vary from ~100 bytes to ~82KB.
 - Ring overwrites unconditionally. No drain coordination (unlike tmux's control mode which drains when the slowest client catches up). No "convoy effect" from slow clients.
 - Socket write path: `writev()` directly from ring memory — zero-copy.
 - EAGAIN handling: cursor stays at current position, re-arm epoll/kqueue. No special recovery.

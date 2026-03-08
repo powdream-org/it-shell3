@@ -1,9 +1,17 @@
 # 04 — Input Forwarding and RenderState Protocol
 
-**Status**: Draft v0.8
+**Status**: Draft v0.9
 **Author**: rendering-cjk-specialist
-**Date**: 2026-03-07
+**Date**: 2026-03-08
 **Depends on**: 01-protocol-overview.md (header format), 03-session-pane-management.md (session/pane IDs)
+
+**Changes from v0.8** (PoC alignment — design resolution `01-poc-alignment.md`):
+- **Resolution 1: 16-byte fixed CellData**: Replaced 20-byte variable-length CellData with 16-byte fixed-size FlatCell. Grapheme clusters moved to per-row GraphemeTable side table. Underline colors moved to per-row UnderlineColorTable side table. `extra_count`, `extra_codepoints`, and per-cell `underline_color` fields removed. New `content_tag` field (u8) added. Section 4.4, Section 5, Section 7.1, Section 7.2, Section 8.1, Appendix A, Appendix B rewritten.
+- **Resolution 3: `selection_flags` renamed to `row_flags`**: The existing `selection_flags` byte in RowData (Section 4.3) is renamed to `row_flags`. New bits defined: `semantic_prompt` (bits 2-3) and `hyperlink` (bit 4). Bit 5 reserved for future `wrap`. Section 4.3, Section 5, Appendix A updated.
+- **Resolution 4: Minimum rendering dimensions**: New normative notes in Section 4.1 (server-side FrameUpdate suppression below `cols < 2` or `rows < 1`, PTY independence during suppression) and Section 4.2 (client dimension validation).
+- **Resolution 2: Client rendering pipeline revision**: Section 3.2 flow diagram updated (client-side: RenderState population -> ghostty rendering pipeline -> Metal drawFrame). Section 4.1 "CellData is SEMANTIC" normative note revised to describe RenderState population contract. Informative reference implementation note added.
+- **Resolution 5: Colors REQUIRED in I-frames**: Colors section elevated from optional to REQUIRED in I-frames. Normative note added to Section 4.2 explaining rendering criticality (`neverExtendBg()`, PackedColor palette resolution). Section 7.2 updated to list colors as required.
+- **Resolution 6: Measured wire overhead added**: New Section 8.4 with PoC 06-08 measured performance data (server export, client import, per-cell cost, round-trip fidelity). Qualitative statement on wire overhead vs rendering bottleneck. Known gap noted for grapheme cluster cells.
 
 **Changes from v0.7** (preedit overhaul — design resolution `01-preedit-overhaul.md`):
 - **Resolution 7: Ring buffer bypass removed**: Preedit-only frame bypass (`frame_type=0` P-metadata) removed. All frames go through the ring buffer. Supersedes v0.6 Resolutions 17, 18, 19.
@@ -415,10 +423,13 @@ Client                                    Server
      <---- FrameUpdate (binary cells + JSON metadata) -----------+
      |
      v
- Font subsystem (SharedGrid, Atlas)
+ CellData → RenderState population
      |
      v
- Metal GPU render (CellText, CellBg shaders)
+ ghostty rendering pipeline (font shaping, atlas, GPU buffers)
+     |
+     v
+ Metal drawFrame()
 ```
 
 ---
@@ -431,7 +442,9 @@ The primary rendering message. Carries the full or partial terminal viewport sta
 
 A FrameUpdate uses **hybrid encoding**: a binary section (frame header, DirtyRows, CellData) for the performance-critical cell data path, followed by an optional JSON metadata blob for cursor, colors, dimensions, mouse state, and terminal modes.
 
-> **Normative note — CellData is SEMANTIC**: CellData carries semantic content (codepoint, style attributes, foreground/background color, wide-char flag). The client performs font shaping (HarfBuzz), glyph atlas lookup, and GPU buffer construction locally. Zero-copy wire-to-GPU is not a design goal. The GPU struct (e.g., ghostty's `CellText`, 32 bytes) is 70%+ client-local data (font shaping results, atlas coordinates, GPU-specific layout). The wire CellData format is optimized for compact semantic transport, not GPU alignment.
+> **Normative — CellData is SEMANTIC**: CellData carries semantic content (codepoint, style attributes, colors, wide-char flag) for populating a RenderState on the client. The client populates RenderState from wire CellData and delegates all rendering to ghostty's existing rendering pipeline (font shaping, atlas management, GPU buffer construction, draw). The client does NOT individually perform font shaping, glyph atlas lookup, or GPU buffer construction — these are internal to the rendering pipeline.
+
+> **Informative — Reference implementation**: In ghostty, this pipeline corresponds to `importFlatCells()` (RenderState population from wire data) followed by `rebuildCells()` (font shaping and GPU buffer construction) and `drawFrame()` (Metal GPU rendering). See PoC 08 for validation.
 
 > **Normative note — FrameUpdate delivery scope**: The server sends FrameUpdate messages for ALL panes in the client's attached session that have dirty state, not just the focused pane. Each FrameUpdate carries a `pane_id` identifying which pane's state it contains. The client receives and renders updates for all visible panes.
 
@@ -444,6 +457,10 @@ A FrameUpdate uses **hybrid encoding**: a binary section (frame header, DirtyRow
 > **Normative note — `frame_type=2` unchanged rule**: The server MUST set `frame_type=2` (I-frame, unchanged) only when the entire frame payload — CellData AND JSON metadata — is byte-identical to the most recent I-frame (`frame_type=1` or `frame_type=2`) for this pane. If any field has changed — including cursor position, terminal modes, colors, or dimensions — the server MUST use `frame_type=1` (normal I-frame). Caught-up clients receiving `frame_type=2` MAY skip the entire frame without processing. Clients that arrived at this frame by seeking (ring buffer skip, ContinuePane recovery, initial attach) MUST ignore the unchanged hint and process the frame as `frame_type=1`.
 
 > **Normative note — Implicit I-frame reference**: A P-frame (`frame_type=0`) always references the most recent I-frame (`frame_type=1` or `frame_type=2`) that the client has received. The client MUST track the `frame_sequence` of the most recently received I-frame as local state. All subsequent P-frames are applied against this I-frame's state. When the client receives a new I-frame, it replaces its reference and discards the previous I-frame state.
+
+> **Normative — Minimum rendering dimensions**: The server MUST NOT send FrameUpdate with `cols < 2` or `rows < 1`. When a pane's dimensions fall below these minimums (e.g., during resize animation or aggressive pane splitting), the server MUST suppress FrameUpdate for that pane until dimensions return to valid range. Dimension-based suppression takes precedence over the `frame_type=2` unchanged rule — no FrameUpdate is sent for undersized panes regardless of payload identity. Pane liveness is maintained through the session/pane management protocol (doc 03) — the client knows the pane exists from CreatePane and is notified of termination through session/pane lifecycle messages (doc 03). The server SHOULD also suppress FrameUpdate when dimensions fall below its renderer's practical minimum.
+
+> **Normative — PTY independence**: When the server suppresses FrameUpdate due to undersized pane dimensions, the PTY MUST continue operating normally (`TIOCSWINSZ` reflects actual size, I/O continues). Only the FrameUpdate rendering pipeline is suppressed. Applications running in the PTY (e.g., vim) will receive the actual dimensions and may adapt their output accordingly.
 
 #### Wire Format Overview
 
@@ -506,7 +523,7 @@ Offset  Size  Field               Description
  4       N    json_data            UTF-8 JSON object
 ```
 
-The JSON blob contains whichever metadata sections are relevant for this frame. All fields are optional — only changed or required fields are included (per Issue 3, absent fields are omitted, never `null`):
+The JSON blob contains whichever metadata sections are relevant for this frame. Fields are either REQUIRED (must be present in I-frames) or optional (included only when changed). Absent optional fields are omitted, never `null` (per Issue 3):
 
 ```json
 {
@@ -525,6 +542,7 @@ The JSON blob contains whichever metadata sections are relevant for this frame. 
     "fg": [255, 255, 255],
     "bg": [0, 0, 0],
     "cursor_color": [255, 200, 0],
+    "palette": [[0, 0, 0], [205, 49, 49], "...(256 entries)..."],
     "palette_changes": [[1, [255, 0, 0]], [4, [0, 0, 255]]]
   },
   "mouse": {
@@ -540,6 +558,8 @@ The JSON blob contains whichever metadata sections are relevant for this frame. 
   }
 }
 ```
+
+> **Normative — Client dimension validation**: The client SHOULD validate `cols` and `rows` from the FrameUpdate dimensions field before processing cell data. If dimensions are below the client's rendering minimum, the client SHOULD display a placeholder (e.g., solid background using the session's `default_background`) instead of attempting to render cells.
 
 #### Cursor fields
 
@@ -571,13 +591,15 @@ Present on I-frames or terminal resize.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `fg` | [r, g, b] | Default foreground RGB |
-| `bg` | [r, g, b] | Default background RGB |
+| `fg` | [r, g, b] | Default foreground RGB (REQUIRED in I-frames) |
+| `bg` | [r, g, b] | Default background RGB (REQUIRED in I-frames) |
 | `cursor_color` | [r, g, b] | Cursor RGB (omit when no cursor color override) |
-| `palette` | [[r,g,b], ...] | Full 256-entry palette (omit when unchanged) |
-| `palette_changes` | [[index, [r,g,b]], ...] | Partial palette updates (omit when none) |
+| `palette` | [[r,g,b], ...] | Full 256-entry palette (REQUIRED in I-frames; omit in P-frames when unchanged) |
+| `palette_changes` | [[index, [r,g,b]], ...] | Partial palette updates in P-frames (omit when none) |
 
-Present on I-frames or when any color changes (e.g., OSC 10/11/12 sequences).
+> **Normative — Colors are rendering-critical**: The `colors` section is not informational metadata. The client's renderer uses `bg` as the `default_background` for padding extension decisions (`neverExtendBg()`) and as the fallback for cells with `PackedColor tag=0x00`. Palette entries are required to resolve cells with `PackedColor tag=0x01`. I-frames (`frame_type=1`) MUST include `fg`, `bg`, and the full `palette` (256 entries, 768 bytes). This ensures any I-frame is self-contained — a client that receives only this I-frame can render correctly.
+
+**I-frames**: `fg`, `bg`, and `palette` are REQUIRED. `cursor_color` is included when a cursor color override is active. **P-frames**: Use `palette_changes` for delta updates; if no palette entries have changed, `palette_changes` is omitted. Colors are also present on P-frames when any color changes (e.g., OSC 10/11/12 sequences).
 
 #### Mouse fields
 
@@ -614,13 +636,31 @@ Followed by `num_dirty_rows` entries of `RowData`:
 Offset  Size  Field               Description
 ------  ----  -----               -----------
  0       2    y                    Row index (u16 LE)
- 2       1    selection_flags      Bit 0: has selection
- 3       2    selection_start      Start column of selection (u16 LE, if bit 0)
- 5       2    selection_end        End column of selection (u16 LE, if bit 0)
- ?       2    num_cells            Number of cell entries (u16 LE)
+ 2       1    row_flags            Row metadata bitflags (see below)
+ 3       2    selection_start      Start column of selection (u16 LE; meaningful when row_flags bit 0 is set)
+ 5       2    selection_end        End column of selection (u16 LE; meaningful when row_flags bit 0 is set)
+ 7       2    num_cells            Number of cell entries (u16 LE)
 ```
 
-Followed by `num_cells` entries of `CellData`.
+#### row_flags (u8)
+
+```
+Bit     Field               Description
+---     -----               -----------
+ 0      has_selection        Row has an active selection range (existing, unchanged)
+ 1      rle_encoded          Row uses run-length encoding (existing, unchanged; see Section 5)
+ 2-3    semantic_prompt      Prompt type (0=none, 1=prompt, 2=prompt_continuation, 3=reserved)
+ 4      hyperlink            Row contains at least one hyperlinked cell
+ 5-7    reserved             Must be 0 (bit 5 anticipated for wrap in a future revision)
+```
+
+> **Normative — `semantic_prompt` is rendering-critical**: The client's renderer uses `semantic_prompt` to determine background extension behavior. Prompt lines (`semantic_prompt=1`) and prompt continuation lines (`semantic_prompt=2`) prevent background color extension into padding (the `neverExtendBg()` rendering path). Without this field, Powerline-style prompts bleed background color into the terminal padding area — a visible rendering artifact.
+
+> **Normative — `hyperlink` is a rendering optimization**: When `hyperlink=0`, the client's renderer MAY skip overlay rendering (e.g., hyperlink underline hover effects) for this row entirely. This avoids scanning every cell of every row for hyperlink state. The server MUST set `hyperlink=1` whenever any cell in the row carries hyperlink metadata.
+
+> **Informative — `wrap` deferred**: Bit 5 is reserved for a future `wrap` field (row continues from the previous row). Research confirms `wrap` is NOT used by the renderer's cell-building or GPU pipeline — it is only used for text serialization (copy/paste). Copy/paste is not a v1 protocol requirement. When copy/paste is designed, `wrap` can be defined without a protocol version bump.
+
+Followed by `num_cells` entries of `CellData` (16 bytes each, fixed-size), then per-row side tables (GraphemeTable and UnderlineColorTable). See Section 4.4 for CellData encoding and Section 4.5 for the per-row side tables.
 
 **Note**: `num_cells` may be less than `cols` when trailing cells are default/empty. The client fills remaining cells with the default background.
 
@@ -630,26 +670,40 @@ Followed by `num_cells` entries of `CellData`.
 
 ### 4.4 CellData Encoding
 
-Each cell in a dirty row is encoded as follows:
+Each cell in a dirty row is encoded as a fixed 16-byte struct:
 
 ```
 Offset  Size  Field               Description
 ------  ----  -----               -----------
- 0       4    codepoint            Primary codepoint (u32 LE, only lower 21 bits meaningful)
+ 0       4    codepoint            Primary codepoint (u32 LE, lower 21 bits meaningful)
                                    0 = empty cell
- 4       1    extra_count          Number of extra codepoints (0 for most cells)
- 5      4*N   extra_codepoints     Extra codepoints for grapheme clusters (u32 LE each)
- ?       1    wide                 0=narrow, 1=wide, 2=spacer_tail, 3=spacer_head
- ?       4    fg_color             PackedColor (4 bytes)
- ?       4    bg_color             PackedColor (4 bytes)
- ?       4    underline_color      PackedColor (4 bytes)
- ?       2    flags                Style flags (u16 LE, see below)
+ 4       1    wide                 0=narrow, 1=wide, 2=spacer_tail, 3=spacer_head
+ 5       2    flags                Style flags (u16 LE, see below)
+ 7       1    content_tag          Content tag (u8, bits 0-1 used, bits 2-7 reserved)
+ 8       4    fg_color             PackedColor (4 bytes)
+12       4    bg_color             PackedColor (4 bytes)
 ```
 
-**Typical cell size**: 20 bytes (single codepoint, no extras).
+**Fixed 16-byte size**: Every cell is exactly 16 bytes (power-of-2 aligned). No variable-length fields. O(1) random access via `buffer[col * 16]`. Enables SIMD-friendly processing and direct indexing for dirty-row extraction.
+
 **Wide character**: The wide cell (wide=1) carries the codepoint. The spacer_tail (wide=2) immediately follows and has codepoint=0.
 
 **Wide character atomicity in I/P-frame model**: Row-level dirty tracking guarantees that wide characters are always sent atomically — both the `wide=1` cell and its `spacer_tail` are in the same row and always sent together. A wide character never spans the boundary between "dirty" and "not dirty" within a frame, because dirty tracking operates at row granularity.
+
+#### content_tag (u8)
+
+Bits 0-1 define the cell's content type (matching ghostty's `ContentTag` enum):
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | codepoint | Single codepoint, no grapheme data |
+| 1 | codepoint_grapheme | Base codepoint in cell, extra codepoints in GraphemeTable |
+| 2 | bg_color_palette | Cell carries background palette color |
+| 3 | bg_color_rgb | Cell carries background RGB color |
+
+Bits 2-7 are reserved and MUST be 0.
+
+When `content_tag=1`, the receiver MUST look up the cell's column index in the row's GraphemeTable (Section 4.5) to obtain extra codepoints.
 
 #### PackedColor (4 bytes)
 
@@ -680,6 +734,51 @@ Bit   Flag
 12-15 (reserved)
 ```
 
+### 4.5 Per-Row Side Tables
+
+After each row's CellData array, two side tables follow. Both are present for every row (empty tables use a 2-byte zero count header).
+
+```
+RowData body layout:
+  RowHeader (Section 4.3)
+  CellData[num_cells]           (16 bytes each, fixed)
+  GraphemeTable                 (variable, per-row)
+  UnderlineColorTable           (variable, per-row)
+```
+
+#### GraphemeTable
+
+For cells with `content_tag=1` (codepoint_grapheme), extra codepoints are stored here:
+
+```
+Offset  Size         Field               Description
+------  ----         -----               -----------
+ 0       2           num_entries          Number of grapheme entries (u16 LE; 0 for most rows)
+ For each entry:
+   0     2           col_index            Column within the row (u16 LE)
+   2     1           extra_count          Number of extra codepoints (u8)
+   3     4*N         extra_codepoints     Extra codepoints (u32 LE each)
+```
+
+Grapheme clusters are rare in terminal output (~1.1% of cells in typical workloads). The receiver processes the cell array first, then patches grapheme cells using this table.
+
+#### UnderlineColorTable
+
+For cells with a non-default underline color (SGR 58), the underline color is stored here:
+
+```
+Offset  Size         Field               Description
+------  ----         -----               -----------
+ 0       2           num_entries          Number of entries (u16 LE; 0 for most rows)
+ For each entry:
+   0     2           col_index            Column within the row (u16 LE)
+   2     4           underline_color      PackedColor (4 bytes)
+```
+
+Cells with colored underlines are rare. The receiver processes the cell array first, then applies underline colors from this table.
+
+> **Informative — Per-row overhead**: Empty side tables add 4 bytes per row (two u16 zero-count headers). For a 24-row frame: 96 bytes. This is negligible compared to ~30 KB of cell data.
+
 ---
 
 ## 5. RenderState: Run-Length Encoding Optimization
@@ -688,26 +787,25 @@ For rows with many consecutive cells sharing the same style (common for blank li
 
 ### RLE Cell Encoding
 
-When a row uses RLE (indicated by a flag in the row header), cells are encoded as runs:
+When a row uses RLE (indicated by `rle_encoded` in `row_flags`, see Section 4.3), cells are encoded as runs:
 
 ```
 Offset  Size  Field               Description
 ------  ----  -----               -----------
  0       2    run_length           Number of consecutive cells with this style (u16 LE)
- 2      var   cell_data            CellData for the prototype cell
+ 2      16    cell_data            CellData for the prototype cell (16 bytes, fixed)
 ```
 
-The client replicates the cell `run_length` times, advancing the column index. For RLE rows, `num_cells` in the RowData header represents the number of *runs*, not individual cells.
+Each RLE run is 18 bytes (2-byte run_length + 16-byte CellData). The client replicates the cell `run_length` times, advancing the column index. For RLE rows, `num_cells` in the RowData header represents the number of *runs*, not individual cells. Side tables (GraphemeTable, UnderlineColorTable) follow the RLE cell array, same as for non-RLE rows.
 
 **Heuristic**: The server uses RLE when it reduces the row size by at least 25%. Otherwise, it sends individual cells.
 
 ### Row Header Extension for RLE
 
-Add bit 1 to `selection_flags`:
+Bit 1 of `row_flags` (see Section 4.3) indicates RLE encoding:
 
 ```
-Bit 0: has_selection
-Bit 1: rle_encoded (0=individual cells, 1=run-length encoded)
+row_flags bit 1: rle_encoded (0=individual cells, 1=run-length encoded)
 ```
 
 ---
@@ -851,19 +949,21 @@ Partial update. When dirty rows exist, DirtyRows section is present (section_fla
 **Typical size for 2 changed rows (80 cols)**:
 
 ```
-Header:          16 bytes
-Frame header:    20 bytes
-DirtyRows header: 2 bytes
-Row 0 header:     7 bytes
-Row 0 cells:   ~80 * 20 = 1,600 bytes
-Row 1 header:     7 bytes
-Row 1 cells:   ~80 * 20 = 1,600 bytes
+Header:           16 bytes
+Frame header:     20 bytes
+DirtyRows header:  2 bytes
+Row 0 header:      9 bytes
+Row 0 cells:    80 * 16 = 1,280 bytes
+Row 0 side tables: 4 bytes (empty GraphemeTable + UnderlineColorTable)
+Row 1 header:      9 bytes
+Row 1 cells:    80 * 16 = 1,280 bytes
+Row 1 side tables: 4 bytes
 JSON metadata:   ~80 bytes (cursor)
 ---------------------------------
-Total:         ~3,332 bytes
+Total:          ~2,704 bytes
 ```
 
-With RLE (mostly empty rows): **~400-800 bytes**.
+With RLE (mostly empty rows): **~300-600 bytes**.
 
 ### 7.2 frame_type=1 (I-frame)
 
@@ -871,21 +971,22 @@ Self-contained keyframe. Everything is present. Sent periodically (default: ever
 
 **Client processing**: The client replaces its entire terminal state from this frame. The client records this frame's `frame_sequence` as the current I-frame reference.
 
-**Required sections**: DirtyRows (all rows, binary), JSON metadata blob (dimensions, colors, cursor, terminal modes, mouse state).
+**Required sections**: DirtyRows (all rows, binary), JSON metadata blob (dimensions, colors — including `fg`, `bg`, and full `palette` (256 entries, 768 bytes) — cursor, terminal modes, mouse state). See Section 4.2 "Colors are rendering-critical" normative note for rationale.
 **Typical size for 80x24 terminal**:
 
 ```
-Header:          16 bytes
-Frame header:    20 bytes
-DirtyRows header: 2 bytes
-24 rows * ~1,607 bytes per row = ~38,568 bytes
-JSON metadata:  ~900 bytes (all sections)
+Header:           16 bytes
+Frame header:     20 bytes
+DirtyRows header:  2 bytes
+24 rows * ~1,293 bytes per row = ~31,032 bytes
+  (per row: 9 header + 80*16 cells + 4 side tables = 1,293)
+JSON metadata:  ~1,700 bytes (all sections incl. 768B palette)
 ---------------------------------
-Total:         ~39,506 bytes (worst case, all unique styles)
+Total:          ~32,770 bytes (worst case, all unique styles)
 ```
 
-With typical styling (most cells default): **~8,000-12,000 bytes**.
-With RLE: **~3,000-5,000 bytes**.
+With typical styling (most cells default): **~6,000-10,000 bytes**.
+With RLE: **~2,500-4,000 bytes**.
 
 ### 7.3 frame_type=2 (I-frame, unchanged)
 
@@ -907,13 +1008,13 @@ Self-contained keyframe where the entire payload is byte-identical to the previo
 |----------|-------------|-----------|-----------|-------|
 | Cursor-only move | ~100 B | Event-driven | ~2.6 KB/s | |
 | Preedit update (Korean composition) | ~120 B | Per keystroke (~5/s) | ~0.6 KB/s | Preedit cells in P-frame via ring buffer |
-| Single row change (keystroke echo) | ~1.8 KB | Per keystroke (~5/s) | ~9.0 KB/s | |
-| Partial update (2 rows, command output) | ~3.3 KB | ~30/s | ~99 KB/s | |
-| I-frame (80x24, typical) | ~8 KB | 1/s default | ~8 KB/s | Periodic keyframe |
-| I-frame (80x24, worst case) | ~40 KB | 1/s default | ~40 KB/s | |
-| I-frame (120x40, CJK worst case) | ~116 KB | 1/s default | ~116 KB/s | |
-| Scrolling (24 rows dirty) | ~8 KB | ~30/s during active scroll | ~240 KB/s | |
-| Heavy output (e.g., `cat large_file`) | ~8 KB | Coalesced ceiling ~60/s | ~480 KB/s | Coalesced ceiling, not sustained target |
+| Single row change (keystroke echo) | ~1.4 KB | Per keystroke (~5/s) | ~7.0 KB/s | 16B/cell (was 20B) |
+| Partial update (2 rows, command output) | ~2.7 KB | ~30/s | ~81 KB/s | 16B/cell + 4B side tables/row |
+| I-frame (80x24, typical) | ~6-10 KB | 1/s default | ~6-10 KB/s | Periodic keyframe |
+| I-frame (80x24, worst case) | ~33 KB | 1/s default | ~33 KB/s | 16B/cell (was ~40 KB at 20B/cell) |
+| I-frame (120x40, CJK worst case) | ~82 KB | 1/s default | ~82 KB/s | 16B/cell (was ~116 KB at 20B/cell) |
+| Scrolling (24 rows dirty) | ~6-10 KB | ~30/s during active scroll | ~180-300 KB/s | |
+| Heavy output (e.g., `cat large_file`) | ~6-10 KB | Coalesced ceiling ~60/s | ~360-600 KB/s | Coalesced ceiling, not sustained target |
 
 ### 8.2 Bandwidth Budget
 
@@ -921,7 +1022,7 @@ Self-contained keyframe where the entire payload is byte-identical to the previo
 - **LAN (iOS -> macOS)**: ~100 MB/s, 1-5ms latency
 - **WAN (SSH tunnel)**: 1-10 MB/s, 20-100ms latency
 
-**Conclusion**: All scenarios are well within bandwidth limits, even over WAN via SSH tunnel. The periodic I-frame adds ~116 KB/s per pane (CJK worst case), which is negligible on local connections and acceptable on SSH. The bottleneck over WAN is latency, not bandwidth.
+**Conclusion**: All scenarios are well within bandwidth limits, even over WAN via SSH tunnel. The periodic I-frame adds ~82 KB/s per pane (CJK worst case), which is negligible on local connections and acceptable on SSH. The 16-byte CellData (down from 20 bytes) reduces I-frame sizes by ~20%. The bottleneck over WAN is latency, not bandwidth.
 
 ### 8.3 Event-Driven Coalescing
 
@@ -936,6 +1037,22 @@ The server uses **event-driven coalescing** with a **16ms minimum interval** (co
 The 16ms coalescing ceiling aligns with 60 Hz display refresh but is NOT a "60 fps target." The server never generates frames to fill a target rate — it only sends frames when there is dirty state to communicate. See doc 06 for the full adaptive cadence model with 4 active coalescing tiers (Preedit, Interactive, Active, Bulk) plus the Idle quiescent state, and per-pane coalescing rules.
 
 **I-frame scheduling**: I-frames (keyframes) are produced periodically (default: every 1 second, configurable 0.5-5 seconds via server configuration). When the I-frame timer fires and the pane has no changes since the last I-frame, the server sends `frame_type=2` (unchanged I-frame). When the timer fires and changes exist, the server sends `frame_type=1` (normal I-frame) containing all rows. The I-frame timer is independent of the coalescing tiers — it fires at a fixed interval regardless of PTY throughput.
+
+### 8.4 Measured Wire Overhead (PoC Baseline)
+
+The following measurements were collected from PoC 06-08 on Apple Silicon (ReleaseFast build, 1000 iterations after warmup). All measurements use the 16-byte FlatCell format (see Section 4.4).
+
+| Metric | 80x24 | 300x80 | Notes |
+|--------|-------|--------|-------|
+| Server export (`bulkExport()`) | 22 us | 217 us | RenderState -> FlatCell[] serialization |
+| Client import (`importFlatCells()`) | 12 us | 96 us | FlatCell[] -> RenderState population |
+| **Total wire overhead** | **34 us** | **313 us** | 0.2% / 1.9% of 16.6 ms frame budget (60fps) |
+| Per-cell import cost | ~4 ns | ~4 ns | Consistent across terminal sizes |
+| Round-trip fidelity | bit-identical | bit-identical | export -> import -> re-export produces identical output |
+
+> **Informative — Performance positioning**: Wire serialization/deserialization is NOT the rendering bottleneck. Font shaping and GPU rendering are the dominant costs in the frame pipeline. The measured wire overhead (0.2% of frame budget for a standard 80x24 terminal) validates the design decision to transmit semantic CellData rather than GPU-ready data.
+
+**Known gap**: Grapheme cluster cells were not tested in the PoC. Performance for frames with grapheme side table data is unmeasured but expected to be negligible (the grapheme table typically contains a handful of entries per frame).
 
 ---
 
@@ -984,11 +1101,11 @@ All input messages use JSON payloads (16-byte binary header + JSON body).
 
 ## 11. Open Questions
 
-1. **~~Cell deduplication~~** **Closed (v0.7)**: Unnecessary. The I/P-frame model already reduces bandwidth via dirty-row-only P-frames. 20 bytes/cell is acceptable. Owner decision.
+1. **~~Cell deduplication~~** **Closed (v0.7)**: Unnecessary. The I/P-frame model already reduces bandwidth via dirty-row-only P-frames. 16 bytes/cell (v0.9, down from 20 bytes in v0.7) is acceptable. Owner decision.
 
 2. **~~Image protocol~~** **Closed (v0.7)**: Moved to `99-post-v1-features.md` Section 1. Out of scope for v0.x through v1. Owner decision.
 
-3. **~~Selection protocol~~** **Closed (v0.7)**: Unnecessary. Selection is per-pane shared state delivered via RowData `selection_flags`/`selection_start`/`selection_end` in FrameUpdate. No dedicated messages needed. Owner decision.
+3. **~~Selection protocol~~** **Closed (v0.7)**: Unnecessary. Selection is per-pane shared state delivered via RowData `row_flags`/`selection_start`/`selection_end` in FrameUpdate. No dedicated messages needed. Owner decision.
 
 4. **~~Hyperlink data~~** **Transferred (v0.7)**: Transferred to review note `17-hyperlink-celldata-encoding`. OSC 8 hyperlink encoding in CellData. Open discussion in v0.8.
 
@@ -1000,11 +1117,12 @@ All input messages use JSON payloads (16-byte binary header + JSON body).
 
 ## Appendix A: Example FrameUpdate Hex Dump
 
-A partial update (P-frame): cursor moved to (5, 10), one row changed.
+A partial update (P-frame): cursor moved to (5, 10), one row changed with 5 cells.
 
 ```
 Offset  Hex                                       Description
 ------  ---                                       -----------
+        -- 16-byte message header --
 0000    49 54                                     magic "IT"
 0002    01                                        version 1
 0003    01                                        flags (ENCODING=1 binary, no compression)
@@ -1013,6 +1131,7 @@ Offset  Hex                                       Description
 0008    XX XX XX XX                               payload_len (varies)
 000C    XX XX XX XX                               sequence
 
+        -- Binary frame header (20 bytes) --
 0010    01 00 00 00                               session_id = 1
 0014    01 00 00 00                               pane_id = 1
 0018    2A 00 00 00 00 00 00 00                   frame_sequence = 42
@@ -1023,50 +1142,60 @@ Offset  Hex                                       Description
         -- DirtyRows Section (binary) --
 0024    01 00                                     num_dirty_rows = 1
 
-        -- Row 0 --
+        -- Row 0 header --
 0026    0A 00                                     y = 10
-0028    00                                        selection_flags = 0 (no selection, no RLE)
-0029    04 00                                     selection_start (ignored)
-002B    04 00                                     selection_end (ignored)
+0028    00                                        row_flags = 0x00 (no selection, no RLE,
+                                                    semantic_prompt=none, no hyperlink)
+0029    04 00                                     selection_start (no selection active)
+002B    04 00                                     selection_end (no selection active)
 002D    05 00                                     num_cells = 5
 
-        -- Cell 0: 'H' --
+        -- Cell 0: 'H' (16 bytes) --
 002F    48 00 00 00                               codepoint = 0x48 ('H')
-0033    00                                        extra_count = 0
-0034    00                                        wide = narrow
-0035    00 00 00 00                               fg = default
-0039    00 00 00 00                               bg = default
-003D    00 00 00 00                               underline_color = default
-0041    01 00                                     flags = bold
+0033    00                                        wide = narrow
+0034    01 00                                     flags = bold
+0036    00                                        content_tag = 0 (codepoint)
+0037    00 00 00 00                               fg = default
+003B    00 00 00 00                               bg = default
 
-        -- Cell 1: 'e' --
-0043    65 00 00 00                               codepoint = 0x65 ('e')
-0047    00                                        extra_count = 0
-0048    00                                        wide = narrow
-0049    00 00 00 00                               fg = default
-004D    00 00 00 00                               bg = default
-0051    00 00 00 00                               underline_color = default
-0055    01 00                                     flags = bold
+        -- Cell 1: 'e' (16 bytes) --
+003F    65 00 00 00                               codepoint = 0x65 ('e')
+0043    00                                        wide = narrow
+0044    01 00                                     flags = bold
+0046    00                                        content_tag = 0 (codepoint)
+0047    00 00 00 00                               fg = default
+004B    00 00 00 00                               bg = default
 
         ... (cells 2-4 follow same pattern) ...
 
+        -- GraphemeTable (empty) --
+007F    00 00                                     num_entries = 0
+
+        -- UnderlineColorTable (empty) --
+0081    00 00                                     num_entries = 0
+
         -- JSON Metadata Blob --
-XXXX    YY YY YY YY                               json_len = N
-XXXX    7B 22 63 75 72 73 6F 72 ...               {"cursor":{"x":5,"y":10,"visible":true,
+0083    YY YY YY YY                               json_len = N
+0087    7B 22 63 75 72 73 6F 72 ...               {"cursor":{"x":5,"y":10,"visible":true,
                                                     "style":0,"blinking":true}}
 ```
 
+**Total row body**: 5 cells * 16 bytes + 2 bytes (GraphemeTable) + 2 bytes (UnderlineColorTable) = 84 bytes.
+
 ## Appendix B: CellData Size Analysis
 
-| Cell type | Size | Frequency |
-|-----------|------|-----------|
-| Simple ASCII (no style) | 20 B | ~70% of cells |
-| Simple ASCII (styled) | 20 B | ~20% of cells |
-| Wide CJK character | 20 B | ~5% (the spacer_tail adds another 20 B) |
-| Grapheme cluster (emoji + ZWJ) | 20 + 4*N B | <1% |
-| Empty (trailing) | 20 B, or omitted with short num_cells | ~varies |
+| Cell type | Cell size | Side table cost | Frequency |
+|-----------|-----------|-----------------|-----------|
+| Simple ASCII (no style) | 16 B | 0 B | ~70% of cells |
+| Simple ASCII (styled) | 16 B | 0 B | ~20% of cells |
+| Wide CJK character | 16 B | 0 B | ~5% (the spacer_tail adds another 16 B) |
+| Grapheme cluster (emoji + ZWJ) | 16 B | 2 + 4*N B (in GraphemeTable) | ~1.1% |
+| Underline-colored cell | 16 B | 6 B (in UnderlineColorTable) | <0.1% |
+| Empty (trailing) | 16 B, or omitted with short num_cells | 0 B | ~varies |
 
-**Effective average**: ~20 bytes/cell for the vast majority of terminal content. Grapheme clusters with multiple codepoints (e.g., family emoji: base + ZWJ + person + ZWJ + child) are rare in terminal usage but handled correctly via `extra_codepoints`.
+**Effective cell size**: 16 bytes/cell for >98% of terminal content. Grapheme clusters and underline colors are in per-row side tables (Section 4.5), adding cost only when present. Per-row overhead for empty side tables: 4 bytes (two u16 zero-count headers).
+
+**Comparison with v0.8**: The v0.8 spec used a 20-byte variable-length CellData format with inline `extra_count`/`extra_codepoints` and per-cell `underline_color`. The 16-byte fixed format reduces bandwidth by 20% (30.7 KB vs 38.4 KB for a full 80x24 I-frame) while enabling O(1) random access. The side table approach moves rare data (~1.1% graphemes, <0.1% underline colors) out of the hot path.
 
 ## Appendix C: Hybrid Encoding Rationale
 
@@ -1082,4 +1211,4 @@ The hybrid encoding (binary CellData + JSON metadata) was chosen based on analys
 
 **What killed uniform binary**: GPU structs are 70%+ client-local data (font shaping, atlas coords). Zero-copy wire-to-GPU is impossible. JSON at 480 KB/s worst case is <0.01% CPU. The debuggability/maintainability benefit of JSON for non-cell-data sections outweighs the marginal bandwidth difference.
 
-**What justifies binary CellData**: 38 KB binary vs 120 KB+ JSON per full 80x24 frame. Fixed-size cells enable efficient RLE. Deterministic sizing enables client pre-allocation. Avoids JSON tokenization of 2000+ cells on mobile/iPad.
+**What justifies binary CellData**: ~31 KB binary vs 120 KB+ JSON per full 80x24 frame. Fixed 16-byte cells enable O(1) random access and efficient RLE. Deterministic sizing enables client pre-allocation. Avoids JSON tokenization of 2000+ cells on mobile/iPad.

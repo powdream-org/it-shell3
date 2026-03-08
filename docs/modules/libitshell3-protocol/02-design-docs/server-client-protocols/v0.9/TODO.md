@@ -27,26 +27,31 @@ Priority 0 only (PoC-validated items: review notes 16–21). All other review no
 
 ## Phase 4: Assignment Negotiation
 
-- [ ] Spawn fresh team, pass resolution document
-- [ ] Team negotiates document ownership
-- [ ] Shutdown unassigned agents
+- [x] Spawn fresh team, pass resolution document
+- [x] Team negotiates document ownership
+- [x] Shutdown unassigned agents
 
 ## Phase 5: Document Writing
 
-- [ ] Team leader gates writing start
-- [ ] Apply changes to doc 04 (primary target)
-- [ ] Apply changes to other affected docs (01, 03 if needed)
-- [ ] Writing complete
+- [x] Team leader gates writing start
+- [x] Apply changes to doc 04 (primary target)
+- [x] Changes applied to docs 01, 06 (propagation from doc 04 changes)
+- [x] Writing complete
 
 ## Phase 6: Cross-Document Verification
 
-- [ ] Spawn verification team (4 verifiers)
-- [ ] Independent verification pass
-- [ ] Issue cross-validation (verifiers debate)
-- [ ] Fix cycle if needed (repeat 4→5→6)
+- [x] Round 1: 5 issues found (4 critical, 1 minor) — all fixed
+- [x] Round 2: 4 issues found (3 critical, 1 minor) — all fixed
+- [x] Round 3: 3 issues found (all minor) — 2 in-scope fixed, 1 out-of-scope (R3-T01, doc 03) carried to v0.10
+- [x] Cascading assessment: NOT cascading (regressions: 0 → 1 critical → 1 minor, converging)
 
 ## Phase 7: Commit & Report
 
-- [ ] Clean verification pass achieved
+- [x] Verification clean for v0.9 scope
 - [ ] Commit v0.9 documents
 - [ ] Report to owner
+
+## Carryover to v0.10
+
+- Review notes 01–15 (from v0.8 handover)
+- R3-T01: Doc 03 §1.6/§1.14 — "frame_type=2" in attach sequence should be "frame_type=1 or frame_type=2"
