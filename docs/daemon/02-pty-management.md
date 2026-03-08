@@ -109,18 +109,24 @@ pub const Exec = struct {
 
 ### I/O Threading Model
 
-```
-┌───────────────────┐     ┌──────────────────────┐
-│    Read Thread     │     │    Main I/O Thread    │
-│  (dedicated)       │     │  (xev event loop)     │
-│                    │     │                        │
-│  read(master_fd)   │────>│  Parse escape seqs     │
-│  → buffer data     │     │  Update terminal state │
-│  → notify main     │     │  Wake renderer         │
-│                    │     │                        │
-│                    │     │  Write to PTY:          │
-│                    │     │  xev.Stream(master_fd)  │
-└───────────────────┘     └──────────────────────┘
+```mermaid
+graph LR
+    subgraph RT["Read Thread (dedicated)"]
+        R1["read(master_fd)"]
+        R2["buffer data"]
+        R3["notify main"]
+        R1 --> R2 --> R3
+    end
+
+    subgraph MT["Main I/O Thread (xev event loop)"]
+        M1["Parse escape seqs"]
+        M2["Update terminal state"]
+        M3["Wake renderer"]
+        M4["Write to PTY:<br/>xev.Stream(master_fd)"]
+        M1 --> M2 --> M3
+    end
+
+    R3 --> M1
 ```
 
 - **Read Thread**: Dedicated thread doing blocking `read()` on PTY master fd for low-jitter data processing
@@ -304,9 +310,9 @@ The daemon must own all PTY master FDs because:
 - Pros: Full control over PTY lifecycle, can implement session persistence
 - Cons: Must reimplement some of ghostty's I/O layer
 
-**Recommendation: Option B** — The daemon manages PTYs directly, and the client uses libghostty surfaces for rendering. The daemon reads from PTY master FDs and forwards terminal output to connected clients. The client feeds output into libghostty's terminal state machine for rendering.
+**Recommendation: Option B** — The daemon manages PTYs directly and owns all Terminal instances. The daemon reads from PTY master FDs, feeds data through ghostty's VT parser, and exports structured cell data (FlatCell[]) to clients via the protocol. The client populates its RenderState via `importFlatCells()` and uses ghostty's renderer (`rebuildCells()` → `drawFrame()`) — no Terminal or VT parser on the client side.
 
-This is analogous to how iTerm2's tmux integration works: iTerm2 handles rendering while tmux manages PTYs.
+> **PoC validated**: This architecture was confirmed by PoC 06–08. See `docs/insights/ghostty-api-extensions.md`.
 
 #### iOS Considerations
 
@@ -317,43 +323,29 @@ iOS cannot fork processes (`NullPty`), so:
 
 ### Proposed PTY Flow
 
-```
-┌────────────────────────────────────────────────────────┐
-│                    it-shell3 Daemon                     │
-│                                                        │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐         │
-│  │ Pane 1   │    │ Pane 2   │    │ Pane 3   │         │
-│  │ PTY(m/s) │    │ PTY(m/s) │    │ PTY(m/s) │         │
-│  │ bash     │    │ vim      │    │ python   │         │
-│  └────┬─────┘    └────┬─────┘    └────┬─────┘         │
-│       │               │               │                │
-│       └───────────────┼───────────────┘                │
-│                       │                                │
-│              ┌────────┴────────┐                       │
-│              │  I/O Multiplexer │                       │
-│              │  (epoll/kqueue)  │                       │
-│              └────────┬────────┘                       │
-│                       │                                │
-│              ┌────────┴────────┐                       │
-│              │ Client Manager  │                       │
-│              │ (Unix socket)   │                       │
-│              └────────┬────────┘                       │
-└───────────────────────┼────────────────────────────────┘
-                        │ Unix Domain Socket
-┌───────────────────────┼────────────────────────────────┐
-│                       │                                │
-│              ┌────────┴────────┐                       │
-│              │ Protocol Client │                       │
-│              └────────┬────────┘                       │
-│                       │                                │
-│              ┌────────┴────────┐                       │
-│              │ libghostty      │                       │
-│              │ Surface(s)      │                       │
-│              │ (Metal Render)  │                       │
-│              └─────────────────┘                       │
-│                                                        │
-│                    it-shell3 Client                     │
-└────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Daemon["it-shell3 Daemon"]
+        P1["Pane 1<br/>PTY · bash"]
+        P2["Pane 2<br/>PTY · vim"]
+        P3["Pane 3<br/>PTY · python"]
+        MUX["I/O Multiplexer<br/>(epoll/kqueue)"]
+        CM["Client Manager<br/>(Unix socket)"]
+
+        P1 --> MUX
+        P2 --> MUX
+        P3 --> MUX
+        MUX --> CM
+    end
+
+    subgraph Client["it-shell3 Client"]
+        PC["Protocol Client"]
+        GR["libghostty Surface(s)<br/>(Metal Render)"]
+
+        PC --> GR
+    end
+
+    CM -- "Unix Domain Socket" --> PC
 ```
 
 ### IUTF8 and CJK Requirements
