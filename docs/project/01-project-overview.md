@@ -2,7 +2,7 @@
 
 ## Vision
 
-**it-shell3** is a terminal ecosystem providing terminal multiplexer session management with first-class CJK input support, built on **libghostty**. The project consists of three core modules:
+**it-shell3** is a terminal ecosystem providing terminal multiplexer session management with first-class CJK input support, built on **libghostty**. The project consists of two core modules:
 
 - **libitshell3**: The portable Zig library — daemon (PTY owner, session state, I/O mux), client (socket connection, protocol, RenderState populator), binary protocol, PTY layer. Exports C API for Swift/other consumers.
 - **libitshell3-ime**: A separate portable Zig library — native IME engine wrapping libhangul for Korean (2-set, 3-set) plus English QWERTY. No OS IME dependency. Purely algorithmic.
