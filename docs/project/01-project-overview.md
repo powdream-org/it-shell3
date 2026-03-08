@@ -71,9 +71,9 @@ graph TD
 2. If connection fails → register LaunchAgent plist + `launchctl bootstrap` → reconnect
 3. If connection succeeds → handshake (version exchange) → ready
 
-**Version update**: On handshake, if the daemon reports an older version than the bundled binary, the client restarts the daemon (`launchctl bootout` → `launchctl bootstrap`).
+**Local version update**: On handshake, the client compares `server_version` (semantic version string) against its bundled binary version. If they differ, the client kills the daemon (`SIGKILL`) and restarts via LaunchAgent (`launchctl bootout` → `launchctl bootstrap`). Existing sessions are lost — acceptable trade-off for local single-user use. No compatibility range needed; the bundled binary is always the correct version.
 
-**Remote (SSH)**: No LaunchAgent needed. The client connects to the socket; if the daemon is not running, it starts it directly via `fork+exec`. The daemon detaches from the SSH session (`setsid`/`daemon(3)`) and survives disconnection — same as `tmux` server auto-start.
+**Remote (SSH)**: No LaunchAgent needed. The client connects to the socket; if the daemon is not running, it starts it directly via `fork+exec`. The daemon detaches from the SSH session (`setsid`/`daemon(3)`) and survives disconnection — same as `tmux` server auto-start. Compatibility is determined by `protocol_version` min/max negotiation (integer range, not semantic version). If the negotiated version falls below either side's minimum, the client displays an error and exits — the user must update the remote daemon manually.
 
 ## Key Design Goals
 

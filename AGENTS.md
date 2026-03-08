@@ -51,7 +51,7 @@ Server (Daemon)                    Client (App)
 - Session hierarchy: Session > Tab > Pane (binary split tree, JSON-serializable)
 - Capability negotiation at handshake (not version guessing)
 
-**Daemon lifecycle:** The daemon binary is bundled inside the client app (`it-shell3.app/Contents/Helpers/it-shell3-daemon`). Distributed as notarized DMG or Homebrew Cask (not Mac App Store — LaunchAgent requires sandbox escape). On every launch, the client connects to the Unix socket; if the daemon is not running, it registers a LaunchAgent and starts it. On version mismatch (detected at handshake), the client restarts the daemon. For remote (SSH) access, the daemon is started via `fork+exec` without LaunchAgent, similar to `tmux` server auto-start.
+**Daemon lifecycle:** The daemon binary is bundled inside the client app (`it-shell3.app/Contents/Helpers/it-shell3-daemon`). Distributed as notarized DMG or Homebrew Cask (not Mac App Store — LaunchAgent requires sandbox escape). On every launch, the client connects to the Unix socket; if the daemon is not running, it registers a LaunchAgent and starts it. For local connections, if `server_version` differs from the bundled binary, the client kills and restarts the daemon. For remote (SSH) connections, the daemon is started via `fork+exec` without LaunchAgent (similar to `tmux` server auto-start); compatibility is via `protocol_version` min/max negotiation — if incompatible, the client exits with an error.
 
 ## Documentation Structure
 
