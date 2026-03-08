@@ -22,6 +22,8 @@ Living document. Updated after each revision cycle as principles emerge or are r
 | A1 | **Preedit is cell data, not metadata** | v0.7 PoC, applied v0.8 | Server calls `ghostty_surface_preedit()`, injects preedit cells into I/P-frames. Client renders cells without knowing what is preedit. Eliminated dual-channel design, `composition_state`, FrameUpdate preedit JSON, ring buffer bypass. |
 | A2 | **Globally singleton session model** | v0.7 | All clients share the same session state. No per-client independent viewports or scroll positions (post-v1 concern). |
 | A3 | **Ring buffer resolves adjacent problems** | v0.7 | Flow control (cursor stagnation replaces explicit ack), notification coalescing (per-pane ring makes batching unnecessary), recovery unification (skip to latest I-frame), selection sync (shared state in RowData). Consider the ring buffer first before inventing alternatives. |
+| A4 | **Client is a thin RenderState populator, not a custom renderer** | PoC 08 (GPU verified) | `importFlatCells()` populates RenderState directly → ghostty's existing `rebuildCells()` + `drawFrame()` handles all rendering. No Terminal, no VT parser, no manual font resolution or GPU buffer construction on the client. See [ghostty-api-extensions.md](ghostty-api-extensions.md). |
+| A5 | **CellData is semantic, not GPU-ready** | PoC 07–08 | Wire format carries semantic content (codepoint, style, color) for RenderState population. GPU structs (CellText, CellBg) are 70%+ client-local data built by `rebuildCells()`. Export+import = 34 µs for 80×24 (0.2% of frame budget). |
 
 ## Process Lessons
 
