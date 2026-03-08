@@ -9,3 +9,4 @@ preedit-visual/preedit-visual
 
 # Cloned dependencies (build from source)
 ime-key-handling/libhangul/
+06-renderstate-extraction/vendors/ghostty/
