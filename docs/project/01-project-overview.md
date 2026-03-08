@@ -105,55 +105,12 @@ External projects used for design reference (not part of this repository):
 
 ## Document Index
 
-### Project-Level Docs (`docs/project/`)
-
-| Document | Contents |
-|----------|----------|
-| [01-project-overview.md](./01-project-overview.md) | This document — project vision, problem statement, architecture summary |
-| [02-feasibility-analysis.md](./02-feasibility-analysis.md) | Feasibility assessment and risk analysis |
-| [03-recommended-architecture.md](./03-recommended-architecture.md) | Proposed architecture and technology choices |
-| [04-testing-strategy.md](./04-testing-strategy.md) | Testing tiers, coverage estimate, CI pipeline |
-| [05-architecture-validation-report.md](./05-architecture-validation-report.md) | Full architecture review, native IME decision, risk matrix, phased development path |
-
-### App Docs (`docs/app/`)
-
-| Document | Contents |
-|----------|----------|
-| [01-macos-input-pipeline.md](../app/01-macos-input-pipeline.md) | macOS input pipeline, ghostty surface APIs |
-| [02-key-handling.md](../app/02-key-handling.md) | Shift+Enter, Cmd+C/V, AI agent input areas |
-| [03-mouse-events.md](../app/03-mouse-events.md) | Mouse event handling strategy |
-
-### Daemon Docs (`docs/daemon/`)
-
-| Document | Contents |
-|----------|----------|
-| [01-session-persistence.md](../daemon/01-session-persistence.md) | Session persistence mechanisms (tmux, zellij, cmux patterns) |
-| [02-pty-management.md](../daemon/02-pty-management.md) | PTY management, I/O architecture |
-| [03-multiplexer-keybindings.md](../daemon/03-multiplexer-keybindings.md) | Multiplexer keybinding models |
-
-### Library Docs (`docs/modules/libitshell3/01-overview/`)
-
-| Document | Contents |
-|----------|----------|
-| [01-libghostty-api.md](../modules/libitshell3/01-overview/01-libghostty-api.md) | libghostty C API surface, types, and embedding patterns |
-| [02-window-pane-management.md](../modules/libitshell3/01-overview/02-window-pane-management.md) | Window/pane hierarchy and layout systems |
-
-### IME Docs
-
 | Directory | Contents |
 |-----------|----------|
-| [docs/modules/libitshell3-ime/01-overview/](../modules/libitshell3-ime/01-overview/) | Native IME library — rationale, libhangul API, Korean composition, architecture, build/licensing |
-
-### Protocol Docs
-
-| Directory | Contents |
-|-----------|----------|
-| [docs/modules/libitshell3-protocol/](../modules/libitshell3-protocol/) | Wire protocol specification — handshake, session/pane management, input/renderstate, CJK preedit, flow control |
-
-### Cross-Cutting Insights
-
-| Document | Contents |
-|----------|----------|
-| [docs/insights/design-principles.md](../insights/design-principles.md) | Validated protocol design principles, architectural insights, process lessons |
-| [docs/insights/ghostty-api-extensions.md](../insights/ghostty-api-extensions.md) | render_export API, FlatCell format, PoC results |
-| [docs/insights/reference-codebase-learnings.md](../insights/reference-codebase-learnings.md) | Patterns from ghostty, tmux, zellij reference codebases |
+| [`docs/project/`](./) | Project vision, feasibility, architecture, testing strategy, validation |
+| [`docs/app/`](../app/) | Client app — macOS input pipeline, key handling, mouse events |
+| [`docs/daemon/`](../daemon/) | Daemon — session persistence, PTY management, keybindings |
+| [`docs/modules/libitshell3/`](../modules/libitshell3/) | Core library — libghostty API, window/pane management |
+| [`docs/modules/libitshell3-ime/`](../modules/libitshell3-ime/) | Native IME — rationale, libhangul API, Korean composition, architecture |
+| [`docs/modules/libitshell3-protocol/`](../modules/libitshell3-protocol/) | Wire protocol — handshake, session/pane, input/renderstate, CJK preedit, flow control |
+| [`docs/insights/`](../insights/) | Cross-cutting — design principles, ghostty API extensions, reference codebase learnings |
