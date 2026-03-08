@@ -1,8 +1,8 @@
-# PoC 08: RenderState Direct Population (No Terminal on Client)
+# PoC 08: RenderState Direct Population → GPU Rendering (No Terminal on Client)
 
 **Date**: 2026-03-08
 **Triggered by**: PoC 07 (bulk export validated) — now proving the client can populate RenderState directly from FlatCell[] without ever creating a Terminal
-**Question**: Can FlatCell[] data be imported directly into a RenderState (bypassing Terminal), such that the renderer (`rebuildCells()`) can consume it for GPU rendering?
+**Question**: Can FlatCell[] data be imported directly into a RenderState (bypassing Terminal), such that the renderer (`rebuildCells()`) can consume it for **actual GPU rendering via Metal**?
 
 ## Motivation
 
@@ -173,13 +173,33 @@ The client is a thin rendering frontend. All terminal logic stays on the server.
 
 The import step is a small fraction of the total frame budget. The bottleneck will be font shaping and GPU rendering, both of which are client-local and already optimized by ghostty.
 
+### GPU Rendering — VERIFIED
+
+The full rendering pipeline was tested by modifying `generic.zig`'s `updateFrame()` to intercept `terminal_state` after `update()` and overwrite it with FlatCell data via `importFlatCells()`. The modified ghostty macOS app was built and run successfully.
+
+**What the screen showed** (verified visually):
+
+| Row | Content | Rendering |
+|-----|---------|-----------|
+| 0 | `Hello, it-shell3! importFlatCells() -> GPU rendering!` | Plain white ASCII ✓ |
+| 1 | `한글 테스트` | Wide chars with correct 2-cell width ✓ |
+| 2 | `Bold Red (RGB 255,0,0)` | Bold weight + red RGB foreground ✓ |
+| 3 | `Italic Green on Blue` | Italic + green fg + blue bg ✓ |
+| 5 | `Palette fg=196 bg=21` | 256-palette colors (red on blue) ✓ |
+
+The complete pipeline: **FlatCell[] → importFlatCells() → RenderState → rebuildCells() (font shaping) → Metal drawFrame() → GPU → screen pixels**.
+
+**Build notes**: Built with `zig build run` on macOS (Xcode 16.4). Required minor patches to ghostty's Swift code for Xcode compatibility (Tahoe-era APIs gated by `#if compiler(>=6.2)`, SwiftUI type-check timeout fix).
+
+**Interception point**: `src/renderer/generic.zig` line ~1203, after `self.terminal_state.update(self.alloc, state.terminal)`. The PoC override constructs inline FlatCell data and calls `importFlatCells()` to overwrite `self.terminal_state` every frame.
+
 ## Known Limitations
 
 - **No grapheme cluster support**: Only single-codepoint cells. Multi-codepoint graphemes need arena allocation.
 - **No underline_color**: FlatCell doesn't carry underline_color. Would need a 20-byte FlatCell or separate field.
 - **Row metadata not transferred**: `page.Row` flags (wrap, semantic_prompt) are not in FlatCell/ExportResult.
 - **Colors/palette not transferred**: `RenderState.colors` (default bg/fg, 256-palette) initialized from defaults, not from server. Would need separate message.
-- **No rebuildCells() test**: This PoC proves RenderState population; actual GPU rendering needs a Surface (future PoC).
+- **Minimum size guard**: importFlatCells() should skip very small terminal sizes during initialization (rows < 6 or cols < 60) to avoid index-out-of-bounds in rebuildRow() font shaping.
 
 ## New API Surface
 

@@ -65,6 +65,259 @@ index f9d861b19..87f93569c 100644
 +        b.installArtifact(reinject_exe);
 +    }
  }
+diff --git a/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift b/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift
+index 990cd8bb2..ee102ec8d 100644
+--- a/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift	
++++ b/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift	
+@@ -128,10 +128,11 @@ class DockTilePlugin: NSObject, NSDockTilePlugIn {
+ private extension NSDockTile {
+     func setIcon(_ newIcon: NSImage) {
+         // Update the Dock tile on the main thread.
++        nonisolated(unsafe) let icon = newIcon
+         DispatchQueue.main.async {
+             let iconView = NSImageView(frame: CGRect(origin: .zero, size: self.size))
+             iconView.wantsLayer = true
+-            iconView.image = newIcon
++            iconView.image = icon
+             self.contentView = iconView
+             self.display()
+         }
+diff --git a/macos/Sources/Ghostty/Surface View/SurfaceView.swift b/macos/Sources/Ghostty/Surface View/SurfaceView.swift
+index 47503dc0e..9b4d12915 100644
+--- a/macos/Sources/Ghostty/Surface View/SurfaceView.swift	
++++ b/macos/Sources/Ghostty/Surface View/SurfaceView.swift	
+@@ -411,90 +411,30 @@ extension Ghostty {
+ 
+         var body: some View {
+             GeometryReader { geo in
+-                HStack(spacing: 4) {
+-                    TextField("Search", text: $searchState.needle)
+-                    .textFieldStyle(.plain)
+-                    .frame(width: 180)
+-                    .padding(.leading, 8)
+-                    .padding(.trailing, 50)
+-                    .padding(.vertical, 6)
+-                    .background(Color.primary.opacity(0.1))
+-                    .cornerRadius(6)
+-                    .focused($isSearchFieldFocused)
+-                    .overlay(alignment: .trailing) {
+-                        if let selected = searchState.selected {
+-                            Text("\(selected + 1)/\(searchState.total, default: "?")")
+-                                .font(.caption)
+-                                .foregroundColor(.secondary)
+-                                .monospacedDigit()
+-                                .padding(.trailing, 8)
+-                        } else if let total = searchState.total {
+-                            Text("-/\(total)")
+-                                .font(.caption)
+-                                .foregroundColor(.secondary)
+-                                .monospacedDigit()
+-                                .padding(.trailing, 8)
+-                        }
+-                    }
+-#if canImport(AppKit)
+-                    .onExitCommand {
+-                        if searchState.needle.isEmpty {
+-                            onClose()
+-                        } else {
+-                            Ghostty.moveFocus(to: surfaceView)
+-                        }
+-                    }
+-#endif
+-                    .backport.onKeyPress(.return) { modifiers in
+-                        guard let surface = surfaceView.surface else { return .ignored }
+-                        let action = modifiers.contains(.shift)
+-                        ? "navigate_search:previous"
+-                        : "navigate_search:next"
+-                        ghostty_surface_binding_action(surface, action, UInt(action.lengthOfBytes(using: .utf8)))
+-                        return .handled
+-                    }
++                searchBarContent(geo: geo)
++            }
++        }
+ 
+-                    Button(action: {
+-                        guard let surface = surfaceView.surface else { return }
+-                        let action = "navigate_search:next"
+-                        ghostty_surface_binding_action(surface, action, UInt(action.lengthOfBytes(using: .utf8)))
+-                    }, label: {
+-                        Image(systemName: "chevron.up")
+-                    })
+-                    .buttonStyle(SearchButtonStyle())
+-
+-                    Button(action: {
+-                        guard let surface = surfaceView.surface else { return }
+-                        let action = "navigate_search:previous"
+-                        ghostty_surface_binding_action(surface, action, UInt(action.lengthOfBytes(using: .utf8)))
+-                    }, label: {
+-                        Image(systemName: "chevron.down")
+-                    })
+-                    .buttonStyle(SearchButtonStyle())
+-
+-                    Button(action: onClose) {
+-                        Image(systemName: "xmark")
+-                    }
+-                    .buttonStyle(SearchButtonStyle())
+-                }
+-                .padding(8)
+-                .background(.background)
+-                .clipShape(clipShape)
+-                .shadow(radius: 4)
+-                .onAppear {
+-                    isSearchFieldFocused = true
+-                }
++        @ViewBuilder
++        private func searchBarContent(geo: GeometryProxy) -> some View {
++            let bar = HStack(spacing: 4) {
++                searchField
++                navButtons
++            }
++            .padding(8)
++            .background(Color(nsColor: .windowBackgroundColor))
++            .clipShape(RoundedRectangle(cornerRadius: 8))
++            .shadow(radius: 4)
++
++            bar
++                .onAppear { isSearchFieldFocused = true }
+                 .onReceive(NotificationCenter.default.publisher(for: .ghosttySearchFocus)) { notification in
+                     guard notification.object as? SurfaceView === surfaceView else { return }
+-                    DispatchQueue.main.async {
+-                        isSearchFieldFocused = true
+-                    }
++                    DispatchQueue.main.async { isSearchFieldFocused = true }
+                 }
+                 .background(
+                     GeometryReader { barGeo in
+-                        Color.clear.onAppear {
+-                            barSize = barGeo.size
+-                        }
++                        Color.clear.onAppear { barSize = barGeo.size }
+                     }
+                 )
+                 .padding(padding)
+@@ -502,9 +442,7 @@ extension Ghostty {
+                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: corner.alignment)
+                 .gesture(
+                     DragGesture()
+-                        .onChanged { value in
+-                            dragOffset = value.translation
+-                        }
++                        .onChanged { value in dragOffset = value.translation }
+                         .onEnded { value in
+                             let centerPos = centerPosition(for: corner, in: geo.size, barSize: barSize)
+                             let newCenter = CGPoint(
+@@ -518,15 +456,86 @@ extension Ghostty {
+                             }
+                         }
+                 )
++        }
++
++        @ViewBuilder
++        private var searchField: some View {
++            let field = TextField("Search", text: $searchState.needle)
++                .textFieldStyle(.plain)
++                .frame(width: 180)
++                .padding(.leading, 8)
++                .padding(.trailing, 50)
++                .padding(.vertical, 6)
++                .background(Color.primary.opacity(0.1))
++                .cornerRadius(6)
++                .focused($isSearchFieldFocused)
++                .overlay(alignment: .trailing) { searchCountOverlay }
++
++            field
++#if canImport(AppKit)
++                .onExitCommand {
++                    if searchState.needle.isEmpty {
++                        onClose()
++                    } else {
++                        Ghostty.moveFocus(to: surfaceView)
++                    }
++                }
++#endif
++                .backport.onKeyPress(.return) { modifiers in
++                    guard let surface = surfaceView.surface else { return .ignored }
++                    let action = modifiers.contains(.shift)
++                    ? "navigate_search:previous"
++                    : "navigate_search:next"
++                    ghostty_surface_binding_action(surface, action, UInt(action.lengthOfBytes(using: .utf8)))
++                    return .handled
++                }
++        }
++
++        @ViewBuilder
++        private var searchCountOverlay: some View {
++            if let selected = searchState.selected {
++                Text("\(selected + 1)/\(searchState.total.map(String.init) ?? "?")")
++                    .font(.caption)
++                    .foregroundColor(.secondary)
++                    .monospacedDigit()
++                    .padding(.trailing, 8)
++            } else if let total = searchState.total {
++                Text("-/\(total)")
++                    .font(.caption)
++                    .foregroundColor(.secondary)
++                    .monospacedDigit()
++                    .padding(.trailing, 8)
+             }
+         }
+ 
+-        private var clipShape: some Shape {
+-            if #available(iOS 26.0, macOS 26.0, *) {
+-                return ConcentricRectangle(corners: .concentric(minimum: 8), isUniform: true)
+-            } else {
+-                return RoundedRectangle(cornerRadius: 8)
++        @ViewBuilder
++        private var navButtons: some View {
++            Button(action: {
++                guard let surface = surfaceView.surface else { return }
++                let action = "navigate_search:next"
++                ghostty_surface_binding_action(surface, action, UInt(action.lengthOfBytes(using: .utf8)))
++            }, label: {
++                Image(systemName: "chevron.up")
++            })
++            .buttonStyle(SearchButtonStyle())
++
++            Button(action: {
++                guard let surface = surfaceView.surface else { return }
++                let action = "navigate_search:previous"
++                ghostty_surface_binding_action(surface, action, UInt(action.lengthOfBytes(using: .utf8)))
++            }, label: {
++                Image(systemName: "chevron.down")
++            })
++            .buttonStyle(SearchButtonStyle())
++
++            Button(action: onClose) {
++                Image(systemName: "xmark")
+             }
++            .buttonStyle(SearchButtonStyle())
++        }
++
++        private var clipShape: some Shape {
++            return RoundedRectangle(cornerRadius: 8)
+         }
+ 
+         enum Corner {
+diff --git a/macos/Sources/Helpers/Backport.swift b/macos/Sources/Helpers/Backport.swift
+index e2afb5b0c..3b33f705e 100644
+--- a/macos/Sources/Helpers/Backport.swift
++++ b/macos/Sources/Helpers/Backport.swift
+@@ -121,6 +121,9 @@ enum BackportPointerStyle {
+ enum BackportNSGlassStyle {
+     case regular, clear
+ 
++    // NSGlassEffectView requires macOS 26 SDK (Xcode 26+)
++    // Disabled for PoC build with Xcode 16.4
++    #if compiler(>=6.2)
+     #if canImport(AppKit)
+     @available(macOS 26, *)
+     var official: NSGlassEffectView.Style {
+@@ -130,4 +133,5 @@ enum BackportNSGlassStyle {
+         }
+     }
+     #endif
++    #endif
+ }
 diff --git a/src/lib_vt.zig b/src/lib_vt.zig
 index 426660621..6b7036707 100644
 --- a/src/lib_vt.zig
@@ -77,6 +330,134 @@ index 426660621..6b7036707 100644
  pub const Screen = terminal.Screen;
  pub const ScreenSet = terminal.ScreenSet;
  pub const Selection = terminal.Selection;
+diff --git a/src/renderer/generic.zig b/src/renderer/generic.zig
+index ff632f64a..0b0341304 100644
+--- a/src/renderer/generic.zig
++++ b/src/renderer/generic.zig
+@@ -1202,6 +1202,123 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
+                 // Update our terminal state
+                 try self.terminal_state.update(self.alloc, state.terminal);
+ 
++                // PoC 08: Override terminal_state with imported FlatCell data.
++                // This proves that importFlatCells() produces renderable RenderState.
++                // The renderer (rebuildCells → Metal GPU) uses this data instead of
++                // the Terminal's own state.
++                poc_override: {
++                    const render_export = terminal.render_export;
++                    const rows = self.terminal_state.rows;
++                    const cols = self.terminal_state.cols;
++                    if (rows < 6 or cols < 60) break :poc_override;
++
++                    std.log.warn("[PoC08] override: rows={} cols={}", .{ rows, cols });
++
++                    const total = @as(usize, rows) * @as(usize, cols);
++                    const cells = self.alloc.alloc(render_export.FlatCell, total) catch break :poc_override;
++                    defer self.alloc.free(cells);
++                    @memset(cells, render_export.FlatCell{});
++
++                    // Row 0: ASCII text
++                    const text0 = "Hello, it-shell3! importFlatCells() -> GPU rendering!";
++                    for (text0, 0..) |ch, i| {
++                        if (i >= cols) break;
++                        cells[i] = .{ .codepoint = ch };
++                    }
++
++                    // Row 1: Korean wide characters
++                    if (rows > 1) {
++                        const off: usize = cols;
++                        const korean = [_]struct { cp: u32, wide: u8 }{
++                            .{ .cp = 0xD55C, .wide = 1 }, .{ .cp = 0, .wide = 2 },
++                            .{ .cp = 0xAE00, .wide = 1 }, .{ .cp = 0, .wide = 2 },
++                            .{ .cp = ' ', .wide = 0 },
++                            .{ .cp = 0xD14C, .wide = 1 }, .{ .cp = 0, .wide = 2 },
++                            .{ .cp = 0xC2A4, .wide = 1 }, .{ .cp = 0, .wide = 2 },
++                            .{ .cp = 0xD2B8, .wide = 1 }, .{ .cp = 0, .wide = 2 },
++                        };
++                        for (korean, 0..) |k, i| {
++                            if (i >= cols) break;
++                            cells[off + i] = .{ .codepoint = k.cp, .wide = k.wide };
++                        }
++                    }
++
++                    // Row 2: Bold red text
++                    if (rows > 2) {
++                        const off: usize = @as(usize, cols) * 2;
++                        const text2 = "Bold Red (RGB 255,0,0)";
++                        for (text2, 0..) |ch, i| {
++                            if (i >= cols) break;
++                            cells[off + i] = .{
++                                .codepoint = ch,
++                                .fg = .{ .tag = 2, .r = 255, .g = 0, .b = 0 },
++                                .flags = 0x0001,
++                            };
++                        }
++                    }
++
++                    // Row 3: Italic green on dark blue
++                    if (rows > 3) {
++                        const off: usize = @as(usize, cols) * 3;
++                        const text3 = "Italic Green on Blue";
++                        for (text3, 0..) |ch, i| {
++                            if (i >= cols) break;
++                            cells[off + i] = .{
++                                .codepoint = ch,
++                                .fg = .{ .tag = 2, .r = 0, .g = 255, .b = 0 },
++                                .bg = .{ .tag = 2, .r = 0, .g = 0, .b = 128 },
++                                .flags = 0x0002,
++                            };
++                        }
++                    }
++
++                    // Row 5: Palette colors
++                    if (rows > 5) {
++                        const off: usize = @as(usize, cols) * 5;
++                        const text5 = "Palette fg=196 bg=21";
++                        for (text5, 0..) |ch, i| {
++                            if (i >= cols) break;
++                            cells[off + i] = .{
++                                .codepoint = ch,
++                                .fg = .{ .tag = 1, .r = 196 },
++                                .bg = .{ .tag = 1, .r = 21 },
++                            };
++                        }
++                    }
++
++                    var result = render_export.ExportResult{
++                        .cells = cells.ptr,
++                        .rows = rows,
++                        .cols = cols,
++                        .dirty_bitmap = .{
++                            std.math.maxInt(u64), std.math.maxInt(u64),
++                            std.math.maxInt(u64), std.math.maxInt(u64),
++                        },
++                        .cursor_x = 0,
++                        .cursor_y = 0,
++                        .bg = .{
++                            .tag = 2,
++                            .r = self.terminal_state.colors.background.r,
++                            .g = self.terminal_state.colors.background.g,
++                            .b = self.terminal_state.colors.background.b,
++                        },
++                        .fg = .{
++                            .tag = 2,
++                            .r = self.terminal_state.colors.foreground.r,
++                            .g = self.terminal_state.colors.foreground.g,
++                            .b = self.terminal_state.colors.foreground.b,
++                        },
++                        .dirty_state = 2,
++                        ._pad = .{ 0, 0, 0, 0, 0 },
++                    };
++
++                    render_export.importFlatCells(
++                        self.alloc,
++                        &self.terminal_state,
++                        &result,
++                    ) catch {};
++                }
++
+                 // If our terminal state is dirty at all we need to redo
+                 // the viewport search.
+                 if (self.terminal_state.dirty != .false) {
 diff --git a/src/terminal/main.zig b/src/terminal/main.zig
 index 06c930014..59a60d056 100644
 --- a/src/terminal/main.zig
@@ -89,568 +470,3 @@ index 06c930014..59a60d056 100644
  pub const Screen = @import("Screen.zig");
  pub const ScreenSet = @import("ScreenSet.zig");
  pub const Scrollbar = PageList.Scrollbar;
-
-=== NEW FILE: src/terminal/render_export.zig ===
-/// Bulk export API for RenderState cell data.
-///
-/// Provides a flat, C-ABI-compatible representation of terminal cell data
-/// for efficient cross-boundary transfer. Designed for the it-shell3
-/// server-client protocol where the server extracts RenderState and
-/// transmits cell data to the client.
-///
-/// Performance priorities:
-/// 1. Minimize copy overhead (single pass, cache-friendly)
-/// 2. 16-byte aligned cells for SIMD-friendly downstream processing
-/// 3. Contiguous flat buffer (no pointer chasing)
-const std = @import("std");
-const Allocator = std.mem.Allocator;
-const page = @import("page.zig");
-const render = @import("render.zig");
-const style_mod = @import("style.zig");
-const color = @import("color.zig");
-const size = @import("size.zig");
-const Terminal = @import("Terminal.zig");
-
-const RenderState = render.RenderState;
-const Style = style_mod.Style;
-
-/// A flat, C-ABI-compatible cell for bulk export.
-/// 16 bytes — power-of-2 aligned, SIMD-friendly.
-pub const FlatCell = extern struct {
-    /// Primary codepoint (u21 extended to u32). 0 = empty cell.
-    codepoint: u32 = 0,
-
-    /// Foreground color. tag: 0=none, 1=palette(r=index), 2=rgb
-    fg: PackedColor = .{},
-
-    /// Background color. tag: 0=none, 1=palette(r=index), 2=rgb
-    bg: PackedColor = .{},
-
-    /// Style flags (matches ghostty's Flags packed u16).
-    /// Bits: 0=bold, 1=italic, 2=faint, 3=blink, 4=inverse,
-    ///       5=invisible, 6=strikethrough, 7=overline, 8-10=underline
-    flags: u16 = 0,
-
-    /// Wide character status: 0=narrow, 1=wide, 2=spacer_tail, 3=spacer_head
-    wide: u8 = 0,
-
-    /// Content tag: 0=codepoint, 1=codepoint_grapheme, 2=bg_color_palette, 3=bg_color_rgb
-    content_tag: u8 = 0,
-
-    comptime {
-        // Enforce 16-byte size for SIMD alignment
-        std.debug.assert(@sizeOf(FlatCell) == 16);
-    }
-};
-
-/// Packed color representation (4 bytes, C-ABI-compatible).
-pub const PackedColor = extern struct {
-    /// 0=none, 1=palette, 2=rgb
-    tag: u8 = 0,
-    r: u8 = 0,
-    g: u8 = 0,
-    b: u8 = 0,
-
-    pub fn fromStyleColor(c: Style.Color) PackedColor {
-        return switch (c) {
-            .none => .{},
-            .palette => |idx| .{ .tag = 1, .r = idx },
-            .rgb => |rgb| .{ .tag = 2, .r = rgb.r, .g = rgb.g, .b = rgb.b },
-        };
-    }
-};
-
-/// Result of a bulk export operation.
-pub const ExportResult = extern struct {
-    /// Pointer to the flat cell buffer. Caller must free via freeExport().
-    cells: [*]FlatCell,
-
-    /// Number of rows exported.
-    rows: u16,
-
-    /// Number of columns exported.
-    cols: u16,
-
-    /// Bitmask of dirty rows (up to 256 rows). Bit N = row N is dirty.
-    /// For rows > 255, check dirty_extended.
-    dirty_bitmap: [4]u64,
-
-    /// Cursor position.
-    cursor_x: u32,
-    cursor_y: u32,
-
-    /// Terminal default colors (resolved).
-    bg: PackedColor,
-    fg: PackedColor,
-
-    /// 0=false, 1=partial, 2=full
-    dirty_state: u8,
-
-    _pad: [5]u8,
-};
-
-/// Update RenderState from Terminal and bulk-copy cells into a flat buffer.
-///
-/// This performs two operations:
-/// 1. RenderState.update() — snapshots terminal state (copies from Page)
-/// 2. Flatten — transforms SoA RenderState.Cell into AoS FlatCell[]
-///
-/// The returned ExportResult owns the cell buffer. Caller must free it
-/// via freeExport().
-pub fn bulkExport(
-    alloc: Allocator,
-    state: *RenderState,
-    term: *Terminal,
-) Allocator.Error!ExportResult {
-    // Step 1: Update RenderState from Terminal
-    try state.update(alloc, term);
-
-    const rows = state.rows;
-    const cols = state.cols;
-    const total_cells: usize = @as(usize, rows) * @as(usize, cols);
-
-    // Step 2: Allocate flat buffer (16-byte aligned cells)
-    const flat_cells = try alloc.alloc(FlatCell, total_cells);
-
-    // Step 3: Flatten — iterate rows and transform cells
-    const row_data = state.row_data.slice();
-    const row_cells_arr = row_data.items(.cells);
-    const row_dirties = row_data.items(.dirty);
-
-    var dirty_bitmap: [4]u64 = .{ 0, 0, 0, 0 };
-
-    for (0..rows) |y| {
-        const cells_slice = row_cells_arr[y].slice();
-        const cells_raw = cells_slice.items(.raw);
-        const cells_style = cells_slice.items(.style);
-        const cell_count = @min(cells_raw.len, cols);
-
-        // Record dirty state
-        if (row_dirties[y] and y < 256) {
-            dirty_bitmap[y / 64] |= @as(u64, 1) << @intCast(y % 64);
-        }
-
-        // Destination slice for this row
-        const row_offset = y * cols;
-        const dest = flat_cells[row_offset .. row_offset + cols];
-
-        // Flatten each cell
-        for (0..cell_count) |x| {
-            const raw = cells_raw[x];
-            const style = cells_style[x];
-
-            dest[x] = .{
-                .codepoint = raw.codepoint(),
-                .fg = PackedColor.fromStyleColor(if (raw.hasStyling()) style.fg_color else .none),
-                .bg = PackedColor.fromStyleColor(if (raw.hasStyling()) style.bg_color else .none),
-                .flags = if (raw.hasStyling()) @bitCast(style.flags) else 0,
-                .wide = @intFromEnum(raw.wide),
-                .content_tag = @intFromEnum(raw.content_tag),
-            };
-        }
-
-        // Zero-fill remaining cells if row is shorter than cols
-        if (cell_count < cols) {
-            @memset(dest[cell_count..], .{});
-        }
-    }
-
-    return .{
-        .cells = flat_cells.ptr,
-        .rows = rows,
-        .cols = cols,
-        .dirty_bitmap = dirty_bitmap,
-        .cursor_x = @intCast(state.cursor.active.x),
-        .cursor_y = @intCast(state.cursor.active.y),
-        .bg = .{ .tag = 2, .r = state.colors.background.r, .g = state.colors.background.g, .b = state.colors.background.b },
-        .fg = .{ .tag = 2, .r = state.colors.foreground.r, .g = state.colors.foreground.g, .b = state.colors.foreground.b },
-        .dirty_state = @intFromEnum(state.dirty),
-        ._pad = .{ 0, 0, 0, 0, 0 },
-    };
-}
-
-/// Free an ExportResult's cell buffer.
-pub fn freeExport(alloc: Allocator, result: *ExportResult) void {
-    const total: usize = @as(usize, result.rows) * @as(usize, result.cols);
-    alloc.free(result.cells[0..total]);
-    result.* = undefined;
-}
-
-/// Convert PackedColor back to Style.Color.
-pub fn toStyleColor(pc: PackedColor) Style.Color {
-    return switch (pc.tag) {
-        1 => .{ .palette = pc.r },
-        2 => .{ .rgb = .{ .r = pc.r, .g = pc.g, .b = pc.b } },
-        else => .none,
-    };
-}
-
-/// Populate a RenderState directly from FlatCell data, bypassing Terminal.
-///
-/// This is the client-side counterpart to bulkExport():
-///   Server: Terminal → update() → RenderState → bulkExport() → FlatCell[]
-///   Client: FlatCell[] → importFlatCells() → RenderState → rebuildCells() → GPU
-///
-/// The client never needs a Terminal instance.
-pub fn importFlatCells(
-    alloc: Allocator,
-    state: *RenderState,
-    result: *const ExportResult,
-) Allocator.Error!void {
-    const rows = result.rows;
-    const cols = result.cols;
-
-    // Resize row_data — matches the pattern in RenderState.update()
-    if (state.row_data.len != rows) {
-        if (state.row_data.len < rows) {
-            const old_len = state.row_data.len;
-            try state.row_data.resize(alloc, rows);
-            var rd = state.row_data.slice();
-            for (old_len..rows) |y| {
-                rd.set(y, .{
-                    .arena = .{},
-                    .pin = undefined,
-                    .raw = undefined,
-                    .cells = .empty,
-                    .dirty = true,
-                    .selection = null,
-                    .highlights = .empty,
-                });
-            }
-        } else {
-            const rd = state.row_data.slice();
-            for (
-                rd.items(.arena)[rows..],
-                rd.items(.cells)[rows..],
-            ) |arena_state, *cell| {
-                var arena = arena_state.promote(alloc);
-                arena.deinit();
-                cell.deinit(alloc);
-            }
-            state.row_data.shrinkRetainingCapacity(rows);
-        }
-    }
-
-    state.rows = rows;
-    state.cols = cols;
-    state.dirty = .full;
-    state.cursor.active = .{
-        .x = @intCast(result.cursor_x),
-        .y = @intCast(result.cursor_y),
-    };
-
-    // Populate each row's cells
-    const slice = state.row_data.slice();
-    const row_cells_arr = slice.items(.cells);
-    const row_dirties = slice.items(.dirty);
-
-    for (0..rows) |y| {
-        var cells = &row_cells_arr[y];
-
-        // Resize cells to cols — matches update() pattern
-        if (cells.len != cols) {
-            try cells.resize(alloc, cols);
-        }
-
-        const cells_raw = cells.slice().items(.raw);
-        const cells_style = cells.slice().items(.style);
-        const cells_grapheme = cells.slice().items(.grapheme);
-        const src_offset = y * @as(usize, cols);
-
-        for (0..cols) |x| {
-            const flat = result.cells[src_offset + x];
-
-            // Construct page.Cell packed u64
-            var raw_cell: page.Cell = @bitCast(@as(u64, 0));
-            raw_cell.content_tag = @enumFromInt(flat.content_tag);
-            raw_cell.content = .{ .codepoint = @intCast(flat.codepoint) };
-            raw_cell.wide = @enumFromInt(flat.wide);
-
-            // Set style_id nonzero if cell has styling, so hasStyling() returns true
-            const has_style = flat.fg.tag != 0 or flat.bg.tag != 0 or flat.flags != 0;
-            if (has_style) raw_cell.style_id = 1;
-
-            cells_raw[x] = raw_cell;
-            cells_grapheme[x] = &.{};
-            cells_style[x] = if (has_style) Style{
-                .fg_color = toStyleColor(flat.fg),
-                .bg_color = toStyleColor(flat.bg),
-                .underline_color = .none,
-                .flags = @bitCast(flat.flags),
-            } else undefined;
-        }
-
-        // Check dirty bitmap
-        row_dirties[y] = if (y < 256)
-            (result.dirty_bitmap[y / 64] & (@as(u64, 1) << @intCast(y % 64))) != 0
-        else
-            true;
-    }
-}
-
-/// Export FlatCell[] from an already-populated RenderState.
-///
-/// Unlike bulkExport(), this does NOT call state.update().
-/// Use this when RenderState was populated via importFlatCells()
-/// rather than update().
-pub fn flattenExport(
-    alloc: Allocator,
-    state: *const RenderState,
-) Allocator.Error!ExportResult {
-    const rows = state.rows;
-    const cols = state.cols;
-    const total_cells: usize = @as(usize, rows) * @as(usize, cols);
-
-    const flat_cells = try alloc.alloc(FlatCell, total_cells);
-
-    const row_data = state.row_data.slice();
-    const row_cells_arr = row_data.items(.cells);
-    const row_dirties = row_data.items(.dirty);
-
-    var dirty_bitmap: [4]u64 = .{ 0, 0, 0, 0 };
-
-    for (0..rows) |y| {
-        const cells_slice = row_cells_arr[y].slice();
-        const cells_raw = cells_slice.items(.raw);
-        const cells_style = cells_slice.items(.style);
-        const cell_count = @min(cells_raw.len, cols);
-
-        if (row_dirties[y] and y < 256) {
-            dirty_bitmap[y / 64] |= @as(u64, 1) << @intCast(y % 64);
-        }
-
-        const row_offset = y * cols;
-        const dest = flat_cells[row_offset .. row_offset + cols];
-
-        for (0..cell_count) |x| {
-            const raw = cells_raw[x];
-            const style = cells_style[x];
-
-            dest[x] = .{
-                .codepoint = raw.codepoint(),
-                .fg = PackedColor.fromStyleColor(if (raw.hasStyling()) style.fg_color else .none),
-                .bg = PackedColor.fromStyleColor(if (raw.hasStyling()) style.bg_color else .none),
-                .flags = if (raw.hasStyling()) @bitCast(style.flags) else 0,
-                .wide = @intFromEnum(raw.wide),
-                .content_tag = @intFromEnum(raw.content_tag),
-            };
-        }
-
-        if (cell_count < cols) {
-            @memset(dest[cell_count..], .{});
-        }
-    }
-
-    return .{
-        .cells = flat_cells.ptr,
-        .rows = rows,
-        .cols = cols,
-        .dirty_bitmap = dirty_bitmap,
-        .cursor_x = @intCast(state.cursor.active.x),
-        .cursor_y = @intCast(state.cursor.active.y),
-        .bg = .{ .tag = 2, .r = state.colors.background.r, .g = state.colors.background.g, .b = state.colors.background.b },
-        .fg = .{ .tag = 2, .r = state.colors.foreground.r, .g = state.colors.foreground.g, .b = state.colors.foreground.b },
-        .dirty_state = @intFromEnum(state.dirty),
-        ._pad = .{ 0, 0, 0, 0, 0 },
-    };
-}
-
-test "FlatCell size and alignment" {
-    const testing = std.testing;
-    try testing.expectEqual(16, @sizeOf(FlatCell));
-    try testing.expectEqual(4, @alignOf(FlatCell));
-}
-
-test "PackedColor from Style.Color" {
-    const testing = std.testing;
-
-    const none = PackedColor.fromStyleColor(.none);
-    try testing.expectEqual(0, none.tag);
-
-    const pal = PackedColor.fromStyleColor(.{ .palette = 42 });
-    try testing.expectEqual(1, pal.tag);
-    try testing.expectEqual(42, pal.r);
-
-    const rgb = PackedColor.fromStyleColor(.{ .rgb = .{ .r = 255, .g = 128, .b = 0 } });
-    try testing.expectEqual(2, rgb.tag);
-    try testing.expectEqual(255, rgb.r);
-    try testing.expectEqual(128, rgb.g);
-    try testing.expectEqual(0, rgb.b);
-}
-
-=== NEW FILE: poc/extract_renderstate.zig ===
-/// PoC 06: RenderState Extraction
-///
-/// Proves that we can:
-/// 1. Create a Terminal instance headlessly (no Surface/App/PTY)
-/// 2. Feed VT data into it (Terminal.print)
-/// 3. Call RenderState.update() to snapshot the terminal state
-/// 4. Iterate over RenderState cells and read codepoints + resolved styles
-///
-/// This validates the "server-side extraction" half of the it-shell3
-/// RenderState protocol design.
-const std = @import("std");
-const vt = @import("ghostty-vt");
-
-const Terminal = vt.Terminal;
-const RenderState = vt.RenderState;
-const Style = vt.Style;
-
-const print = std.debug.print;
-
-pub fn main() !void {
-    const alloc = std.heap.page_allocator;
-
-    // 1. Create a terminal (headless — no Surface, no PTY, no App)
-    const cols: vt.size.CellCountInt = 80;
-    const rows: vt.size.CellCountInt = 24;
-
-    var term = try Terminal.init(alloc, .{
-        .cols = cols,
-        .rows = rows,
-    });
-    defer term.deinit(alloc);
-
-    print("=== PoC 06: RenderState Extraction ===\n", .{});
-    print("Terminal created: {}x{}\n\n", .{ cols, rows });
-
-    // 2. Feed some text into the terminal
-    // Simple ASCII
-    const test_text = "Hello, it-shell3!";
-    for (test_text) |c| {
-        try term.print(c);
-    }
-
-    // Move to next line (CR + LF)
-    term.carriageReturn();
-    try term.linefeed();
-
-    // Korean text (Hangul codepoints, pre-composed)
-    // 한 = U+D55C, 글 = U+AE00, 테 = U+D14C, 스 = U+C2A4, 트 = U+D2B8
-    const korean_cps = [_]u21{ 0xD55C, 0xAE00, ' ', 0xD14C, 0xC2A4, 0xD2B8 };
-    for (korean_cps) |cp| {
-        try term.print(cp);
-    }
-
-    // Move to next line
-    term.carriageReturn();
-    try term.linefeed();
-
-    // SGR styled text: bold + red foreground
-    try term.setAttribute(.bold);
-    try term.setAttribute(.{ .direct_color_fg = .{ .r = 255, .g = 0, .b = 0 } });
-    const styled_text = "Bold Red Text";
-    for (styled_text) |c| {
-        try term.print(c);
-    }
-    // Reset
-    try term.setAttribute(.unset);
-
-    print("Text written to terminal.\n\n", .{});
-
-    // 3. Snapshot via RenderState.update()
-    var render_state: RenderState = .empty;
-    defer render_state.deinit(alloc);
-
-    try render_state.update(alloc, &term);
-
-    print("RenderState updated. dirty={s}, rows={}, cols={}\n", .{
-        @tagName(render_state.dirty),
-        render_state.rows,
-        render_state.cols,
-    });
-
-    // 4. Iterate over RenderState cells
-    const row_data = render_state.row_data.slice();
-    const row_cells = row_data.items(.cells);
-    const row_dirties = row_data.items(.dirty);
-
-    var total_non_empty: usize = 0;
-    var total_styled: usize = 0;
-    var total_wide: usize = 0;
-
-    print("\n--- Row-by-row extraction ---\n", .{});
-
-    for (0..render_state.rows) |y| {
-        const cells = row_cells[y].slice();
-        const cells_raw = cells.items(.raw);
-        const cells_style = cells.items(.style);
-        const is_dirty = row_dirties[y];
-
-        // Build row text using a fixed buffer
-        var text_buf: [512]u8 = undefined;
-        var text_len: usize = 0;
-        var has_content = false;
-
-        for (0..@min(cells_raw.len, render_state.cols)) |x| {
-            const cell = cells_raw[x];
-            const cp = cell.codepoint();
-
-            if (cp != 0 and cp != ' ') {
-                has_content = true;
-                total_non_empty += 1;
-
-                if (cell.hasStyling()) {
-                    total_styled += 1;
-                }
-
-                if (cell.wide == .wide) {
-                    total_wide += 1;
-                }
-            }
-
-            // Encode codepoint to UTF-8 for display
-            if (cp != 0 and text_len + 4 <= text_buf.len) {
-                const len = std.unicode.utf8Encode(cp, text_buf[text_len..][0..4]) catch continue;
-                text_len += len;
-            }
-        }
-
-        if (has_content) {
-            print("Row {d:2} [dirty={s}]: \"{s}\"\n", .{
-                y,
-                if (is_dirty) "Y" else "N",
-                text_buf[0..text_len],
-            });
-
-            // Show style details for rows with styled content
-            for (0..@min(cells_raw.len, render_state.cols)) |x| {
-                const cell = cells_raw[x];
-                const style = cells_style[x];
-                const cp = cell.codepoint();
-
-                if (cp != 0 and cp != ' ' and cell.hasStyling()) {
-                    const fg_str: []const u8 = switch (style.fg_color) {
-                        .none => "default",
-                        .palette => "palette",
-                        .rgb => "rgb",
-                    };
-                    print("  [{d:2}] U+{X:0>4} fg={s} bold={} wide={s}\n", .{
-                        x,
-                        cp,
-                        fg_str,
-                        style.flags.bold,
-                        @tagName(cell.wide),
-                    });
-                }
-            }
-        }
-    }
-
-    // 5. Summary
-    print("\n=== Extraction Summary ===\n", .{});
-    print("Total non-empty cells: {}\n", .{total_non_empty});
-    print("Total styled cells:    {}\n", .{total_styled});
-    print("Total wide cells:      {}\n", .{total_wide});
-    print("\nCursor position: ({}, {})\n", .{
-        render_state.cursor.active.x,
-        render_state.cursor.active.y,
-    });
-    print("Background color: RGB({}, {}, {})\n", .{
-        render_state.colors.background.r,
-        render_state.colors.background.g,
-        render_state.colors.background.b,
-    });
-
-    print("\n=== PoC 06 PASSED ===\n", .{});
-}
