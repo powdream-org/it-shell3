@@ -104,15 +104,44 @@ bulkExport(alloc, state, terminal)     ──── NEW (render_export.zig)
 
 ---
 
-## Known Gaps
+## The "Flattening" Concept
 
-| Gap | Impact | Notes |
-|-----|--------|-------|
-| No grapheme cluster support | Multi-codepoint cells (emoji ZWJ, combining marks) render as base codepoint only | Need per-row arena allocation in `importFlatCells()` |
-| No `underline_color` | Cells with SGR 58 colored underlines use default color | Would need 20-byte FlatCell or separate side channel |
-| No row metadata | `semantic_prompt`, `wrap` flags not in ExportResult | Affects `neverExtendBg()` rendering — see review note 18 |
-| No palette in ExportResult | `RenderState.colors` (256-palette) not exported | Client needs palette for `PackedColor tag=1` resolution |
-| Minimum size guard | `importFlatCells()` crashes at rows < 6 or cols < 60 | `rebuildRow()` font shaping assumes minimum working space |
+ghostty's internal representation uses **indirection** for styling:
+
+```
+ghostty internal:  page.Cell (8B packed u64)
+                     ├── codepoint (u21)
+                     ├── content_tag (2 bits)
+                     ├── wide (2 bits)
+                     └── style_id ──► RefCountedSet lookup ──► Style { fg_color, bg_color, flags }
+```
+
+The wire FlatCell **resolves this indirection** ("flattens" it) by inlining the style data:
+
+```
+wire FlatCell (16B):  codepoint (u32) + wide (u8) + content_tag (u8)
+                      + flags (u16)    ← from Style.Flags, inlined
+                      + fg_color (4B)  ← from Style.fg_color, inlined
+                      + bg_color (4B)  ← from Style.bg_color, inlined
+```
+
+The 8-byte Cell becomes 16 bytes because the style data (behind a `style_id` pointer in ghostty) is now **inline** — no lookup table needed on the client.
+
+**Key consequence**: server export is slower than client import (22 µs vs 12 µs for 80x24) because the server must dereference `style_id` via `RefCountedSet` lookup for each styled cell. The client reconstructs `RenderState.Cell` directly from flat data — no style set indirection needed.
+
+**SSH compression synergy**: The flat 16-byte layout produces highly compressible patterns — empty cells are mostly zeros, consecutive cells share colors/flags. SSH's `zlib@openssh.com` (persistent dictionary across packets) achieves estimated 10-20x compression for typical terminal screens, 3-5x for dense colored output.
+
+---
+
+## Known Gaps (PoC → v0.9 Status)
+
+| Gap | PoC Status | v0.9 Resolution | Protocol Section |
+|-----|-----------|-----------------|------------------|
+| No grapheme cluster support | Base codepoint only | **Resolved**: per-row GraphemeTable side table (content_tag=1 triggers lookup) | Doc 04 §4.5 |
+| No `underline_color` | Default color | **Resolved**: per-row UnderlineColorTable side table (16B FlatCell + side tables, not 20B) | Doc 04 §4.5 |
+| No row metadata | No semantic_prompt/wrap | **Resolved**: `row_flags` byte — semantic_prompt (2 bits), hyperlink (1 bit); wrap deferred (YAGNI) | Doc 04 §4.3 |
+| No palette in ExportResult | Client can't resolve palette colors | **Resolved**: full 768-byte palette REQUIRED in every I-frame | Doc 04 §4.2, §7.2 |
+| Minimum size guard | Crash at rows<6/cols<60 | **Resolved**: server MUST suppress FrameUpdate below cols<2/rows<1 | Doc 04 §4.1 |
 
 ---
 
