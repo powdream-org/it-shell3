@@ -2,13 +2,16 @@
 
 ## Vision
 
-**it-shell3** is a terminal ecosystem providing terminal multiplexer session management with first-class CJK input support, built on **libghostty**. The project consists of three core modules:
+**it-shell3** is a terminal ecosystem providing terminal multiplexer session management with first-class CJK input support, built on **libghostty**. The project consists of three libraries and two applications:
 
-- **libitshell3**: The portable Zig library — daemon (PTY owner, session state, I/O mux), client (socket connection, RenderState populator), PTY layer. Exports C API for Swift/other consumers.
-- **libitshell3-protocol**: The wire protocol library — 16-byte fixed header, capability negotiation, RenderState streaming, CJK preedit sync. Shared by both daemon and client.
-- **libitshell3-ime**: A separate portable Zig library — native IME engine wrapping libhangul for Korean (2-set, 3-set) plus English QWERTY. No OS IME dependency. Purely algorithmic.
+**Libraries:**
+- **libitshell3**: Core Zig library — session/tab/pane state, PTY layer, RenderState export/import. Exports C API for Swift/other consumers.
+- **libitshell3-protocol**: Wire protocol library — 16-byte fixed header, capability negotiation, RenderState streaming, CJK preedit sync. Shared by both daemon and client.
+- **libitshell3-ime**: Native IME engine — wraps libhangul for Korean (2-set, 3-set) plus English QWERTY. No OS IME dependency. Purely algorithmic.
 
-These modules power the **it-shell3** terminal emulator app for macOS (with future iOS and Linux support), a full replacement terminal emulator that consumes libitshell3 + libitshell3-ime + libghostty Metal GPU.
+**Applications:**
+- **itshell3-daemon**: Server daemon process (Zig binary) — PTY owner, session persistence, I/O mux, client connections via Unix socket. Runs as LaunchAgent or standalone process. Cannot be part of the macOS app (GUI apps cannot be LaunchDaemons).
+- **it-shell3**: Client terminal app (Swift/AppKit + libghostty Metal GPU) — connects to daemon, renders via `importFlatCells()` → `rebuildCells()` → `drawFrame()`. macOS first, iOS later.
 
 ## Problem Statement
 

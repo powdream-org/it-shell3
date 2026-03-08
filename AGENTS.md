@@ -6,12 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**libitshell3** is a portable Zig library providing terminal multiplexer session management with first-class CJK input support, built on libghostty. The project consists of five components:
+**it-shell3** is a terminal ecosystem providing terminal multiplexer session management with first-class CJK input support, built on libghostty. The project consists of six components:
 
-- **libitshell3** — Core library: daemon (PTY owner, session state, I/O mux), client (socket connection, RenderState populator), PTY layer. Exports C API for Swift/other consumers.
+- **libitshell3** — Core Zig library: session/tab/pane state, PTY layer, RenderState export/import. Exports C API for Swift/other consumers.
 - **libitshell3-protocol** — Wire protocol library shared by daemon and client: message types, serialization, capability negotiation, CJK preedit sync.
 - **libitshell3-ime** — Native IME engine in Zig (wraps libhangul for Korean). Purely algorithmic, no OS IME dependency. Covers English QWERTY + Korean 2-set.
-- **it-shell3** — Terminal app (Swift/AppKit + libitshell3 + libghostty Metal GPU). macOS first, iOS later.
+- **itshell3-daemon** — Server daemon process (Zig binary): PTY owner, session persistence, I/O mux, client connections via Unix socket. Runs as LaunchAgent or standalone process.
+- **it-shell3** — Client terminal app (Swift/AppKit + libitshell3 + libghostty Metal GPU). macOS first, iOS later. Connects to daemon.
 - **libghostty** — External dependency: terminal engine providing VT parser, font/Unicode, RenderState API, Metal rendering.
 
 ## Current State
