@@ -62,22 +62,23 @@ Server (Daemon)                    Client (App)
   - [Design Principles](docs/insights/design-principles.md) — Living document of validated protocol design principles, architectural insights, and process lessons. Updated after each revision cycle.
   - [Reference Codebase Learnings](docs/insights/reference-codebase-learnings.md) — Multi-client output delivery, dirty tracking, frame recovery, concurrency, and backpressure patterns from ghostty, tmux, zellij.
 
+## Vendored Dependencies
+
+Located at `vendors/`:
+
+- **ghostty** (Zig) — Terminal engine (libghostty). API not yet stable; pin commits and use abstraction layer.
+- **libhangul** (C, LGPL-2.1) — Korean Hangul composition for libitshell3-ime. Must handle LGPL compliance (dynamic linking or offer source).
+
 ## Reference Codebases
 
-Located at `~/dev/git/references/`:
+External projects used for design reference (not vendored — local paths are in auto memory):
 
 | Reference | Purpose |
 |-----------|---------|
-| `ghostty/` | Terminal engine source (core dependency) |
-| `cmux/` | libghostty-based macOS terminal (embedding pattern) |
-| `tmux/` | Daemon/protocol pattern reference |
-| `zellij/` | Multi-threaded architecture reference |
-| `iTerm2/` | tmux -CC integration, native UI mapping |
-
-## Dependencies
-
-- **libghostty** (Zig) — Terminal engine, will be git submodule. API not yet stable; pin commits and use abstraction layer.
-- **libhangul** (C, LGPL-2.1) — Korean Hangul composition for libitshell3-ime. Must handle LGPL compliance (dynamic linking or offer source).
+| [tmux](https://github.com/tmux/tmux) | Daemon/protocol pattern reference |
+| [zellij](https://github.com/zellij-org/zellij) | Multi-threaded architecture reference |
+| [iTerm2](https://github.com/gnachman/iTerm2) | tmux -CC integration, native UI mapping |
+| [cmux](https://github.com/manaflow-ai/cmux) | libghostty-based macOS terminal (embedding pattern) |
 
 ## Development Phases
 

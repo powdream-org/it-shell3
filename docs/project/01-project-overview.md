@@ -83,17 +83,25 @@ graph TD
 4. **Cross-Platform Client**: macOS (native) and iOS (via libghostty embedded apprt)
 5. **Backward Compatibility**: Graceful fallback via capability negotiation
 
+## Vendored Dependencies
+
+Located at `vendors/`:
+
+| Dependency | Purpose | Language |
+|------------|---------|----------|
+| ghostty | Terminal engine (libghostty) | Zig |
+| libhangul | Korean Hangul composition for libitshell3-ime | C |
+
 ## Reference Codebases
 
-All reference code is available at `~/dev/git/references/`:
+External projects used for design reference (not part of this repository):
 
 | Reference | Purpose | Language |
 |-----------|---------|----------|
-| `ghostty/` | Terminal engine (libghostty source) | Zig |
-| `cmux/` | Existing libghostty-based macOS terminal app | Swift |
-| `tmux/` | Canonical terminal multiplexer | C |
-| `zellij/` | Modern terminal multiplexer | Rust |
-| `iTerm2/` | macOS terminal with tmux integration | ObjC/Swift |
+| [tmux](https://github.com/tmux/tmux) | Canonical terminal multiplexer — daemon/protocol patterns | C |
+| [zellij](https://github.com/zellij-org/zellij) | Modern terminal multiplexer — multi-threaded architecture | Rust |
+| [iTerm2](https://github.com/gnachman/iTerm2) | macOS terminal — tmux -CC integration, native UI mapping | ObjC/Swift |
+| [cmux](https://github.com/manaflow-ai/cmux) | libghostty-based macOS terminal — embedding patterns | Swift |
 
 ## Document Index
 
