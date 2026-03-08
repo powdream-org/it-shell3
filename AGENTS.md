@@ -6,13 +6,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**it-shell3** is a terminal ecosystem providing terminal multiplexer session management with first-class CJK input support, built on libghostty. The project consists of six components:
+**it-shell3** is a terminal ecosystem providing terminal multiplexer session management with first-class CJK input support, built on libghostty. The project consists of three libraries and two applications:
+
+### Applications
+
+- **it-shell3** — Client terminal app (Swift/AppKit + libghostty Metal GPU). macOS first, iOS later. Connects to daemon.
+- **it-shell3-daemon** — Server daemon process (Zig binary): PTY owner, session persistence, I/O mux, client connections via Unix socket. Runs as LaunchAgent or standalone process.
+
+### Libraries
 
 - **libitshell3** — Core Zig library: session/tab/pane state, PTY layer, RenderState export/import. Exports C API for Swift/other consumers.
 - **libitshell3-protocol** — Wire protocol library shared by daemon and client: message types, serialization, capability negotiation, CJK preedit sync.
 - **libitshell3-ime** — Native IME engine in Zig (wraps libhangul for Korean). Purely algorithmic, no OS IME dependency. Covers English QWERTY + Korean 2-set.
-- **itshell3-daemon** — Server daemon process (Zig binary): PTY owner, session persistence, I/O mux, client connections via Unix socket. Runs as LaunchAgent or standalone process.
-- **it-shell3** — Client terminal app (Swift/AppKit + libitshell3 + libghostty Metal GPU). macOS first, iOS later. Connects to daemon.
 - **libghostty** — External dependency: terminal engine providing VT parser, font/Unicode, RenderState API, Metal rendering.
 
 ## Current State
@@ -45,6 +50,8 @@ Server (Daemon)                    Client (App)
 - RenderState protocol (structured cell data with dirty tracking) instead of VT re-serialization
 - Session hierarchy: Session > Tab > Pane (binary split tree, JSON-serializable)
 - Capability negotiation at handshake (not version guessing)
+
+**Daemon lifecycle:** The daemon binary is bundled inside the client app (`it-shell3.app/Contents/Helpers/it-shell3-daemon`). Distributed as notarized DMG or Homebrew Cask (not Mac App Store — LaunchAgent requires sandbox escape). On every launch, the client connects to the Unix socket; if the daemon is not running, it registers a LaunchAgent and starts it. On version mismatch (detected at handshake), the client restarts the daemon. For remote (SSH) access, the daemon is started via `fork+exec` without LaunchAgent, similar to `tmux` server auto-start.
 
 ## Documentation Structure
 

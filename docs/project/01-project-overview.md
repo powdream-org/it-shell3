@@ -10,8 +10,8 @@
 - **libitshell3-ime**: Native IME engine — wraps libhangul for Korean (2-set, 3-set) plus English QWERTY. No OS IME dependency. Purely algorithmic.
 
 **Applications:**
-- **itshell3-daemon**: Server daemon process (Zig binary) — PTY owner, session persistence, I/O mux, client connections via Unix socket. Runs as LaunchAgent or standalone process. Cannot be part of the macOS app (GUI apps cannot be LaunchDaemons).
 - **it-shell3**: Client terminal app (Swift/AppKit + libghostty Metal GPU) — connects to daemon, renders via `importFlatCells()` → `rebuildCells()` → `drawFrame()`. macOS first, iOS later.
+- **it-shell3-daemon**: Server daemon process (Zig binary) — PTY owner, session persistence, I/O mux, client connections via Unix socket. Runs as LaunchAgent or standalone process. Cannot be part of the macOS app (GUI apps cannot be LaunchDaemons).
 
 ## Problem Statement
 
@@ -45,20 +45,35 @@ Instead of writing a custom VT emulator, we leverage Ghostty's battle-tested ter
 graph TD
     subgraph Client["it-shell3 Client"]
         GR[libghostty Renderer<br/>Metal GPU]
-        CL[libitshell3 Client<br/>Protocol]
         IME[libitshell3-ime<br/>Native IME]
+        CP1[libitshell3-protocol]
     end
 
-    subgraph Daemon["it-shell3 Daemon"]
+    subgraph Daemon["it-shell3-daemon"]
+        CP2[libitshell3-protocol]
         SM[Session Manager]
         PTY[PTY Manager<br/>per-pane]
         GT[libghostty Terminal<br/>VT parsing]
     end
 
-    Client -- "Unix Domain Socket / IPC" --> Daemon
+    CP1 <-- "Unix Domain Socket<br/>(or over SSH tunnel)" --> CP2
 ```
 
 **Key architectural insight**: The client is a thin RenderState populator — `importFlatCells()` → `rebuildCells()` → `drawFrame()`. No Terminal, VT parser, or Page/Screen on the client side. The server owns all Terminal instances and exports structured cell data. See `docs/insights/design-principles.md` (A4, A5, A6).
+
+## Daemon Lifecycle
+
+**Distribution**: The daemon binary (`it-shell3-daemon`) is bundled inside the client app (`it-shell3.app/Contents/Helpers/`). Distributed as notarized DMG or Homebrew Cask — not Mac App Store, since LaunchAgent registration requires sandbox escape.
+
+**Startup**: The client does not track "first launch" state. Every launch follows the same flow:
+
+1. Connect to Unix socket
+2. If connection fails → register LaunchAgent plist + `launchctl bootstrap` → reconnect
+3. If connection succeeds → handshake (version exchange) → ready
+
+**Version update**: On handshake, if the daemon reports an older version than the bundled binary, the client restarts the daemon (`launchctl bootout` → `launchctl bootstrap`).
+
+**Remote (SSH)**: No LaunchAgent needed. The client connects to the socket; if the daemon is not running, it starts it directly via `fork+exec`. The daemon detaches from the SSH session (`setsid`/`daemon(3)`) and survives disconnection — same as `tmux` server auto-start.
 
 ## Key Design Goals
 
