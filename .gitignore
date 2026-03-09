@@ -1,0 +1,23 @@
+# Build artifacts
+zig-out/
+zig-cache/
+.zig-cache/
+
+# PoC binaries
+poc/**/poc-ghostty-real
+poc/**/minimal_test
+poc/**/preedit-visual
+poc/**/poc-ghostty
+poc/**/poc
+poc/**/probe
+poc/**/zig-out/
+poc/**/zig-cache/
+poc/**/.zig-cache/
+
+# macOS
+.DS_Store
+*.dSYM/
+
+# Editor
+.vscode/
+.idea/
