@@ -177,10 +177,13 @@ step.**
 
 **Steps:**
 
-1. Team leader spawns **ALL** core members of the team as **fresh** agents
-   (opus). The team leader does NOT choose a subset — every core member
-   listed in the team's agent directory is spawned. These agents have no
-   memory of the discussion — they work purely from the resolution document.
+1. Team leader spawns **ALL** core members of the team as **fresh** agents.
+   The team leader does NOT choose a subset — every core member listed in
+   the team's agent directory is spawned. These agents have no memory of the
+   discussion — they work purely from the resolution document.
+   **Model selection:** Use the model specified in each agent's definition
+   file for Rounds 1-2. For Round 3 and beyond (fix cycles for
+   mechanical/trivial corrections), use **sonnet** to reduce token cost.
 2. Show them the resolution document and the previous version of the spec
    documents (if updating an existing version, not creating from scratch).
    **Explicitly instruct: negotiate assignments only — do NOT edit any files
