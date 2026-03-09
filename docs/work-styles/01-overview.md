@@ -17,6 +17,7 @@ All work follows two recurring cycles: a **revision cycle** where the team produ
 | [Team Collaboration](./02-team-collaboration.md) | How we organize teams, define roles, and communicate. Rules that apply to all team activities (design, PoC, etc.). |
 | [Design Workflow](./03-design-workflow.md) | The revision/review cycle for producing and evolving design specification documents. |
 | [PoC Workflow](./04-poc-workflow.md) | When, why, and how we run Proof-of-Concept experiments to validate design assumptions. |
+| [Implementation Workflow](./05-implementation-workflow.md) | How we transform stable design specs into production code with comprehensive test coverage. |
 
 ## 3. Related Conventions
 

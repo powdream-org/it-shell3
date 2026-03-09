@@ -76,6 +76,7 @@ Researchers provide raw material. Core members read the findings and incorporate
 | `protocol-team` | `.claude/agents/protocol-team/` | Server-client binary protocol design: wire format, message framing, session/pane management, flow control, CJK preedit protocol, handshake/capability negotiation |
 | `ime-team` | `.claude/agents/ime-team/` | IME interface contract design: ImeEngine vtable, Korean Hangul composition via libhangul, ImeResult semantics, ghostty integration layer |
 | `references-expert` | `.claude/agents/references-expert/` | Source-level analysis of reference codebases. Read-only. Spawned on demand when debates need implementation evidence. |
+| `ime-impl-team` | `.claude/agents/ime-impl-team/` | libitshell3-ime implementation: source code, unit/integration tests, coverage audit, over-engineering review. Follows [Implementation Workflow](./05-implementation-workflow.md). |
 
 ---
 
@@ -270,6 +271,8 @@ Without a designated reporter, the team leader receives fragmented, potentially 
 | **(a) Working** | Agent responds and is mid-task | Wait for completion. Do NOT interrupt. |
 | **(b) Idle** | Agent responds but is waiting for instructions | Give next instruction, or `shutdown_request` if no longer needed. |
 | **(c) Zombie** | No response at all | Confirmed dead. Proceed to Section 6.2. |
+
+4. **Mandatory user confirmation**: After classifying all agents, the team leader MUST present the classification result to the owner via `AskUserQuestion` and obtain explicit approval BEFORE taking any action (cleanup, shutdown, or resumption). The team leader's classification is a **guess** — only the owner can authorize destructive actions like team deletion. Never skip this step.
 
 **NEVER** skip this section. Assuming agents are dead without checking creates **dangling agents** — alive but unreachable — forcing the user to `/exit` Claude entirely.
 
