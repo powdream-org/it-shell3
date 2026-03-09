@@ -66,4 +66,12 @@
 - [x] **3.4** Assignment Negotiation — system-sw-engineer: V2-01/V2-02 (Doc 03), daemon-architect: V2-03 (resolution doc)
 - [x] **3.5** Document Writing — all 3 fixes applied (protocol doc qualifiers, SIGHUP in header)
 - [x] **3.6** Cross-Document Verification — 3/4 CLEAN (cross-ref, terminology, history-guardian). Semantic verifier raised 2 issues, both re-raises of previously handled/dismissed items. Owner declared CLEAN.
-- [x] **3.9** Commit & Report — all documents verified clean after 3 rounds (5 + 3 + 0 issues). Ready to commit.
+- [x] **3.9** Commit & Report — all documents verified clean after 3 rounds (5 + 3 + 0 issues). Committed `53862d0`.
+
+## Revision Cycle Complete
+
+All steps 3.1–3.9 done. Next: **Review Cycle (Section 4)** — owner reviews committed documents.
+
+## Review Cycle
+
+- [ ] **4.1** Owner Review Session — pending
