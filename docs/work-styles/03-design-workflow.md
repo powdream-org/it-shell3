@@ -255,6 +255,27 @@ are correct and consistent.
    check consistency across the full set. Documents are NOT split among
    members. Each verifier produces their own complete issue list.
 
+**Cascaded re-raise monitoring (Round 3+):** From the third verification
+round onward, the team leader MUST check whether newly raised issues fall
+into either of these cascading patterns:
+
+1. **Re-raises of settled items**: Issues that are re-litigations of items
+   already fixed or dismissed in previous rounds. Verifiers operating on
+   fresh context have no memory of prior round decisions and may repeat
+   the same arguments indefinitely (e.g., a variant of a fixed issue, or
+   an exact repeat of a dismissed issue).
+2. **Minor cascading inconsistencies from fixes**: Issues where a previous
+   round's fix itself introduced a minor new inconsistency (e.g., fixing
+   a term in one location reveals the same term was used elsewhere, or a
+   diagram label no longer matches updated text). These are real but
+   trivially mechanical, and continuing the fix-verify loop for them
+   yields diminishing returns.
+
+If the team leader suspects either pattern, they MUST report to the owner
+with the evidence (which prior round handled the item, how, and why the
+new issue is cascading) and let the owner decide whether to proceed with
+cross-validation or declare clean.
+
 ### 3.7 Issue Cross-Validation
 
 The verifiers discuss and filter their combined findings.
