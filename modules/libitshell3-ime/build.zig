@@ -7,11 +7,15 @@ pub fn build(b: *std.Build) void {
     const libhangul_path = b.path("../../vendors/libhangul");
 
     // --- libhangul static library (vendored C) ---
+    // Use ReleaseSafe for the vendored C library to disable UBSan
+    // instrumentation that Zig applies to C code in Debug mode.
+    // Zig's UBSan traps interact badly with kcov's ptrace-based
+    // breakpoint handling on macOS, causing segfaults.
     const libhangul = b.addLibrary(.{
         .name = "hangul",
         .root_module = b.createModule(.{
             .target = target,
-            .optimize = optimize,
+            .optimize = .ReleaseSafe,
             .link_libc = true,
         }),
     });

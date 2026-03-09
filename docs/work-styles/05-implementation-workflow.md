@@ -200,7 +200,7 @@ The team leader finalizes and reports.
 
 - [ ] All tests pass (`zig build test`)
 - [ ] Library builds without warnings (`zig build`)
-- [ ] Coverage targets met (line ≥ 95%, branch ≥ 90%, function = 100%)
+- [ ] Coverage targets met (line ≥ 95%, branch ≥ 90%, function = 100%) — or module-level exemption granted (see §6.2)
 - [ ] Over-engineering review clean (no open findings)
 - [ ] Spec compliance review clean (no open issues)
 
@@ -294,6 +294,13 @@ Test coverage is not optional. An implementation without adequate coverage is in
 ### 6.2 Measurement Tooling
 
 Coverage must be measured with instrumented tooling (e.g., kcov, llvm-cov), not estimated from test count. The HTML report is the artifact of record.
+
+**Module-level exceptions:** When a toolchain bug makes instrumented coverage impossible for a specific module, the owner may grant a temporary exemption. Exempted modules rely on the scenario-matrix test approach (every spec-defined code path has a named test) until the toolchain issue is resolved. The exemption and its reason must be recorded in the module's build config or README.
+
+| Module | Status | Reason |
+|--------|--------|--------|
+| `libitshell3-ime` | **Exempted** | Zig linker Mach-O bug — `__text` section offset overlaps load commands, making DWARF debug info unparseable by kcov/dsymutil. See [ziglang/zig#31428](https://codeberg.org/ziglang/zig/issues/31428). |
+| All other modules | **Required** | — |
 
 ### 6.3 Target Metrics
 

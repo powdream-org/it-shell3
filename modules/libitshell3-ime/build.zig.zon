@@ -1,6 +1,7 @@
 .{
     .name = .libitshell3_ime,
-    .version = "0.0.0",
+    // Matches IME Interface Contract v0.7
+    .version = "0.7.0",
     .fingerprint = 0xe9b0700c7ea9dd5c,
     .paths = .{
         "build.zig",

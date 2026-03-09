@@ -26,8 +26,8 @@ pub const HangulImeEngine = struct {
     active_input_method: []const u8,
     engine_mode: EngineMode,
 
-    committed_buf: [256]u8 = undefined,
-    preedit_buf: [64]u8 = undefined,
+    committed_buf: [256]u8 = @splat(0),
+    preedit_buf: [64]u8 = @splat(0),
     committed_len: usize = 0,
     preedit_len: usize = 0,
 
@@ -537,6 +537,29 @@ test "HangulImeEngine: release event is ignored" {
     try std.testing.expect(result.preedit_text == null);
     try std.testing.expect(result.forward_key == null);
     try std.testing.expect(!result.preedit_changed);
+}
+
+test "HangulImeEngine: first Korean keystroke produces preedit (kcov regression)" {
+    // Regression test: under kcov (ptrace-based coverage), the first call to
+    // hangul_ic_process segfaulted because Zig's UBSan instrumentation on
+    // vendored C code interacted badly with kcov's breakpoint handling.
+    // Fix: compile libhangul with ReleaseSafe to disable UBSan on C code.
+    var eng = try HangulImeEngine.init("korean_2set");
+    defer eng.deinit();
+
+    const result = eng.processKeyComposing(.{
+        .hid_keycode = 0x15, // 'r' -> ㄱ
+        .modifiers = .{},
+        .shift = false,
+        .action = .press,
+    });
+
+    // ㄱ = U+3131 = UTF-8 E3 84 B1
+    try std.testing.expect(result.preedit_text != null);
+    try std.testing.expectEqualStrings("\xe3\x84\xb1", result.preedit_text.?);
+    try std.testing.expect(result.preedit_changed);
+    try std.testing.expect(result.committed_text == null);
+    try std.testing.expect(result.forward_key == null);
 }
 
 test "HangulImeEngine: Korean basic composition ㄱ" {
