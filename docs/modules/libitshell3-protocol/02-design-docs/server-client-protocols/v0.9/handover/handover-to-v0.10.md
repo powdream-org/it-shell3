@@ -81,6 +81,18 @@ Three new entries added to `docs/insights/design-principles.md`:
 
 ---
 
+## Cross-Team Requests
+
+### Daemon architecture v0.1 (01-daemon-architecture-requirements.md)
+
+The daemon team's v0.1 revision cycle produced three requirements for the protocol team. See `v0.9/cross-team-requests/01-daemon-architecture-requirements.md` for full details.
+
+1. **Layer 4 Transport**: The protocol library must own transport (Listener, Connection, socket path resolution, stale socket detection, peer credential extraction). This is the most significant structural addition — a new module alongside the existing I/O-free layers.
+2. **C API header export**: Codec and framing layers (L1-L2) need a C API header for the Swift client.
+3. **PANE_LIMIT_EXCEEDED error**: SplitPaneResponse needs a new error reason for the 16-pane-per-session limit. ErrorResponse only — no ServerHello announcement (the server is the sole source of truth for pane count; the client does not track it).
+
+---
+
 ## Pre-Discussion Research Tasks
 
 ### Review notes 01-15 triage
