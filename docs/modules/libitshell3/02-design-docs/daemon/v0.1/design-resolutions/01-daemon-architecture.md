@@ -40,7 +40,8 @@ server/   — Event loop (kqueue), client manager, ring buffer,
              Pane struct (owns Terminal + RenderState + pty_fd +
              child_pid), startup/shutdown. Socket setup delegated
              to libitshell3-protocol transport layer (Layer 4).
-             Depends on core/, ghostty/, ime/, and protocol lib.
+             Depends on core/, ghostty/, ime/, libitshell3-ime, and
+             libitshell3-protocol.
 ```
 
 **Phase 2 lives in `server/`**: Phase 2 consumes `ImeResult` and performs I/O (PTY writes) and ghostty API calls (`key_encode.encode`, `overlayPreedit`). Both I/O and ghostty dependencies belong in `server/`, not `ime/`. The `ime/` module handles Phase 0 and Phase 1 only — pure routing logic that depends solely on `core/` types (ImeEngine vtable, KeyEvent, ImeResult).
@@ -399,7 +400,7 @@ sequenceDiagram
 6. **Create default session**: Allocate Session with id=1, create initial Pane (PTY fork + Terminal.init) -> register pty_fd with kqueue (EVFILT_READ).
 7. **Enter event loop**: `kevent64()` loop.
 
-**Graceful shutdown** (on SIGTERM/SIGINT or last-session-close):
+**Graceful shutdown** (on SIGTERM/SIGINT/SIGHUP or last-session-close):
 
 1. Stop accepting new connections (remove listen_fd from kqueue).
 2. Flush all ImeEngines (deactivate all sessions — eager flush of any active preedit).
@@ -433,7 +434,7 @@ sequenceDiagram
                 v
              READY  <------+
           (authenticated,   |
-           not attached)    | SessionDetach
+           not attached)    | SessionDetachRequest
                 |           |
                 v           |
            OPERATING -------+

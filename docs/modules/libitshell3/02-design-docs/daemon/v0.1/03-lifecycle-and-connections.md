@@ -332,6 +332,8 @@ Free ClientState:
 
 Client disconnection does NOT affect sessions. Sessions persist until their panes exit or the daemon shuts down. This is the fundamental property of a terminal multiplexer — sessions survive client detach/crash/reconnect.
 
+**Note on DISCONNECTING bypass**: Unexpected disconnects go directly to `[closed]` without passing through the DISCONNECTING state. This is intentional. The DISCONNECTING state exists to drain pending outbound messages (e.g., after ServerShutdown), but when the peer has already disconnected, there is no socket to drain to — any pending messages are undeliverable. The state machine diagram in Section 4.1 shows the primary graceful flow; unexpected disconnects (`conn.recv()` returning `.peer_closed`) are a distinct path that skips DISCONNECTING because the drain step is semantically inapplicable.
+
 ---
 
 ## 4. Client Connection Lifecycle
@@ -340,7 +342,7 @@ Each client connection is managed by a per-client state machine. The daemon trac
 
 ### 4.1 State Machine
 
-The daemon uses a subset of the canonical 6-state model from the protocol specification (Section 5.2). DISCONNECTED and CONNECTING are client-side only — the daemon never initiates connections. The daemon's state machine starts at HANDSHAKING after `Listener.accept()`.
+The daemon uses a subset of the canonical 6-state model from protocol doc 01 (Section 5.2). DISCONNECTED and CONNECTING are client-side only — the daemon never initiates connections. The daemon's state machine starts at HANDSHAKING after `Listener.accept()`.
 
 ```
                   accept()
@@ -353,10 +355,10 @@ The daemon uses a subset of the canonical 6-state model from the protocol specif
                     v
                  READY  <----------+
           (authenticated,           |
-           not attached to          | SessionDetach
+           not attached to          | SessionDetachRequest
            any session)             |
                     |               |
-       AttachSession|               |
+  AttachSessionRequest|               |
                     v               |
                OPERATING -----------+
           (attached to session,
@@ -457,7 +459,7 @@ All attached clients can send input. There is no primary/secondary distinction:
 - **MouseEvent**: Encoded as mouse escape sequence and written to the focused pane's PTY, if mouse reporting is enabled in the terminal's DEC mode state.
 - **Last writer wins**: If two clients send KeyEvents to the same pane simultaneously, the events are processed in the order they arrive at the event loop. The single-threaded model (Resolution 2) provides total ordering.
 
-Readonly attachment is a client-requested mode (per protocol spec Section 9). The daemon enforces it by discarding input messages from clients that requested readonly mode. This is NOT server-enforced based on connection order.
+Readonly attachment is a client-requested mode (per protocol doc 03 Section 9). The daemon enforces it by discarding input messages from clients that requested readonly mode. This is NOT server-enforced based on connection order.
 
 ---
 
@@ -642,7 +644,7 @@ Local client:
 SSH-tunneled client:
   Client -> SSH tunnel -> sshd -> Unix socket -> Daemon
   Daemon sees: transport.Connection from Listener.accept()
-  (sshd's UID is accepted per trust model in protocol spec Section 2.2)
+  (sshd's UID is accepted per trust model in protocol doc 01 Section 2.2)
 ```
 
 The daemon has no "local vs remote" code path. All clients are `Connection` values with `recv()`, `send()`, `sendv()`, and `close()`. This is a structural property of the architecture, not an abstraction to be maintained.

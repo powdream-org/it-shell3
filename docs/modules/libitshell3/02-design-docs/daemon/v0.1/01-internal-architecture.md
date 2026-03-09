@@ -72,7 +72,7 @@ Handles Phase 0 (shortcut check) and Phase 1 (dispatch to ImeEngine). Phase 2 (I
 
 #### `server/` — Event Loop and I/O
 
-Depends on `core/`, `ghostty/`, `ime/`, and libitshell3-protocol.
+Depends on `core/`, `ghostty/`, `ime/`, libitshell3-ime, and libitshell3-protocol.
 
 | Component | Purpose |
 |-----------|---------|
@@ -115,7 +115,7 @@ libitshell3-protocol  (standalone — depends only on Zig std; libssh2 added in 
 libitshell3/core/     (standalone — no external deps)
 libitshell3/ghostty/  (depends on core/, vendored ghostty)
 libitshell3/ime/      (depends on core/)
-libitshell3/server/   (depends on core/, ghostty/, ime/, libitshell3-protocol)
+libitshell3/server/   (depends on core/, ghostty/, ime/, libitshell3-ime, libitshell3-protocol)
 ```
 
 **libitshell3-protocol does NOT import any libitshell3 types.** The protocol library uses Zig primitive types (`u32`, `[]const u8`, etc.) for all message fields. On the wire, `pane_id` and `session_id` are `u32` values in JSON payloads — the protocol library reflects what the wire carries.

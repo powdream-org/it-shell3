@@ -50,8 +50,20 @@
 - [x] **3.2 Team Discussion & Consensus** — 6 members debated all 9 requirements + 3 owner questions. R5 re-discussed per owner directive (transport layer in protocol lib).
 - [x] **3.3 Resolution Document & Verification** — `design-resolutions/01-daemon-architecture.md` written and verified 6/6 PASS (twice: initial + R5 revision)
 - [x] **3.4 Assignment Negotiation** — 6/6 unanimous: daemon-architect → Doc 01, protocol-architect → Doc 02, system-sw-engineer → Doc 03
-- [ ] **3.5 Document Writing** — IN PROGRESS. 3 assigned members writing spec docs in parallel.
-- [ ] **3.6 Cross-Document Verification** — fresh verification team (4 members)
-- [ ] **3.7 Issue Cross-Validation** — verifiers debate and filter
-- [ ] **3.8 Issue Recording & Decision** — record confirmed issues (if any)
-- [ ] **3.9 Commit & Report** — commit docs, report to owner
+- [x] **3.5 Document Writing** — 3 assigned members wrote spec docs in parallel: daemon-architect → Doc 01, protocol-architect → Doc 02, system-sw-engineer → Doc 03. Committed `cda655a`.
+- [x] **3.6 Cross-Document Verification** — 4 fresh verification agents (cross-reference-verifier, terminology-verifier, semantic-verifier, history-guardian) independently verified all 4 documents.
+- [x] **3.7 Issue Cross-Validation** — Verifiers debated 8 raw issues peer-to-peer. Reached 4/4 unanimous consensus: 5 true issues (4 critical, 1 minor), 3 false alarms dismissed.
+- [x] **3.8 Issue Recording & Decision** — Recorded in `verification/round-1-issues.md`. Returning to 3.4 for fix cycle.
+
+### Fix Cycle (Round 2)
+- [x] **3.4** Assignment Negotiation — daemon-architect: V1-03, system-sw-engineer: V1-01/02/04/05
+- [x] **3.5** Document Writing — all 5 fixes applied (dependency list, diagram names, cross-reference qualifier, DISCONNECTING note)
+- [x] **3.6** Cross-Document Verification — R1 fixes confirmed by all 4 verifiers. 5 new raw issues found (4 unqualified "protocol spec" refs + 1 SIGHUP header omission).
+- [x] **3.7** Issue Cross-Validation — 4/4 unanimous: 3 confirmed (V2-01, V2-02, V2-03), 2 dismissed.
+- [x] **3.8** Issue Recording & Decision — Recorded in `verification/round-2-issues.md`. Returning to 3.4 for fix cycle.
+
+### Fix Cycle (Round 3)
+- [x] **3.4** Assignment Negotiation — system-sw-engineer: V2-01/V2-02 (Doc 03), daemon-architect: V2-03 (resolution doc)
+- [x] **3.5** Document Writing — all 3 fixes applied (protocol doc qualifiers, SIGHUP in header)
+- [x] **3.6** Cross-Document Verification — 3/4 CLEAN (cross-ref, terminology, history-guardian). Semantic verifier raised 2 issues, both re-raises of previously handled/dismissed items. Owner declared CLEAN.
+- [x] **3.9** Commit & Report — all documents verified clean after 3 rounds (5 + 3 + 0 issues). Ready to commit.
