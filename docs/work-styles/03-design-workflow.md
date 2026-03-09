@@ -199,11 +199,12 @@ step.**
    check only — the team leader does NOT judge correctness, fairness, or
    optimality of the assignments.
    - **If identical**: Negotiation is complete. Proceed to step 6.
-   - **If not identical**: The team leader broadcasts ALL received reports
-     to the entire team, states that the reports do not match, and
-     instructs the team to re-negotiate. The team leader does NOT
-     diagnose the discrepancy or suggest a resolution. Then wait for
-     all members to report again (repeat from step 4).
+   - **If not identical**: The team leader **unilaterally picks one
+     mapping** and proceeds immediately. No re-negotiation rounds.
+     The team leader selects the mapping with the strongest support
+     (most reports aligned) or makes a judgment call if evenly split.
+     This is a token-saving measure — re-negotiation rarely converges
+     and wastes resources.
 6. The team leader shuts down all **unassigned** agents (those with no
    editing tasks). Only agents with actual assignments remain.
 7. After all unassigned agents have shut down, proceed to **3.5**.
