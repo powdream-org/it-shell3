@@ -8,7 +8,7 @@ Living document. Updated after each revision cycle as principles emerge or are r
 
 | # | Principle | Origin | Notes |
 |---|-----------|--------|-------|
-| P1 | **Shared state by default** | v0.7 | All clients see the same viewport, selection, scroll position. Per-client divergence requires explicit justification. Heuristic: "does tmux do this per-client?" If no, neither do we. |
+| P1 | **Shared state by default** | v0.7, reinforced v0.10 | All clients see the same viewport, selection, scroll position. Per-client divergence requires explicit justification. Heuristic: "does tmux do this per-client?" If no, neither do we. v0.10 R1 reverted scroll I-frame from per-client direct queue back to shared ring buffer. |
 | P2 | **One delivery path** | v0.7, reinforced v0.8 | Ring buffer is the canonical data path. The direct message queue (for small control messages like PreeditSync, LayoutChanged) is the sole exception. New features route through the ring unless strongly justified otherwise. |
 | P3 | **Close early, design later** | v0.7 | Open questions with no concrete use case should be closed, not carried forward. They can be reopened when a real scenario demands it. |
 | P4 | **Implementation details are not protocol concerns** | v0.7 | Clipboard policy, cursor blink timing, focus indicator rendering — these belong to the client app, not the wire protocol. |
@@ -26,6 +26,7 @@ Living document. Updated after each revision cycle as principles emerge or are r
 | A5 | **CellData is semantic, not GPU-ready** | PoC 07–08 | Wire format carries semantic content (codepoint, style, color) for RenderState population. GPU structs (CellText, CellBg) are 70%+ client-local data built by `rebuildCells()`. Export+import = 34 µs for 80×24 (0.2% of frame budget). |
 | A6 | **FlatCell is a flattened Style-resolved projection** | v0.9 | ghostty's `page.Cell` (8B) stores `style_id` → `RefCountedSet` lookup → `Style`. Wire FlatCell (16B) resolves this indirection and inlines colors/flags. Server export cost is dominated by style dereference (~11 ns/cell). Client import skips indirection entirely (~4 ns/cell). The wire format is NOT a memcpy of ghostty's Cell — it's a denormalized transformation. |
 | A7 | **SSH compression makes application-layer compression unnecessary for v1** | v0.9 | SSH's `zlib@openssh.com` (persistent dictionary, transport-layer) achieves 10-20x on typical FlatCell data (empty cells = zeros, repeated colors). No application-layer compression in v1. The `COMPRESSED` header flag is reserved but unused. Only matters for remote (SSH tunnel) — local Unix socket bandwidth is not a constraint (>1 GB/s). |
+| A8 | **RenderState dirty flag is the single source of truth for frame decisions** | v0.10 | Every terminal state change (PTY output, cursor, modes, colors, preedit) flows through ghostty's RenderState. No bypass paths exist — verified across protocol docs and IME contract implementation. Frame type selection (P-frame vs I-frame) reduces to one boolean per pane. Don't maintain parallel tracking (byte comparison, generation counters) when the engine already tracks mutations. |
 
 ## Process Lessons
 
@@ -35,6 +36,7 @@ Living document. Updated after each revision cycle as principles emerge or are r
 | L2 | **Stop verification at diminishing returns** | v0.8 (11 rounds) | Stop when: (a) issues have declined to minor/marginal severity, (b) new issues are in the same file/section as the previous round's fix, and (c) at least 3/4 verifiers report CLEAN. |
 | L3 | **Single-topic revision cycles converge faster** | v0.8 vs v0.7 | v0.8 (1 topic, 16 resolutions, 7/7 unanimous) converged faster than v0.7 (2 topics, more complex coordination). Scope discipline accelerates consensus. |
 | L4 | **Mechanical fixes converge; prose fixes cascade** | v0.9 | v0.9 verification: Round 1 (5 issues) → Round 2 (4, including 1 regression from prose fix introducing phantom message name) → Round 3 (3, including 1 minor regression from precedence ambiguity). Regressions came from prose changes (new sentences with references), never from arithmetic/number fixes. When fixing verification issues, prefer mechanical substitutions over new prose. |
+| L5 | **Verify assumptions at module boundaries** | v0.10 | The "dirty flag is sufficient" claim required cross-module verification (protocol × IME contract) to confirm no bypass paths. Single-doc analysis is insufficient for cross-cutting claims. When a design decision depends on behavior in another module, verify at the boundary. |
 
 ---
 
