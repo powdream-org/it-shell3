@@ -33,11 +33,16 @@
 - [x] Record issues → `verification/round-1-issues.md`
 - [x] Disband verification team
 
-## Phase 4b: Fix Cycle (Round 1 issues)
+## Phase 4b: Fix Cycle (Round 1 issues — 6 after owner dismissed V1-02)
 
-- [ ] Spawn fresh fix team (Step 3.4 — assignment negotiation)
-- [ ] Apply 7 fixes (3 critical, 4 minor)
-- [ ] Disband fix team
+- [x] Spawn fresh fix team (6 agents, Owner Rule pick: ISE/DA mapping)
+- [x] V1-01: Version headers v0.1→v0.2 in docs 02/03 (ghostty-integration-engineer)
+- [x] V1-03: Apply R1/R3/R9 to v0.1 resolution doc (daemon-architect)
+- [x] V1-04: Fix broken link in doc 02 header (ghostty-integration-engineer)
+- [x] V1-05: Update doc 03 Section 1.6 v0.2 terms (daemon-architect)
+- [x] V1-06: dirty_mask "server/"→"core/" in resolution doc (protocol-architect)
+- [x] V1-07: SplitNode→tree_nodes array in doc 03 Section 3.2 (ime-system-sw-engineer)
+- [x] Disband fix team
 
 ## Phase 4c: Verification (Round 2)
 

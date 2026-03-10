@@ -52,7 +52,7 @@ server/   — Event loop (kqueue), client manager, ring buffer,
 - `ghostty/` contains helper functions, not abstraction layers. ghostty's API is not stable; wrapper types would be a maintenance trap. Direct calls to internal Zig APIs with helper functions around them is the right level. We have no second implementation of ghostty, so an abstraction layer violates YAGNI.
 - `input/` depends on the `ImeEngine` interface type (defined in `core/`), not on the concrete `HangulImeEngine` (in libitshell3-ime). This is clean dependency inversion. `input/` has no ghostty dependency because Phase 2 (which uses ghostty APIs) lives in `server/`.
 - Ring buffer lives in `server/`, not in the protocol library or `core/`. The ring buffer is a server-side delivery optimization tied to socket I/O (writev zero-copy path). The protocol library defines message formats, not delivery mechanisms.
-- Pane struct lives in `server/` because it owns both ghostty types (Terminal, RenderState) and OS resources (pty_fd, child_pid). SplitNode in `core/` references panes by PaneId (u32), not by pointer, preserving the dependency boundary. Lookup is O(1) via `HashMap(PaneId, *Pane)` in `server/`.
+- Pane struct lives in `server/` because it owns both ghostty types (Terminal, RenderState) and OS resources (pty_fd, child_pid). SplitNodeData in `core/` references panes by PaneSlot (u8, 0..15), not by pointer, preserving the dependency boundary. Lookup is O(1) via `pane_slots: [MAX_PANES]?*Pane` in `server/`, indexed by PaneSlot.
 
 **Prior art**: tmux separates pure state (window.h, session.h) from I/O (tty.c, server-client.c). ghostty separates terminal logic (Terminal.zig) from renderer (Metal.zig) and I/O (Termio.zig).
 
@@ -84,18 +84,24 @@ server/   — Event loop (kqueue), client manager, ring buffer,
 Session (in core/):
   session_id: u32, name: []const u8, ime_engine: ImeEngine,
   active_input_method: []const u8, keyboard_layout: []const u8,
-  root: ?*SplitNode, focused_pane: ?PaneId, creation_timestamp: i64,
+  tree_nodes: [MAX_TREE_NODES]?SplitNodeData, // 31 entries, root at index 0
+  pane_slots: [MAX_PANES]?*Pane,              // indexed by PaneSlot (0..15)
+  free_mask: u16,                              // bitmap of available pane slots
+  dirty_mask: u16,                             // one bit per pane slot
+  focused_pane: ?PaneSlot, creation_timestamp: i64,
   current_preedit: ?[]const u8,  // cached from last ImeResult for export-time overlay
   preedit_buf: [64]u8,           // backing storage for current_preedit slice
   last_preedit_row: ?u16         // cursor row when preedit was last overlaid (for dirty tracking)
 
-SplitNode (tagged union in core/):
-  .leaf => PaneId
-  .split => { orientation: enum{horizontal, vertical}, ratio: f32,
-              first: *SplitNode, second: *SplitNode }
+SplitNodeData (tagged union in core/):
+  .leaf => PaneSlot (u8, 0..15)
+  .split => { orientation: enum{horizontal, vertical}, ratio: f32 }
+  Navigation: parent(i) = (i-1)/2, left(i) = 2*i+1, right(i) = 2*i+2
 
 Pane (in server/):
-  pane_id: u32, pty_fd: posix.fd_t, child_pid: posix.pid_t,
+  pane_id: u32 (global monotonic wire identity),
+  slot_index: u8 (position in owning session's pane_slots),
+  pty_fd: posix.fd_t, child_pid: posix.pid_t,
   terminal: *ghostty.Terminal, render_state: *ghostty.RenderState,
   cols: u16, rows: u16, title: []const u8
 ```
@@ -459,7 +465,7 @@ ClientState:
   state: enum { handshaking, ready, operating, disconnecting }
   attached_session: ?*Session
   capabilities: CapabilitySet
-  ring_cursors: HashMap(PaneId, RingCursor)
+  ring_cursors: [MAX_PANES]?RingCursor   // indexed by PaneSlot (0..15)
   display_info: ClientDisplayInfo
   message_reader: protocol.MessageReader
 ```

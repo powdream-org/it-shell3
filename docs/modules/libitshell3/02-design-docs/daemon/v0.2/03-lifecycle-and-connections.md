@@ -1,6 +1,6 @@
 # Daemon Lifecycle and Client Connections
 
-**Version**: v0.1
+**Version**: v0.2
 **Status**: Draft
 **Scope**: Daemon startup/shutdown sequences, client connection lifecycle, ring buffer delivery model
 **Source resolutions**: R8 (Daemon Lifecycle), R9 (Client Connection Lifecycle)
@@ -116,7 +116,7 @@ Register pty_master_fd with kqueue:
 
 `forkpty()` combines `openpty()` + `fork()` + `login_tty()`. The child process execs the user's shell (`$SHELL` or `/bin/sh`). The parent (daemon) receives the master fd and child pid.
 
-The Session's `root` SplitNode is a single leaf pointing to `pane_id = 1`. The `focused_pane` is set to `pane_id = 1`.
+The Session's `tree_nodes[0]` is initialized as a single `SplitNodeData` leaf pointing to pane slot 0. The `focused_pane` is set to `PaneSlot` 0.
 
 #### Step 7: Enter Event Loop
 
@@ -304,7 +304,7 @@ loop {
     remove pty_fd from kqueue
     close(pty_fd)
     Terminal.deinit()
-    remove pane from session's SplitNode tree
+    remove pane from session's tree_nodes array
 
     if session has no remaining panes:
         destroy session (including ImeEngine.deinit())
