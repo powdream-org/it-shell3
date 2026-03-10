@@ -1,8 +1,8 @@
 # 06 - Flow Control and Auxiliary Protocols
 
-**Version**: v0.8
+**Version**: v0.11
 **Status**: Draft
-**Date**: 2026-03-07
+**Date**: 2026-03-10
 **Author**: systems-engineer (AI-assisted)
 
 ## Overview
@@ -44,52 +44,15 @@ Same as doc 03:
 
 ---
 
-## 1. Adaptive Frame Coalescing
+## 1. FrameUpdate Delivery and Client Display Info
 
 ### Background
 
-libitshell3 does not use a fixed frame rate. Instead, the server employs a **4-tier adaptive coalescing model** with an additional Idle state, informed by iTerm2's adaptive cadence and ghostty's event-driven rendering. The coalescing tier is determined per-(client, pane) pair based on PTY throughput, keystroke recency, and preedit state.
+libitshell3 does not use a fixed frame rate. The server uses adaptive coalescing to send FrameUpdates in response to terminal state changes. Coalescing is per-(client, pane) — each client receives FrameUpdates at a rate adapted to its display, power state, and transport conditions. Preedit state changes are always delivered with minimal latency.
 
-> **Terminology note**: The model has 4 active coalescing tiers (Preedit, Interactive, Active, Bulk) plus an Idle state. Idle produces no frames and is not an active coalescing tier -- it is the quiescent state entered when there is no PTY output and no user interaction. The tier table in Section 1.1 lists all 5 states for completeness.
+Coalescing tier definitions, transition thresholds, timing values, WAN adaptation rules, power throttling caps, and idle suppression during resize are defined in daemon design docs. See doc 01 Section 10 for the wire-observable delivery model.
 
-### 1.1 Coalescing Tiers
-
-| Tier | Condition | Frame interval | Rationale |
-|------|-----------|----------------|-----------|
-| **Preedit** | Active IME composition + keystroke | Immediate (0 ms) | CJK preedit must render instantly for usable composition. MUST requirement: <33 ms end-to-end over Unix socket. |
-| **Interactive** | PTY output <1 KB/s + keystroke within 200 ms | Immediate (0 ms) | Keystroke echo and shell prompts must feel instantaneous. Matches ghostty's "immediate first frame" behavior. |
-| **Active** | PTY output 1-100 KB/s | 16 ms (display Hz) | Sustained output (e.g., scrolling code, logs). Matches display refresh rate. |
-| **Bulk** | PTY output >100 KB/s sustained 500 ms | 33 ms (~30 fps) | Heavy throughput (e.g., `cat /dev/urandom`, large builds). Reduces CPU/bandwidth without visible quality loss. |
-| **Idle** | No PTY output for 500 ms | No frames sent | Nothing to send. Server emits no FrameUpdate until new output arrives. |
-
-### 1.2 Transition Thresholds with Hysteresis
-
-Tier transitions use hysteresis to prevent oscillation:
-
-| Transition | Trigger | Hysteresis |
-|-----------|---------|------------|
-| Idle -> Interactive | KeyEvent received + PTY output within 5 ms | None |
-| Idle -> Active | PTY output arrives without recent keystroke | None |
-| Active -> Bulk | >100 KB/s sustained for 500 ms | Drop back to Active at <50 KB/s for 1 s |
-| Active -> Idle | No PTY output for 500 ms | None |
-| Any -> Preedit | Preedit state changed (composition started/updated) | 200 ms timeout back to previous tier after composition ends |
-
-The Active->Bulk hysteresis prevents rapid tier flapping during bursty output (e.g., compiler output interspersed with linking pauses).
-
-### 1.3 "Immediate First, Batch Rest"
-
-When a pane transitions from Idle to any active tier, the **first frame is sent immediately** without coalescing delay. Subsequent frames follow the tier's coalescing interval. This ensures that the first character of output after a prompt never has artificial latency, matching ghostty's observed behavior (removed 10 ms coalescing timer because immediate first frame was strictly better).
-
-### 1.4 Per-(Client, Pane) Cadence
-
-The server maintains coalescing state independently for each (client, pane) pair:
-
-- **Per-client coalescing timers**: Each client receives FrameUpdates at its own rate. A fast desktop client on AC power gets Active-tier frames at 16 ms while a battery-constrained iPad client simultaneously receives the same pane's updates at 50 ms.
-- **Independent tier state**: Pane 1 can be at Preedit tier (user composing CJK) while pane 2 is at Bulk tier (running `make -j16`), and both are tracked independently for each attached client.
-
-> **Normative**: The server maintains a single dirty bitmap per pane. Frame data (I-frames and P-frames) is serialized once per pane per frame interval. All clients viewing the same pane receive identical frame data from the shared ring buffer (Section 2). Clients at different coalescing tiers receive different subsets of frames from the same sequence, but each frame's content is identical regardless of which client receives it.
-
-### 1.5 Client Power Hints and Display Info
+### 1.1 Client Power Hints and Display Info
 
 Clients communicate their display capabilities, power state, and transport information via the `ClientDisplayInfo` message, allowing the server to optimize frame delivery.
 
@@ -135,44 +98,7 @@ Sent by the client during handshake (after capability negotiation) and whenever 
 }
 ```
 
-**Power-aware throttling**:
-
-| Power state | Active tier cap | Bulk tier cap | Preedit |
-|-------------|-----------------|---------------|---------|
-| `ac` | display_refresh_hz (default 60 fps) | 30 fps | Always immediate |
-| `battery` | 20 fps | 10 fps | Always immediate |
-| `low_battery` | 10 fps | 5 fps | Always immediate |
-
-> **Preedit is always immediate regardless of power state.** Preedit frames are small (preedit cell data adds negligible overhead to the frame), and throttling preedit would make CJK input unusable.
-
-The `display_refresh_hz` field allows the server to set the Active tier ceiling to match the client's display. On a 120 Hz ProMotion Mac, Active tier uses 8 ms intervals; on a 60 Hz display, 16 ms.
-
-### 1.6 WAN Coalescing Tier Adjustments
-
-When the server receives `ClientDisplayInfo` with `transport_type: "ssh_tunnel"`, it adjusts coalescing intervals for that client to account for network conditions:
-
-| Tier | Local | SSH Tunnel (WAN) |
-|------|-------|------------------|
-| Preedit | Immediate (0ms) | Immediate (0ms) — never throttled |
-| Interactive | Immediate (0ms) | Immediate (0ms) |
-| Active | 16ms (60fps) | 33ms (30fps) |
-| Bulk | 33ms (30fps) | 66ms (15fps) |
-
-The server selects WAN intervals based on `transport_type` and `bandwidth_hint`:
-- `"local"` transport: standard tier intervals.
-- `"ssh_tunnel"` + `"lan"`: standard intervals (LAN has negligible latency).
-- `"ssh_tunnel"` + `"wan"`: WAN intervals as shown above.
-- `"ssh_tunnel"` + `"cellular"`: WAN intervals, further reduced by power state if `"battery"` or `"low_battery"`.
-
-> **Preedit latency scoping**: Preedit FrameUpdates MUST be flushed immediately with no server-side coalescing delay. Over Unix domain socket, the server MUST deliver the FrameUpdate to the transport layer within 33ms of receiving the triggering KeyEvent. Over SSH tunnel or other network transport, the server adds no additional delay; end-to-end latency is dominated by network RTT. For remote clients over SSH with 50-100ms RTT, user-perceived preedit latency will be approximately equal to the round-trip time. Client-side composition prediction is a potential mitigation deferred to a future version.
-
-### 1.7 Idle Coalescing Suppression During Resize
-
-During the 250ms resize debounce window (doc 03 Section 5.4) and for 500ms after the debounce fires (`ioctl(TIOCSWINSZ)`), the server MUST NOT transition the pane's coalescing tier to Idle, even if no new PTY output arrives.
-
-**Rationale**: The PTY application is processing SIGWINCH and may briefly pause output; this is not true idleness. Transitioning to Idle would suppress frame delivery, causing the client to miss the post-resize FrameUpdate.
-
-After the 500ms grace expires, normal coalescing tier transitions resume.
+The server uses `ClientDisplayInfo` fields to adapt frame delivery. Power-aware throttling caps, WAN coalescing tier adjustments, and idle suppression during resize are defined in daemon design docs.
 
 ---
 
@@ -180,30 +106,7 @@ After the 500ms grace expires, normal coalescing tier transitions resume.
 
 ### Background
 
-When a pane produces output faster than a client can consume it, the server must manage delivery. libitshell3 uses a **shared per-pane ring buffer** model with per-client read cursors, replacing the per-client output buffer model from v0.6. The ring buffer is combined with an I/P-frame model (doc 04) to provide O(1) frame serialization and automatic state recovery.
-
-### Architecture
-
-```
-Server writes once per frame interval:                Per-client read cursors:
-                                                       Client A (Interactive) ─┐
-  PTY output → terminal emulator → frame serializer    Client B (Bulk) ──────┐ │
-       │                                    │          Client C (paused) ───┐ │ │
-       │                                    ▼                              ▼ ▼ ▼
-       │                              ┌─────────────────────────────────────────┐
-       └──────────────────────────────│  Shared Ring Buffer (2 MB per pane)     │
-                                      │  [I₀][P₁][P₂][P₃][I₁][P₄][P₅]...     │
-                                      └─────────────────────────────────────────┘
-                                              │           │
-                                     write ◄──┘           └──► writev() to sockets
-                                     (once)                    (zero-copy from ring)
-```
-
-**Key properties**:
-- Frame data is serialized **once** per pane per frame interval and written to the ring.
-- Per-client state is a **read cursor** (12 bytes: ring offset + partial write offset).
-- Socket writes use `writev()` directly from ring memory — zero-copy.
-- When a cursor falls behind the ring write head, the server advances it to the latest I-frame.
+When a pane produces output faster than a client can consume it, the server manages delivery through a shared per-pane ring buffer with per-client read cursors and an I/P-frame model (doc 04). Ring buffer architecture and implementation details are defined in daemon design docs.
 
 ### Message Types
 
@@ -215,79 +118,13 @@ Server writes once per frame interval:                Per-client read cursors:
 | `0x0503` | FlowControlConfigAck | S -> C | Server acknowledges configuration |
 | `0x0504` | OutputQueueStatus | S -> C | Server reports delivery pressure |
 
-### 2.1 Shared Ring Buffer Model
+### 2.1 Delivery Model Overview
 
-The server maintains a shared ring buffer per pane. All frame data (I-frames and P-frames) is written once to the ring. Per-client read cursors track each client's delivery position.
+The server maintains a shared per-pane ring buffer for frame delivery. All frame data (I-frames and P-frames) is written once to the ring. Per-client read cursors track each client's delivery position. Ring buffer architecture, sizing, implementation model, and concurrency details are defined in daemon design docs.
 
-**Ring parameters**:
+### 2.2 PausePane (0x0500)
 
-| Parameter | Default | Configurable | Description |
-|-----------|---------|-------------|-------------|
-| Ring size | 2 MB per pane | Server config (not protocol-negotiated) | Total ring buffer capacity |
-| Keyframe interval | 1 second | Server config (0.5-5 seconds) | How often the server writes an I-frame |
-
-**Sizing analysis** (120x40 CJK worst case, 1s keyframe interval, 60fps Active tier):
-
-| Component | Size |
-|-----------|------|
-| 1 I-frame | ~82 KB |
-| 60 P-frames (typical) | ~10-30 KB each = ~600KB-1.8MB |
-| Minimum ring (2 I-frames) | ~164 KB |
-| Typical interactive ring usage | ~1.3 MB |
-| Worst case (sustained full-screen rewrite) | ~7 MB |
-
-2 MB covers typical interactive use with headroom. For heavy output (sustained full-screen rewrite), the ring wraps and slow clients skip to the latest I-frame — correct behavior.
-
-> **Normative**: The ring MUST always contain at least one complete I-frame for each pane. When the ring write head is about to overwrite the only remaining I-frame in the ring, the server MUST first write a new I-frame before the overwrite proceeds. This ensures that any client seeking to the latest I-frame (recovery, attach, ContinuePane) always finds one.
-
-**Implementation model**:
-- Variable-length byte-level ring (not fixed-slot) — frames vary from ~100 bytes to ~82KB.
-- Ring overwrites unconditionally. No drain coordination (unlike tmux's control mode which drains when the slowest client catches up). No "convoy effect" from slow clients.
-- Socket write path: `writev()` directly from ring memory — zero-copy.
-- EAGAIN handling: cursor stays at current position, re-arm epoll/kqueue. No special recovery.
-- Concurrency: `pane_mutex` -> `ring_lock` ordering. Socket writers do not need `pane_mutex` — they read from the ring only. This decouples the socket write path from the pane mutex.
-
-**Memory comparison** (100 clients, 4 panes):
-
-| Metric | Per-client buffers (v0.6) | Shared ring (v0.7) |
-|--------|--------------------------|---------------------|
-| Total memory | 200 MB (100 x 4 x 512KB) | 8 MB (4 x 2MB) + cursors |
-| memcpy per frame | 100 copies | 1 ring write |
-| Per-client state | 512KB buffer | 12 bytes (cursor + partial offset) |
-
-### 2.2 Socket Write Priority
-
-The server drains per-client outbound data in the following priority order on each socket-writable event:
-
-**Socket write priority order**:
-1. **Direct message queue** (LayoutChanged, PreeditSync, ClientHealthChanged, etc.)
-2. **Ring buffer frames** (via `writev()` zero-copy from ring memory)
-
-PreeditSync remains in the direct message queue (priority 1), ensuring a recovering client receives composition metadata BEFORE the I-frame containing preedit cells. This preserves the "context before content" principle.
-
-**Preedit latency**: Preedit cell data is delivered through I/P-frames in the ring buffer, like all other cell data. Coalescing Tier 0 (Preedit tier, Section 1.1) ensures the server writes a preedit-containing frame to the ring immediately upon keystroke, maintaining the <33ms latency target without a separate delivery path.
-
-### 2.3 Ring Contents
-
-The shared ring buffer contains ALL frame types:
-- **I-frames** (`frame_type=1`, `frame_type=2`): All rows, self-contained keyframes.
-- **P-frames with dirty rows** (`frame_type=0`): Cumulative dirty rows since last I-frame.
-
-The per-pane `frame_sequence` counter is incremented for every frame written to the ring buffer. All rendering frames (I-frames, P-frames) go through the ring — there are no bypass paths for rendered content.
-
-### 2.4 PausePane (0x0500)
-
-In the ring buffer model, PausePane is an **advisory signal** for the health escalation state machine, not a flow-control stop mechanism. The ring writes unconditionally for all clients regardless of pause state.
-
-PausePane is sent by the server when a client's ring cursor falls behind the ring write head by >90% of ring capacity.
-
-**What PausePane does**:
-- Triggers the health escalation timeline (Section 2.8).
-- Excludes the client from resize calculation after 5s (doc 03 Section 5.5).
-
-**What PausePane does NOT do**:
-- Does NOT stop frame production for the pane (ring writes unconditionally).
-- Does NOT allocate or manage a per-client output buffer.
+PausePane is an **advisory signal** sent by the server when a client is falling behind on frame delivery. It does NOT stop frame production — the ring writes unconditionally. PausePane trigger conditions and health escalation behavior are defined in daemon design docs.
 
 **Payload** (JSON):
 
@@ -305,7 +142,7 @@ PausePane is sent by the server when a client's ring cursor falls behind the rin
 | `ring_lag_percent` | number | Client cursor's lag as percentage of ring capacity |
 | `ring_lag_bytes` | number | Absolute byte lag between client cursor and write head |
 
-### 2.5 ContinuePane (0x0501)
+### 2.3 ContinuePane (0x0501)
 
 Sent by the client when it has finished processing queued frames and is ready to resume normal delivery. In the ring model, the server advances the client's cursor to the latest I-frame in the ring.
 
@@ -319,7 +156,7 @@ Sent by the client when it has finished processing queued frames and is ready to
 
 The server advances the client's ring cursor to the latest I-frame. The client receives the I-frame (a complete self-contained terminal state) and resumes normal incremental delivery from that point. No `last_processed_seq` field is needed — the ring cursor position already tracks the client's state.
 
-### 2.6 FlowControlConfig (0x0502)
+### 2.4 FlowControlConfig (0x0502)
 
 Client configures per-connection flow control parameters. Sent once during the handshake phase, and may be sent again at any time to adjust.
 
@@ -345,7 +182,7 @@ Client configures per-connection flow control parameters. Sent once during the h
 
 The server selects transport-aware defaults based on `ClientDisplayInfo.transport_type`. The client can override via this message.
 
-### 2.7 FlowControlConfigAck (0x0503)
+### 2.5 FlowControlConfigAck (0x0503)
 
 **Payload** (JSON):
 
@@ -363,116 +200,24 @@ The server selects transport-aware defaults based on `ClientDisplayInfo.transpor
 |-------|------|-------------|
 | `status` | number | 0 = accepted, 1 = adjusted (server clamped values) |
 
-### 2.8 Client Health Model and Escalation Timeline
+### 2.6 Client Health Model
 
 The protocol defines two health states orthogonal to connection lifecycle:
 
 | State | Definition | Resize participation | Frame delivery |
 |-------|-----------|---------------------|----------------|
 | `healthy` | Normal operation | Yes | Full (per coalescing tier) via ring |
-| `stale` | Paused too long or ring cursor stagnant | No (excluded after 5s grace) | None (ring cursor stagnant) |
+| `stale` | Paused too long or ring cursor stagnant | No | None (ring cursor stagnant) |
 
-**`paused`** (PausePane active) is an orthogonal flow-control state, not a health state. A paused client remains `healthy` until the stale timeout fires.
+`paused` (PausePane active) is an orthogonal flow-control state, not a health state. Health state transitions are communicated via `ClientHealthChanged` (0x0185) notifications. Server MAY send `Disconnect` with reason `stale_client` to evict unresponsive clients.
 
-**Smooth degradation** (auto-tier-downgrade at 50% ring lag, force Bulk at 75%, queue compaction) is **server-internal** implementation behavior, NOT a protocol-visible state. It is documented as implementation guidance below and reported via RendererHealth (0x0803) for debugging. It does not trigger ClientHealthChanged and does not affect resize.
+Health escalation timeline, stale triggers, timeout values, smooth degradation, and recovery procedures are defined in daemon design docs.
 
-**PausePane escalation timeline**:
+### 2.7 Recovery Wire Behavior
 
-```
-T=0s:    PausePane sent. Client is still `healthy`. Still participates in resize.
+All recovery scenarios (ContinuePane, ring overwrite, stale recovery) result in the server advancing the client's ring cursor to the latest I-frame. On stale recovery, the server additionally sends `LayoutChanged` and `PreeditSync` (if applicable) before the I-frame.
 
-T=5s:    Resize exclusion. Server recalculates effective size without this client.
-         No protocol message. Server-internal decision.
-         Handles the common case of brief iOS backgrounding without waiting
-         for the full stale timeout.
-
-T=60s:   `stale` health state transition (local transport).
-(local)  Server sends ClientHealthChanged (0x0185) to all peer clients.
-
-T=120s:  `stale` health state transition (SSH tunnel transport).
-(SSH)    Same behavior as T=60s. Longer timeout accounts for higher latency
-         and more variable behavior over SSH tunnels.
-
-T=300s:  Eviction. Server sends Disconnect("stale_client") and tears down
-         the connection. Transport-independent.
-```
-
-All timeouts are configurable via FlowControlConfig (Section 2.6).
-
-**The 5s grace period and the stale timeout serve different purposes:**
-- 5s grace: "Should this client affect PTY dimensions right now?" (resize concern)
-- 60s/120s stale: "Is this client meaningfully participating in the session?" (health concern, triggers peer notification)
-
-### 2.9 Stale Triggers
-
-The stale timeout clock resets ONLY when the client sends a message that proves application-level processing:
-
-- ContinuePane
-- KeyEvent
-- WindowResize
-- ClientDisplayInfo
-- Any request message (CreateSession, SplitPane, etc.)
-
-**HeartbeatAck does NOT reset the stale timeout.**
-
-**Rationale**: On iOS, the OS can suspend the application while keeping TCP sockets alive. The TCP stack continues to respond to heartbeats (ACKs) even though the application event loop is frozen. If HeartbeatAck reset the stale timeout, a backgrounded iPad client would never be marked stale, and its stale dimensions would permanently constrain healthy clients.
-
-**Ring cursor stagnation as stale trigger**: In addition to PausePane duration, the server uses ring cursor stagnation:
-
-```
-If client's ring cursor lag > 90% of ring capacity for stale_timeout_ms (60s/120s)
-   AND client has not sent any application-level message during that period:
-   -> transition to `stale`
-```
-
-This catches the "TCP alive but app frozen" scenario without wire format changes.
-
-The eviction timeout (300s) MAY reset on HeartbeatAck as a safety net against false disconnects (the connection is alive, just slow).
-
-### 2.10 Recovery Codepath
-
-Three distinct recovery procedures collapse into a single operation: **advance client ring cursor to latest I-frame**.
-
-| Recovery trigger | v0.6 procedure | v0.7 procedure |
-|-----------------|----------------|----------------|
-| ContinuePane (after PausePane) | Discard buffered frames, send dirty=full snapshot | Advance cursor to latest I-frame |
-| Ring overwrite (cursor falls behind ring tail) | N/A (new in v0.7) | Advance cursor to latest I-frame |
-| Stale recovery | LayoutChanged + PreeditSync + dirty=full FrameUpdate | Advance cursor to latest I-frame |
-
-The I-frame IS the full FrameUpdate — same data, same wire format, same client processing. The only variation is what additional messages accompany recovery:
-
-- **ContinuePane**: Advance cursor. No additional messages needed.
-- **Stale recovery**: Advance cursor + enqueue LayoutChanged (if layout changed during stale period) and PreeditSync (if preedit active on any pane) into the direct message queue. Per socket write priority (Section 2.2), these context messages arrive BEFORE the I-frame from the ring.
-
-**Preedit commit on eviction**: When the server evicts a stale client at T=300s, any active preedit composition owned by that client MUST be committed (flushed to the terminal grid) before the client connection is torn down. This prevents orphaned composition state. The server sends PreeditEnd with `reason: "client_evicted"` to remaining peer clients before the Disconnect.
-
-### 2.11 Smooth Degradation Before PausePane (Implementation Guidance)
-
-Before resorting to PausePane, the server applies smooth degradation based on ring cursor lag:
-
-```
-1. Ring cursor lag above 50% of ring capacity:
-   -> Auto-downgrade tier (Active -> Bulk) for this client.
-   -> Skip more P-frames (deliver fewer frames from the ring).
-
-2. Ring cursor lag above 75% of ring capacity:
-   -> Force Bulk tier regardless of throughput.
-
-3. Ring cursor lag above 90% of ring capacity:
-   -> Send PausePane to the client.
-   -> Client cursor will naturally advance to latest I-frame on ContinuePane.
-
-4. Client sends ContinuePane (or auto_continue triggers):
-   -> Advance cursor to latest I-frame.
-   -> Resume incremental updates from that point.
-   -> Restore original tier based on current throughput.
-```
-
-This graduated approach keeps the client receiving updates for as long as possible. PausePane is a last resort, not a routine flow control mechanism.
-
-**Key insight**: Unlike tmux (which buffers raw bytes), libitshell3 buffers structured frames in a ring. The I/P-frame model means the server can always recover any client by advancing its cursor to the latest I-frame — no special resync codepath needed.
-
-### 2.12 OutputQueueStatus (0x0504)
+### 2.8 OutputQueueStatus (0x0504)
 
 Periodic notification (configurable interval) reporting delivery pressure for the client's subscribed panes. Allows the client to proactively adjust rendering behavior.
 
@@ -694,24 +439,9 @@ On success, the server follows with CreateSessionResponse-like data and LayoutCh
 | `session_id` | u32 | Newly assigned by server |
 | `pane_count` | number | Number of restored panes |
 
-**Restore sequence**:
-1. Client sends RestoreSessionRequest.
-2. Server reads snapshot file, validates format.
-3. Server creates the session with the saved name and a fresh server-assigned session_id.
-4. Server walks the saved layout tree, creating panes (with fresh pane_ids) and spawning shells.
-5. Server re-initializes the IME engine for the restored session (see below).
-6. If `restore_scrollback=true`, server writes saved scrollback to a temp file and sets `ITSHELL3_RESTORE_SCROLLBACK_FILE` in the shell environment (following cmux's pattern).
-7. Server sends RestoreSessionResponse.
-8. Server sends LayoutChanged for the restored session.
-9. Server sends FrameUpdate (I-frame) for each pane.
+**Wire behavior**: On success, the server sends `RestoreSessionResponse`, followed by `LayoutChanged` for the restored session, followed by `FrameUpdate` (I-frame) for each pane. The restored session includes `active_input_method` and `active_keyboard_layout` fields.
 
-**IME engine initialization**: When restoring a session, the server MUST re-initialize the per-session IME engine:
-
-1. Create one `ImeEngine` instance per session with the saved `input_method` string from the session snapshot (e.g., `"korean_2set"`).
-2. The engine constructor decomposes the canonical string into engine-internal types (language dispatch + engine-native keyboard ID). No code outside the engine constructor performs this decomposition.
-3. Composition state is NOT restored — any mid-composition state was flushed on the previous detach/shutdown. The engine starts with no active composition (composition state is `null`).
-
-The session snapshot persists at session level: `input_method` (canonical string, e.g., `"direct"`, `"korean_2set"`) and `keyboard_layout` (e.g., `"qwerty"`). No per-pane IME fields are stored. See IME Interface Contract, Section 3.7 for the canonical registry of valid `input_method` strings.
+Session restore procedure (snapshot reading, pane creation, IME engine re-initialization, scrollback restoration) is defined in daemon design docs.
 
 ### 4.5 SnapshotListRequest (0x0704)
 
@@ -986,6 +716,8 @@ After AttachSession, the client automatically receives these notifications witho
 - ClientHealthChanged (doc 03, always sent)
 
 All Section 5 notifications require explicit subscription.
+
+> **Note**: The default subscription list above is wire-observable protocol behavior — clients depend on receiving these notifications without subscribing. Subscription management implementation is server-side; see daemon design docs for notification delivery internals.
 
 ---
 

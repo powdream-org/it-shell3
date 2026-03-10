@@ -1,9 +1,9 @@
-# IME Interface Contract v0.7 — Types
+# IME Interface Contract v0.8 — Types
 
-> **Version**: v0.7
-> **Date**: 2026-03-07
-> **Part of the IME Interface Contract v0.7. See [01-overview.md](01-overview.md) for the document index.**
-> **Changes from v0.6**: See [Appendix I: Changes from v0.6](99-appendices.md#appendix-i-changes-from-v06)
+> **Version**: v0.8
+> **Date**: 2026-03-10
+> **Part of the IME Interface Contract v0.8. See [01-overview.md](01-overview.md) for the document index.**
+> **Changes from v0.7**: Wire-to-KeyEvent decomposition detail moved to daemon design docs v0.3. See [Appendix J: Changes from v0.7](99-appendices.md#appendix-j-changes-from-v07).
 
 ## 3. Interface Types
 
@@ -67,8 +67,7 @@ pub const KeyEvent = struct {
 - `hid_keycode` is the USB HID usage code — a physical key position. Korean input depends on physical key position (not the produced character), making HID the correct representation.
 - `shift` is separate from `modifiers` because Shift participates in character production (Korean jamo selection), while Ctrl/Alt/Cmd trigger composition flush. This mirrors the ibus-hangul pattern where `IBUS_CONTROL_MASK | IBUS_MOD1_MASK` triggers flush but `IBUS_SHIFT_MASK` does not.
 - `action` (press/release/repeat) added based on ghostty's `ghostty_input_action_e`. Release events are needed for future Kitty keyboard protocol support. The IME engine typically ignores release events.
-- **Wire-to-KeyEvent mapping**: The server decomposes the protocol wire modifier bitmask into KeyEvent fields. See protocol doc 04 Section 2.1 for the full mapping table (wire Shift bit -> `KeyEvent.shift`, wire bits 1–3 -> `KeyEvent.modifiers`).
-- **CapsLock and NumLock** (wire modifier bits 4–5) are intentionally not consumed by the IME engine. Lock key state does not affect Hangul composition — jamo selection depends solely on the Shift key. CapsLock as a language toggle key is detected in Phase 0 (libitshell3), not by the IME.
+- **Wire-to-KeyEvent mapping**: The daemon decomposes the protocol wire modifier bitmask into `KeyEvent` fields before calling `processKey()`. See [daemon design doc 02 §4.2](../../libitshell3/02-design-docs/daemon/v0.3/02-integration-boundaries.md#wire-to-keyevent-decomposition) for the full mapping table.
 
 ### 3.2 ImeResult (Output from IME)
 

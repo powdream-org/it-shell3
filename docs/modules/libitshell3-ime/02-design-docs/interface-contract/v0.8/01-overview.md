@@ -1,9 +1,9 @@
-# IME Interface Contract v0.7 — Overview
+# IME Interface Contract v0.8 — Overview
 
-> **Version**: v0.7
-> **Date**: 2026-03-07
-> **Part of the IME Interface Contract v0.7. See this file for the document index.**
-> **Changes from v0.6**: See [Appendix I: Changes from v0.6](99-appendices.md#appendix-i-changes-from-v06)
+> **Version**: v0.8
+> **Date**: 2026-03-10
+> **Part of the IME Interface Contract v0.8. See this file for the document index.**
+> **Changes from v0.7**: Daemon behavioral content extracted to daemon design docs v0.3. See [Appendix J: Changes from v0.7](99-appendices.md#appendix-j-changes-from-v07).
 
 ## Document Index
 
@@ -12,24 +12,20 @@
 | 01-overview.md | Overview, processing pipeline, responsibility matrix |
 | 02-types.md | KeyEvent, ImeResult, modifier flush policy, input method identifiers |
 | 03-engine-interface.md | ImeEngine vtable, setActiveInputMethod, HangulImeEngine, MockImeEngine |
-| 04-ghostty-integration.md | ghostty integration, memory ownership |
+| 04-ghostty-integration.md | Reference — ghostty integration is defined in daemon design docs |
 | 05-extensibility-and-deployment.md | Future extensibility, C API boundary, session persistence |
-| 99-appendices.md | Change history appendices (A-I) |
+| 99-appendices.md | Change history appendices (A-J) |
 
 ---
 
 # 01 — libitshell3 <-> libitshell3-ime Interface Contract
 
-> **Status**: Draft v0.7 — composition_state removed from ImeResult; preedit model simplified. Cross-team preedit overhaul resolutions applied.
-> **Supersedes**: [v0.6/01-overview.md](../v0.6/01-overview.md), [v0.5/01-interface-contract.md](../v0.5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v0.4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v0.3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v0.2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v0.1/01-interface-contract.md)
-> **Date**: 2026-03-07
+> **Status**: Draft v0.8 — Daemon behavioral content extracted to daemon design docs v0.3 (cross-team revision).
+> **Supersedes**: [v0.7/01-overview.md](../v0.7/01-overview.md), [v0.6/01-overview.md](../v0.6/01-overview.md), [v0.5/01-interface-contract.md](../v0.5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v0.4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v0.3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v0.2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v0.1/01-interface-contract.md)
+> **Date**: 2026-03-10
 > **Review participants**: protocol-architect, protocol-swe, cjk-specialist, ime-expert, principal-architect, ime-architect, ime-swe
 > **PoC validation**: `poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code); `poc/03-macos-ime-suppression/` — macOS IME suppression validated; `poc/04-libhangul-states/probe.c` — composition_state factual errors confirmed; `poc/05-preedit-visual/` — preedit-as-cell-data rendering validated
-> **Changes from v0.3**: See [Appendix E: Changes from v0.3](99-appendices.md#appendix-e-changes-from-v03)
-> **Changes from v0.4-pre**: See [Appendix F: Identifier Consensus Changes](99-appendices.md#appendix-f-identifier-consensus-changes)
-> **Changes from v0.4**: See [Appendix G: Changes from v0.4](99-appendices.md#appendix-g-changes-from-v04)
-> **Changes from v0.5**: See [Appendix H: Changes from v0.5](99-appendices.md#appendix-h-changes-from-v05)
-> **Changes from v0.6**: See [Appendix I: Changes from v0.6](99-appendices.md#appendix-i-changes-from-v06)
+> **Changes from v0.7**: See [Appendix J: Changes from v0.7](99-appendices.md#appendix-j-changes-from-v07)
 
 ## 1. Overview
 
@@ -54,68 +50,23 @@ This document defines the **exact interface** between libitshell3 (terminal mult
 
 ## 2. Processing Pipeline
 
-### Three-Phase Key Processing
+The daemon routes keys through a 3-phase pipeline. Phase 1 (IME processing) is defined by this contract; Phases 0 (global shortcuts, language toggle) and 2 (ghostty integration, PTY writes, preedit overlay) are defined in [daemon design doc 02 §4.2](../../libitshell3/02-design-docs/daemon/v0.3/02-integration-boundaries.md#42-phase-0---1---2-key-routing).
+
+### Phase 1: IME Engine Processing
 
 ```
-Client sends: HID keycode + modifiers + shift
-                    |
-                    v
-+--------------------------------------------------+
-|  Phase 0: Global Shortcut Check (libitshell3)    |
-|                                                   |
-|  - Language switch -> setActiveInputMethod(id)    |
-|    (toggle key detection is libitshell3's concern)|
-|  - App-level shortcuts that bypass IME entirely   |
-|  - If consumed: STOP                              |
-+----------------------+---------------------------+
-                       | not consumed
-                       v
-+--------------------------------------------------+
-|  Phase 1: IME Engine (libitshell3-ime)           |
-|                                                   |
-|  processKey(KeyEvent) -> ImeResult                |
-|                                                   |
-|  Engine internally:                               |
-|  - Checks modifiers (Ctrl/Alt/Cmd) -> flush + fwd|
-|  - Checks non-printable (arrow/F-key) -> flush+fwd|
-|  - Feeds printable to libhangul -> compose        |
-|  - Handles "not consumed" (hangul_ic_process()    |
-|    returns false): flush + forward rejected key   |
-|  - Returns committed/preedit/forward_key          |
-+----------------------+---------------------------+
-                       | ImeResult
-                       v
-+--------------------------------------------------+
-|  Phase 2: ghostty Integration (libitshell3)      |
-|                                                   |
-|  committed_text -> ghostty_surface_key            |
-|                   (composing=false, text=utf8)    |
-|                   + RELEASE event (text=null)     |
-|                                                   |
-|  preedit_text   -> ghostty_surface_preedit        |
-|                   (utf8, len)                     |
-|                                                   |
-|  forward_key    -> HID->ghostty_key mapping       |
-|                 -> ghostty keybinding check        |
-|                 -> if not bound: ghostty_surface_key|
-|                   (composing=false, text=null*)   |
-|                   + RELEASE event (text=null)     |
-|                                                   |
-|  * Exception: Space forward uses text=" "         |
-+--------------------------------------------------+
+processKey(KeyEvent) -> ImeResult
+
+Engine internally:
+- Checks modifiers (Ctrl/Alt/Cmd) -> flush + forward
+- Checks non-printable (arrow/F-key) -> flush + forward
+- Feeds printable to libhangul -> compose
+- Handles "not consumed" (hangul_ic_process()
+  returns false): flush + forward rejected key
+- Returns committed/preedit/forward_key
 ```
 
-### Why IME Runs Before Keybindings
-
-When the user presses Ctrl+C during Korean composition (preedit = "하"):
-
-1. **Phase 0 (shortcuts)**: libitshell3 checks — Ctrl+C is not a language toggle or global shortcut. Pass through.
-2. **Phase 1 (IME)**: Engine detects Ctrl modifier -> flushes "하" -> returns `{ committed: "하", forward_key: Ctrl+C }`
-3. **Phase 2 (ghostty)**: Committed text "하" is sent to PTY via `ghostty_surface_key`. Then Ctrl+C goes through ghostty's keybinding system. If Ctrl+C is bound to a keybinding, it fires. If not, `ghostty_surface_key` encodes it as `0x03` (ETX).
-
-This ensures the user's in-progress composition is preserved before any keybinding action.
-
-**Verified by PoC** (`poc/01-ime-key-handling/`): All 10 test scenarios pass — arrows, Ctrl+C, Ctrl+D, Enter, Escape, Tab, backspace jamo-undo, shifted keys, and mixed compose-arrow-compose sequences all work correctly with libhangul.
+The engine receives a `KeyEvent` and produces an `ImeResult`. It has no knowledge of what happens before (Phase 0) or after (Phase 2) — it is a pure composition state machine.
 
 ### Phase 1: hangul_ic_process() Return-False Handling
 
@@ -143,29 +94,15 @@ When `hangul_ic_process()` returns `false`, libhangul rejected the key (it is no
 
 ## 4. Responsibility Matrix
 
+This matrix covers IME engine responsibilities only. Daemon-side responsibilities (routing, PTY writes, ghostty integration, lifecycle management) are defined in [daemon design doc 02 §4.9](../../libitshell3/02-design-docs/daemon/v0.3/02-integration-boundaries.md#49-daemon-side-responsibility-matrix).
+
 | Responsibility | Owner | Rationale |
 |---|---|---|
 | HID keycode -> ASCII character | **libitshell3-ime** | IME needs ASCII for `hangul_ic_process()`. Mapping is layout-dependent (Korean 2-set vs 3-set). |
-| HID keycode -> platform-native keycode | **libitshell3** | ghostty's key encoder uses platform-native keycodes (`uint32_t`). IME-independent. |
 | Hangul composition (jamo assembly, backspace) | **libitshell3-ime** | Core IME logic. Wraps libhangul. |
 | Modifier detection + flush decision | **libitshell3-ime** | Engine decides when Ctrl/Alt/Cmd flushes composition. Matches ibus-hangul/fcitx5-hangul pattern. All modifiers **flush** (commit), never reset (discard). |
 | UCS-4 -> UTF-8 conversion | **libitshell3-ime** | libhangul outputs UCS-4. The rest of the system uses UTF-8. |
-| Language toggle key detection | **libitshell3** | Configurable keybinding (한/영, Right Alt, Caps Lock). Not an IME concern. |
-| Active input method switching | **libitshell3** | Calls `setActiveInputMethod(input_method)` when user toggles. |
 | Flushing on input method switch | **libitshell3-ime** | `setActiveInputMethod()` flushes pending composition internally (atomically). |
-| Keybinding interception (Cmd+V, Cmd+C) | **libitshell3 via ghostty** | Keybindings run in Phase 2, after IME has flushed. |
-| Calling `ghostty_surface_key()` | **libitshell3** | Daemon translates ImeResult into ghostty API calls. |
-| Calling `ghostty_surface_preedit()` | **libitshell3** | Daemon forwards preedit to ghostty's renderer overlay. |
-| Terminal escape sequence encoding | **ghostty** (via `ghostty_surface_key`) | ghostty's KeyEncoder runs daemon-side. We do NOT write our own encoder. |
-| PTY writes | **ghostty** (internal to `ghostty_surface_key`) | ghostty handles PTY I/O internally after encoding. |
-| Sending preedit/render state to remote client | **libitshell3** (protocol layer) | Part of the FrameUpdate protocol. |
-| Rendering cell data (including preedit) on screen | **it-shell3 app** (client) | Client renders cell data via Metal. Preedit cells are injected server-side via `ghostty_surface_preedit()` and delivered as regular cell data in I/P-frames — the client has no concept of which cells are preedit. |
-| Per-session ImeEngine lifecycle | **libitshell3** | Creates one engine per session. Destroys on session close. Calls activate/deactivate on session-level focus change. Calls flush() on intra-session pane focus change. Engine is pane-agnostic — it has no knowledge of pane_id or session_id. |
-| Routing ImeResult to the correct pane's PTY | **libitshell3** | Server tracks which pane is focused and directs ImeResult accordingly. Engine produces results; server routes them. |
-| New pane inheriting active input method | **libitshell3** | New panes inherit the session's `active_input_method` automatically. No engine call needed — the shared engine already has the correct state. |
-| Language indicator in FrameUpdate | **libitshell3** | Metadata field derived from `active_input_method` string (e.g., `"direct"` vs `"korean_2set"`). ghostty has no language state. See protocol doc 05 for wire encoding. |
-| Composing-capable check | **libitshell3** | Derives from input method string: `"direct" = no`, anything else = yes. Runtime check: `engine.isEmpty()`. No `LanguageDescriptor` needed. |
-| `display_width` / UAX #11 character width computation | **libitshell3** | East Asian Width property lookup (narrow/wide/ambiguous) for CellData encoding. IME engine has no knowledge of display width — it only deals with key events and composition text. |
 
 ### What libitshell3-ime Does NOT Do
 

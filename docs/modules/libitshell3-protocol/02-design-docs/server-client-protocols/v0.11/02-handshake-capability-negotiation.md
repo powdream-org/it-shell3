@@ -1,11 +1,10 @@
 # Handshake and Capability Negotiation
 
-**Status**: Draft v0.8
-**Date**: 2026-03-07
+**Status**: Draft v0.11
+**Date**: 2026-03-10
 **Depends on**: [01-protocol-overview.md](./01-protocol-overview.md) (framing format, message type IDs, connection lifecycle)
 **Scope**: `ClientHello` / `ServerHello` message formats, capability flags, negotiation algorithm, attach/detach semantics, ClientDisplayInfo, input method negotiation
-**Changes from v0.7**: Updated preedit capability semantics to reflect v0.8 preedit overhaul (design-resolutions `01-preedit-overhaul.md`). The `"preedit"` capability now controls only the dedicated 0x04xx messages; preedit rendering is always available through cell data in I/P-frames regardless of capability negotiation.
-**Changes from v0.6**: `stale_client` disconnect reason, per-session IME fields in AttachSessionResponse, latest/smallest resize policy (see Changelog)
+**Changes from v0.10**: Cross-team revision with daemon v0.3 — removed preedit ownership algorithm, multi-client resize algorithm, reconnection step-by-step procedure, auth implementation details. Kept wire message definitions and reason enums.
 
 ---
 
@@ -831,7 +830,7 @@ Multiple clients can attach to the same session simultaneously. The server handl
 
 1. **Terminal dimensions**: Determined by the server's resize policy (`latest` by default, `smallest` opt-in). Under `latest`, the most recently active client's dimensions are used. Under `smallest`, the minimum across all eligible (non-stale) clients. See doc 03 Section 5 for the full resize algorithm.
 2. **Input forwarding**: All non-readonly clients can send input. The server processes input in arrival order.
-3. **Preedit exclusivity**: Only one client can have active preedit per session (not just per pane — the per-session IME engine has one jamo stack). The server owns the IME engine -- if a client sends a `KeyEvent` that triggers composition while another client's composition is already active in the same session, the server commits the first client's composition and sends `PreeditEnd` with reason `"replaced_by_other_client"` before starting the new one (see doc 05 Section 6.3).
+3. **Preedit exclusivity**: Only one client can have active preedit per session. The `PreeditEnd` reason enum includes `"replaced_by_other_client"` for conflict resolution (see doc 05 Section 6). Preedit ownership policy is defined in daemon design docs.
 4. **Frame updates**: All clients receive `FrameUpdate` messages for all panes in the attached session from the shared per-pane ring buffer, not just the focused pane. Each client reads from the ring at its own cursor position via per-(client, pane) coalescing tiers.
 5. **Client join/leave/health notifications**: When a client attaches, detaches, or transitions health state, other clients attached to the same session receive `ClientAttached` (0x0183), `ClientDetached` (0x0184), or `ClientHealthChanged` (0x0185) notifications carrying `session_id`, `client_id`, `client_name`, and relevant state information.
 
@@ -853,42 +852,13 @@ When `AttachSessionRequest.detach_others` is `true`, the server detaches all oth
 2. Evicted clients transition to `READY` state.
 3. The requesting client's attach proceeds normally with exclusive access.
 
-### 9.9 Multi-Client Resize Algorithm
+### 9.9 Multi-Client Resize
 
-The resize algorithm depends on the server's active resize policy (reported in `AttachSessionResponse.resize_policy`):
-
-**`latest` policy (default):**
-
-```
-1. Update the sending client's recorded dimensions.
-2. Update latest_client_id if KeyEvent or WindowResize (not HeartbeatAck).
-3. Recompute effective_cols/rows = latest_client's dimensions.
-   - Stale clients are excluded. If latest client becomes stale, fall back
-     to next most-recently-active healthy client.
-4. Debounce: arm 250ms timer per pane. If another resize arrives, reset timer.
-   Exception: first resize after session create or client attach fires immediately.
-5. On timer expiry, if (effective_cols, effective_rows) changed:
-   a. Walk the layout tree, recompute pane dimensions based on split ratios.
-   b. For each pane with changed dimensions:
-      ioctl(pane.pty_fd, TIOCSWINSZ, &new_size)
-   c. Send LayoutChanged to ALL attached clients.
-   d. I-frame for each affected pane is written to the ring; clients read it.
-6. If unchanged: send WindowResizeAck to the sending client only.
-```
-
-**`smallest` policy:**
-
-```
-Same as `latest` but step 3 uses:
-  effective_cols = min(client.cols for all non-stale attached clients)
-  effective_rows = min(client.rows for all non-stale attached clients)
-```
-
-**Stale client re-inclusion**: When a stale client recovers to healthy, it must remain healthy for 5 seconds before being re-included in the resize calculation (hysteresis to prevent resize churn).
+The server's active resize policy is reported in `AttachSessionResponse.resize_policy`. Resize is communicated through `WindowResizeRequest`/`WindowResizeResponse`/`WindowResizeAck` messages (see doc 03 Section 5) and `LayoutChanged` notifications.
 
 **Viewport clipping**: Under `latest` policy, clients with smaller dimensions than the effective size MUST clip to their own viewport (top-left origin). Per-client viewports (scroll to see clipped areas) are deferred to v2.
 
-See doc 03 Section 5 for the full resize algorithm with stale exclusion and health escalation details.
+Resize algorithm internals (policy selection, debounce, stale client exclusion, re-inclusion hysteresis) are defined in daemon design docs.
 
 ---
 
@@ -970,17 +940,9 @@ This matrix shows behavior when capabilities differ between client and server:
 
 ### 11.2 Reconnection
 
-When a client reconnects to a running daemon:
+Reconnection uses the normal handshake flow. There is no incremental reconnection protocol (no "replay from sequence N"). Every reconnection is a full state resync via I-frame from the shared ring buffer.
 
-1. Client establishes a new connection
-2. Normal `ClientHello` / `ServerHello` handshake (receives new `client_id`)
-3. Client sees its previous session in the `ServerHello` session list
-4. Client sends `ClientDisplayInfo` (if applicable)
-5. Client sends `AttachSessionRequest` (or `AttachOrCreateRequest`) with the previous session ID
-6. Server responds with `AttachSessionResponse` (including session-level `active_input_method` and `active_keyboard_layout`) + I-frame per pane
-7. Client is fully resynchronized
-
-There is no incremental reconnection (no "replay from sequence N"). Every reconnection is a full state resync via I-frame (`frame_type=1 or frame_type=2`) from the shared ring buffer. This is simple and reliable; the full state is typically under 35 KB.
+The reconnection procedure (connection establishment, handshake, session reattach, I-frame resync) is defined in daemon design docs.
 
 ---
 
@@ -988,13 +950,9 @@ There is no incremental reconnection (no "replay from sequence N"). Every reconn
 
 ### 12.1 Unix Socket Authentication
 
-On Unix domain sockets, the server authenticates clients by:
+Unix socket connections are authenticated by kernel-level UID verification. Only connections from the same UID as the daemon process are accepted. No additional authentication is needed for Unix socket transport because the OS kernel guarantees the peer identity.
 
-1. **Kernel-level UID check**: `getpeereid()` (macOS) or `SO_PEERCRED` (Linux) provides the peer's UID. Only connections from the same UID as the daemon are accepted.
-2. **Socket file permissions**: `0600` (owner-only read/write). Prevents non-owner access at the filesystem level.
-3. **Directory permissions**: `0700` on the socket directory.
-
-No additional authentication is needed for Unix socket transport because the OS kernel guarantees the peer identity.
+Authentication implementation details (syscall selection, socket file permissions, directory permissions) are defined in daemon design docs.
 
 ### 12.2 SSH Tunnel Authentication
 

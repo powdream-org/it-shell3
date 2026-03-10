@@ -1,7 +1,8 @@
 # Daemon Integration Boundaries
 
-**Version**: v0.2
+**Version**: v0.3
 **Source**: [Design Resolutions — Daemon Architecture](../v0.1/design-resolutions/01-daemon-architecture.md) (Resolutions 5-7, Owner Q1/Q2)
+**v0.3 changes**: Absorbed daemon behavioral content from IME contract v0.7 (I2, I3, I5, I6, I8, I9) and verified protocol doc P5 coverage.
 
 ---
 
@@ -222,14 +223,52 @@ Socket path resolution, stale socket detection, peer credential extraction, and 
 
 ## 4. IME Integration (libitshell3-ime)
 
-### 4.1 Per-Session ImeEngine
+### 4.1 Per-Session ImeEngine Lifecycle
 
-Each Session owns one `ImeEngine` instance:
+Each Session owns one `ImeEngine` instance. All panes within a session share this engine.
 
-- Created at `Session.init(allocator, input_method)`, destroyed at `Session.deinit()`.
+**Creation and destruction:**
+
+- Created on session creation: `HangulImeEngine.init(allocator, "direct")` — new sessions default to direct mode.
+- Destroyed on session destruction: `engine.deinit()`.
 - The `ImeEngine` interface (vtable) is defined in `core/`. The concrete `HangulImeEngine` lives in libitshell3-ime (separate library).
 - `MockImeEngine` enables testing all key routing logic without libhangul.
-- On session restore: `HangulImeEngine.init(allocator, saved_input_method)` with the persisted `input_method` string. No composition state is persisted — the engine always starts with empty composition.
+- The zero-pane scenario does not arise — closing the last pane destroys the session.
+
+**On session restore**: `HangulImeEngine.init(allocator, saved_input_method)` with the persisted `input_method` string. No composition state is persisted — the engine always starts with empty composition. See daemon doc 04 §8 for the full session persistence schema.
+
+**Lifecycle event mapping:**
+
+| Event | Engine method | Description |
+|---|---|---|
+| Intra-session pane focus change | `flush()` | Commit composition. Engine stays active. Server routes result to old pane's PTY. |
+| Inter-session tab switch (away) | `deactivate()` | Commit composition + engine-specific cleanup. Engine goes idle. |
+| Inter-session tab switch (to) | `activate()` | Signal engine becoming active. No-op for Korean. |
+| App loses OS focus | `deactivate()` | Same as inter-session switch. |
+| Session close | `deactivate()` then `deinit()` | Clean shutdown. |
+| Pane close (non-last pane) | `engine.reset()` | Discard composition. NOT flush — pane is gone, committing to a dead PTY is pointless. |
+
+**Key distinction — flush vs deactivate:** `flush()` ends the current composition (commits in-progress jamo). `deactivate()` ends the engine's active period entirely. For Korean (v1), the distinction is invisible — `deactivate()` IS `flush()` internally. But the contract is designed for multiple languages. For future engines (e.g., Japanese with candidate window), `deactivate()` may additionally dismiss candidate UI, save user dictionary, and release candidate caches — behavior that would be wasteful and UX-breaking for a lightweight intra-session pane switch where the engine remains active.
+
+**`deactivate()` MUST flush**: All ImeEngine implementations must flush pending composition before returning from `deactivate()`. The returned ImeResult contains the flushed text. Calling `flush()` before `deactivate()` is redundant but harmless (deactivate on empty composition returns empty ImeResult). This prevents a bug class where a future engine forgets to flush in `deactivate()`.
+
+**Active input method preservation**: `active_input_method` persists across `deactivate()`/`activate()` cycles — it is NOT reset to `"direct"`. Users expect that switching tabs and coming back preserves their input mode. The engine's language state is a user preference, not a focus-dependent transient.
+
+**Server-side code pattern:**
+
+```
+// Intra-session pane focus change (A -> B)
+result = session.engine.flush()
+consume(pane_a.pty, result)     // MUST consume before next engine call
+session.focused_pane = pane_b
+
+// Inter-session tab switch (session1 -> session2)
+result = session1.engine.deactivate()
+consume(session1.focused_pane.pty, result)
+session2.engine.activate()
+```
+
+**Source**: [Design Resolutions — Per-Session Engine Architecture](../../libitshell3-ime/02-design-docs/interface-contract/v0.6/design-resolutions-per-tab-engine.md) (Resolutions 1-8).
 
 ### 4.2 Phase 0 -> 1 -> 2 Key Routing
 
@@ -260,28 +299,67 @@ Key input flows through three phases across three modules:
 
 Phase 2 lives in `server/` because it performs I/O (PTY writes) and uses ghostty APIs (`key_encode.encode`). The `input/` module handles Phase 0 and Phase 1 only — pure routing logic that depends solely on `core/` types.
 
+#### Why IME Runs Before Keybindings
+
+The 3-phase pipeline intentionally places IME processing (Phase 1) before ghostty's keybinding system (Phase 2). When the user presses Ctrl+C during Korean composition (preedit = "하"):
+
+1. **Phase 0 (shortcuts)**: Ctrl+C is not a language toggle or global shortcut. Pass through.
+2. **Phase 1 (IME)**: Engine detects Ctrl modifier -> flushes "하" -> returns `{ committed: "하", forward_key: Ctrl+C }`.
+3. **Phase 2 (ghostty)**: Committed text "하" is written to PTY via `write(pty_fd, committed_text)`. Then Ctrl+C is encoded via `key_encode.encode(Ctrl+C)` and written to PTY. If the key matches a daemon shortcut binding, it fires before the PTY write.
+
+This ordering ensures the user's in-progress composition is preserved before any keybinding action. The alternative — letting ghostty process the key first — would lose the preedit because ghostty has no knowledge of IME state.
+
+**Verified by PoC** (`poc/01-ime-key-handling/`): All 10 test scenarios pass — arrows, Ctrl+C, Ctrl+D, Enter, Escape, Tab, backspace jamo-undo, shifted keys, and mixed compose-arrow-compose sequences all work correctly with libhangul.
+
+#### Wire-to-KeyEvent Decomposition
+
+The daemon decomposes the protocol wire modifier bitmask into `KeyEvent` fields before passing to the IME engine. The wire format carries a single packed modifier byte; the daemon splits this into the engine's `shift` field and `modifiers` struct:
+
+| Wire bit | KeyEvent field | Notes |
+|----------|---------------|-------|
+| Bit 0 (Shift) | `KeyEvent.shift` | Separate because Shift participates in jamo selection (ㄱ vs ㄲ), not flush |
+| Bit 1 (Ctrl) | `KeyEvent.modifiers.ctrl` | Triggers composition flush |
+| Bit 2 (Alt) | `KeyEvent.modifiers.alt` | Triggers composition flush |
+| Bit 3 (Super/Cmd) | `KeyEvent.modifiers.super_key` | Triggers composition flush |
+| Bit 4 (CapsLock) | Not consumed by IME | CapsLock as language toggle is detected in Phase 0 |
+| Bit 5 (NumLock) | Not consumed by IME | NumLock does not affect Hangul composition |
+
+See protocol doc 04 Section 2.1 for the full wire modifier format. This decomposition is performed in the `input/` module before calling `engine.processKey()`.
+
 ### 4.3 Eager Activate/Deactivate on Session Focus Change
 
 When the user switches sessions (A -> B):
 
 1. Immediately call `session_a.engine.deactivate()` — flushes any committed text to A's focused pane PTY, clears preedit.
-2. Then call `session_b.engine.activate()` — no-op for Korean.
+2. If committed text returned: write to A's focused pane PTY via `write(pty_fd, committed_text)`.
+3. If preedit changed: set `session_a.current_preedit = null` and mark dirty to clear the overlay.
+4. Then call `session_b.engine.activate()` — no-op for Korean.
 
 The trigger is the **session focus change event itself** (e.g., AttachSessionRequest, daemon-internal session switch), NOT the next KeyEvent.
 
 **Why eager, not lazy**: Lazy deactivation creates deferred routing bugs. Concrete scenario: user composes Korean text in Session A, switches to Session B, closes Session A's pane from B, then types in B. Lazy deactivation would attempt to flush committed text to a pane that no longer exists. Eager deactivation flushes while the pane is still alive.
 
-**Zero cost when not composing**: `deactivate()` on an empty engine returns `ImeResult{}` (all null/false fields). `activate()` is a no-op for Korean.
+**Zero cost when not composing**: `deactivate()` on an empty engine returns `ImeResult{}` (all null/false fields). `activate()` is a no-op for Korean. The path is uniform regardless of composition state.
+
+**Language preservation**: The engine's `active_input_method` is NOT changed by deactivate/activate. Users expect that switching between tabs and coming back preserves their input mode (e.g., still in Korean 2-set). ghostty's Surface has zero language state — the language indicator is derived from the engine by the daemon.
 
 ### 4.4 Intra-Session Pane Focus Change
 
-When the user changes focus between panes within the same session:
+When the user changes focus between panes within the same session, the daemon flushes the engine and routes the result to the old pane before switching focus:
 
-1. `engine.flush()` -> committed text -> write to old pane's PTY
-2. Clear preedit display on old pane
-3. Update `session.focused_pane` to the new pane
+1. `engine.flush()` -> ImeResult with committed text (if composing) or empty (if not).
+2. If `committed_text` present: write UTF-8 to old pane's PTY via `write(pty_fd, committed_text)`.
+3. If `preedit_changed`: set `session.current_preedit = null` and mark dirty to clear the overlay.
+4. Send `PreeditEnd(pane=old, reason="focus_changed")` to all clients (immediate delivery, bypasses coalescing — per protocol doc 05 Section 7.7).
+5. Update `session.focused_pane` to new pane. Subsequent `processKey()` results route to the new pane.
 
-This follows IME contract v0.7 Section 5 (`handleIntraSessionFocusChange`).
+**Edge case — engine already empty**: `flush()` returns `ImeResult{}` (all null/false). The daemon skips ghostty calls. The code path is uniform regardless of composition state.
+
+**Key invariant**: The daemon MUST consume the `ImeResult` (process committed text and update preedit) before making any subsequent call to the same engine instance. The engine's internal buffers are overwritten by the next mutating call (see §4.6).
+
+**No composition restoration**: When focus returns to a previously-focused pane, the engine starts with empty composition. libhangul has no snapshot/restore API, and users don't expect to resume mid-syllable after switching panes. This matches ibus-hangul and fcitx5-hangul, which both flush on focus-out with no restoration on focus-in.
+
+**Source**: [Design Resolutions — Per-Session Engine](../../libitshell3-ime/02-design-docs/interface-contract/v0.6/design-resolutions-per-tab-engine.md) (Resolution 2).
 
 ### 4.5 No Per-Pane Locks
 
@@ -289,7 +367,7 @@ The single-threaded kqueue event loop (see internal architecture doc, Resolution
 
 ### 4.6 Critical Runtime Invariant
 
-`ImeResult` MUST be consumed (PTY write + preedit update) before the next engine call. The engine's internal buffers are invalidated on the next mutating call (IME contract v0.7 Section 6). This invariant is naturally satisfied by the single-threaded event loop — each key event is fully processed before the next one is dequeued.
+`ImeResult` MUST be consumed (PTY write + preedit update) before the next engine call. The engine's internal buffers are invalidated on the next mutating call (IME contract v0.8 Section 6). This invariant is naturally satisfied by the single-threaded event loop — each key event is fully processed before the next one is dequeued.
 
 ### 4.7 End-to-End Key Input Data Flow
 
@@ -366,6 +444,38 @@ sequenceDiagram
     S->>P: write(pty_fd, mouse escape sequence)
 ```
 
+### 4.9 Daemon-Side Responsibility Matrix
+
+The daemon (libitshell3) and the IME engine (libitshell3-ime) have clearly separated responsibilities. The engine is a pure composition state machine; the daemon owns routing, lifecycle, I/O, and ghostty integration.
+
+| Responsibility | Owner | Rationale |
+|---|---|---|
+| **Routing & Lifecycle** | | |
+| Per-session ImeEngine lifecycle (create/destroy) | **daemon** | Creates one engine per session, destroys on session close. |
+| activate/deactivate on session-level focus change | **daemon** | Calls `deactivate()` when session loses focus, `activate()` when it gains focus. |
+| flush() on intra-session pane focus change | **daemon** | Commits composition to old pane before switching focus. |
+| Routing ImeResult to the correct pane's PTY | **daemon** | Tracks `focused_pane` and directs ImeResult accordingly. Engine is pane-agnostic. |
+| New pane inheriting active input method | **daemon** | Automatic — the shared engine already has the correct state. No engine call needed. |
+| Language toggle key detection | **daemon** | Configurable keybinding (한/영, Right Alt, Caps Lock). Not an IME concern. |
+| Active input method switching | **daemon** | Calls `setActiveInputMethod(input_method)` when user toggles. |
+| **I/O & ghostty Integration** | | |
+| HID keycode -> platform-native keycode mapping | **daemon** | ghostty's key encoder uses platform-native keycodes. IME-independent. |
+| Writing committed/forwarded text to PTY (`write(pty_fd, ...)`) | **daemon** | Translates ImeResult into PTY writes. Committed text: `write(pty_fd, committed_text)`. Forwarded keys: `key_encode.encode()` + `write(pty_fd, encoded)`. |
+| Updating preedit overlay state (`session.current_preedit`) | **daemon** | Sets `session.current_preedit = preedit_text` and marks dirty. `overlayPreedit()` applies it at next frame export. |
+| Explicit preedit clearing (`session.current_preedit = null`) | **daemon** | Daemon sets null and marks dirty — overlay is cleared at next frame export. |
+| Terminal escape sequence encoding | **daemon** (via ghostty `key_encode`) | ghostty's KeyEncoder runs daemon-side. |
+| PTY writes | **daemon** | Daemon owns PTY master FDs and performs all writes. |
+| **Protocol & Client Communication** | | |
+| Wire-to-KeyEvent decomposition | **daemon** | Decomposes protocol modifier bitmask into `KeyEvent.shift` and `KeyEvent.modifiers`. |
+| Sending preedit/render state to remote client | **daemon** | Part of the FrameUpdate protocol. |
+| Language indicator in FrameUpdate metadata | **daemon** | Derived from `active_input_method` string. ghostty has no language state. |
+| Composing-capable check | **daemon** | `"direct" = no`, anything else = yes. Runtime: `engine.isEmpty()`. |
+| `display_width` / UAX #11 character width computation | **daemon** | East Asian Width property lookup for CellData encoding. IME has no width knowledge. |
+| **Pane Close Handling** | | |
+| Preedit on pane close | **daemon** | Calls `engine.reset()` (discard, NOT flush) — see daemon doc 04 §7. |
+
+For the IME engine's own responsibilities (HID->ASCII mapping, jamo composition, modifier flush decisions, UCS-4->UTF-8 conversion), see IME contract v0.8 Section 4 (Responsibility Matrix).
+
 ---
 
 ## 5. C API Surface Design
@@ -377,6 +487,8 @@ sequenceDiagram
 - `libitshell3-protocol` exports a C API header for the codec and framing layers (Swift client interop). This is a protocol library concern, separate from the daemon library.
 
 The daemon has exactly one consumer (itself). Exporting a C API adds maintenance burden (header generation, ABI stability) for zero benefit. If a use case appears, the API can be added then.
+
+**libitshell3-ime has no public C header.** libitshell3-ime is an internal dependency of libitshell3. It is statically linked into the libitshell3 binary. Its types (`KeyEvent`, `ImeResult`, `ImeEngine`) are internal — clients never see them. Clients send raw HID keycodes over the wire protocol and receive preedit via FrameUpdate cell data. Exposing a separate `itshell3_ime.h` would create two public APIs to maintain with zero consumers.
 
 ---
 
@@ -401,5 +513,6 @@ The daemon has exactly one consumer (itself). Exporting a C API adds maintenance
 | zellij `IpcStream` | Shared Read + Write interface for Unix socket IPC (Connection pattern) |
 | fcitx5 InputMethodEngine | Single `processKey` interface for all languages (IME routing) |
 | ibus-hangul | Modifier flush pattern (IME activate/deactivate) |
-| IME contract v0.7 | Per-session ImeEngine, Phase 0-1-2 routing, vtable design |
-| Protocol spec v0.9 | Wire format, handshake, session management |
+| IME contract v0.8 | Per-session ImeEngine, Phase 0-1-2 routing, vtable design |
+| IME design resolutions (per-session engine) | Lifecycle event mapping, flush vs deactivate, pane-agnosticism (R1-R8) |
+| Protocol spec v0.10 | Wire format, handshake, session management, modifier bitmask |

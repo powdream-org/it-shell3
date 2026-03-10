@@ -1,10 +1,11 @@
 # Daemon Lifecycle and Client Connections
 
-**Version**: v0.2
+**Version**: v0.3
 **Status**: Draft
-**Scope**: Daemon startup/shutdown sequences, client connection lifecycle, ring buffer delivery model
+**Scope**: Daemon startup/shutdown sequences, client connection lifecycle, ring buffer delivery model, auto-start, crash recovery, reconnection, version conflict handling
 **Source resolutions**: R8 (Daemon Lifecycle), R9 (Client Connection Lifecycle)
 **Cross-references**: R5 (Protocol Boundary / Transport Layer), R2 (Event Loop Model), R6 (IME Integration)
+**v0.3 changes**: Absorbed P1 (auto-start), P2 (crash recovery FD passing), P6 (reconnection procedure), P9 (ring buffer sizing/keyframe), A1 (local version conflict), A2 (remote version conflict) from protocol and AGENTS.md per daemon v0.3 cross-team revision
 
 ---
 
@@ -152,6 +153,38 @@ The event loop is single-threaded (Resolution 2). All state mutations — key in
 
 All fatal failures exit with a non-zero status code and a descriptive log message. There is no partial startup — either all 7 steps succeed or the daemon does not enter the event loop.
 
+### 1.3 Client-Initiated Daemon Auto-Start
+
+If no daemon is running, the client is responsible for starting one. The auto-start mechanism depends on the environment:
+
+| Environment | Mechanism | Details |
+|-------------|-----------|---------|
+| **macOS (local)** | LaunchAgent socket activation | Client writes plist and calls `launchctl load`. See Section 6 for LaunchAgent integration. |
+| **Linux / Fallback** | Fork+exec | Client forks `itshell3-daemon --foreground`, waits up to 5s for socket to appear, then connects. |
+| **Remote (SSH)** | SSH fork+exec | Client runs `ssh user@host "itshell3-daemon --foreground --server-id=<id>"`. See Section 7. |
+| **iOS** | In-process | Daemon embedded in app process (no separate daemon). |
+
+**Client connect-or-start flow:**
+
+```
+connect(socket_path)
+  |
+  +-- Success -> handshake -> operate
+  |
+  +-- ECONNREFUSED -> stale socket
+  |     unlink(socket_path)
+  |     start daemon (LaunchAgent or fork+exec)
+  |     retry connect with backoff
+  |
+  +-- ENOENT -> no socket file
+        start daemon (LaunchAgent or fork+exec)
+        retry connect with backoff
+```
+
+**Reconnection backoff after daemon crash or restart:** Exponential backoff with jitter: 100ms, 200ms, 400ms, ..., max 10s. After 5 consecutive failed connection attempts, the client reports the failure to the user (e.g., dialog or status bar notification). The client distinguishes clean exit (socket file removed by graceful shutdown) from crash (stale socket file still present).
+
+The backoff applies only to the client's connect retry loop, not to the daemon itself. The daemon does not implement any retry logic — it either starts successfully (Section 1.1) or exits with an error (Section 1.2).
+
 ---
 
 ## 2. Daemon Shutdown
@@ -256,6 +289,21 @@ If the daemon crashes or is killed with SIGKILL, the graceful shutdown sequence 
 | Terminal state | Lost (in-memory only) | Session persistence (Phase 4) will save/restore terminal content |
 
 The key insight: Unix process cleanup guarantees (kernel closes all FDs, PTY slaves get EIO) mean that crash recovery requires no special daemon code. The only artifact is the stale socket file, which is handled by the transport layer's stale socket detection.
+
+### 2.3 PTY FD Passing for Crash Recovery
+
+Unix domain sockets support file descriptor passing via `sendmsg(2)` with `SCM_RIGHTS` ancillary data. This enables an optional crash recovery optimization: a surviving daemon can pass PTY master FDs to a reconnecting client (or a new daemon process inheriting the session).
+
+| Aspect | Detail |
+|--------|--------|
+| Mechanism | `sendmsg(2)` / `recvmsg(2)` with `SCM_RIGHTS` control message |
+| Scope | Unix socket only — not available over SSH tunnels |
+| Use case | Passing PTY master FDs from a daemon to a client for direct PTY access (single-client fast path) |
+| Status | Optional optimization — the protocol works without it |
+
+**Limitations:**
+- FD passing requires both processes to be on the same host. SSH-tunneled connections cannot use `SCM_RIGHTS` because `sshd` intermediates the Unix socket connection.
+- In v1, the primary crash recovery mechanism is the standard reconnection flow (Section 4.6) with full I-frame state resync. FD passing is reserved for future optimization (e.g., zero-copy PTY relay in single-client mode).
 
 ---
 
@@ -461,6 +509,29 @@ All attached clients can send input. There is no primary/secondary distinction:
 
 Readonly attachment is a client-requested mode (per protocol doc 03 Section 9). The daemon enforces it by discarding input messages from clients that requested readonly mode. This is NOT server-enforced based on connection order.
 
+### 4.6 Reconnection Procedure
+
+When a client reconnects to a running daemon (after disconnect, crash, or daemon restart), the reconnection follows the standard handshake flow. There is no incremental reconnection protocol — no "replay from sequence N."
+
+**Reconnection sequence:**
+
+```
+1. Client establishes new Unix socket connection
+2. Normal ClientHello / ServerHello handshake
+   -> client receives new client_id (monotonic, never reused)
+3. Client sends ListSessionsRequest to discover available sessions
+4. Client sends ClientDisplayInfo with terminal dimensions
+5. Client sends AttachSessionRequest for desired session
+6. Server responds with AttachSessionResponse
+   (includes active_input_method, active_keyboard_layout)
+   + I-frame per visible pane (full screen state)
+7. Client is fully resynchronized
+```
+
+**Why no incremental replay:** Every reconnection is a full state resync via I-frame from the shared ring buffer (Section 5). The full state for a typical terminal (120x40) is under 35 KB — small enough that full resync is simpler and more reliable than maintaining per-client sequence watermarks across disconnections. If reconnection latency becomes a problem, incremental replay can be added later.
+
+**Reconnection is client-driven:** The daemon has no reconnection logic. It simply accepts connections, performs handshake, and serves sessions. Whether a connection is a first-time connect or a reconnection is indistinguishable from the daemon's perspective — every connection starts fresh with a new `client_id`, new `MessageReader`, and new `ring_cursors`.
+
 ---
 
 ## 5. Ring Buffer Delivery Model
@@ -483,9 +554,28 @@ Ring Buffer (per pane, in server/)
 ```
 
 - **I-frame** (keyframe): Complete screen state. Self-contained — a client can render from an I-frame alone without any prior frames.
-- **P-frame** (delta): Only changed rows since the last frame. Smaller than I-frames but requires the preceding I-frame as a base.
+- **P-frame** (delta): Only changed rows since the last frame (cumulative dirty rows since last I-frame). Smaller than I-frames but requires the preceding I-frame as a base.
 
 Frame data is serialized once per pane per coalescing interval, regardless of how many clients are attached. This eliminates O(N) serialization cost for multi-client delivery.
+
+**Ring buffer parameters:**
+
+| Parameter | Default | Configurable | Description |
+|-----------|---------|-------------|-------------|
+| Ring size | 2 MB per pane | Server config (not protocol-negotiated) | Total ring buffer capacity |
+| Keyframe interval | 1 second | Server config (0.5-5 seconds) | How often the server writes an I-frame to the ring |
+
+**Sizing analysis** (120x40 CJK worst case, 1s keyframe interval, 60fps Active tier):
+
+| Component | Size |
+|-----------|------|
+| I-frame (120x40, 16-byte FlatCells) | ~77 KB |
+| P-frame (typical 5 dirty rows) | ~10 KB |
+| 1 second of Active tier (60 P-frames + 1 I-frame) | ~677 KB |
+
+2 MB covers typical interactive use with headroom. For sustained heavy output (e.g., full-screen rewrite at maximum rate), the ring wraps and slow clients skip to the latest I-frame — this is the correct recovery behavior (Section 5.5).
+
+**Ring invariant:** The ring MUST always contain at least one complete I-frame for each pane. When the ring write head is about to overwrite the only remaining I-frame, the server MUST write a new I-frame before the overwrite proceeds. This ensures any client seeking to the latest I-frame (recovery, attach, ContinuePane) always finds one.
 
 ### 5.2 Per-Client Cursors
 
@@ -605,9 +695,28 @@ The client application (it-shell3.app) is responsible for:
 
 1. Writing the plist to `~/Library/LaunchAgents/com.powdream.itshell3.daemon.plist`
 2. Running `launchctl load` (or `launchctl bootstrap`) to register the agent
-3. On app update: comparing `server_version` — if the bundled daemon binary is newer, `launchctl unload` + `kill` + `launchctl load` to restart with the new binary.
+3. On app update: handling version conflicts (see Section 6.4)
 
 This is client-side logic, not daemon logic. The daemon binary is the same regardless of how it was started.
+
+### 6.4 Local Version Conflict Handling
+
+When the client connects to a running daemon, it receives `server_version` in the ServerHello handshake message. If this version differs from the client's bundled daemon binary version, the client initiates a daemon restart:
+
+```
+1. Client receives ServerHello with server_version
+2. Compare server_version with bundled binary version
+3. If mismatch:
+   a. launchctl unload com.powdream.itshell3.daemon.plist
+   b. kill(daemon_pid, SIGTERM)   // graceful shutdown
+   c. Wait for socket to become unavailable (poll with timeout)
+   d. launchctl load with updated plist pointing to new binary
+   e. Reconnect via standard handshake flow (Section 4.6)
+```
+
+**Rationale:** The daemon binary is bundled inside the client app. When the user updates the app (via DMG or Homebrew), the bundled daemon binary changes but the running daemon is still the old version. The client detects this at handshake and forces an upgrade. This is the same pattern used by tmux — the client and server must be the same version.
+
+**The daemon has no version conflict logic.** It simply responds to handshake messages and serves clients. Version conflict detection and resolution are entirely client-side. The daemon is passive — it does not compare its own version against anything.
 
 ---
 
@@ -628,7 +737,26 @@ Remote daemon auto-start:
 
 The `--foreground` flag skips LaunchAgent registration (not applicable on remote hosts). The daemon runs the same startup sequence (Section 1.1), enters the same event loop, and is indistinguishable from a locally started daemon. No daemon code changes are needed — only the auto-start mechanism (client-side SSH command) differs.
 
-Protocol compatibility is ensured via `protocol_version` min/max negotiation during handshake. If the remote daemon's protocol version is incompatible with the client, the client exits with an error message rather than attempting degraded operation.
+### 7.1 Remote Version Conflict Handling
+
+Unlike local connections where the client can kill and restart the daemon (Section 6.4), remote daemons cannot be trivially replaced — the user may have installed a different version of the daemon on the remote host, or may not have permission to upgrade it.
+
+Version compatibility for remote connections uses `protocol_version` min/max negotiation during the handshake:
+
+```
+ClientHello:
+  protocol_version_min: u16  // oldest protocol version this client supports
+  protocol_version_max: u16  // newest protocol version this client supports
+
+ServerHello:
+  protocol_version: u16      // protocol version the server selected
+```
+
+The server selects a protocol version within the client's declared range. If the server's own version range does not overlap with the client's, the server sends a Disconnect message with `reason="version_mismatch"` and closes the connection.
+
+**Client behavior on incompatibility:** The client exits with a descriptive error message (e.g., "Remote daemon protocol version 3 is not compatible with this client (requires 5-7). Please update the remote daemon."). The client does NOT attempt degraded operation — partial protocol compatibility would lead to subtle bugs.
+
+**Why not kill+restart for remote?** The client does not own the remote daemon. The daemon may serve other users or sessions. Killing it would disrupt those sessions. The client can only negotiate at the protocol level.
 
 ---
 

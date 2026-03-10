@@ -1,9 +1,9 @@
 # Protocol Overview and Message Framing
 
-**Status**: Draft v0.8
-**Date**: 2026-03-07
+**Status**: Draft v0.11
+**Date**: 2026-03-10
 **Scope**: libitshell3 server-client wire protocol — transport, framing, message types, lifecycle, error handling
-**Changes from v0.7**: Preedit overhaul — preedit is cell data in I/P-frames, not metadata; removed dual-channel design, preedit bypass, and FrameUpdate preedit JSON section; frame_type renumbered to 3 values (see Changelog)
+**Changes from v0.10**: Cross-team revision with daemon v0.3 — removed daemon behavioral descriptions (auto-start procedure, FD passing, heartbeat initiation policy, health escalation timeline, connection limits, resize algorithm internals, coalescing tiers/timing, auth syscalls/permissions). Protocol docs now focus on wire format, message definitions, and error codes. Daemon-internal behavior is defined in daemon design docs.
 
 ---
 
@@ -66,13 +66,7 @@
 
 The `<server-id>` is a short identifier (default: `default`) allowing multiple daemon instances.
 
-**Daemon auto-start:** If the client cannot connect to the daemon socket (`ECONNREFUSED` or `ENOENT`), the client MAY auto-start the daemon process. Auto-start behavior is implementation-defined (e.g., launchd socket activation on macOS, fork/exec on Linux). If a stale socket file exists (`ECONNREFUSED`), the client SHOULD unlink it before attempting auto-start.
-
-- **macOS primary**: launchd socket activation (`com.itshell3.daemon.plist` with `KeepAlive`). Daemon starts automatically on socket connection.
-- **Fallback**: Client fork/exec of daemon binary (like tmux). Check socket → if absent, fork `itshell3d` → wait up to 5s → retry.
-- **iOS**: Daemon embedded in app process (no separate daemon).
-
-**Reconnection after daemon crash:** Exponential backoff with jitter: 100ms, 200ms, 400ms, ..., max 10s. After 5 failed attempts, report to user. Client distinguishes clean exit (socket removed) vs crash (stale socket present).
+**Daemon auto-start:** If the client cannot connect to the daemon socket (`ECONNREFUSED` or `ENOENT`), the client MAY auto-start the daemon process. Daemon lifecycle management (auto-start, restart, stale socket cleanup, reconnection backoff) is defined in daemon design docs.
 
 ### 2.2 Remote Transport: SSH Tunneling (Phase 5)
 
@@ -96,15 +90,6 @@ The daemon only ever sees Unix socket connections. The protocol is truly transpo
 **Security trust model:** When a client connects through an SSH tunnel, `getpeereid()` returns sshd's UID. The daemon accepts this because SSH has already authenticated the user at the transport layer. The trust chain is: SSH authentication → sshd process → Unix socket → daemon. The daemon trusts sshd's UID as a proxy for the authenticated remote user's identity.
 
 **Design decision:** Custom TCP+TLS was considered and rejected. SSH tunneling reuses mature authentication infrastructure (keys, agent forwarding, 2FA), eliminates mTLS certificate management, removes the need for a custom port and firewall configuration, and provides compression at the transport layer. Neither tmux nor zellij implements a custom network transport — both rely on SSH for remote access. The protocol benefits from a single Unix socket transport implementation.
-
-### 2.3 FD Passing (Unix Socket Only)
-
-Unix domain sockets support file descriptor passing via `sendmsg(2)` / `SCM_RIGHTS`. This is used for:
-
-- **Crash recovery**: Passing PTY master FDs from a surviving daemon to a reconnecting client
-- **Direct PTY access**: Optional fast path where the client can read/write the PTY FD directly (bypasses the daemon for raw throughput, used only in single-client mode)
-
-FD passing is an optional optimization. The protocol works without it (essential for SSH tunnel transport where FD passing is not available).
 
 ---
 
@@ -559,7 +544,7 @@ See doc 06 for detailed message specifications. All messages in this range use J
 
 - **Heartbeat interval**: 30 seconds (configurable)
 - **Heartbeat timeout**: 90 seconds (3 missed heartbeats)
-- **Direction**: Bidirectional. Either side MAY send `Heartbeat` if no other messages have been sent within the heartbeat interval. The receiver responds with `HeartbeatAck`. In the typical case, the server initiates heartbeats; a client MAY also send heartbeats to detect server unresponsiveness.
+- **Direction**: Bidirectional. Either side MAY send `Heartbeat` if no other messages have been sent within the heartbeat interval. The receiver responds with `HeartbeatAck`. Heartbeat initiation policy is defined in daemon design docs.
 - If no message (of any kind) is received within the timeout, the connection is considered dead
 
 Over Unix sockets, heartbeats are a secondary safety net; the kernel detects peer process death via `EPIPE` / `SIGPIPE` much faster. Over SSH tunnels, heartbeats are complementary to SSH's own `ServerAliveInterval` keepalive.
@@ -638,13 +623,13 @@ Each SSH channel acts as an independent socket connection from the daemon's pers
 
 #### 5.5.3 Connection Limits
 
-No protocol-level limit on simultaneous connections. The daemon MAY impose implementation-level limits and SHOULD support at least 256 concurrent connections. If a connection limit is reached, the daemon rejects `CreateSessionRequest` with `ERR_RESOURCE_EXHAUSTED`.
+No protocol-level limit on simultaneous connections. If the server cannot accommodate a client due to resource limits, it responds with `ERR_RESOURCE_EXHAUSTED`. The specific lifecycle stage at which this occurs is defined in daemon design docs. Connection limit policy is defined in daemon design docs.
 
 #### 5.5.4 Handshake Overhead
 
 Each connection requires a full ClientHello/ServerHello exchange. This is a single JSON round-trip (~200 bytes each way) over a local Unix socket — sub-millisecond latency. Even 10 tabs opening simultaneously produce ~10ms of total handshake overhead. Over SSH, the protocol handshake RTT is negligible compared to SSH connection establishment (key exchange, authentication). No lightweight "additional connection" handshake optimization is needed for v1.
 
-**Implementation note**: The daemon SHOULD raise `RLIMIT_NOFILE` at startup. Each connection consumes one fd; each pane consumes one fd (PTY master). A typical multi-tab deployment (50 sessions, 5 panes each) requires approximately 300 file descriptors. The macOS default soft limit (256) is insufficient and should be raised to the hard limit or a reasonable cap (e.g., 8192).
+**Implementation note**: File descriptor management and resource limits are defined in daemon design docs.
 
 #### 5.5.5 Precedent: tmux
 
@@ -652,22 +637,11 @@ tmux uses the same one-connection-per-session pattern. Each `tmux attach` proces
 
 ### 5.6 Multi-Client Resize Policy
 
-When multiple clients attach to the same session, the server must determine the effective terminal size for the session's pane tree.
-
-**Resize policies** (server configuration, reported in `AttachSessionResponse`):
-
-| Policy | Algorithm | Default |
-|--------|-----------|---------|
-| `latest` | PTY dimensions = most recently active client's reported size | **Yes** (matches tmux 3.1+ default) |
-| `smallest` | PTY dimensions = `min(cols)` x `min(rows)` across all eligible clients | Opt-in |
-
-Under the `latest` policy, the most recently active client is tracked per session via `latest_client_id`, updated on `KeyEvent` and `WindowResize` (not `HeartbeatAck`). When the latest client detaches or becomes stale, the server falls back to the next most-recently-active healthy client.
+When multiple clients attach to the same session, the server must determine the effective terminal size for the session's pane tree. The active resize policy is communicated via `AttachSessionResponse` and applied through `WindowResizeRequest`/`WindowResizeResponse` messages (see doc 03 Section 5).
 
 Clients with smaller dimensions than the effective size MUST clip to their own viewport (top-left origin), matching tmux `latest` policy behavior. Per-client viewports (scroll to see clipped areas) are deferred to v2.
 
-Resize is debounced at 250ms per pane to prevent SIGWINCH storms during rapid resize drags.
-
-See doc 03 Section 5 for the full resize algorithm, stale client exclusion, and re-inclusion hysteresis.
+Resize policy selection, internal tracking (e.g., latest vs smallest algorithm), debounce, stale client exclusion, and re-inclusion hysteresis are defined in daemon design docs.
 
 ### 5.7 Client Health Model
 
@@ -680,17 +654,7 @@ The protocol defines two health states orthogonal to connection lifecycle:
 
 `paused` (PausePane active) is an orthogonal flow-control state, not a health state. A paused client remains `healthy` until the stale timeout fires.
 
-**PausePane health escalation timeline:**
-
-```
-T=0s:    PausePane. Client still healthy. Still participates in resize.
-T=5s:    Resize exclusion. Server recalculates effective size without this client.
-T=60s:   Stale transition (local transport). ClientHealthChanged (0x0185) sent to peers.
-T=120s:  Stale transition (SSH tunnel transport).
-T=300s:  Eviction. Server sends Disconnect("stale_client") and tears down connection.
-```
-
-Health state transitions are communicated via `ClientHealthChanged` (0x0185) notifications, sent to all peer clients attached to the same session. See doc 06 Section 2 for full escalation details, timeout configuration, and the stale recovery procedure.
+Server MAY send `Disconnect` with reason `stale_client` to evict unresponsive clients. Health state transitions are communicated via `ClientHealthChanged` (0x0185) notifications, sent to all peer clients attached to the same session. Health escalation timeline, timeout values, and the stale recovery procedure are defined in daemon design docs. See doc 06 Section 2 for wire message definitions.
 
 ### 5.8 I/P-Frame Model and Shared Ring Buffer
 
@@ -886,53 +850,17 @@ This overhead is negligible on Unix socket (>1 GB/s capacity) and acceptable on 
 
 ---
 
-## 10. Adaptive Coalescing Model
+## 10. FrameUpdate Delivery Model
 
-The server uses a 4-tier adaptive cadence model for FrameUpdate delivery, informed by iTerm2's adaptive cadence and ghostty's event-driven approach.
+FrameUpdates are not sent at a fixed rate. The server sends them in response to terminal state changes (PTY output, preedit state changes, resize events). The server uses adaptive coalescing to batch rapid state changes into fewer FrameUpdates, balancing latency and throughput.
 
-### 10.1 Coalescing Tiers
+**Wire-observable properties:**
 
-| Tier | Condition | Frame interval | Notes |
-|------|-----------|----------------|-------|
-| **Preedit** | Active composition + keystroke | Immediate (0ms) | Server writes frame to ring immediately; ~110B/frame = negligible cost |
-| **Interactive** | PTY output <1KB/s + recent keystroke | Immediate (0ms) | First frame after idle sends immediately |
-| **Active** | PTY 1-100 KB/s | 16ms (display Hz) | Matches client display refresh rate |
-| **Bulk** | PTY >100KB/s sustained 500ms | 33ms | Reduced rate during heavy throughput |
-| **Idle** | No output 500ms | No frames sent | Server sends nothing until next PTY event |
+- **Per-(client, pane) delivery**: Each pane's FrameUpdate stream is independent.
+- **Preedit state changes are delivered with minimal latency.** The server prioritizes preedit FrameUpdates over bulk output.
+- **Client hints**: `ClientDisplayInfo` provides `display_refresh_hz`, `power_state`, `preferred_max_fps`, `transport_type`, `estimated_rtt_ms`, `bandwidth_hint` for server-side adaptation.
 
-### 10.2 Tier Transitions
-
-| Transition | Threshold | Hysteresis |
-|-----------|-----------|------------|
-| Idle -> Interactive | KeyEvent + PTY output within 5ms | None |
-| Idle -> Active | PTY output without recent keystroke | None |
-| Active -> Bulk | >100KB/s for 500ms | Drop back at <50KB/s for 1s |
-| Active -> Idle | No output for 500ms | None |
-| Any -> Preedit | Preedit state changed | 200ms timeout back to previous |
-
-### 10.3 Design Properties
-
-- **Per-(client, pane) cadence**: One pane can be at Bulk tier while another is at Preedit tier
-- **Preedit tier is immediate**: On preedit state change, the server writes a frame to the ring buffer immediately (0ms coalescing). Preedit bypasses power throttling but goes through the ring like all other frames — there are no bypass paths.
-- **"Immediate first, batch rest"**: First frame after idle sends immediately, then coalesces
-- **Smooth degradation before PausePane**: Ring cursor lag -> auto-downgrade tier -> PausePane as advisory signal (ring writes unconditionally)
-- **Client hints**: `ClientDisplayInfo` provides `display_refresh_hz`, `power_state`, `preferred_max_fps`, `transport_type`, `estimated_rtt_ms`, `bandwidth_hint` for server-side adaptation
-- **iOS power**: Auto-reduce fps when client reports battery (cap Active@20fps, Bulk@10fps)
-
-**Preedit latency requirement:** Preedit FrameUpdates MUST be flushed immediately with no server-side coalescing delay. Over Unix domain socket, the server MUST deliver the FrameUpdate to the transport layer within 33ms of receiving the triggering KeyEvent. Over SSH tunnel or other network transport, the server adds no additional delay; end-to-end latency is dominated by network RTT.
-
-For remote clients over SSH with 50-100ms RTT, user-perceived preedit latency will be approximately equal to the round-trip time. Client-side composition prediction is a potential mitigation deferred to a future version.
-
-### 10.4 WAN Coalescing Adaptation
-
-When `ClientDisplayInfo.transport_type` is `"ssh_tunnel"`, the server adjusts coalescing tiers based on `bandwidth_hint`:
-
-| Tier | Local | SSH Tunnel (WAN) |
-|------|-------|------------------|
-| Preedit | Immediate (0ms) | Immediate (0ms) — never throttled |
-| Interactive | Immediate (0ms) | Immediate (0ms) |
-| Active | 16ms (60fps) | 33ms (30fps) |
-| Bulk | 33ms (30fps) | 66ms (15fps) |
+Coalescing tier definitions, timing values, tier transitions, WAN adaptation rules, and power state throttling are defined in daemon design docs.
 
 ---
 
@@ -1020,13 +948,9 @@ fn readMessage(stream) -> Message:
 
 ### 12.1 Unix Socket Authentication
 
-On Unix domain sockets, the server authenticates clients by:
+Unix socket connections are authenticated by kernel-level UID verification. Only connections from the same UID as the daemon process are accepted. No additional authentication is needed for Unix socket transport because the OS kernel guarantees the peer identity.
 
-1. **Kernel-level UID check**: `getpeereid()` (macOS) or `SO_PEERCRED` (Linux) provides the peer's UID. Only connections from the same UID as the daemon are accepted.
-2. **Socket file permissions**: `0600` (owner-only read/write). Prevents non-owner access at the filesystem level.
-3. **Directory permissions**: `0700` on the socket directory.
-
-No additional authentication is needed for Unix socket transport because the OS kernel guarantees the peer identity.
+Authentication implementation details (syscall selection, socket file permissions, directory permissions) are defined in daemon design docs.
 
 ### 12.2 SSH Tunnel Authentication
 
@@ -1050,6 +974,16 @@ This approach avoids the security audit risk of a custom mTLS/SRP implementation
 ---
 
 ## Changelog
+
+### v0.11 (2026-03-10)
+
+- **Cross-team revision with daemon v0.3**: Extracted daemon behavioral descriptions from all 6 protocol docs. Protocol docs now focus on wire format, message definitions, and error codes. Daemon-internal behavior (process lifecycle, IME engine lifecycle, health escalation, coalescing policies, ring buffer architecture, resize algorithms) is defined in daemon design docs.
+- **doc 01**: Removed auto-start procedure (P1), FD passing section (P2), heartbeat initiation policy (P19), health escalation timeline (P7), connection limit number (P3), resize algorithm internals (P4), coalescing tiers/timing/WAN adaptation (P10), auth syscalls/permissions (P5).
+- **doc 02**: Removed preedit ownership algorithm (P11), multi-client resize algorithm and hysteresis (P4), reconnection step-by-step procedure (P6), auth implementation details (P5).
+- **doc 03**: Removed SIGHUP/PTY cleanup details from pane close (P14), preedit flush-to-PTY from focus change (P12), TIOCSWINSZ/debounce from resize (P14), stale exclusion/hysteresis details, IME engine lifecycle from input method state (P17).
+- **doc 04**: Removed PTY independence guarantee from frame suppression (P15), coalescing details (P10).
+- **doc 05**: Removed preedit ownership model/algorithm/sequence diagram (P11), PTY commit details from screen switch and focus change (P12), coalescing tier table/thresholds/latency targets (P10).
+- **doc 06**: Removed ring buffer architecture/sizing/implementation (P7/P8/P9), health escalation timeline/stale triggers/smooth degradation, coalescing tier definitions/WAN adjustments/power throttling, IME engine reconstruction from session restore (P17). Added daemon-side note to notification defaults (P18).
 
 ### v0.8 (2026-03-07)
 

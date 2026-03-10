@@ -1,8 +1,8 @@
 # 03 - Session and Pane Management Protocol
 
-**Version**: v0.8
+**Version**: v0.11
 **Status**: Draft
-**Date**: 2026-03-05
+**Date**: 2026-03-10
 **Author**: systems-engineer (AI-assisted)
 
 ## Overview
@@ -263,7 +263,7 @@ When a client receives a forced DetachSessionResponse (any reason other than `"c
 
 ### 1.9 DestroySessionRequest (0x0108)
 
-Destroys a session. All panes are closed (shells receive SIGHUP), all PTYs are freed.
+Destroys a session. All panes are closed and all PTYs are freed. PTY cleanup details (signal handling, resource teardown) are defined in daemon design docs.
 
 ```json
 {
@@ -456,7 +456,7 @@ On failure, the response contains only `status` and `error`:
 
 ### 2.5 ClosePaneRequest (0x0144)
 
-Closes a pane. Its shell receives SIGHUP. In the layout tree, the parent split node is replaced by the sibling pane.
+Closes a pane. In the layout tree, the parent split node is replaced by the sibling pane. PTY cleanup details (signal handling, layout reflow) are defined in daemon design docs.
 
 ```json
 {
@@ -468,7 +468,7 @@ Closes a pane. Its shell receives SIGHUP. In the layout tree, the parent split n
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `force` | boolean | true = SIGKILL if SIGHUP does not terminate within timeout |
+| `force` | boolean | true = force-kill if graceful termination does not complete within timeout |
 
 ### 2.6 ClosePaneResponse (0x0145)
 
@@ -499,7 +499,7 @@ Sets the focused (active) pane within the session.
 }
 ```
 
-**Preedit interaction**: If the currently focused pane has an active preedit composition, the server MUST flush (commit) the current preedit to the PTY and send `PreeditEnd` with `reason: "focus_changed"` to all attached clients **before** processing the focus change. This is an intra-session pane focus change — the per-session IME engine is shared, so the jamo buffer must be flushed before the engine context shifts to the new pane. See doc 05 Section 7.7 for the full race condition analysis.
+**Preedit interaction**: FocusPaneRequest may trigger `PreeditEnd` with `reason: "focus_changed"` to all attached clients before processing the focus change. Preedit flush-to-PTY details are defined in daemon design docs. See doc 05 Section 7.7 for the PreeditEnd reason enum.
 
 ### 2.8 FocusPaneResponse (0x0147)
 
@@ -931,69 +931,25 @@ The server tracks `latest_client_id` per session, updated on:
 
 When the latest client detaches or becomes stale, the server falls back to the next most-recently-active healthy client. If no client has any recorded activity, fall back to the client with the largest terminal dimensions.
 
-### 5.4 Resize Algorithm
+### 5.4 Resize Wire Behavior
 
-```
-On WindowResize or KeyEvent from client C:
-  1. Update the sending client's recorded dimensions (if WindowResize).
-  2. Update latest_client_id if C is now the most recent.
+When the server determines the effective terminal size has changed, it:
 
-  3. Compute effective size based on active policy:
-     - latest:   effective = dimensions of latest_client_id (excluding stale clients)
-     - smallest: effective = min(cols) x min(rows) across all eligible clients
+1. Sends `LayoutChanged` to ALL attached clients with updated pane dimensions.
+2. Writes I-frame(s) for affected panes to the ring buffer.
+3. Sends `WindowResizeAck` to the sending client.
 
-     Eligible clients: all attached clients EXCEPT those in `stale` health state.
-
-  4. If (effective_cols, effective_rows) changed:
-     a. Arm (or reset) the 250ms resize debounce timer for each affected pane.
-     b. EXCEPTION: The FIRST resize after session creation or client attach
-        fires immediately (no debounce).
-
-  5. When debounce timer fires:
-     a. Walk the layout tree, recompute pane dimensions based on split ratios.
-     b. For each pane with changed dimensions:
-        ioctl(pane.pty_fd, TIOCSWINSZ, &new_size)
-     c. Send LayoutChanged to ALL attached clients.
-     d. FrameUpdate (I-frame) generation resumes for new dimensions.
-
-  6. During the debounce window:
-     - Suppress FrameUpdate generation for old dimensions.
-     - Suppress Idle coalescing tier transition (see doc 06 Section 1.7).
-
-  7. Send WindowResizeAck to the sending client.
-```
-
-**250ms resize debounce**: `ioctl(fd, TIOCSWINSZ)` is debounced at 250ms per pane, matching tmux's battle-tested approach. Prevents SIGWINCH storms during rapid resize drags. During the debounce window and for 500ms after the debounce fires, the server MUST NOT transition the pane's coalescing tier to Idle (the PTY application is processing SIGWINCH and may briefly pause output; this is not true idleness).
+The resize algorithm internals (policy computation, debounce, PTY ioctl, coalescing tier suppression during resize) are defined in daemon design docs.
 
 ### 5.5 Stale Client Exclusion
 
-Clients in the `stale` health state (see Section 4.6, doc 06 Section 2) are excluded from the resize calculation under both `latest` and `smallest` policies. All other clients participate, including those experiencing transient backpressure.
+Clients in the `stale` health state are excluded from the resize calculation. Stale exclusion policy, re-inclusion hysteresis, and client detach resize behavior are defined in daemon design docs.
 
-Policy-specific behavior when stale clients are excluded:
+### 5.6 Client Detach Resize
 
-| Policy | Behavior |
-|--------|----------|
-| `latest` | If the latest client becomes stale, use the next most-recently-active healthy client's dimensions |
-| `smallest` | Remove stale clients from the min() calculation. If no healthy clients remain, retain last known dimensions |
+When a client detaches, the server recomputes the effective size and sends `LayoutChanged` if the size changes.
 
-### 5.6 Re-Inclusion Hysteresis
-
-When a stale client recovers to healthy, it must remain healthy for **5 seconds** before being re-included in the resize calculation. This prevents resize churn from rapid stale/healthy oscillations.
-
-During the 5-second window, the client receives frames normally but does not affect PTY dimensions. After 5 seconds of sustained healthy state, the server re-includes the client in the resize calculation and triggers a resize cascade if the effective size changes.
-
-**Rationale for 5s**: A client recovering from stale experiences a burst of resync traffic (I-frame per pane via ring buffer cursor advance + PreeditSync if applicable). 5 seconds ensures the resync settles before the client's dimensions affect the PTY.
-
-### 5.7 Client Detach Resize
-
-When a client **detaches**:
-```
-1. Remove the client's dimensions from the tracking set.
-2. Recompute effective size (may change depending on policy).
-3. If size changed: resize cascade (same as step 5 in Section 5.4).
-```
-
-### 5.8 WindowResizeAck (0x0191)
+### 5.7 WindowResizeAck (0x0191)
 
 ```json
 {
@@ -1060,16 +1016,17 @@ Multiple clients can be attached to the same session simultaneously.
 
 ### Window Size
 
-The effective terminal size for a session is determined by the active resize policy (`latest` or `smallest`). Under `latest` (default), the most recently active client's dimensions are used. Under `smallest`, the minimum dimensions across all eligible clients are used. Stale clients are excluded from both policies. See Section 5 for the full resize algorithm, debounce timing, and re-inclusion hysteresis.
+The effective terminal size for a session is determined by the active resize policy (`latest` or `smallest`), communicated via `AttachSessionResponse.resize_policy`. See Section 5 for wire behavior. Resize algorithm internals are defined in daemon design docs.
 
 ### Input Method State
 
-Input method state is maintained per-session (not per-pane) and preserved across detach/reattach:
-- All panes in a session share the same `active_input_method` and `active_keyboard_layout`, backed by a single per-session IME engine instance.
-- When a client detaches, the session's input method state is not reset.
-- When a client attaches, it receives session-level input method state in `AttachSessionResponse.active_input_method` and `AttachSessionResponse.active_keyboard_layout`, and in `LayoutChanged` leaf nodes (all identical).
-- Input method changes are broadcast to all attached clients via `InputMethodAck` (0x0405, doc 05). Clients MUST update the input method state for ALL panes in the session.
-- When a session is restored from a snapshot, the server creates one `ImeEngine` per session using the saved `input_method` string. No per-pane IME state is restored — panes carry no IME fields in the session snapshot. See doc 06 Section 4.4 (RestoreSessionResponse) for the full IME initialization sequence.
+Input method state is communicated per-session through the following wire fields and messages:
+
+- `AttachSessionResponse` includes `active_input_method` and `active_keyboard_layout` fields.
+- `LayoutChanged` leaf nodes include `active_input_method` and `active_keyboard_layout` (all panes in a session share the same values).
+- Input method changes are broadcast to all attached clients via `InputMethodAck` (0x0405, doc 05).
+
+Per-session IME engine lifecycle (creation, activation, deactivation, detach preservation, session restore) is defined in daemon design docs.
 
 ### Client Health
 

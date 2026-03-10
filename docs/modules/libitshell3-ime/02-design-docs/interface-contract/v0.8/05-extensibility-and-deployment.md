@@ -1,9 +1,9 @@
-# IME Interface Contract v0.7 — Extensibility and Deployment
+# IME Interface Contract v0.8 — Extensibility and Deployment
 
-> **Version**: v0.7
-> **Date**: 2026-03-07
-> **Part of the IME Interface Contract v0.7. See [01-overview.md](01-overview.md) for the document index.**
-> **Changes from v0.6**: See [Appendix I: Changes from v0.6](99-appendices.md#appendix-i-changes-from-v06)
+> **Version**: v0.8
+> **Date**: 2026-03-10
+> **Part of the IME Interface Contract v0.8. See [01-overview.md](01-overview.md) for the document index.**
+> **Changes from v0.7**: C API boundary reduced; session persistence procedure moved to daemon docs. See [Appendix J: Changes from v0.7](99-appendices.md#appendix-j-changes-from-v07).
 
 ## 7. Future Extensibility
 
@@ -72,91 +72,12 @@ To add a new language (e.g., Japanese via libkkc):
 
 ## 8. C API Boundary
 
-### Decision: libitshell3-ime Has No Public C API
-
-libitshell3-ime is an **internal dependency** of libitshell3. It is statically linked into the libitshell3 library. External consumers interact with the combined library through `itshell3.h` only.
-
-**Rationale:**
-- libitshell3-ime is only consumed by libitshell3 (both Zig). No C FFI needed.
-- The IME's key types (`KeyEvent`, `ImeResult`) are internal to the daemon. Clients never see them — they send raw HID keycodes over the wire protocol and receive preedit via FrameUpdate.
-- Exposing a separate `itshell3_ime.h` would create two public APIs to maintain. YAGNI.
-
-**If a standalone C API is ever needed** (e.g., another project wants to use the Korean IME), it can be added later. The `ImeEngine` vtable maps naturally to a C opaque handle + function pointers:
-
-```c
-// Hypothetical future itshell3_ime.h -- NOT for v1
-typedef void* itshell3_ime_t;
-typedef struct { /* ... */ } itshell3_ime_key_event_s;
-typedef struct { /* ... */ } itshell3_ime_result_s;
-
-itshell3_ime_t itshell3_ime_new(const char* input_method);
-void itshell3_ime_free(itshell3_ime_t);
-itshell3_ime_result_s itshell3_ime_process_key(itshell3_ime_t, itshell3_ime_key_event_s);
-itshell3_ime_result_s itshell3_ime_flush(itshell3_ime_t);
-void itshell3_ime_reset(itshell3_ime_t);
-```
-
-### What IS Public: itshell3.h
-
-The public C API (`itshell3.h`) exposes preedit through callbacks, not through IME types:
-
-```c
-// In itshell3.h -- the preedit callback the host app receives
-typedef void (*itshell3_preedit_cb)(
-    uint32_t pane_id,
-    const char* text,       // UTF-8 preedit text, NULL if cleared
-    size_t text_len,
-    uint32_t cursor_x,      // OBSOLETE — see note below
-    uint32_t cursor_y,      // OBSOLETE — see note below
-    void* userdata
-);
-
-// In itshell3.h -- the input method change callback
-typedef void (*itshell3_input_method_cb)(
-    uint32_t pane_id,
-    const char* input_method,  // canonical string, e.g. "korean_2set", "direct"
-    void* userdata
-);
-```
-
-> **Revision note (v0.7)**: The `cursor_x` and `cursor_y` parameters of `itshell3_preedit_cb` are obsolete under the "preedit is cell data" model established in protocol v0.8. The server calls `ghostty_surface_preedit()` which injects preedit into cell data at the terminal cursor position — cursor coordinates are ghostty-internal and never exposed to the client. When the C API is implemented, this callback's purpose should be re-evaluated: with preedit rendering via cell data, the callback may serve only non-rendering uses (status bar, accessibility) with a simplified signature of `(pane_id, text, text_len, userdata)`. The `cursor_x` and `cursor_y` parameters will be removed at that time.
-
-The host app never knows about `ImeEngine`, `KeyEvent`, or `ImeResult`. It sends raw key events via the wire protocol and receives preedit/mode updates via callbacks.
+libitshell3-ime exports a Zig API only; it has no public C header. It is an internal dependency of libitshell3, statically linked into the daemon binary. See [daemon design doc 02 §5](../../libitshell3/02-design-docs/daemon/v0.3/02-integration-boundaries.md#5-c-api-surface-design) for the full C API surface design.
 
 ---
 
 ## 9. Session Persistence
 
-### What is Saved (Per-Session)
+The engine constructor accepts a canonical `input_method` string: `HangulImeEngine.init(allocator, input_method)`. This is the only engine-internal field needed to reconstruct an engine on session restore. Composition state is never persisted — the engine always starts with empty composition.
 
-The IME state is stored at the session level, not the pane level. All panes within a session share the same engine and the same `input_method`.
-
-```json
-{
-    "session_id": 1,
-    "name": "my-session",
-    "ime": {
-        "input_method": "korean_2set",
-        "keyboard_layout": "qwerty"
-    },
-    "panes": [
-        { "pane_id": 1 },
-        { "pane_id": 2 }
-    ]
-}
-```
-
-Two fields at session level:
-- `input_method`: canonical protocol string (e.g., `"korean_2set"`). No reverse-mapping needed.
-- `keyboard_layout`: physical keyboard layout (e.g., `"qwerty"`). Orthogonal to `input_method`. Both axes of the engine's configuration live at the same scope.
-
-Panes carry no IME state. They do not have per-pane `input_method` or `keyboard_layout` fields.
-
-### What is NOT Saved
-
-- Preedit text (in-progress composition). On restore, all sessions start with empty composition. Nobody expects to resume mid-syllable after a daemon restart.
-- Engine-internal state (libhangul's jamo stack). Reconstructing this is not feasible and not useful.
-
-### On Restore
-
-Create a new `HangulImeEngine` with the saved `input_method` string: `HangulImeEngine.init(allocator, saved_input_method)`. All panes in the session share this engine.
+Session persistence procedures (save/restore timing, flush-on-save policy, persistence schema) are defined in [daemon design doc 02 §4.1](../../libitshell3/02-design-docs/daemon/v0.3/02-integration-boundaries.md#41-per-session-imeengine-lifecycle) and daemon doc 04 §8.

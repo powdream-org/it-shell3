@@ -1,10 +1,11 @@
 # Daemon Internal Architecture
 
-**Status**: Draft v0.2
+**Status**: Draft v0.3
 **Date**: 2026-03-10
 **Scope**: libitshell3 daemon internal module structure, event loop, state tree, and ghostty Terminal integration
 **Source resolutions**: R1 (Module Decomposition), R2 (Event Loop Model), R3 (State Tree), R4 (ghostty Terminal Instance Management), Owner Q3 (Preedit/RenderState Validity)
 **v0.2 changes**: Applied v0.2 review note resolutions R1 (16-pane limit, fixed-size data structures), R2 (ime/ -> input/ rename), R3 (protocol scope fix)
+**v0.3 changes**: Absorbed daemon behavioral content from IME contract (I1, I4/I4a/I4b) and protocol docs (P14, P15, P16, P20). Added: 3-phase key pipeline detail (§1.2, §4.3), ImeResult→ghostty API mapping with pseudocode (§4.3), preedit clearing rule (§4.4), ghostty_surface_text prohibition (§4.3), PTY lifecycle (§3.4), frame suppression (§4.5), layout enforcement (§3.5), pane metadata (§3.3)
 
 ---
 
@@ -63,7 +64,7 @@ Depends on `core/` only. Contains helper functions (NOT wrapper types) for ghost
 
 Depends on `core/` only. No ghostty dependency.
 
-**Scope**: The `input/` module handles Phase 0+1 key input processing: shortcut interception (Phase 0), ImeEngine dispatch (Phase 1), focus change handling (`handleIntraSessionFocusChange`), and input method switching (`handleInputMethodSwitch`). Mouse events and paste operations bypass this module entirely — they are handled directly in `server/`.
+**Scope**: The `input/` module handles Phase 0+1 of the 3-phase key processing pipeline: shortcut interception (Phase 0), ImeEngine dispatch (Phase 1), focus change handling (`handleIntraSessionFocusChange`), and input method switching (`handleInputMethodSwitch`). Mouse events and paste operations bypass this module entirely — they are handled directly in `server/`.
 
 | Function | Phase | Purpose |
 |----------|-------|---------|
@@ -72,6 +73,57 @@ Depends on `core/` only. No ghostty dependency.
 | `handleInputMethodSwitch` | 0 | Switch active input method |
 
 `input/` depends on the `ImeEngine` interface type (defined in `core/`), not on the concrete `HangulImeEngine` (in libitshell3-ime). This is dependency inversion: `input/` code is testable with a `MockImeEngine` without libhangul.
+
+##### 3-Phase Key Processing Pipeline
+
+Every key event from a client passes through three sequential phases:
+
+```
+Client sends: HID keycode + modifiers + shift
+                    |
+                    v
++--------------------------------------------------+
+|  Phase 0: Global Shortcut Check (input/)         |
+|                                                   |
+|  - Language switch -> setActiveInputMethod(id)    |
+|    (toggle key detection is libitshell3's concern)|
+|  - App-level shortcuts that bypass IME entirely   |
+|  - If consumed: STOP                              |
++----------------------+---------------------------+
+                       | not consumed
+                       v
++--------------------------------------------------+
+|  Phase 1: IME Engine (libitshell3-ime)           |
+|                                                   |
+|  processKey(KeyEvent) -> ImeResult                |
+|                                                   |
+|  Engine internally:                               |
+|  - Checks modifiers (Ctrl/Alt/Cmd) -> flush + fwd|
+|  - Checks non-printable (arrow/F-key) -> flush+fwd|
+|  - Feeds printable to libhangul -> compose        |
+|  - Handles "not consumed" (hangul_ic_process()    |
+|    returns false): flush + forward rejected key   |
+|  - Returns committed/preedit/forward_key          |
++----------------------+---------------------------+
+                       | ImeResult
+                       v
++--------------------------------------------------+
+|  Phase 2: ghostty Integration (server/)          |
+|                                                   |
+|  committed_text -> write(pty_fd, utf8)            |
+|                    or key_encode.encode()          |
+|                                                   |
+|  preedit_text   -> @memcpy to session.preedit_buf |
+|                    overlay at export time          |
+|                                                   |
+|  forward_key    -> key_encode.encode(event, opts) |
+|                 -> write(pty_fd, encoded)          |
++--------------------------------------------------+
+```
+
+**Why IME runs before keybindings**: When the user presses Ctrl+C during Korean composition (preedit = "하"), Phase 0 checks — Ctrl+C is not a language toggle. Phase 1: engine detects Ctrl modifier, flushes "하", returns `{ committed: "하", forward_key: Ctrl+C }`. Phase 2: committed text "하" is written to PTY, then Ctrl+C is encoded via `key_encode.encode()` and written to PTY. This ensures the user's in-progress composition is preserved before any control key action.
+
+Phase 0 and Phase 1 execute in `input/` (depends only on `core/`). Phase 2 executes in `server/` (depends on `ghostty/` for key encoding and preedit overlay). See Section 1.3 for the Phase 2 placement rationale.
 
 #### `server/` — Event Loop and I/O
 
@@ -249,7 +301,12 @@ SessionManager (in server/)
         render_state: *ghostty.RenderState
         cols: u16
         rows: u16
-        title: []const u8
+        title: []const u8                    // OSC 0/2 title
+        cwd: []const u8                      // OSC 7 working directory
+        foreground_process: []const u8       // foreground process name
+        foreground_pid: posix.pid_t          // foreground process PID
+        is_running: bool                     // false after child exits
+        exit_status: ?u8                     // set on process exit
 ```
 
 **Tree node array vs pane slot array**: These are separate index spaces. Tree node indices (0..30) identify positions in the `[31]?SplitNodeData` array. Pane slot indices (0..15) identify positions in the `[16]?*Pane` array. Leaf nodes store pane slot indices. Tree compaction (subtree relocation during split/close) moves tree nodes but does not change the pane slot indices stored in leaf values. Pane slot indices are stable across tree mutations.
@@ -303,36 +360,84 @@ pub const Pane = struct {
     render_state: *ghostty.RenderState,
     cols: u16,
     rows: u16,
-    title: []const u8,
+    // Pane metadata — tracked via terminal.vtStream() processing
+    title: []const u8,              // OSC 0/2 title sequences
+    cwd: []const u8,                // shell integration CWD (OSC 7)
+    foreground_process: []const u8, // foreground process name
+    foreground_pid: posix.pid_t,    // foreground process PID
+    is_running: bool,               // false after child process exits
+    exit_status: ?u8,               // set on process exit
 };
 ```
 
-### 3.4 Session = Tab Merge Rationale
+### 3.4 PTY Lifecycle
+
+Each Pane owns a PTY master fd (`pty_fd`) and a child process (`child_pid`). The daemon manages the full PTY lifecycle:
+
+**Process exit (SIGHUP auto-close)**: When a pane's child process exits (detected via `EVFILT_SIGNAL` for SIGCHLD + `waitpid()`), the daemon:
+
+1. Sets `pane.is_running = false` and `pane.exit_status`.
+2. Sends `PaneMetadataChanged` with `is_running: false` and `exit_status` to all attached clients.
+3. Automatically closes the pane (same sequence as explicit `ClosePane`): closes `pty_fd`, removes the pane from the session's split tree, replaces the parent split node with the sibling, reflows layout, sends `LayoutChanged`.
+4. If this was the last pane in the session, the session is auto-destroyed.
+
+When a pane is explicitly closed via `ClosePaneRequest`, the daemon sends SIGHUP to the child process via the PTY. If the `force` flag is set and the process does not terminate within a timeout, SIGKILL is sent.
+
+When a session is destroyed (`DestroySessionRequest`), all panes are closed — all child processes receive SIGHUP, all PTY fds are freed.
+
+**Resize (TIOCSWINSZ + debounce)**: When pane dimensions change (due to window resize, split adjustment, or client attach/detach), the daemon issues `ioctl(pane.pty_fd, TIOCSWINSZ, &new_size)` to update the PTY dimensions. This triggers SIGWINCH in the child process.
+
+Resize is debounced at **250ms per pane**, matching tmux's approach. This prevents SIGWINCH storms during rapid resize drags. Exception: the FIRST resize after session creation or client attach fires immediately (no debounce).
+
+During the debounce window and for 500ms after the debounce fires, the server MUST NOT transition the pane's coalescing tier to Idle — the PTY application is processing SIGWINCH and may briefly pause output, which is not true idleness.
+
+### 3.5 Layout Enforcement
+
+The server enforces the 16-pane limit (see Section 1.5) by rejecting `SplitPaneRequest` with `ErrorResponse` status `PANE_LIMIT_EXCEEDED` when a split would exceed `MAX_PANES`. This is validated server-side before the split operation begins.
+
+The tree depth is bounded by the pane limit: with `MAX_PANES = 16` and a binary split tree, the maximum depth is 4 (a perfectly unbalanced tree of 16 panes has depth 15, but such extreme imbalance requires 15 consecutive splits in the same direction — practical layouts are much shallower). The `[31]?SplitNodeData` array bounds the tree absolutely.
+
+### 3.6 Pane Metadata Tracking
+
+The daemon tracks per-pane metadata derived from terminal output and process state. Changes are detected during `terminal.vtStream()` processing and SIGCHLD handling, then broadcast to attached clients via `PaneMetadataChanged`.
+
+| Metadata | Source | Update mechanism |
+|----------|--------|------------------|
+| `title` | OSC 0/2 escape sequences | ghostty's VT parser extracts title from escape sequences during `vtStream()` |
+| `cwd` | OSC 7 (shell integration) | Shell-integration-aware shells emit CWD via OSC 7; ghostty's VT parser extracts it |
+| `foreground_process` | `/proc/<pid>/cwd` polling or `kqueue` `EVFILT_PROC` | Daemon polls or monitors the foreground process group |
+| `foreground_pid` | Process group tracking | Updated when foreground process changes |
+| `is_running` / `exit_status` | SIGCHLD + `waitpid()` | Daemon reaps child and records exit status |
+
+Only changed fields are sent in `PaneMetadataChanged` — clients detect changes by checking which fields are present in the JSON payload.
+
+### 3.7 Session = Tab Merge Rationale
 
 - Session:Tab is 1:1 in v1. An intermediate Tab entity with no distinct behavior violates YAGNI. When Phase 3 needs multiple tabs per session, Tab can be introduced as an intermediate node between Session and SplitNode.
 - Per-session ImeEngine maps cleanly: one engine per "thing the user switches between."
 - The protocol already treats Sessions as the unit clients attach to. There is no Tab entity in the protocol — "tabs" are a client UI concept mapped to Sessions.
 
-### 3.5 Preedit Cache
+### 3.8 Preedit Cache
 
 Session caches the current preedit text (`current_preedit: ?[]const u8`, backed by a 64-byte `preedit_buf`) from the last `ImeResult` for use at export time.
 
-**Why caching is necessary**: The ImeEngine vtable has no "get current preedit" method. Preedit text is only available via `ImeResult` from mutating calls. Per IME contract v0.7 Section 6, the engine's internal buffers are invalidated on the next mutating call.
+**Why caching is necessary**: The ImeEngine vtable has no "get current preedit" method. Preedit text is only available via `ImeResult` from mutating calls. Per IME contract v0.8 Section 6, the engine's internal buffers are invalidated on the next mutating call.
 
 **Cache update flow**: When `ImeResult.preedit_changed == true`, the session copies the preedit text into `preedit_buf` via `@memcpy` and points `current_preedit` at the copied slice. `overlayPreedit()` reads from `session.current_preedit`, never from the engine directly.
 
 **Lifetime semantics**: The engine's buffer is ground truth at `processKey()` time; the Session's copy is ground truth at export time. Different lifetimes, different purposes — this is a necessary cache, not a DRY violation.
 
-### 3.6 Dirty Tracking for Preedit
+### 3.9 Dirty Tracking for Preedit
 
 `last_preedit_row: ?u16` tracks the cursor row where preedit was last overlaid. When preedit changes or clears, the previous row must be marked dirty in the next export so that the old preedit cells are repainted with the underlying terminal content. Without this tracking, clearing preedit would leave stale composed characters on screen until the next terminal output touched that row.
 
-### 3.7 Prior Art
+### 3.10 Prior Art
 
 - **Array-based binary tree (heap data structure)**: Fixed-size tree with index arithmetic — standard CS data structure used for the `[31]?SplitNodeData` layout.
 - **cmux**: Uses binary split tree (Bonsplit library).
 - **ghostty**: Split API uses the same model.
 - **tmux**: `layout_cell` tree is conceptually identical.
+- **tmux**: 250ms TIOCSWINSZ debounce — battle-tested approach for preventing SIGWINCH storms.
 
 ---
 
@@ -368,7 +473,102 @@ When the daemon receives a key event from a client, the IME routing pipeline (Ph
 | `forward_key` | Encode key and write to PTY | `key_encode.encode()` + `write(pty_fd, encoded)` |
 | `preedit_text` | Copy to `session.preedit_buf` via `@memcpy` when `preedit_changed`; overlay at export time | `overlayPreedit(export_result, session.current_preedit, cursor)` |
 
-**No press+release pairs needed**: The IME contract v0.7 Section 5 requires press+release pairs for `ghostty_surface_key()` because Surface tracks key state internally. Since we bypass Surface and use `key_encode.encode()` directly (stateless), no release events are needed in v1 legacy mode. For future Kitty protocol support, release events would go through the encoder.
+**No press+release pairs needed**: Surface-based terminals require press+release pairs for `ghostty_surface_key()` because Surface tracks key state internally. Since we bypass Surface and use `key_encode.encode()` directly (stateless), no release events are needed in v1 legacy mode. For future Kitty protocol support, release events would go through the encoder.
+
+#### ImeResult → ghostty API Mapping (Phase 2 Detail)
+
+The following pseudocode shows the complete Phase 2 consumption of `ImeResult` in `server/`. The engine is session-scoped — `session.engine` holds the single shared engine. The server tracks `focused_pane` and directs output to that pane's PTY.
+
+```zig
+fn handleKeyEventPhase2(session: *Session, focused_pane: *Pane, result: ImeResult) void {
+    // 1. Committed text → write directly to PTY
+    //    For committed text, the key encoder is NOT used — the text is
+    //    already final UTF-8 from the IME engine.
+    if (result.committed_text) |text| {
+        _ = posix.write(focused_pane.pty_fd, text) catch |err| {
+            // Handle write error (broken pipe = process exited)
+        };
+    }
+
+    // 2. Preedit update → cache for export-time overlay
+    //    IMPORTANT: preedit is NOT written to the PTY. It is overlaid
+    //    onto the exported FlatCell[] at frame generation time.
+    if (result.preedit_changed) {
+        if (result.preedit_text) |text| {
+            @memcpy(session.preedit_buf[0..text.len], text);
+            session.current_preedit = session.preedit_buf[0..text.len];
+        } else {
+            session.current_preedit = null;
+        }
+        // Mark dirty for preedit overlay change
+        session.dirty_mask |= (@as(u16, 1) << focused_pane.slot_index);
+    }
+
+    // 3. Forward key → encode via ghostty key encoder and write to PTY
+    //    For forwarded keys, the key encoder is CRITICAL — it produces
+    //    the correct escape sequences (Ctrl+C → 0x03, arrows → CSI, etc.)
+    if (result.forward_key) |fwd| {
+        var buf: [128]u8 = undefined;
+        var stream = std.io.fixedBufferStream(&buf);
+        const opts = ghostty.Options.fromTerminal(focused_pane.terminal);
+        key_encode.encode(stream.writer(), mapToKeyEvent(fwd), opts) catch {};
+        const encoded = stream.getWritten();
+        if (encoded.len > 0) {
+            _ = posix.write(focused_pane.pty_fd, encoded) catch {};
+        }
+    }
+}
+```
+
+**Keycode criticality by event type**:
+
+| Event Type | Keycode Impact |
+|---|---|
+| Committed text | **Not used** — text is written directly to PTY as UTF-8 |
+| Forwarded key (control/special) | **Critical** — `key_encode.encode()` uses keycode for escape sequence generation |
+| Language switch flush | **Not applicable** — committed text only, no forward key |
+| Intra-session pane switch flush | **Not applicable** — committed text only, no forward key |
+
+**Intra-session pane focus change**: When focus moves from pane A to pane B within the same session, the server flushes the engine and routes the result to pane A before switching focus:
+
+```zig
+fn handleIntraSessionFocusChange(session: *Session, pane_a: *Pane, pane_b: *Pane) void {
+    // 1. Flush composition — committed text goes to pane A's PTY
+    const result = session.engine.flush();
+
+    // 2. Consume committed text immediately
+    if (result.committed_text) |text| {
+        _ = posix.write(pane_a.pty_fd, text) catch {};
+    }
+
+    // 3. Clear preedit cache
+    if (result.preedit_changed) {
+        session.current_preedit = null;
+        session.dirty_mask |= (@as(u16, 1) << pane_a.slot_index);
+    }
+
+    // 4. Send PreeditEnd(pane=A, reason="focus_changed") to all clients
+    sendPreeditEnd(pane_a, "focus_changed");
+
+    // 5. Update focused pane — subsequent results route to pane B
+    session.focused_pane = pane_b.slot_index;
+}
+```
+
+**Input method switch**: When `setActiveInputMethod()` returns committed text from flushing, it follows the same PTY write path. The committed text is written directly to the focused pane's PTY.
+
+#### NEVER Use `ghostty_surface_text()` for IME Output
+
+`ghostty_surface_text()` is ghostty's **clipboard paste** API. It wraps text in bracketed paste markers (`\e[200~...\e[201~`) when bracketed paste mode is active. Using it for IME committed text causes the **Korean doubling bug** discovered in the it-shell v1 project:
+
+```
+User types: 한글
+ghostty_surface_text("한") → \e[200~한\e[201~
+ghostty_surface_text("글") → \e[200~글\e[201~
+Display: 하하한한구글글  ← DOUBLED
+```
+
+All IME committed text MUST go through `write(pty_fd, text)` (v1 legacy mode) or `key_encode.encode()` for forwarded keys. Neither path uses bracketed paste.
 
 ### 4.4 Preedit Overlay Mechanism
 
@@ -381,6 +581,10 @@ Since we are headless (no Surface, no renderer.State), we overlay preedit cells 
 3. Marks affected rows dirty in the bitmap
 
 This is ~20 lines in our vendor fork, self-contained and testable in isolation.
+
+**Explicit preedit clearing required**: When `preedit_changed == true` and `preedit_text == null` (composition ended), the daemon MUST set `session.current_preedit = null` and mark the pane dirty. At the next frame export, `overlayPreedit()` is skipped (no preedit to overlay), and the previously preedit-overlaid cells are repainted with the underlying terminal content from the I/P-frame. The `last_preedit_row` tracking (Section 3.9) ensures the correct row is marked dirty.
+
+Failure to clear preedit state leaves stale composed characters on screen after composition ends. This corresponds to the IME contract's rule that `ghostty_surface_preedit(null, 0)` must be called on preedit end — in our headless architecture, the equivalent is clearing `session.current_preedit` and marking dirty.
 
 ### 4.5 Frame Export Pipeline
 
@@ -404,6 +608,14 @@ serialize FrameUpdate -> ring buffer  // Ready for client delivery
     v
 conn.sendv(iovecs)                    // Zero-copy to socket
 ```
+
+**Frame suppression for undersized panes**: The server MUST NOT generate `FrameUpdate` for panes with `cols < 2` or `rows < 1`. This occurs during resize animations or aggressive pane splitting. When dimensions fall below these minimums:
+
+- The `bulkExport()` step is skipped entirely for that pane.
+- The PTY continues operating normally — `TIOCSWINSZ` reflects the actual dimensions, I/O continues. Only the rendering pipeline is suppressed.
+- Applications in the PTY (e.g., vim) receive the actual dimensions and may adapt their output.
+- Pane liveness is maintained via the session/pane management protocol — the client knows the pane exists from `CreatePaneResponse` and layout state.
+- When dimensions return to valid range, normal frame generation resumes.
 
 ### 4.6 Why Headless (No Surface)
 
@@ -539,12 +751,15 @@ From the protocol's perspective, preedit IS cell data — it arrives at the clie
 | tmux (`window.h`, `session.h`, `tty.c`, `server-client.c`) | Pure state / I/O separation | 1 |
 | tmux (single-threaded libevent loop) | Event loop model, scaling evidence | 2 |
 | tmux `layout_cell` tree | Binary split tree model | 3 |
+| tmux 250ms TIOCSWINSZ debounce | SIGWINCH storm prevention | 3.4 |
 | ghostty (`Terminal.zig`, `Metal.zig`, `Termio.zig`) | Terminal / renderer / I/O separation | 1 |
 | ghostty `Terminal.init()` (PoC 06) | Headless Terminal validation | 4 |
 | ghostty `bulkExport()` (PoC 07) | Export performance (22 us/frame) | 2, 4 |
 | ghostty `importFlatCells()` (PoC 08) | Client-side RenderState population | 4 |
 | ghostty `renderer.State.preedit` (State.zig:27) | Preedit storage location | 4, 6 |
 | ghostty `key_encode.encode()` (key_encode.zig:75) | Stateless key encoding | 4 |
+| ghostty `vtStream()` OSC parsing | Pane metadata extraction (title, CWD) | 3.6 |
 | cmux (Bonsplit binary split tree) | Layout tree model | 3 |
-| IME contract v0.7 | Per-session ImeEngine, Phase 0-1-2 routing | 3, 4 |
-| Protocol spec v0.10 | Wire format, PaneId as u32 on wire | 1.5 |
+| IME contract v0.8 | Per-session ImeEngine, Phase 0-1-2 routing, preedit clearing rule | 1.2, 3, 4 |
+| Protocol spec v0.10 | Wire format, PaneId as u32 on wire, frame suppression, PTY lifecycle | 1.5, 3.4, 4.5 |
+| it-shell v1 Korean doubling bug | ghostty_surface_text() prohibition | 4.3 |

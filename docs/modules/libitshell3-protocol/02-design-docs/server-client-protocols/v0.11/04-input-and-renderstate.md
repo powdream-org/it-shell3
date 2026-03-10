@@ -1,8 +1,8 @@
 # 04 — Input Forwarding and RenderState Protocol
 
-**Status**: Draft v0.9
+**Status**: Draft v0.11
 **Author**: rendering-cjk-specialist
-**Date**: 2026-03-08
+**Date**: 2026-03-10
 **Depends on**: 01-protocol-overview.md (header format), 03-session-pane-management.md (session/pane IDs)
 
 **Changes from v0.8** (PoC alignment — design resolution `01-poc-alignment.md`):
@@ -460,7 +460,7 @@ A FrameUpdate uses **hybrid encoding**: a binary section (frame header, DirtyRow
 
 > **Normative — Minimum rendering dimensions**: The server MUST NOT send FrameUpdate with `cols < 2` or `rows < 1`. When a pane's dimensions fall below these minimums (e.g., during resize animation or aggressive pane splitting), the server MUST suppress FrameUpdate for that pane until dimensions return to valid range. Dimension-based suppression takes precedence over the `frame_type=2` unchanged rule — no FrameUpdate is sent for undersized panes regardless of payload identity. Pane liveness is maintained through the session/pane management protocol (doc 03) — the client knows the pane exists from CreatePane and is notified of termination through session/pane lifecycle messages (doc 03). The server SHOULD also suppress FrameUpdate when dimensions fall below its renderer's practical minimum.
 
-> **Normative — PTY independence**: When the server suppresses FrameUpdate due to undersized pane dimensions, the PTY MUST continue operating normally (`TIOCSWINSZ` reflects actual size, I/O continues). Only the FrameUpdate rendering pipeline is suppressed. Applications running in the PTY (e.g., vim) will receive the actual dimensions and may adapt their output accordingly.
+> **Normative — PTY independence**: When the server suppresses FrameUpdate due to undersized pane dimensions, only the FrameUpdate rendering pipeline is suppressed. PTY behavior during suppression is defined in daemon design docs.
 
 #### Wire Format Overview
 
@@ -1026,15 +1026,7 @@ Self-contained keyframe where the entire payload is byte-identical to the previo
 
 ### 8.3 Event-Driven Coalescing
 
-The server uses **event-driven coalescing** with a **16ms minimum interval** (coalescing ceiling) for FrameUpdate output. FrameUpdates are sent only when dirty state exists. There is no fixed fps target.
-
-**Coalescing model**:
-- **Event-driven**: FrameUpdates are triggered by PTY output or preedit state changes, not by a fixed timer.
-- **Coalescing ceiling**: If multiple PTY output events arrive within one frame interval (~16ms), the server sends a single FrameUpdate covering all changes.
-- **Idle suppression**: If nothing changes, no FrameUpdate is sent (the client continues rendering the last frame).
-- **Typical cadence**: 0-30 updates/second for normal terminal workloads. Burst output is coalesced; idle terminals produce zero frames.
-
-The 16ms coalescing ceiling aligns with 60 Hz display refresh but is NOT a "60 fps target." The server never generates frames to fill a target rate — it only sends frames when there is dirty state to communicate. See doc 06 for the full adaptive cadence model with 4 active coalescing tiers (Preedit, Interactive, Active, Bulk) plus the Idle quiescent state, and per-pane coalescing rules.
+FrameUpdates are sent only when dirty state exists. There is no fixed fps target. See doc 01 Section 10 for the wire-observable delivery model. Coalescing tier definitions, timing values, and adaptation rules are defined in daemon design docs.
 
 **I-frame scheduling**: I-frames (keyframes) are produced periodically (default: every 1 second, configurable 0.5-5 seconds via server configuration). When the I-frame timer fires and the pane has no changes since the last I-frame, the server sends `frame_type=2` (unchanged I-frame). When the timer fires and changes exist, the server sends `frame_type=1` (normal I-frame) containing all rows. The I-frame timer is independent of the coalescing tiers — it fires at a fixed interval regardless of PTY throughput.
 

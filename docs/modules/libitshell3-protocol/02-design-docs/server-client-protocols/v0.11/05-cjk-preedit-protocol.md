@@ -1,8 +1,8 @@
 # 05 — CJK Preedit Sync and IME Protocol
 
-**Status**: Draft v0.8
+**Status**: Draft v0.11
 **Author**: rendering-cjk-specialist
-**Date**: 2026-03-07
+**Date**: 2026-03-10
 **Depends on**: 01-protocol-overview.md (header format), 04-input-and-renderstate.md (FrameUpdate, KeyEvent)
 
 **Changes from v0.7** (preedit overhaul — design-resolutions `01-preedit-overhaul.md`, 7/7 unanimous):
@@ -359,66 +359,19 @@ The server passes this configuration to libghostty-vt's Terminal, which uses it 
 
 When multiple clients are attached to the same pane, only one client can compose text at a time. Without coordination, concurrent preedit from two clients would corrupt the composition state.
 
-### 6.2 Preedit Ownership Model
+### 6.2 Wire-Observable Conflict Resolution
 
-The server maintains preedit ownership state per pane. At most one pane in a session can have active preedit at any time (preedit exclusivity invariant, Section 1). The IME engine itself is per-session (shared by all panes):
+When preedit ownership conflicts occur, the following `PreeditEnd` reason values are used:
 
-```
-struct PanePreeditState {
-    owner: ?u32,              // client_id of the composing client, null = no active composition
-    preedit_session_id: u32,  // monotonic counter for composition sessions
-    preedit_text: []u8,       // current preedit string (UTF-8)
-    // input_method is stored at session level, not per-pane
-}
-```
+| Reason | Trigger |
+|--------|---------|
+| `replaced_by_other_client` | Another client's input caused a preedit takeover |
+| `client_disconnected` | The preedit owner's connection dropped |
+| `timeout` | The preedit owner was inactive for too long |
 
-The struct is pure ownership tracking for multi-client coordination. Cursor position and display width are ghostty-internal (determined by `ghostty_surface_preedit()`). Composition state is managed by the IME engine, not tracked in protocol structs.
+Conflict resolution always produces a `PreeditEnd` (for the previous owner) followed by a `PreeditStart` (for the new owner), both broadcast to all attached clients.
 
-### 6.3 Ownership Rules
-
-**Last-Writer-Wins** with explicit takeover notification:
-
-1. **First composer**: When Client A sends a KeyEvent that triggers composition on a pane with no active preedit, Client A becomes the preedit owner.
-
-2. **Concurrent attempt**: When Client B sends a composing KeyEvent on the same pane while Client A owns the preedit:
-   - Server commits Client A's current preedit text to PTY
-   - Server sends PreeditEnd to all clients with `reason="replaced_by_other_client"`
-   - Server starts a new composition session owned by Client B
-   - Server sends PreeditStart to all clients with Client B as owner
-
-3. **Owner disconnect**: When the preedit owner disconnects:
-   - Server commits current preedit text to PTY (if any)
-   - Server sends PreeditEnd with `reason="client_disconnected"`
-
-4. **Non-composing input from non-owner**: Regular (non-composing) KeyEvents from any client are always processed normally, regardless of preedit ownership. If a non-owner sends a regular key, the owner's preedit is committed first.
-
-### 6.4 Conflict Resolution Sequence Diagram
-
-```
-Client A                Server                  Client B
---------                ------                  --------
-KeyEvent(H) ------>    Preedit owner = A
-                        PreeditStart(owner=A) ------------> (display indicator)
-                        PreeditUpdate("ㅎ") ---------------->
-                        FrameUpdate(cell data via ring) ---->
-<-- FrameUpdate(cell data via ring)
-
-                        ... Client A composing ...
-
-                        KeyEvent(A) <-------- Client B starts typing
-
-                        [Conflict! Commit A's preedit]
-                        Write "ㅎ" to PTY
-                        PreeditEnd(reason="replaced_by_other_client") -------->
-<-- PreeditEnd(reason="replaced_by_other_client")
-
-                        [New session for B]
-                        Preedit owner = B
-                        PreeditStart(owner=B) -------------->
-<-- PreeditStart(owner=B)
-                        PreeditUpdate("ㅏ") ---------------->
-<-- PreeditUpdate("ㅏ")
-```
+Preedit ownership algorithm, internal state tracking, and conflict resolution policy are defined in daemon design docs.
 
 ---
 
@@ -468,13 +421,7 @@ The preedit text itself is not affected by resize — only its display position 
 
 **Scenario**: An application switches from primary to alternate screen (e.g., `vim` launches) while composition is active.
 
-**Server behavior**:
-1. Commit current preedit text to PTY before the screen switch
-2. Send PreeditEnd with `reason="committed"`
-3. Process the screen switch
-4. Send FrameUpdate with `frame_type=1` (I-frame), `screen=alternate`
-
-**Rationale**: Alternate screen applications (vim, less, htop) have their own input handling. Carrying preedit state into the alternate screen would be confusing.
+**Wire behavior**: The server sends `PreeditEnd` with `reason="committed"` followed by `FrameUpdate` with `frame_type=1` (I-frame), `screen=alternate`. PTY commit details are defined in daemon design docs.
 
 ### 7.5 Rapid Keystroke Bursts
 
@@ -500,30 +447,7 @@ When a client reconnects or a new client attaches, it can query the current layo
 
 **Scenario**: Client B sends FocusPaneRequest while Client A is composing Korean on the currently focused pane.
 
-**Server behavior**:
-1. Commit Client A's current preedit text to PTY (preserve the user's work)
-2. Send PreeditEnd with `reason="focus_changed"` to all clients
-3. Clear preedit ownership on the old pane
-4. Process the focus change
-5. Send LayoutChanged to all clients (reflecting the new focused pane)
-
-**Wire trace**:
-```
-Client B                Server                  Client A
---------                ------                  --------
-FocusPaneRequest -----> [Preedit active on pane 1]
-
-                        [Commit preedit first]
-                        Write "ㅎ" to PTY
-                        PreeditEnd(pane=1, reason=focus_changed) --> Client A
-                        PreeditEnd(pane=1, reason=focus_changed) --> Client B
-
-                        [Process focus change]
-                        LayoutChanged(focused_pane=2) ------------> Client A
-                        LayoutChanged(focused_pane=2) ------------> Client B
-```
-
-This is consistent with all other preedit-interrupting events (screen switch in S7.4, pane close in S7.1). The preedit is always committed or cancelled before processing the interrupting action.
+**Wire behavior**: The server sends `PreeditEnd` with `reason="focus_changed"` to all clients, followed by `LayoutChanged` with the new focused pane. This is consistent with all other preedit-interrupting events (screen switch in S7.4, pane close in S7.1) — the preedit is always resolved before processing the interrupting action. PTY commit details are defined in daemon design docs.
 
 ### 7.8 Session Detach During Composition
 
@@ -571,45 +495,11 @@ InputMethodSwitch(
 
 ---
 
-## 8. Preedit Coalescing and Latency Requirements
+## 8. Preedit Delivery Latency
 
-### 8.1 Adaptive Cadence Model
+Preedit state changes are delivered with minimal latency. The server prioritizes preedit FrameUpdates over bulk output. Preedit frames are per-(client, pane) — a pane with active composition receives immediate delivery even if adjacent panes are in a lower-priority coalescing tier.
 
-The server uses an adaptive coalescing model with 4 active tiers for FrameUpdate delivery. Preedit is the highest-priority tier:
-
-| Tier | Condition | Frame interval |
-|------|-----------|----------------|
-| **Preedit** | Active composition + keystroke | **Immediate (0ms)** |
-| **Interactive** | PTY output <1KB/s + recent keystroke | Immediate (0ms) |
-| **Active** | PTY 1-100 KB/s | 16ms (display Hz) |
-| **Bulk** | PTY >100KB/s sustained 500ms | 33ms |
-| **Idle** | No output 500ms | No frames sent (quiescent state) |
-
-> **Terminology**: The model has 4 active coalescing tiers that produce frames (Preedit, Interactive, Active, Bulk) plus the Idle quiescent state (no frames emitted). See doc 06 Section 1.1 for the authoritative tier definitions.
-
-### 8.2 Preedit Tier Rules (Normative)
-
-The following rules are normative (MUST):
-
-1. **Immediate flush on preedit state change**: When the preedit state changes (PreeditStart, PreeditUpdate, PreeditEnd), the server MUST write a frame to the ring buffer immediately, regardless of the current coalescing tier. The preedit tier overrides all other tiers.
-
-2. **Preedit bypasses power throttling**: When the client reports `power_state` indicating battery/low-power mode via `ClientDisplayInfo`, the server reduces frame rates for Active and Bulk tiers (e.g., cap Active at 20fps, Bulk at 10fps). However, preedit frames MUST always be written to the ring immediately regardless of `power_state`. Composition latency is a user-facing interaction that must never be degraded.
-
-3. **Preedit latency target**: The end-to-end latency from KeyEvent receipt to FrameUpdate delivery MUST be less than **33ms** over a Unix domain socket. This is a normative requirement. The 33ms budget covers: KeyEvent read (~0ms) + IME processing (~0.1ms) + `ghostty_surface_preedit()` + cell serialization (~0.1ms) + ring write (~0ms) + socket write (~0ms) = ~0.3ms typical, with 32.7ms margin for scheduling jitter. Over SSH tunnel or other network transport, the server adds no additional delay; end-to-end latency is dominated by network RTT.
-
-4. **Per-pane preedit cadence**: Coalescing tiers are tracked per (client, pane) pair. A pane with active composition runs at Preedit tier even if adjacent panes in the same session are in Bulk tier. The preedit tier applies only to the specific pane where composition is active; other panes continue at their current tier.
-
-### 8.3 Tier Transition Thresholds
-
-| Transition | Threshold | Hysteresis |
-|-----------|-----------|------------|
-| Idle -> Interactive | KeyEvent + PTY output within 5ms | None |
-| Idle -> Active | PTY output without recent keystroke | None |
-| Active -> Bulk | >100KB/s for 500ms | Drop back at <50KB/s for 1s |
-| Active -> Idle | No output for 500ms | None |
-| Any -> Preedit | Preedit state changed | 200ms timeout back to previous tier |
-
-When preedit ends (PreeditEnd), the pane reverts to the tier it would have been in based on PTY throughput. The 200ms timeout allows a brief window for the user to start a new composition without tier oscillation.
+Coalescing tier definitions, preedit latency targets, power throttling bypass rules, and tier transition thresholds are defined in daemon design docs. See doc 01 Section 10 for the wire-observable delivery model.
 
 ---
 

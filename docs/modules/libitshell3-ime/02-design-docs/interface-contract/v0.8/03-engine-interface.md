@@ -1,9 +1,9 @@
-# IME Interface Contract v0.7 — Engine Interface
+# IME Interface Contract v0.8 — Engine Interface
 
-> **Version**: v0.7
-> **Date**: 2026-03-07
-> **Part of the IME Interface Contract v0.7. See [01-overview.md](01-overview.md) for the document index.**
-> **Changes from v0.6**: See [Appendix I: Changes from v0.6](99-appendices.md#appendix-i-changes-from-v06)
+> **Version**: v0.8
+> **Date**: 2026-03-10
+> **Part of the IME Interface Contract v0.8. See [01-overview.md](01-overview.md) for the document index.**
+> **Changes from v0.7**: Daemon lifecycle rationale moved to daemon design docs v0.3. See [Appendix J: Changes from v0.7](99-appendices.md#appendix-j-changes-from-v07).
 
 ### 3.5 ImeEngine (Interface for Dependency Injection)
 
@@ -23,29 +23,31 @@ pub const ImeEngine = struct {
         processKey: *const fn (ptr: *anyopaque, key: KeyEvent) ImeResult,
 
         /// Flush and commit any in-progress composition.
-        /// Used when: intra-session pane focus change, language switch.
+        /// Returns ImeResult with committed text (if composing) or empty.
         /// Also called internally by deactivate().
         flush: *const fn (ptr: *anyopaque) ImeResult,
 
         /// Discard in-progress composition without committing.
-        /// Used when: session close, error recovery.
+        /// No ImeResult returned — composition is silently discarded.
         reset: *const fn (ptr: *anyopaque) void,
 
         /// Query whether composition is in progress.
         isEmpty: *const fn (ptr: *anyopaque) bool,
 
-        /// Session gained focus (e.g., user switched to this tab).
+        /// Signal the engine that it is becoming active.
         /// No-op for Korean (state is preserved in the buffer).
         /// Active input method is preserved across
         /// deactivate/activate cycles -- NOT reset to direct.
+        /// When the daemon calls this is defined in daemon design docs.
         activate: *const fn (ptr: *anyopaque) void,
 
-        /// Session lost focus (e.g., user switched to another tab,
-        /// app lost OS focus). Engine MUST flush pending composition
-        /// before returning. The returned ImeResult contains the flushed text.
+        /// Signal the engine that it is going idle.
+        /// Engine MUST flush pending composition before returning.
+        /// The returned ImeResult contains the flushed text.
         /// Calling flush() before deactivate() is redundant but harmless
         /// (deactivate on empty composition returns empty ImeResult).
         /// Active input method is NOT changed.
+        /// When the daemon calls this is defined in daemon design docs.
         deactivate: *const fn (ptr: *anyopaque) ImeResult,
 
         // --- Input method management ---
@@ -245,7 +247,7 @@ v1 ships `"direct"` + `"korean_2set"` only. The full table is documented to esta
 
 The implementation must handle the case where `hangul_ic_process()` returns `false` (key rejected by libhangul). See [Section 2: Phase 1 hangul_ic_process() Return-False Handling](01-overview.md#phase-1-hangul_ic_process-return-false-handling) for the full algorithm.
 
-**Session persistence**: `active_input_method` (string) is the only **engine-internal** field needed to reconstruct a `HangulImeEngine` on session restore — the server creates a new engine with the saved `input_method` string. However, the full per-session persistence schema also saves `keyboard_layout` (orthogonal to `input_method`). Composition state is never persisted — it is flushed on session deactivation before the session is saved. See [Section 9](05-extensibility-and-deployment.md#9-session-persistence) for the full persistence schema.
+**Session persistence**: `active_input_method` (string) is the only **engine-internal** field needed to reconstruct a `HangulImeEngine` on session restore — the server creates a new engine with the saved `input_method` string. Composition state is never persisted — the engine always starts with empty composition. See [daemon design doc 02 §4.1](../../libitshell3/02-design-docs/daemon/v0.3/02-integration-boundaries.md#41-per-session-imeengine-lifecycle) for the full persistence and lifecycle details.
 
 ### 3.8 MockImeEngine (For Testing)
 

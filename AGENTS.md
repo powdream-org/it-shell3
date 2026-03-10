@@ -48,10 +48,10 @@ Server (Daemon)                    Client (App)
 **Key design decisions:**
 - IME is native Zig (not OS IME) — eliminates iOS async UITextInput and macOS NSTextInputClient issues
 - RenderState protocol (structured cell data with dirty tracking) instead of VT re-serialization
-- Session hierarchy: Session > Tab > Pane (binary split tree, JSON-serializable)
+- Session hierarchy: Session > Pane (binary split tree, JSON-serializable)
 - Capability negotiation at handshake (not version guessing)
 
-**Daemon lifecycle:** The daemon binary is bundled inside the client app (`it-shell3.app/Contents/Helpers/it-shell3-daemon`). Distributed as notarized DMG or Homebrew Cask (not Mac App Store — LaunchAgent requires sandbox escape). On every launch, the client connects to the Unix socket; if the daemon is not running, it registers a LaunchAgent and starts it. For local connections, if `server_version` differs from the bundled binary, the client kills and restarts the daemon. For remote (SSH) connections, the daemon is started via `fork+exec` without LaunchAgent (similar to `tmux` server auto-start); compatibility is via `protocol_version` min/max negotiation — if incompatible, the client exits with an error.
+**Daemon lifecycle:** The daemon binary is bundled inside the client app (`it-shell3.app/Contents/Helpers/it-shell3-daemon`). Distributed as notarized DMG or Homebrew Cask (not Mac App Store — LaunchAgent requires sandbox escape). On launch, the client connects to the Unix socket; if the daemon is not running, it registers a LaunchAgent and starts it. For remote (SSH) connections, the daemon is started via `fork+exec` without LaunchAgent (similar to `tmux` server auto-start); version compatibility is ensured via protocol negotiation. See daemon design docs for lifecycle details, version conflict handling, and reconnection procedures.
 
 ## Documentation Structure
 

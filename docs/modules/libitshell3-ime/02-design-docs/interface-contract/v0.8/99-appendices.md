@@ -1,9 +1,9 @@
-# IME Interface Contract v0.7 — Appendices
+# IME Interface Contract v0.8 — Appendices
 
-> **Version**: v0.7
-> **Date**: 2026-03-07
-> **Part of the IME Interface Contract v0.7. See [01-overview.md](01-overview.md) for the document index.**
-> **Changes from v0.6**: See [Appendix I: Changes from v0.6](#appendix-i-changes-from-v06)
+> **Version**: v0.8
+> **Date**: 2026-03-10
+> **Part of the IME Interface Contract v0.8. See [01-overview.md](01-overview.md) for the document index.**
+> **Changes from v0.7**: See [Appendix J: Changes from v0.7](#appendix-j-changes-from-v07)
 
 ## Appendix A: Stale Documentation Notes
 
@@ -488,3 +488,57 @@ This section documents all changes made from the v0.6 interface contract. Source
 **v0.6**: Section 8 contained a speculative `itshell3_preedit_cb` callback signature with `cursor_x` and `cursor_y` parameters.
 
 **v0.7**: Added note that `cursor_x` and `cursor_y` parameters are obsolete under the "preedit is cell data" model and will be removed when the C API is implemented. The callback's purpose should be re-evaluated: with preedit rendering via cell data, the callback may serve only non-rendering uses (status bar, accessibility) with a simplified signature of `(pane_id, text, text_len, userdata)`.
+
+---
+
+## Appendix J: Changes from v0.7
+
+**Cross-team revision**: Daemon behavioral content extracted to daemon design docs v0.3 per cross-team request (`v0.7/cross-team-requests/01-daemon-behavior-extraction.md`). The IME contract now focuses on engine API, type definitions, composition rules, and engine-internal behavior. Daemon-side integration (routing, ghostty API usage, lifecycle management, persistence) is defined in daemon design docs.
+
+### J.1 Processing Pipeline Reduced to Phase 1 Only (I1)
+
+**v0.7**: 01-overview §2 described the full 3-phase pipeline (Phase 0: global shortcuts, Phase 1: IME engine, Phase 2: ghostty integration).
+
+**v0.8**: Only Phase 1 (IME engine processing) is retained. Phases 0 and 2 replaced with reference to daemon design doc 02 §4.2.
+
+### J.2 IME-Before-Keybindings Rationale Removed (I2)
+
+**v0.7**: 01-overview §2 contained "Why IME Runs Before Keybindings" explaining daemon call ordering.
+
+**v0.8**: Removed. This is a daemon architectural decision. Moved to daemon design doc 02 §4.2.
+
+### J.3 Responsibility Matrix Reduced to IME-Side Only (I3)
+
+**v0.7**: 01-overview §4 contained both IME engine and daemon responsibilities (22 rows).
+
+**v0.8**: Reduced to IME engine responsibilities only (5 rows). Daemon-side rows replaced with reference to daemon design doc 02 §4.9.
+
+### J.4 ghostty Integration Replaced with Reference (I4)
+
+**v0.7**: 04-ghostty-integration contained 300+ lines covering ImeResult->ghostty mapping, handleKeyEvent pseudocode, preedit clearing rules, ghostty_surface_text() prohibition, key encoder integration, HID mapping tables, focus change handling, input method switch integration, macOS/iOS IME suppression.
+
+**v0.8**: Entire section replaced with brief reference to daemon design docs. Memory ownership (Section 6) retained in the same file as it describes engine-internal buffer behavior.
+
+### J.5 Wire-to-KeyEvent Decomposition Replaced with Reference (I9)
+
+**v0.7**: 02-types §3.1 design notes contained wire modifier bitmask decomposition detail and CapsLock/NumLock handling rationale.
+
+**v0.8**: Replaced with brief reference to daemon design doc 02 §4.2. KeyEvent type definition retained.
+
+### J.6 Engine Lifecycle Doc Comments Updated (I5)
+
+**v0.7**: 03-engine-interface vtable comments described when the daemon calls each method (session focus, pane focus, etc.).
+
+**v0.8**: Comments describe what the engine does when called (behavioral contract). When/why the daemon calls them is referenced to daemon design docs.
+
+### J.7 Session Persistence Reduced to Constructor Detail (I7)
+
+**v0.7**: 05-extensibility §9 contained full persistence schema (JSON example), save/restore timing, flush-on-save policy, what is/isn't saved.
+
+**v0.8**: Reduced to engine constructor accepting canonical input_method string. Persistence procedures referenced to daemon design docs.
+
+### J.8 C API Boundary Reduced to One-Liner (I8)
+
+**v0.7**: 05-extensibility §8 contained full discussion of no public C header, hypothetical future C API, itshell3.h callback signatures.
+
+**v0.8**: Reduced to: "libitshell3-ime exports a Zig API only; it has no public C header." Full C API surface design referenced to daemon design doc 02 §5.
