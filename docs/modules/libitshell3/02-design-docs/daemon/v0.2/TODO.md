@@ -25,12 +25,24 @@
 - [x] Apply R3 (protocol scope fix) to doc 01 Section 1.4 (protocol-architect)
 - [x] Disband writing team
 
-## Phase 4: Verification
+## Phase 4: Verification (Round 1)
 
-- [ ] Spawn verification team
-- [ ] Independent cross-document verification
-- [ ] Issue cross-validation
-- [ ] Record issues (if any) and loop back to Phase 2
+- [x] Spawn verification team (4 agents: cross-ref, semantic, terminology, history-guardian)
+- [x] Independent cross-document verification (Phase 1)
+- [x] Issue cross-validation (Phase 2) — 7 confirmed, 2 dismissed
+- [x] Record issues → `verification/round-1-issues.md`
+- [x] Disband verification team
+
+## Phase 4b: Fix Cycle (Round 1 issues)
+
+- [ ] Spawn fresh fix team (Step 3.4 — assignment negotiation)
+- [ ] Apply 7 fixes (3 critical, 4 minor)
+- [ ] Disband fix team
+
+## Phase 4c: Verification (Round 2)
+
+- [ ] Spawn fresh verification team
+- [ ] Verify fixes are clean
 
 ## Phase 5: Commit & Report
 
