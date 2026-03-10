@@ -1,0 +1,663 @@
+# Daemon Lifecycle and Client Connections
+
+**Version**: v0.2
+**Status**: Draft
+**Scope**: Daemon startup/shutdown sequences, client connection lifecycle, ring buffer delivery model
+**Source resolutions**: R8 (Daemon Lifecycle), R9 (Client Connection Lifecycle)
+**Cross-references**: R5 (Protocol Boundary / Transport Layer), R2 (Event Loop Model), R6 (IME Integration)
+
+---
+
+## 1. Daemon Startup
+
+The daemon follows a 7-step startup sequence. Each step has a single responsibility, a clear failure mode, and a defined recovery action. Steps are ordered by dependency: kqueue must exist before FDs can be registered, ghostty config must be loaded before Terminal instances are created, etc.
+
+### 1.1 Startup Sequence
+
+```
+Step 1: Parse CLI args
+  |
+  v
+Step 2: Check existing daemon (stale socket detection)
+  |
+  v
+Step 3: Initialize kqueue (+ signal filters)
+  |
+  v
+Step 4: Bind Unix socket (transport.Listener)
+  |  register listener.fd() with kqueue
+  v
+Step 5: Initialize ghostty config
+  |
+  v
+Step 6: Create default session (PTY fork + Terminal.init)
+  |  register pty_fd with kqueue
+  v
+Step 7: Enter event loop (kevent64)
+```
+
+#### Step 1: Parse CLI Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--server-id` | `"default"` | Identifies this daemon instance. Used in socket path resolution. |
+| `--socket-path` | (computed) | Override the socket path. Bypasses the 4-step resolution algorithm. |
+| `--foreground` | `false` | Run in foreground. Skips LaunchAgent registration. Required for SSH fork+exec mode. |
+
+#### Step 2: Check Existing Daemon
+
+Uses `transport.connect()` to probe the resolved socket path:
+
+| Probe result | Meaning | Action |
+|-------------|---------|--------|
+| Connection succeeds | Daemon already running | Exit with message: "daemon already running at {path}" |
+| `ECONNREFUSED` | Stale socket (previous daemon crashed) | Transport layer's stale socket detection reports this to caller. Caller proceeds — `Listener.init()` will handle cleanup. |
+| `ENOENT` | No socket file | Proceed (first startup) |
+
+This step prevents two daemons from binding to the same socket path. The probe uses the same `transport.connect()` API that clients use, ensuring identical path resolution logic.
+
+#### Step 3: Initialize kqueue
+
+```
+kqueue() -> kq_fd
+
+Register signal filters:
+  EVFILT_SIGNAL, SIGTERM  — graceful shutdown
+  EVFILT_SIGNAL, SIGINT   — graceful shutdown (Ctrl-C in foreground mode)
+  EVFILT_SIGNAL, SIGHUP   — graceful shutdown (terminal hangup)
+```
+
+**Why step 3 (before socket bind)?** kqueue is created early so that FDs produced by subsequent steps (listen_fd in step 4, pty_fd in step 6) can be registered with kqueue immediately after creation. This eliminates a window where events on those FDs could be missed between creation and registration.
+
+Signal delivery via `EVFILT_SIGNAL` requires the corresponding signals to be blocked with `sigprocmask(SIG_BLOCK, ...)` so they are consumed by `kevent64()` rather than invoking default signal handlers. The block mask is set once at daemon startup, before any FDs are created.
+
+SIGCHLD is also registered via `EVFILT_SIGNAL` for child process reaping during normal operation (see Section 3.2).
+
+#### Step 4: Bind Unix Socket
+
+```
+transport.Listener.init(config)
+  socket(AF_UNIX, SOCK_STREAM)
+  -> stale socket detection (connect probe + unlink if ECONNREFUSED)
+  -> mkdir(socket_dir, 0700)   (create parent directory if needed)
+  -> bind(sock_fd, sockaddr_un)
+  -> listen(sock_fd, backlog)
+  -> chmod(socket_path, 0600)  (owner-only access)
+  -> fcntl(sock_fd, F_SETFL, O_NONBLOCK)
+
+Register listener.fd() with kqueue:
+  EVFILT_READ on listen_fd — triggers on incoming connections
+```
+
+`transport.Listener.init()` encapsulates the full socket setup sequence. The daemon receives a `Listener` value and registers `listener.fd()` with kqueue. The transport layer owns socket creation, security setup, and stale socket cleanup. The daemon owns event loop integration.
+
+**Socket path resolution** (in transport layer): `$ITSHELL3_SOCKET` -> `$XDG_RUNTIME_DIR/itshell3/<server-id>.sock` -> `$TMPDIR/itshell3-<uid>/<server-id>.sock` -> `/tmp/itshell3-<uid>/<server-id>.sock`. This 4-step fallback algorithm is shared by both daemon and client via the transport layer.
+
+#### Step 5: Initialize ghostty Config
+
+Load terminal configuration (font, colors, scrollback size, default palette) via ghostty config APIs. This creates the shared config object used as a template for all `Terminal.init()` calls. Must complete before step 6 creates the first Terminal instance.
+
+#### Step 6: Create Default Session
+
+```
+Allocate Session:
+  session_id = 1
+  name = "default"
+  ime_engine = HangulImeEngine.init(allocator, "direct")
+
+Create initial Pane:
+  forkpty() -> (pty_master_fd, child_pid)
+  Terminal.init(allocator, .{.cols = 80, .rows = 24})
+  pane_id = 1
+
+Register pty_master_fd with kqueue:
+  EVFILT_READ on pty_fd — triggers on shell output
+```
+
+`forkpty()` combines `openpty()` + `fork()` + `login_tty()`. The child process execs the user's shell (`$SHELL` or `/bin/sh`). The parent (daemon) receives the master fd and child pid.
+
+The Session's `tree_nodes[0]` is initialized as a single `SplitNodeData` leaf pointing to pane slot 0. The `focused_pane` is set to `PaneSlot` 0.
+
+#### Step 7: Enter Event Loop
+
+```
+loop {
+    n = kevent64(kq_fd, changelist, eventlist, timeout)
+    for eventlist[0..n] -> |event| {
+        switch (event.filter, event.ident) {
+            listen_fd, EVFILT_READ   => acceptClient()
+            pty_fd, EVFILT_READ      => handlePtyOutput(pane)
+            conn_fd, EVFILT_READ     => handleClientMessage(client)
+            conn_fd, EVFILT_WRITE    => drainToClient(client)
+            EVFILT_TIMER             => coalesceAndExport()
+            EVFILT_SIGNAL            => handleSignal(event.ident)
+        }
+    }
+}
+```
+
+The event loop is single-threaded (Resolution 2). All state mutations — key input processing, PTY output handling, client message parsing, frame export, connection accept/close — are serialized by the event loop. No locks, no mutexes, no data races.
+
+### 1.2 Startup Failure Modes
+
+| Step | Failure | Action |
+|------|---------|--------|
+| 2 | Connection succeeds (daemon exists) | Exit with informational message. Not an error. |
+| 3 | `kqueue()` fails | Fatal — exit with errno. Indicates severe OS resource exhaustion. |
+| 4 | `bind()` fails with `EADDRINUSE` | Stale socket was not cleaned up. `Listener.init()` handles stale detection and cleanup internally. If bind still fails, fatal exit. |
+| 4 | `mkdir()` fails with `EACCES` | Fatal — cannot create socket directory. Log path and permissions. |
+| 5 | ghostty config load fails | Fatal — cannot create Terminal instances without config. |
+| 6 | `forkpty()` fails | Fatal — cannot create initial PTY. Log errno (`EAGAIN` = process limit, `ENOMEM` = memory). |
+| 6 | `Terminal.init()` fails | Fatal — out of memory for terminal state. |
+
+All fatal failures exit with a non-zero status code and a descriptive log message. There is no partial startup — either all 7 steps succeed or the daemon does not enter the event loop.
+
+---
+
+## 2. Daemon Shutdown
+
+Shutdown is triggered by three events:
+
+1. **Signal**: SIGTERM, SIGINT, or SIGHUP received via `EVFILT_SIGNAL`
+2. **Last session close**: The last remaining session's last pane exits (child process terminates, no sessions remain)
+3. **Explicit command**: A client sends a shutdown request (future — not in v1)
+
+All three trigger the same 7-step graceful shutdown sequence.
+
+### 2.1 Graceful Shutdown Sequence
+
+```
+Step 1: Stop accepting connections
+  |
+  v
+Step 2: Flush all ImeEngines
+  |
+  v
+Step 3: Notify clients (ServerShutdown message)
+  |
+  v
+Step 4: Wait for client disconnect (2-5s timeout)
+  |
+  v
+Step 5: Reap child processes
+  |
+  v
+Step 6: Close listener
+  |
+  v
+Step 7: Exit
+```
+
+#### Step 1: Stop Accepting Connections
+
+Remove `listen_fd` from kqueue. No new `accept()` calls will be made. Existing connections continue to be serviced during the drain period.
+
+#### Step 2: Flush All ImeEngines
+
+For each session: call `session.engine.deactivate()`. This eagerly flushes any active preedit composition:
+
+- If the engine has pending preedit text, `deactivate()` returns an `ImeResult` with `committed_text` set.
+- The daemon writes the committed text to the session's focused pane PTY via `write(pty_fd, committed_text)`.
+- This ensures no user input is silently discarded during shutdown.
+- If no composition is active, `deactivate()` returns `ImeResult{}` (all null/false) — zero cost.
+
+#### Step 3: Notify Clients
+
+Send `ServerShutdown` message to all connected clients via their `conn.send()`. This is a best-effort notification — if `send()` returns `.would_block` or `.peer_closed`, the daemon does not retry.
+
+#### Step 4: Wait for Client Disconnect
+
+Set a kqueue timer (EVFILT_TIMER, 2-5 seconds). Continue processing the event loop during this window to allow clients to:
+
+- Receive the `ServerShutdown` message
+- Send any final messages (e.g., session detach acknowledgment)
+- Close their connections gracefully
+
+When all clients have disconnected (all `conn.fd` values closed by peers), proceed immediately without waiting for the full timeout. If the timeout expires with clients still connected, proceed anyway — force-close remaining connections.
+
+#### Step 5: Reap Child Processes
+
+For each pane:
+
+```
+kill(child_pid, SIGHUP)       // signal shell to exit
+waitpid(child_pid, WNOHANG)   // non-blocking reap attempt
+close(pty_fd)                  // close PTY master
+Terminal.deinit()              // free terminal state
+```
+
+`SIGHUP` is the conventional signal for "terminal hangup" — shells interpret it as the terminal being closed and will exit. `WNOHANG` prevents blocking on a slow-to-exit child. If `waitpid` returns 0 (child still running), the child becomes orphaned and will be reaped by init/launchd. The daemon does NOT send SIGKILL — that is excessively aggressive for a terminal multiplexer.
+
+#### Step 6: Close Listener
+
+```
+listener.deinit()
+  close(listen_fd)
+  unlink(socket_path)    // remove socket file from filesystem
+  free(path_string)      // deallocate socket path memory
+```
+
+`listener.deinit()` performs compound cleanup: close the listening fd, remove the socket file, and free any allocated path string. This is the transport layer's responsibility.
+
+#### Step 7: Exit
+
+`exit(0)` for clean shutdown, `exit(1)` for shutdown due to unrecoverable error.
+
+### 2.2 Crash Recovery (Unclean Shutdown)
+
+If the daemon crashes or is killed with SIGKILL, the graceful shutdown sequence does not run. The consequences:
+
+| Resource | State after crash | Recovery |
+|----------|------------------|----------|
+| Socket file | Stale file remains on disk | Next daemon startup detects via `connect()` probe -> `ECONNREFUSED` -> `Listener.init()` unlinks and rebinds |
+| Child processes | Receive SIGHUP from PTY master close (kernel closes all FDs on process exit) | Shells exit on SIGHUP. No explicit cleanup needed. |
+| PTY master FDs | Closed by kernel on process exit | Slave side gets EIO; child shells detect and exit |
+| Active preedit | Lost | Acceptable — preedit is transient input state, not persistent data |
+| Terminal state | Lost (in-memory only) | Session persistence (Phase 4) will save/restore terminal content |
+
+The key insight: Unix process cleanup guarantees (kernel closes all FDs, PTY slaves get EIO) mean that crash recovery requires no special daemon code. The only artifact is the stale socket file, which is handled by the transport layer's stale socket detection.
+
+---
+
+## 3. Runtime Event Handling
+
+### 3.1 New Client Connection
+
+When `EVFILT_READ` fires on `listen_fd`:
+
+```
+conn = listener.accept()
+  accept(listen_fd) -> client_fd
+  getpeereid(client_fd) -> (uid, gid)    // macOS
+  verify uid == daemon_uid               // reject unauthorized connections
+  fcntl(client_fd, F_SETFL, O_NONBLOCK)
+  setsockopt(client_fd, SO_SNDBUF, 256 KiB)
+  setsockopt(client_fd, SO_RCVBUF, 256 KiB)
+  return Connection{ .fd = client_fd }
+
+Allocate ClientState:
+  client_id = next_client_id++
+  conn = conn
+  state = .handshaking
+  message_reader = MessageReader.init()
+
+Register conn.fd with kqueue:
+  EVFILT_READ on conn.fd
+```
+
+UID verification rejects connections from other users. On macOS, `getpeereid()` extracts the peer's effective UID from the socket. On Linux, `SO_PEERCRED` provides the same information. This check is centralized in `Listener.accept()` (transport layer).
+
+### 3.2 Child Process Exit
+
+When `EVFILT_SIGNAL` fires for SIGCHLD:
+
+```
+loop {
+    result = waitpid(-1, WNOHANG)
+    if result.pid == 0 => break  // no more exited children
+    if result.pid == -1 and errno == ECHILD => break  // no children
+
+    pane = lookupPaneByChildPid(result.pid)
+    if pane == null => continue  // unknown child (should not happen)
+
+    // Clean up pane resources
+    remove pty_fd from kqueue
+    close(pty_fd)
+    Terminal.deinit()
+    remove pane from session's tree_nodes array
+
+    if session has no remaining panes:
+        destroy session (including ImeEngine.deinit())
+        if no sessions remain:
+            initiate graceful shutdown (Section 2.1)
+}
+```
+
+The `waitpid(-1, WNOHANG)` loop reaps all exited children in one pass. Multiple SIGCHLD signals can coalesce into one delivery (standard Unix behavior), so the loop continues until `waitpid` returns 0 or `ECHILD`.
+
+### 3.3 Client Disconnect (Unexpected)
+
+When `conn.recv()` returns `.peer_closed`:
+
+```
+Remove conn.fd from kqueue
+conn.close()
+Free ClientState:
+  clear ring_cursors
+  if client was attached to a session:
+    // no session cleanup needed — sessions persist
+    // independently of client connections
+  deallocate ClientState
+```
+
+Client disconnection does NOT affect sessions. Sessions persist until their panes exit or the daemon shuts down. This is the fundamental property of a terminal multiplexer — sessions survive client detach/crash/reconnect.
+
+**Note on DISCONNECTING bypass**: Unexpected disconnects go directly to `[closed]` without passing through the DISCONNECTING state. This is intentional. The DISCONNECTING state exists to drain pending outbound messages (e.g., after ServerShutdown), but when the peer has already disconnected, there is no socket to drain to — any pending messages are undeliverable. The state machine diagram in Section 4.1 shows the primary graceful flow; unexpected disconnects (`conn.recv()` returning `.peer_closed`) are a distinct path that skips DISCONNECTING because the drain step is semantically inapplicable.
+
+---
+
+## 4. Client Connection Lifecycle
+
+Each client connection is managed by a per-client state machine. The daemon tracks client state from `accept()` to `close()`.
+
+### 4.1 State Machine
+
+The daemon uses a subset of the canonical 6-state model from protocol doc 01 (Section 5.2). DISCONNECTED and CONNECTING are client-side only — the daemon never initiates connections. The daemon's state machine starts at HANDSHAKING after `Listener.accept()`.
+
+```
+                  accept()
+                    |
+                    v
+              HANDSHAKING
+          (ClientHello/ServerHello
+           capability negotiation)
+                    |
+                    v
+                 READY  <----------+
+          (authenticated,           |
+           not attached to          | SessionDetachRequest
+           any session)             |
+                    |               |
+  AttachSessionRequest|               |
+                    v               |
+               OPERATING -----------+
+          (attached to session,
+           full protocol: KeyEvent,
+           FrameUpdate, resize, etc.)
+                    |
+             disconnect / error /
+             ServerShutdown
+                    v
+              DISCONNECTING
+          (draining pending
+           outbound messages)
+                    |
+                    v
+          [conn.close(), state freed]
+```
+
+### 4.2 State Transitions
+
+| From | Event | To | Action |
+|------|-------|----|--------|
+| HANDSHAKING | Valid ClientHello received | READY | Send ServerHello with capabilities, protocol version |
+| HANDSHAKING | Invalid ClientHello / timeout | [closed] | Send error, close connection |
+| READY | AttachSessionRequest | OPERATING | Set `attached_session`, initialize ring cursors for all visible panes, send I-frame for initial screen |
+| READY | Client disconnect | [closed] | Clean up ClientState |
+| OPERATING | SessionDetachRequest | READY | Clear `attached_session`, clear ring cursors |
+| OPERATING | AttachSessionRequest (different session) | OPERATING | Detach from current session, attach to new session, reinitialize ring cursors |
+| OPERATING | KeyEvent / MouseEvent | OPERATING | Route to attached session's focused pane (Section 4.5) |
+| OPERATING | ResizeRequest | OPERATING | Update `display_info`, recalculate pane dimensions |
+| OPERATING | Client disconnect | [closed] | Clean up ClientState |
+| OPERATING | ServerShutdown | DISCONNECTING | Begin drain sequence |
+| DISCONNECTING | All pending messages sent | [closed] | `conn.close()`, free ClientState |
+| DISCONNECTING | Drain timeout expires | [closed] | `conn.close()`, free ClientState |
+
+The key transition is **OPERATING -> READY** (detach without disconnect). This allows session switching without reconnecting: the client detaches from session A, returns to READY, then attaches to session B. The Unix socket connection stays open throughout.
+
+### 4.3 Per-Client State
+
+```zig
+const ClientState = struct {
+    client_id: u32,
+    conn: transport.Connection,
+    state: enum { handshaking, ready, operating, disconnecting },
+    attached_session: ?*Session,
+    capabilities: CapabilitySet,
+    ring_cursors: [MAX_PANES]?RingCursor, // indexed by PaneSlot (0..15)
+    display_info: ClientDisplayInfo,
+    message_reader: protocol.MessageReader,
+};
+```
+
+| Field | Description |
+|-------|-------------|
+| `client_id` | Monotonically increasing identifier assigned at `accept()` |
+| `conn` | Transport connection (4-byte struct, holds fd) |
+| `state` | Current state in the per-client state machine |
+| `attached_session` | Pointer to the session this client is viewing. Null when in READY state. |
+| `capabilities` | Negotiated capabilities from handshake (e.g., compression support, protocol extensions) |
+| `ring_cursors` | Per-pane read positions into the shared ring buffer. Fixed array indexed by `PaneSlot` (0..15). One cursor per visible pane. |
+| `display_info` | Client's terminal dimensions and display capabilities (used for pane layout calculation) |
+| `message_reader` | Per-connection framing state. Accumulates partial messages across `recv()` calls. |
+
+### 4.4 Message Receive Path
+
+When `EVFILT_READ` fires on a client's `conn.fd`:
+
+```
+result = client.conn.recv(buf)
+switch (result) {
+    .bytes_read => |n| {
+        client.message_reader.feed(buf[0..n])
+        while (client.message_reader.next()) |message| {
+            // Validate message against current state
+            // (Layer 3 connection protocol rejects invalid sequences)
+            processMessage(client, message)
+        }
+    },
+    .would_block => {
+        // Spurious wakeup, ignore (re-armed automatically by kqueue)
+    },
+    .peer_closed => {
+        handleClientDisconnect(client)  // Section 3.3
+    },
+    .err => |e| {
+        log.err("recv error on client {}: {}", .{client.client_id, e})
+        handleClientDisconnect(client)
+    },
+}
+```
+
+`MessageReader.feed()` appends bytes to the framing buffer. `MessageReader.next()` attempts to extract a complete message (16-byte header + payload). Multiple messages may arrive in a single `recv()` — the `while` loop processes all of them.
+
+### 4.5 Multi-Client Input Model
+
+All attached clients can send input. There is no primary/secondary distinction:
+
+- **KeyEvent**: Routed to the `attached_session`'s focused pane. Processed through Phase 0->1->2 key routing (Resolution 6).
+- **MouseEvent**: Encoded as mouse escape sequence and written to the focused pane's PTY, if mouse reporting is enabled in the terminal's DEC mode state.
+- **Last writer wins**: If two clients send KeyEvents to the same pane simultaneously, the events are processed in the order they arrive at the event loop. The single-threaded model (Resolution 2) provides total ordering.
+
+Readonly attachment is a client-requested mode (per protocol doc 03 Section 9). The daemon enforces it by discarding input messages from clients that requested readonly mode. This is NOT server-enforced based on connection order.
+
+---
+
+## 5. Ring Buffer Delivery Model
+
+The ring buffer is the daemon's mechanism for delivering frame updates to multiple clients efficiently. It lives in `server/`, not in the protocol library.
+
+### 5.1 Per-Pane Ring Buffer
+
+Each pane maintains a single ring buffer containing serialized frame data:
+
+```
+Ring Buffer (per pane, in server/)
++-------+-------+-------+-------+-------+-------+
+| I-0   | P-1   | P-2   | I-3   | P-4   | P-5   |  <- frame slots
++-------+-------+-------+-------+-------+-------+
+  ^                        ^               ^
+  |                        |               |
+  oldest                   client B        client A
+  (will be overwritten)    cursor          cursor
+```
+
+- **I-frame** (keyframe): Complete screen state. Self-contained — a client can render from an I-frame alone without any prior frames.
+- **P-frame** (delta): Only changed rows since the last frame. Smaller than I-frames but requires the preceding I-frame as a base.
+
+Frame data is serialized once per pane per coalescing interval, regardless of how many clients are attached. This eliminates O(N) serialization cost for multi-client delivery.
+
+### 5.2 Per-Client Cursors
+
+Each client maintains its own read cursor (position) into the ring buffer for each visible pane:
+
+```zig
+const RingCursor = struct {
+    position: usize,    // current read position in the ring
+    last_i_frame: usize, // position of last I-frame sent to this client
+};
+```
+
+Cursors are independent — clients at different frame rates (e.g., 60fps desktop, 20fps battery-saving iPad) read from the same ring at their own pace.
+
+### 5.3 Frame Delivery
+
+When the coalescing timer fires (`EVFILT_TIMER`), the daemon:
+
+1. For each dirty pane: export frame data (`RenderState.update()` + `bulkExport()` + `overlayPreedit()`), serialize into the ring buffer as either I-frame or P-frame.
+2. For each client in OPERATING state: check if the client has pending data (cursor behind write position).
+3. If pending data exists and `conn.fd` is write-ready: call `conn.sendv(iovecs)` for zero-copy delivery from ring buffer.
+
+### 5.4 Write-Ready and Backpressure
+
+Frame delivery uses `EVFILT_WRITE` on `conn.fd` to avoid blocking the event loop:
+
+```
+sendv_result = client.conn.sendv(iovecs)
+switch (sendv_result) {
+    .bytes_written => |n| {
+        advance client cursor by n bytes
+        if cursor == write_position:
+            // fully caught up — disable EVFILT_WRITE
+            // (re-enable when new frame data is written)
+        else:
+            // partial write — keep EVFILT_WRITE armed
+    },
+    .would_block => {
+        // socket send buffer full — keep EVFILT_WRITE armed
+        // cursor stays at current position
+        // next EVFILT_WRITE will retry
+    },
+    .peer_closed => {
+        handleClientDisconnect(client)
+    },
+}
+```
+
+`EVFILT_WRITE` is only enabled when a client has pending data. When the client is fully caught up, `EVFILT_WRITE` is disabled to avoid busy-looping (kqueue reports write-ready continuously on an empty socket buffer).
+
+### 5.5 Slow Client Recovery
+
+When a client falls behind (its cursor is far from the write position and the ring is about to wrap):
+
+1. The ring buffer detects that the client's cursor would be overwritten by new data.
+2. Instead of accumulating stale P-frames, the client's cursor **skips to the latest I-frame**.
+3. The client receives a complete screen state (I-frame) and resumes normal P-frame delivery from that point.
+
+This prevents slow clients from:
+- Consuming unbounded memory (no P-frame accumulation queue)
+- Receiving stale delta sequences that produce visual corruption
+- Blocking the ring buffer from advancing
+
+The I-frame skip is transparent to the client — it receives a full screen update, which it can render directly.
+
+---
+
+## 6. LaunchAgent Integration
+
+LaunchAgent support is behind a comptime flag: `build_options.enable_launchagent`. This flag is `true` for the macOS application bundle and `false` for standalone/testing builds.
+
+### 6.1 Plist Configuration
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.powdream.itshell3.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/it-shell3-daemon</string>
+        <string>--server-id</string>
+        <string>default</string>
+    </array>
+    <key>KeepAlive</key>
+    <true/>
+    <key>Sockets</key>
+    <dict>
+        <key>Listeners</key>
+        <dict>
+            <key>SockPathName</key>
+            <string>/path/to/socket</string>
+            <key>SockPathMode</key>
+            <integer>384</integer>  <!-- 0600 -->
+        </dict>
+    </dict>
+</dict>
+</plist>
+```
+
+### 6.2 Socket Activation
+
+When launched by launchd with `Sockets` configuration, the daemon inherits a pre-bound listen fd instead of creating one:
+
+1. launchd creates the socket, binds, and listens on behalf of the daemon.
+2. The daemon receives the fd via the `LAUNCH_DAEMON_SOCKET_NAME` check-in mechanism (`launch_activate_socket()`).
+3. Step 4 of the startup sequence detects the inherited fd and skips `Listener.init()`. Instead, it wraps the inherited fd in a `Listener` (or uses the fd directly for kqueue registration).
+
+**Benefit**: The socket is available immediately when launchd starts the daemon. Clients connecting during daemon startup do not get `ECONNREFUSED` — launchd queues the connections until the daemon is ready.
+
+### 6.3 Client-Side LaunchAgent Registration
+
+The client application (it-shell3.app) is responsible for:
+
+1. Writing the plist to `~/Library/LaunchAgents/com.powdream.itshell3.daemon.plist`
+2. Running `launchctl load` (or `launchctl bootstrap`) to register the agent
+3. On app update: comparing `server_version` — if the bundled daemon binary is newer, `launchctl unload` + `kill` + `launchctl load` to restart with the new binary.
+
+This is client-side logic, not daemon logic. The daemon binary is the same regardless of how it was started.
+
+---
+
+## 7. SSH Fork+Exec (Deferred to Phase 5)
+
+**Status**: Design only. Not implemented in v1.
+
+When implemented, the remote daemon startup path is:
+
+```
+Client SSH tunnel:
+  ssh user@host -o StreamLocalBindUnlink=yes \
+    -L /local/sock:/remote/sock
+
+Remote daemon auto-start:
+  ssh user@host "itshell3-daemon --foreground --server-id=<id>"
+```
+
+The `--foreground` flag skips LaunchAgent registration (not applicable on remote hosts). The daemon runs the same startup sequence (Section 1.1), enters the same event loop, and is indistinguishable from a locally started daemon. No daemon code changes are needed — only the auto-start mechanism (client-side SSH command) differs.
+
+Protocol compatibility is ensured via `protocol_version` min/max negotiation during handshake. If the remote daemon's protocol version is incompatible with the client, the client exits with an error message rather than attempting degraded operation.
+
+---
+
+## 8. Transport-Agnostic Design
+
+The daemon always interacts with `transport.Connection` values. Whether a client connected locally or through an SSH tunnel is invisible to the daemon:
+
+```
+Local client:
+  Client -> Unix socket -> Daemon
+  Daemon sees: transport.Connection from Listener.accept()
+
+SSH-tunneled client:
+  Client -> SSH tunnel -> sshd -> Unix socket -> Daemon
+  Daemon sees: transport.Connection from Listener.accept()
+  (sshd's UID is accepted per trust model in protocol doc 01 Section 2.2)
+```
+
+The daemon has no "local vs remote" code path. All clients are `Connection` values with `recv()`, `send()`, `sendv()`, and `close()`. This is a structural property of the architecture, not an abstraction to be maintained.
+
+---
+
+## Prior Art
+
+| Reference | Relevance |
+|-----------|-----------|
+| tmux server startup (`server_start()` in `server.c`) | 7-step startup pattern: socket bind, session create, event loop enter |
+| tmux signal handling (`server_signal()`) | SIGTERM/SIGHUP/SIGCHLD via libevent signal events (equivalent to EVFILT_SIGNAL) |
+| tmux client accept (`server_accept()` in `server-client.c`) | Per-client state, UID verification via `getpeereid()` |
+| tmux control mode (`control_pane.offset`) | Shared pane buffer with per-client read offsets (ring cursor model) |
+| tmux multi-client input | All clients can send input, last writer wins |
+| launchd socket activation (`launch_activate_socket()`) | Inherited fd model for zero-downtime startup |
