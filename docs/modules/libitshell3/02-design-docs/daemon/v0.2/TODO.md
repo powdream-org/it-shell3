@@ -46,8 +46,18 @@
 
 ## Phase 4c: Verification (Round 2)
 
-- [ ] Spawn fresh verification team
-- [ ] Verify fixes are clean
+- [x] Spawn fresh verification team (4 agents: cross-ref, semantic, terminology, history-guardian)
+- [x] Independent cross-document verification (Phase 1)
+- [x] Issue cross-validation (Phase 2) — 3 confirmed, 1 dismissed
+- [x] Record issues → `verification/round-2-issues.md`
+- [x] Disband verification team
+
+## Owner Review (Round 2 issues)
+
+- [x] V2-01 (LOW): SplitNode remnants in v0.1 resolution doc → deferred as review note 01
+- [x] V2-02 (LOW): pty_master_fd vs pty_fd → deferred as review note 02
+- [x] V2-03 (HIGH): pane_slots placement contradiction → deferred as review note 03 (requires design discussion: SessionEntry introduction)
+- [x] All 3 issues recorded as `v0.2/review-notes/01–03` for v0.3 resolution
 
 ## Phase 5: Commit & Report
 
