@@ -59,6 +59,16 @@
 - [x] V2-03 (HIGH): pane_slots placement contradiction → deferred as review note 03 (requires design discussion: SessionEntry introduction)
 - [x] All 3 issues recorded as `v0.2/review-notes/01–03` for v0.3 resolution
 
+## Owner Review (Cross-Document Analysis)
+
+- [x] Review note 04: daemon behavior migration from protocol (20 topics) and IME (9 topics)
+- [x] Cross-team request → protocol v0.10: `01-daemon-behavior-extraction.md` (23 changes)
+- [x] Cross-team request → IME v0.7: `01-daemon-behavior-extraction.md` (9 changes)
+- [x] Convention update: `07-cross-team-requests.md` — placement clarification + handover mention rule
+- [x] Handover: `v0.2/handover/handover-to-v0.3.md` created
+- [x] Handover: protocol `v0.10/handover/handover-to-v0.11.md` updated (cross-team request mention)
+- [x] Handover: IME `v0.7/handover/handover-to-v0.8.md` created
+
 ## Phase 5: Commit & Report
 
 - [ ] Commit v0.2 documents

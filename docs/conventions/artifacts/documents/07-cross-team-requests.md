@@ -2,10 +2,13 @@
 
 ## Location and Naming
 
-Cross-team requests are placed in the TARGET team's version directory, not the source team's.
+Cross-team requests are placed in the TARGET team's **latest (current) version
+directory**, not the source team's and not a future version that doesn't exist yet.
+This follows the same convention as handover documents: outputs of the current
+version that serve as inputs to the next revision.
 
 ```
-{target-team}/v<X>/cross-team-requests/{NN}-{source-team}-{topic}.md
+{target-team}/v<current>/cross-team-requests/{NN}-{source-team}-{topic}.md
 ```
 
 | Component | Rule |
@@ -62,8 +65,10 @@ The target team's leader discovers cross-team requests when starting a Revision
 Cycle (step 3.1 Requirements Intake). They are listed as an input source alongside
 review notes, handover documents, and PoC findings.
 
-Cross-team requests do NOT appear in the source team's handover document — the
-file's presence in the target team's directory is sufficient for discovery.
+Cross-team requests do NOT appear in the source team's handover document.
+However, the **target team's** handover to `v<current+1>` MUST mention incoming
+cross-team requests so the next revision's team leader discovers them during
+requirements intake.
 
 ## Relationship to Other Artifacts
 

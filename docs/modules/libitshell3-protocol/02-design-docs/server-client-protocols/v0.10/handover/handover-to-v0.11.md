@@ -63,6 +63,10 @@ When carrying review notes from v(N) to v(N+1), only carry notes with `Status: o
 
 Before applying review note 06, the team should identify all locations in Docs 01-06 that reference `frame_type=2`, I-unchanged, or the byte-comparison rule. The v0.8 changelog, Section 7.3, Section 8.3, Appendix A hex dump, and the attach sequence descriptions (already referencing `frame_type=1 or frame_type=2` after R4) all need updates. A grep for `frame_type=2`, `I-unchanged`, `unchanged`, and `byte-identical` across all 6 docs will produce the full ripple list.
 
+### Cross-team request: daemon behavior extraction
+
+The daemon team (v0.2) filed a cross-team request at `v0.10/cross-team-requests/01-daemon-behavior-extraction.md` requesting removal of daemon-side behavioral descriptions from all 6 protocol docs. 23 specific changes across docs 01-06 covering process management, flow control policies, multi-client resize logic, preedit ownership algorithms, coalescing internals, and PTY management. These changes MUST be applied simultaneously with daemon v0.3 absorbing the same content. See the cross-team request for the full change list.
+
 ### Idle suppression interaction
 
 With frame_type=2 removed, the I-frame timer becomes a no-op during idle. Verify this doesn't break any assumption in Doc 06's adaptive coalescing model (especially the Idle tier transition rules and the "500ms after resize" grace period). The ring buffer must always contain at least one I-frame per pane — confirm this invariant holds when the timer stops writing during idle.
