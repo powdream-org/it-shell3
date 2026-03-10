@@ -54,6 +54,14 @@ historical records against current normative text**.
    summary contradicts the current spec. Change notes are historical
    records of what changed at that point in time. **Veto this issue.**
 
+4. **Prior Art references**: An issue claims that a Prior Art table
+   cites an outdated version of a referenced document (e.g., "Protocol
+   spec v0.9" when the latest is v0.10). Prior Art references record
+   which version was consulted when the document was designed — they
+   are accurate for the version they were written against. Mechanically
+   updating Prior Art versions without actually reviewing against the
+   new version would be misleading. **Veto this issue.**
+
 ### What You Do NOT Veto
 
 - Issues about contradictions between two pieces of **current normative
