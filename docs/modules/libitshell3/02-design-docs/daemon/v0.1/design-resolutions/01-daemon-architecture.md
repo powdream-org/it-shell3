@@ -11,12 +11,12 @@
 
 ### Resolution 1: Module Decomposition (6/6 unanimous)
 
-**Decision**: libitshell3 is organized into 4 module groups with a diamond dependency graph. `ghostty/` and `ime/` are sibling modules that both depend on `core/`; `server/` depends on all three.
+**Decision**: libitshell3 is organized into 4 module groups with a diamond dependency graph. `ghostty/` and `input/` are sibling modules that both depend on `core/`; `server/` depends on all three.
 
 ```
           core/
          /    \
-    ghostty/  ime/
+    ghostty/  input/
          \    /
          server/
 
@@ -29,7 +29,7 @@ ghostty/  — Thin helper functions (NOT wrapper types) for ghostty internal
              overlayPreedit, key_encode.encode, Options.fromTerminal.
              Depends on core/ only.
 
-ime/      — Key routing orchestration: Phase 0 shortcut check, Phase 1
+input/    — Key routing orchestration: Phase 0 shortcut check, Phase 1
              dispatch to ImeEngine (handleKeyEvent,
              handleIntraSessionFocusChange, handleInputMethodSwitch).
              Depends on core/ only. No ghostty dependency.
@@ -40,17 +40,17 @@ server/   — Event loop (kqueue), client manager, ring buffer,
              Pane struct (owns Terminal + RenderState + pty_fd +
              child_pid), startup/shutdown. Socket setup delegated
              to libitshell3-protocol transport layer (Layer 4).
-             Depends on core/, ghostty/, ime/, libitshell3-ime, and
+             Depends on core/, ghostty/, input/, libitshell3-ime, and
              libitshell3-protocol.
 ```
 
-**Phase 2 lives in `server/`**: Phase 2 consumes `ImeResult` and performs I/O (PTY writes) and ghostty API calls (`key_encode.encode`, `overlayPreedit`). Both I/O and ghostty dependencies belong in `server/`, not `ime/`. The `ime/` module handles Phase 0 and Phase 1 only — pure routing logic that depends solely on `core/` types (ImeEngine vtable, KeyEvent, ImeResult).
+**Phase 2 lives in `server/`**: Phase 2 consumes `ImeResult` and performs I/O (PTY writes) and ghostty API calls (`key_encode.encode`, `overlayPreedit`). Both I/O and ghostty dependencies belong in `server/`, not `input/`. The `input/` module handles Phase 0 and Phase 1 only — pure routing logic that depends solely on `core/` types (ImeEngine vtable, KeyEvent, ImeResult).
 
 **Rationale**:
 
 - `core/` has zero external dependencies, making it unit-testable in isolation and importable by the protocol library without pulling in ghostty or OS specifics.
 - `ghostty/` contains helper functions, not abstraction layers. ghostty's API is not stable; wrapper types would be a maintenance trap. Direct calls to internal Zig APIs with helper functions around them is the right level. We have no second implementation of ghostty, so an abstraction layer violates YAGNI.
-- `ime/` depends on the `ImeEngine` interface type (defined in `core/`), not on the concrete `HangulImeEngine` (in libitshell3-ime). This is clean dependency inversion. `ime/` has no ghostty dependency because Phase 2 (which uses ghostty APIs) lives in `server/`.
+- `input/` depends on the `ImeEngine` interface type (defined in `core/`), not on the concrete `HangulImeEngine` (in libitshell3-ime). This is clean dependency inversion. `input/` has no ghostty dependency because Phase 2 (which uses ghostty APIs) lives in `server/`.
 - Ring buffer lives in `server/`, not in the protocol library or `core/`. The ring buffer is a server-side delivery optimization tied to socket I/O (writev zero-copy path). The protocol library defines message formats, not delivery mechanisms.
 - Pane struct lives in `server/` because it owns both ghostty types (Terminal, RenderState) and OS resources (pty_fd, child_pid). SplitNode in `core/` references panes by PaneId (u32), not by pointer, preserving the dependency boundary. Lookup is O(1) via `HashMap(PaneId, *Pane)` in `server/`.
 
@@ -271,7 +271,7 @@ Note: The initial argument for wrappers (EINTR handling) was debunked — Zig's 
 
 **Phase 0->1->2 key routing**:
 
-1. **Phase 0** (`ime/`): Check if key is language toggle -> `engine.setActiveInputMethod(new_method)` -> consume ImeResult -> STOP. Check global daemon shortcuts -> STOP. Otherwise pass to Phase 1.
+1. **Phase 0** (`input/`): Check if key is language toggle -> `engine.setActiveInputMethod(new_method)` -> consume ImeResult -> STOP. Check global daemon shortcuts -> STOP. Otherwise pass to Phase 1.
 2. **Phase 1** (libitshell3-ime): `engine.processKey(key_event)` -> returns `ImeResult`.
 3. **Phase 2** (`server/`): committed_text -> `write(pty_fd)`, preedit_text -> `@memcpy` to `session.preedit_buf` + update `session.current_preedit` (when `preedit_changed`), forward_key -> `key_encode.encode()` + `write(pty_fd)`. Phase 2 lives in `server/` because it performs I/O and uses ghostty APIs (see Resolution 1).
 
@@ -303,7 +303,7 @@ The following sequence diagram shows the complete data path for a key input even
 sequenceDiagram
     participant C as Client App
     participant S as Daemon (server/)
-    participant I as ime/
+    participant I as input/
     participant E as libitshell3-ime
     participant G as ghostty/
     participant P as PTY Child

@@ -404,7 +404,7 @@ const ClientState = struct {
     state: enum { handshaking, ready, operating, disconnecting },
     attached_session: ?*Session,
     capabilities: CapabilitySet,
-    ring_cursors: HashMap(PaneId, RingCursor),
+    ring_cursors: [MAX_PANES]?RingCursor, // indexed by PaneSlot (0..15)
     display_info: ClientDisplayInfo,
     message_reader: protocol.MessageReader,
 };
@@ -417,7 +417,7 @@ const ClientState = struct {
 | `state` | Current state in the per-client state machine |
 | `attached_session` | Pointer to the session this client is viewing. Null when in READY state. |
 | `capabilities` | Negotiated capabilities from handshake (e.g., compression support, protocol extensions) |
-| `ring_cursors` | Per-pane read positions into the shared ring buffer. One cursor per visible pane. |
+| `ring_cursors` | Per-pane read positions into the shared ring buffer. Fixed array indexed by `PaneSlot` (0..15). One cursor per visible pane. |
 | `display_info` | Client's terminal dimensions and display capabilities (used for pane layout calculation) |
 | `message_reader` | Per-connection framing state. Accumulates partial messages across `recv()` calls. |
 

@@ -11,19 +11,19 @@
 
 ## Phase 2: Assignment Negotiation
 
-- [ ] Spawn fresh team with resolution doc
-- [ ] Negotiate doc assignments
-- [ ] Shut down unassigned agents
+- [x] Spawn fresh team with resolution doc
+- [x] Negotiate doc assignments (Owner Rule: DA:1,2,5 / ISE:3,4 / PA:6)
+- [x] Shut down unassigned agents (GIE, principal, system-sw)
 
 ## Phase 3: Document Writing
 
-- [ ] Apply R1 (pane limit, fixed-size structures, PaneId) to doc 01 Sections 1.5, 1.6, 3.2, 3.3
-- [ ] Apply R1 to v0.1 design-resolutions/01 — update R1, R3, R9
-- [ ] Apply R2 (input/ rename, libitshell3-ime diagram) to doc 01 Sections 1.1, 1.2, 1.3, 1.6
-- [ ] Apply R2 to doc 02 Section 4.2 (Phase 0->1->2 routing diagram)
-- [ ] Apply R2 to v0.1 design-resolutions/01 — update R1 references
-- [ ] Apply R3 (protocol scope fix) to doc 01 Section 1.4
-- [ ] Disband writing team
+- [x] Apply R1 (pane limit, fixed-size structures, PaneId) to doc 01 Sections 1.5, 1.6, 3.2, 3.3 (daemon-architect)
+- [x] Apply R1 to doc 03 Section 4.3 — ClientState ring_cursors (daemon-architect)
+- [x] Apply R2 (input/ rename, libitshell3-ime diagram) to doc 01 Sections 1.1, 1.2, 1.3, 1.6 (ime-system-sw-engineer)
+- [x] Apply R2 to doc 02 Sections 4.2, 4.7 (ime-system-sw-engineer)
+- [x] Apply R2 to v0.1 design-resolutions/01 — R1, R6 references (ime-system-sw-engineer)
+- [x] Apply R3 (protocol scope fix) to doc 01 Section 1.4 (protocol-architect)
+- [x] Disband writing team
 
 ## Phase 4: Verification
 

@@ -237,12 +237,12 @@ Key input flows through three phases across three modules:
 
 ```
 ┌──────────────────┐     ┌─────────────────────┐     ┌──────────────────┐
-│  Phase 0 (ime/)  │────>│ Phase 1 (libitshell3 │────>│ Phase 2 (server/)│
+│  Phase 0 (input/)│────>│ Phase 1 (libitshell3 │────>│ Phase 2 (server/)│
 │  Shortcut check  │     │ -ime: processKey)    │     │  I/O + ghostty   │
 └──────────────────┘     └─────────────────────┘     └──────────────────┘
 ```
 
-**Phase 0** — `ime/` module (shortcut interception):
+**Phase 0** — `input/` module (shortcut interception):
 1. Check if key is a language toggle -> `engine.setActiveInputMethod(new_method)` -> consume ImeResult -> STOP.
 2. Check global daemon shortcuts -> STOP.
 3. Otherwise pass to Phase 1.
@@ -258,7 +258,7 @@ Key input flows through three phases across three modules:
 | `preedit_text` (when `preedit_changed`) | Copy to session buffer | `@memcpy` to `session.preedit_buf`, update `session.current_preedit` |
 | `forward_key` | Encode and write to PTY | `key_encode.encode()` + `write(pty_fd, encoded)` |
 
-Phase 2 lives in `server/` because it performs I/O (PTY writes) and uses ghostty APIs (`key_encode.encode`). The `ime/` module handles Phase 0 and Phase 1 only — pure routing logic that depends solely on `core/` types.
+Phase 2 lives in `server/` because it performs I/O (PTY writes) and uses ghostty APIs (`key_encode.encode`). The `input/` module handles Phase 0 and Phase 1 only — pure routing logic that depends solely on `core/` types.
 
 ### 4.3 Eager Activate/Deactivate on Session Focus Change
 
@@ -297,7 +297,7 @@ The single-threaded kqueue event loop (see internal architecture doc, Resolution
 sequenceDiagram
     participant C as Client App
     participant S as Daemon (server/)
-    participant I as ime/
+    participant I as input/
     participant E as libitshell3-ime
     participant G as ghostty/
     participant P as PTY Child

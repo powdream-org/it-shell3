@@ -1,27 +1,28 @@
 # Daemon Internal Architecture
 
-**Status**: Draft v0.1
-**Date**: 2026-03-09
+**Status**: Draft v0.2
+**Date**: 2026-03-10
 **Scope**: libitshell3 daemon internal module structure, event loop, state tree, and ghostty Terminal integration
 **Source resolutions**: R1 (Module Decomposition), R2 (Event Loop Model), R3 (State Tree), R4 (ghostty Terminal Instance Management), Owner Q3 (Preedit/RenderState Validity)
+**v0.2 changes**: Applied v0.2 review note resolutions R1 (16-pane limit, fixed-size data structures), R2 (ime/ -> input/ rename), R3 (protocol scope fix)
 
 ---
 
 ## 1. Module Decomposition
 
-libitshell3 is organized into 4 module groups with a diamond dependency graph. `ghostty/` and `ime/` are sibling modules that both depend on `core/`; `server/` depends on all three.
+libitshell3 is organized into 4 module groups with a diamond dependency graph. `ghostty/` and `input/` are sibling modules that both depend on `core/`; `server/` depends on all three.
 
 ### 1.1 Dependency Graph
 
 ```
           core/
          /    \
-    ghostty/  ime/
+    ghostty/  input/
          \    /
          server/
 ```
 
-Dependencies point inward: `server/` depends on everything; `ghostty/` and `ime/` depend only on `core/`; `core/` depends on nothing. Circular dependencies are prohibited.
+Dependencies point inward: `server/` depends on everything; `ghostty/` and `input/` depend only on `core/`; `core/` depends on nothing. Circular dependencies are prohibited.
 
 ### 1.2 Module Definitions
 
@@ -31,9 +32,11 @@ Zero dependencies on ghostty, OS, or protocol.
 
 | Type | Purpose |
 |------|---------|
-| `Session` | Config, name, ImeEngine interface, preedit cache, focused pane |
-| `SplitNode` | Binary split tree shape (tagged union: `.leaf` = PaneId, `.split` = orientation + ratio + children) |
-| `PaneId` | `u32` opaque identifier |
+| `Session` | Config, name, ImeEngine interface, preedit cache, focused pane, fixed-size pane slots and tree |
+| `SplitNodeData` | Binary split tree node (tagged union: `.leaf` = PaneSlot, `.split` = orientation + ratio) |
+| `PaneId` | `u32` opaque wire identifier (global monotonic, never reused) |
+| `PaneSlot` | `u8` session-local slot index (0..15) for fixed-size array operations |
+| `MAX_PANES` | Compile-time constant: 16 panes per session |
 | `ImeEngine` | Vtable interface for input method engines |
 | `KeyEvent` | Key input event type consumed by IME routing |
 | `ImeResult` | Result of IME processing (committed text, preedit, forward key) |
@@ -56,11 +59,11 @@ Depends on `core/` only. Contains helper functions (NOT wrapper types) for ghost
 
 **Why helper functions, not wrapper types**: ghostty's API is not stable. Wrapper types would create a maintenance trap — every upstream API change would require updating both the wrapper and the call site. Helper functions are a thin layer that adds value (e.g., error mapping, parameter defaults) without creating false abstraction. We have no second implementation of ghostty, so an abstraction layer violates YAGNI.
 
-#### `ime/` — Key Routing Orchestration
+#### `input/` — Key Routing Orchestration
 
 Depends on `core/` only. No ghostty dependency.
 
-Handles Phase 0 (shortcut check) and Phase 1 (dispatch to ImeEngine). Phase 2 (I/O and ghostty API calls) lives in `server/` — see Section 1.3.
+**Scope**: The `input/` module handles Phase 0+1 key input processing: shortcut interception (Phase 0), ImeEngine dispatch (Phase 1), focus change handling (`handleIntraSessionFocusChange`), and input method switching (`handleInputMethodSwitch`). Mouse events and paste operations bypass this module entirely — they are handled directly in `server/`.
 
 | Function | Phase | Purpose |
 |----------|-------|---------|
@@ -68,11 +71,11 @@ Handles Phase 0 (shortcut check) and Phase 1 (dispatch to ImeEngine). Phase 2 (I
 | `handleIntraSessionFocusChange` | — | Flush engine, clear preedit on old pane |
 | `handleInputMethodSwitch` | 0 | Switch active input method |
 
-`ime/` depends on the `ImeEngine` interface type (defined in `core/`), not on the concrete `HangulImeEngine` (in libitshell3-ime). This is dependency inversion: `ime/` code is testable with a `MockImeEngine` without libhangul.
+`input/` depends on the `ImeEngine` interface type (defined in `core/`), not on the concrete `HangulImeEngine` (in libitshell3-ime). This is dependency inversion: `input/` code is testable with a `MockImeEngine` without libhangul.
 
 #### `server/` — Event Loop and I/O
 
-Depends on `core/`, `ghostty/`, `ime/`, libitshell3-ime, and libitshell3-protocol.
+Depends on `core/`, `ghostty/`, `input/`, libitshell3-ime, and libitshell3-protocol.
 
 | Component | Purpose |
 |-----------|---------|
@@ -94,17 +97,46 @@ Phase 2 consumes `ImeResult` and performs:
 - **ghostty API calls**: `key_encode.encode()`, `overlayPreedit()`
 - **State mutation**: `@memcpy` preedit text to `session.preedit_buf`
 
-Both I/O and ghostty dependencies belong in `server/`, not `ime/`. The `ime/` module handles Phase 0 and Phase 1 only — pure routing logic that depends solely on `core/` types.
+Both I/O and ghostty dependencies belong in `server/`, not `input/`. The `input/` module handles Phase 0 and Phase 1 only — pure routing logic that depends solely on `core/` types.
 
 ### 1.4 Ring Buffer Placement
 
-The ring buffer lives in `server/`, not in the protocol library or `core/`. It is a server-side delivery optimization tied to socket I/O (`writev` zero-copy path) and multi-client cursor management. The protocol library defines message formats, not delivery mechanisms. There is no client-side analogue.
+The ring buffer lives in `server/`, not in the protocol library or `core/`. The ring buffer is a server-side application-level delivery optimization (multi-client cursor management, writev scheduling) with no client-side analogue. The protocol library provides transport-level I/O (Layer 4), but application-level delivery strategies are the consumer's responsibility.
 
-### 1.5 Pane Struct Placement
+### 1.5 Pane Struct Placement and Fixed-Size Lookup
 
 The Pane struct lives in `server/` because it owns both ghostty types (Terminal, RenderState) and OS resources (pty_fd, child_pid). Placing it in `core/` would violate the `core/ <- ghostty/` dependency rule.
 
-`SplitNode` in `core/` references panes by `PaneId` (u32), not by pointer, preserving the dependency boundary. Lookup is O(1) via `HashMap(PaneId, *Pane)` in `server/`.
+A compile-time constant limits panes per session:
+
+```zig
+pub const MAX_PANES = 16;
+pub const MAX_TREE_NODES = MAX_PANES * 2 - 1; // 31
+```
+
+The 16-pane limit is a UX-driven constraint, not a performance optimization. On a 374x74 terminal, 16 panes at 93x18 is minimum viable; 32 panes at 93x9 is unusable. The limit is enforced server-side via ErrorResponse when a client requests a split that would exceed 16 panes.
+
+Each session maintains a fixed-size pane slot array instead of a dynamic HashMap:
+
+```zig
+pane_slots: [MAX_PANES]?*Pane, // indexed by PaneSlot (0..15)
+free_mask: u16,                 // bitmap of available slots
+dirty_mask: u16,                // one bit per pane slot, set on PTY read
+```
+
+**Pane slot allocation**: `@ctz(free_mask)` gives the next free slot in one instruction.
+
+**Dirty tracking**: Set via `dirty_mask |= (1 << pane.slot_index)` on PTY read. Iterate via `@ctz(dirty_mask)` (single instruction on x86 `TZCNT` and ARM64 `RBIT+CLZ`). Clear each bit after export: `dirty_mask &= dirty_mask - 1`.
+
+**PaneId semantics**: PaneId on the wire is a global monotonic `u32`, never reused within daemon lifetime. Internally, sessions use a session-local `PaneSlot: u8` (0..15) for all fixed-size array operations. Wire-to-Pane lookup uses per-session linear scan of `pane_slots` (at most 16 entries) — cold path only. Hot paths (frame export, dirty iteration, PTY read) use slot indices exclusively.
+
+**Why global monotonic PaneId (not session-local 0..15) on the wire**:
+
+1. **Pane-reuse race condition**: In async IPC, a client can have an in-flight message targeting a slot the server has already recycled. Global monotonic PaneId ensures stale messages target non-existent IDs and receive ErrorResponse.
+2. **Protocol constraint leak**: Session-local PaneId (0..15) exposes the 16-pane limit to wire semantics. Global monotonic u32 keeps the limit invisible to the protocol.
+3. **Hot-path equivalence**: Both options have identical hot-path performance — all hot paths use slot indices, never PaneId.
+
+`SessionManager` continues to use `HashMap(u32, *Session)` for sessions (dynamic count, few instances — no fixed limit for sessions).
 
 ### 1.6 Inter-Library Dependencies
 
@@ -112,10 +144,11 @@ libitshell3 and libitshell3-protocol are separate libraries with a clean, acycli
 
 ```
 libitshell3-protocol  (standalone — depends only on Zig std; libssh2 added in Phase 5)
+libitshell3-ime       (standalone — depends on libhangul)
 libitshell3/core/     (standalone — no external deps)
 libitshell3/ghostty/  (depends on core/, vendored ghostty)
-libitshell3/ime/      (depends on core/)
-libitshell3/server/   (depends on core/, ghostty/, ime/, libitshell3-ime, libitshell3-protocol)
+libitshell3/input/    (depends on core/)
+libitshell3/server/   (depends on core/, ghostty/, input/, libitshell3-ime, libitshell3-protocol)
 ```
 
 **libitshell3-protocol does NOT import any libitshell3 types.** The protocol library uses Zig primitive types (`u32`, `[]const u8`, etc.) for all message fields. On the wire, `pane_id` and `session_id` are `u32` values in JSON payloads — the protocol library reflects what the wire carries.
@@ -178,7 +211,7 @@ kqueue timers are kernel-managed, more efficient than userspace timer wheels.
 
 ### 3.1 Decision
 
-Session = Tab merge. No intermediate Tab entity. Each Session directly owns a SplitNode tree (binary split).
+Session = Tab merge. No intermediate Tab entity. Each Session directly owns an array-based binary split tree (`[31]?SplitNodeData`) and a fixed pane slot array (`[16]?*Pane`). 16-pane-per-session limit (see Section 1.5).
 
 ### 3.2 Hierarchy
 
@@ -192,32 +225,47 @@ SessionManager (in server/)
   |     ime_engine: ImeEngine
   |     active_input_method: []const u8
   |     keyboard_layout: []const u8
-  |     root: ?*SplitNode
-  |     focused_pane: ?PaneId
+  |     tree_nodes: [31]?SplitNodeData       // array-based binary tree (root = index 0)
+  |     pane_slots: [16]?*Pane               // per-session fixed pane array
+  |     free_mask: u16                        // bitmap of available pane slots
+  |     dirty_mask: u16                       // bitmap of dirty panes (set on PTY read)
+  |     focused_pane: ?PaneSlot
   |     creation_timestamp: i64
-  |     current_preedit: ?[]const u8    // cached from last ImeResult
-  |     preedit_buf: [64]u8             // backing storage for current_preedit
-  |     last_preedit_row: ?u16          // cursor row of last overlaid preedit
+  |     current_preedit: ?[]const u8          // cached from last ImeResult
+  |     preedit_buf: [64]u8                   // backing storage for current_preedit
+  |     last_preedit_row: ?u16               // cursor row of last overlaid preedit
   |     |
-  |     +-- SplitNode (tagged union in core/)
-  |           .leaf => PaneId (u32)
-  |           .split => { orientation, ratio, first, second }
+  |     +-- SplitNodeData (tagged union in core/)
+  |           .leaf => PaneSlot (u8, 0..15)
+  |           .split => { orientation, ratio }
+  |           Navigation: parent(i) = (i-1)/2, left(i) = 2*i+1, right(i) = 2*i+2
   |
-  +-- HashMap(PaneId, *Pane) (in server/)
-        Pane:
-          pane_id: u32
-          pty_fd: posix.fd_t
-          child_pid: posix.pid_t
-          terminal: *ghostty.Terminal
-          render_state: *ghostty.RenderState
-          cols: u16
-          rows: u16
-          title: []const u8
+  +-- Pane (in server/, referenced via pane_slots)
+        pane_id: u32                          // global monotonic wire identity
+        slot_index: u8                        // position in owning session's pane_slots
+        pty_fd: posix.fd_t
+        child_pid: posix.pid_t
+        terminal: *ghostty.Terminal
+        render_state: *ghostty.RenderState
+        cols: u16
+        rows: u16
+        title: []const u8
 ```
+
+**Tree node array vs pane slot array**: These are separate index spaces. Tree node indices (0..30) identify positions in the `[31]?SplitNodeData` array. Pane slot indices (0..15) identify positions in the `[16]?*Pane` array. Leaf nodes store pane slot indices. Tree compaction (subtree relocation during split/close) moves tree nodes but does not change the pane slot indices stored in leaf values. Pane slot indices are stable across tree mutations.
+
+**Tree mutation complexity**: Split and close operations require subtree relocation within the tree node array. With max depth 4 and 31 nodes, this is bounded at ~15 node copies per operation — trivially fast on cache-hot data (the entire tree fits in L1 cache).
 
 ### 3.3 Type Definitions
 
 ```zig
+// core/constants.zig
+pub const MAX_PANES = 16;
+pub const MAX_TREE_NODES = MAX_PANES * 2 - 1; // 31
+
+pub const PaneId = u32;
+pub const PaneSlot = u8; // 0..15, indexes into pane_slots array
+
 // core/session.zig
 pub const Session = struct {
     session_id: u32,
@@ -225,8 +273,11 @@ pub const Session = struct {
     ime_engine: ImeEngine,
     active_input_method: []const u8,
     keyboard_layout: []const u8,
-    root: ?*SplitNode,
-    focused_pane: ?PaneId,
+    tree_nodes: [MAX_TREE_NODES]?SplitNodeData, // 31 entries, root at index 0
+    pane_slots: [MAX_PANES]?*Pane,              // indexed by PaneSlot (0..15)
+    free_mask: u16,                              // bitmap of available pane slots
+    dirty_mask: u16,                             // one bit per pane slot
+    focused_pane: ?PaneSlot,
     creation_timestamp: i64,
     current_preedit: ?[]const u8,
     preedit_buf: [64]u8,
@@ -234,21 +285,18 @@ pub const Session = struct {
 };
 
 // core/split_node.zig
-pub const SplitNode = union(enum) {
-    leaf: PaneId,
+pub const SplitNodeData = union(enum) {
+    leaf: PaneSlot,
     split: struct {
         orientation: enum { horizontal, vertical },
         ratio: f32,
-        first: *SplitNode,
-        second: *SplitNode,
     },
 };
-
-pub const PaneId = u32;
 
 // server/pane.zig
 pub const Pane = struct {
     pane_id: PaneId,
+    slot_index: PaneSlot, // position in owning session's pane_slots
     pty_fd: posix.fd_t,
     child_pid: posix.pid_t,
     terminal: *ghostty.Terminal,
@@ -281,6 +329,7 @@ Session caches the current preedit text (`current_preedit: ?[]const u8`, backed 
 
 ### 3.7 Prior Art
 
+- **Array-based binary tree (heap data structure)**: Fixed-size tree with index arithmetic — standard CS data structure used for the `[31]?SplitNodeData` layout.
 - **cmux**: Uses binary split tree (Bonsplit library).
 - **ghostty**: Split API uses the same model.
 - **tmux**: `layout_cell` tree is conceptually identical.
@@ -380,7 +429,7 @@ The following shows the complete data path for a key input event, tying together
 sequenceDiagram
     participant C as Client App
     participant S as Daemon (server/)
-    participant I as ime/
+    participant I as input/
     participant E as libitshell3-ime
     participant G as ghostty/
     participant P as PTY Child
@@ -486,8 +535,10 @@ From the protocol's perspective, preedit IS cell data — it arrives at the clie
 
 | Reference | Used for | Sections |
 |-----------|----------|----------|
+| Array-based binary tree (heap data structure) | Fixed-size tree with index arithmetic | 1.5, 3 |
 | tmux (`window.h`, `session.h`, `tty.c`, `server-client.c`) | Pure state / I/O separation | 1 |
 | tmux (single-threaded libevent loop) | Event loop model, scaling evidence | 2 |
+| tmux `layout_cell` tree | Binary split tree model | 3 |
 | ghostty (`Terminal.zig`, `Metal.zig`, `Termio.zig`) | Terminal / renderer / I/O separation | 1 |
 | ghostty `Terminal.init()` (PoC 06) | Headless Terminal validation | 4 |
 | ghostty `bulkExport()` (PoC 07) | Export performance (22 us/frame) | 2, 4 |
@@ -496,3 +547,4 @@ From the protocol's perspective, preedit IS cell data — it arrives at the clie
 | ghostty `key_encode.encode()` (key_encode.zig:75) | Stateless key encoding | 4 |
 | cmux (Bonsplit binary split tree) | Layout tree model | 3 |
 | IME contract v0.7 | Per-session ImeEngine, Phase 0-1-2 routing | 3, 4 |
+| Protocol spec v0.10 | Wire format, PaneId as u32 on wire | 1.5 |
