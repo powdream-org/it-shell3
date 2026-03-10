@@ -4,7 +4,7 @@
 **Raised by**: verification team
 **Severity**: LOW
 **Affected docs**: AGENTS.md
-**Status**: open
+**Status**: resolved in v0.3
 
 ---
 
@@ -26,3 +26,4 @@ Left to designers for resolution.
 
 ## Resolution
 
+Fixed in v0.3: changed "session/tab/pane state" to "session/pane state" on AGENTS.md line 18.

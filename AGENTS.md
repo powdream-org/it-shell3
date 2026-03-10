@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Libraries
 
-- **libitshell3** — Core Zig library: session/tab/pane state, PTY layer, RenderState export/import. Exports C API for Swift/other consumers.
+- **libitshell3** — Core Zig library: session/pane state, PTY layer, RenderState export/import. Exports C API for Swift/other consumers.
 - **libitshell3-protocol** — Wire protocol library shared by daemon and client: message types, serialization, capability negotiation, CJK preedit sync.
 - **libitshell3-ime** — Native IME engine in Zig (wraps libhangul for Korean). Purely algorithmic, no OS IME dependency. Covers English QWERTY + Korean 2-set.
 - **libghostty** — External dependency: terminal engine providing VT parser, font/Unicode, RenderState API, Metal rendering.

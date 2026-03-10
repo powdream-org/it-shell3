@@ -17,7 +17,7 @@
 - review note 01: SplitNode remnants in v0.1 resolution doc (LOW)
 - review note 02: pty_master_fd vs pty_fd naming (LOW)
 - review note 03: pane_slots placement / SessionEntry introduction (HIGH)
-- review note 04: AGENTS.md line 18 "session/tab/pane state" → should be "session/pane state" (LOW)
+- ~~review note 04: AGENTS.md line 18 "session/tab/pane state" → resolved in v0.3~~
 - review note 05: SessionDetachRequest vs DetachSessionRequest naming inconsistency (CRITICAL)
 
 ## Phase 1: Pre-writing Planning
