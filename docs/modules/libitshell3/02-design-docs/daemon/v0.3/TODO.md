@@ -7,7 +7,9 @@
 > IME TODO: `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.8/TODO.md`
 >
 > **Model policy**:
-> - Phase 1-3 (planning, negotiation, writing): **sonnet** for all agents
+> - Phase 1 (planning): **opus** for all agents
+> - ~~Phase 2 (negotiation): skipped — team leader assigns writers directly~~
+> - Phase 3 (writing): **opus** for all agents
 > - Phase 4 (verification): **opus** for history-guardian only; **sonnet** for other verifiers
 
 ## Carry-Over Notes (NOT addressed in v0.3 — deferred to v0.4)
@@ -22,15 +24,11 @@
 - [ ] Produce deduplication map for 8 overlapping topics (single authoritative version per topic)
 - [ ] Draft AGENTS.md replacement paragraph (bundled binary + LaunchAgent + fork+exec only)
 
-## Phase 2: Assignment Negotiation (sonnet — no editing)
+## ~~Phase 2: Assignment Negotiation~~ — Skipped
 
-- [ ] Spawn 6-member team (daemon-architect, ime-expert, protocol-architect,
-      principal-architect, ghostty-integration-engineer, system-sw-engineer) — **sonnet**
-- [ ] Provide: review note 04, protocol cross-team request, IME cross-team request, v0.3 spec files
-- [ ] Negotiate assignments across all three modules (daemon v0.3 + protocol v0.11 + IME v0.8)
-- [ ] Shut down unassigned agents
+> Team leader assigns writers directly (same opus team from Phase 1 continues to Phase 3).
 
-## Phase 3: Document Writing (sonnet)
+## Phase 3: Document Writing (opus)
 
 ### Daemon v0.3 — absorb from protocol (P-series)
 
