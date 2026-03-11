@@ -1,10 +1,11 @@
 # Daemon Runtime Policies
 
-**Version**: v0.3
+**Version**: v0.4
 **Status**: Draft
 **Scope**: Connection limits, multi-client resize, health escalation, flow control, adaptive coalescing, preedit ownership and lifecycle, session persistence, notification defaults, heartbeat policy
 **Source topics**: P3, P4, P7, P8, P10, P11, P12, P13, P17+I7, P18, P19
 **Cross-references**: doc 01 (Module Decomposition, Event Loop), doc 02 (IME Integration), doc 03 (Client Connections, Ring Buffer Delivery)
+**v0.4 changes**: Updated §7.6 to remove stale ghostty Surface reference — preedit cursor repositioning on resize now correctly attributed to `overlayPreedit()` at export time per headless architecture (SEM-R3-1)
 
 ---
 
@@ -334,7 +335,7 @@ When the user closes a pane while composition is active:
 2. Daemon sends `PreeditEnd` with `reason: "pane_closed"` to all clients.
 3. Daemon proceeds with the pane close sequence.
 
-**This is the ONLY scenario where `engine.reset()` (discard) is used instead of `engine.flush()` (commit).** All other preedit-ending scenarios use flush/commit to preserve the user's work.
+**Pane close and input method switch with `commit_current=false` (§7.5) are the only scenarios where `engine.reset()` (discard) is used instead of `engine.flush()` (commit).** All other preedit-ending scenarios use flush/commit to preserve the user's work.
 
 ### 7.4 Owner Disconnect
 
@@ -361,7 +362,7 @@ Then the daemon switches the session's input method and sends `InputMethodAck` t
 When the terminal is resized while composition is active:
 
 1. Daemon processes the resize through the ghostty Terminal.
-2. The ghostty surface handles preedit cursor repositioning internally.
+2. The daemon re-overlays the preedit via `overlayPreedit()` at export time, using the updated cursor position from the resized terminal's `ExportResult`.
 3. Daemon sends FrameUpdate with `frame_type=1` (I-frame) — preedit cells are included at the updated position.
 
 No separate PreeditUpdate with cursor coordinates is needed. The preedit text is not affected by resize — only its display position changes.
@@ -513,7 +514,7 @@ Heartbeat is a **connection liveness** mechanism (90s timeout -> Disconnect). He
 | HeartbeatAck does not reset stale timeout | **Decided** | iOS backgrounding keeps TCP alive while app is frozen. HeartbeatAck from frozen app would mask stale state. |
 | Preedit never throttled | **Decided** | Korean composition latency under 33ms is non-negotiable. Preedit Tier 0 is exempt from all WAN, power, and degradation adjustments. |
 | Single preedit owner per session | **Decided** | Per-session IME engine makes simultaneous compositions physically impossible. Preedit exclusivity invariant is the normative statement. |
-| Pane close uses reset(), all others use flush() | **Decided** | Committing text to a closing PTY is pointless. All other scenarios preserve the user's work. |
+| Pane close and input method switch (commit_current=false) use reset(); all others use flush() | **Decided** | Committing text to a closing PTY is pointless. Explicit discard on input method switch respects the user's intent. All other scenarios preserve the user's work. |
 | 5s hysteresis for stale re-inclusion | **Decided** | Prevents resize oscillation from intermittently responsive clients (iOS foreground/background cycling). |
 | Snapshot flushes preedit before save | **Decided** | Ensures committed text is captured in the terminal state. Composition state is not persisted. |
 | Coalescing per (client, pane) pair | **Decided** | One pane's throughput pattern should not affect another pane's latency. One client's degradation should not affect other clients. |

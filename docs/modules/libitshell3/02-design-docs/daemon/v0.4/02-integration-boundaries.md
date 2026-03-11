@@ -1,8 +1,9 @@
 # Daemon Integration Boundaries
 
-**Version**: v0.3
+**Version**: v0.4
 **Source**: [Design Resolutions — Daemon Architecture](../v0.1/design-resolutions/01-daemon-architecture.md) (Resolutions 5-7, Owner Q1/Q2)
 **v0.3 changes**: Absorbed daemon behavioral content from IME contract v0.7 (I2, I3, I5, I6, I8, I9) and verified protocol doc P5 coverage.
+**v0.4 changes**: Updated §4.1 and §4.3 pseudocode to use `entry.session.ime_engine` and `entry.session.*` access paths per Resolution 2 (SessionEntry introduction)
 
 ---
 
@@ -258,14 +259,14 @@ Each Session owns one `ImeEngine` instance. All panes within a session share thi
 
 ```
 // Intra-session pane focus change (A -> B)
-result = session.engine.flush()
+result = entry.session.ime_engine.flush()
 consume(pane_a.pty, result)     // MUST consume before next engine call
-session.focused_pane = pane_b
+entry.session.focused_pane = pane_b
 
-// Inter-session tab switch (session1 -> session2)
-result = session1.engine.deactivate()
-consume(session1.focused_pane.pty, result)
-session2.engine.activate()
+// Inter-session tab switch (entry1 -> entry2)
+result = entry1.session.ime_engine.deactivate()
+consume(pane_a.pty, result)
+entry2.session.ime_engine.activate()
 ```
 
 **Source**: [Design Resolutions — Per-Session Engine Architecture](../../libitshell3-ime/02-design-docs/interface-contract/v0.6/design-resolutions-per-tab-engine.md) (Resolutions 1-8).
@@ -330,10 +331,10 @@ See protocol doc 04 Section 2.1 for the full wire modifier format. This decompos
 
 When the user switches sessions (A -> B):
 
-1. Immediately call `session_a.engine.deactivate()` — flushes any committed text to A's focused pane PTY, clears preedit.
+1. Immediately call `entry_a.session.ime_engine.deactivate()` — flushes any committed text to A's focused pane PTY, clears preedit.
 2. If committed text returned: write to A's focused pane PTY via `write(pty_fd, committed_text)`.
-3. If preedit changed: set `session_a.current_preedit = null` and mark dirty to clear the overlay.
-4. Then call `session_b.engine.activate()` — no-op for Korean.
+3. If preedit changed: set `entry_a.session.current_preedit = null` and mark dirty to clear the overlay.
+4. Then call `entry_b.session.ime_engine.activate()` — no-op for Korean.
 
 The trigger is the **session focus change event itself** (e.g., AttachSessionRequest, daemon-internal session switch), NOT the next KeyEvent.
 

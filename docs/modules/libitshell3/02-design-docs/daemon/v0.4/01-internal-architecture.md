@@ -389,7 +389,7 @@ Each Pane owns a PTY master fd (`pty_fd`) and a child process (`child_pid`). The
 
 1. Sets `pane.is_running = false` and `pane.exit_status`.
 2. Sends `PaneMetadataChanged` with `is_running: false` and `exit_status` to all attached clients.
-3. Automatically closes the pane (same sequence as explicit `ClosePane`): closes `pty_fd`, removes the pane from the session's split tree, replaces the parent split node with the sibling, reflows layout, sends `LayoutChanged`.
+3. Automatically closes the pane (same sequence as explicit `ClosePaneRequest`): closes `pty_fd`, removes the pane from the session's split tree, replaces the parent split node with the sibling, reflows layout, sends `LayoutChanged`.
 4. If this was the last pane in the session, the session is auto-destroyed.
 
 When a pane is explicitly closed via `ClosePaneRequest`, the daemon sends SIGHUP to the child process via the PTY. If the `force` flag is set and the process does not terminate within a timeout, SIGKILL is sent.

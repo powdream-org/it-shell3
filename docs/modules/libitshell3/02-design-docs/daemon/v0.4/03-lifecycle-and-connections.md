@@ -1,11 +1,12 @@
 # Daemon Lifecycle and Client Connections
 
-**Version**: v0.3
+**Version**: v0.4
 **Status**: Draft
 **Scope**: Daemon startup/shutdown sequences, client connection lifecycle, ring buffer delivery model, auto-start, crash recovery, reconnection, version conflict handling
 **Source resolutions**: R8 (Daemon Lifecycle), R9 (Client Connection Lifecycle)
 **Cross-references**: R5 (Protocol Boundary / Transport Layer), R2 (Event Loop Model), R6 (IME Integration)
 **v0.3 changes**: Absorbed P1 (auto-start), P2 (crash recovery FD passing), P6 (reconnection procedure), P9 (ring buffer sizing/keyframe), A1 (local version conflict), A2 (remote version conflict) from protocol and AGENTS.md per daemon v0.3 cross-team revision
+**v0.4 changes**: Applied R1 (message type renames: `ServerShutdown`→`Disconnect(reason:server_shutdown)`, `SessionDetachRequest`→`DetachSessionRequest`, `ResizeRequest`→`WindowResize`), R4 (`pty_master_fd`→`pty_fd`), updated §4.3 `ClientState.attached_session` to `?*SessionEntry` per R2
 
 ---
 
@@ -101,10 +102,13 @@ Load terminal configuration (font, colors, scrollback size, default palette) via
 #### Step 6: Create Default Session
 
 ```
-Allocate Session:
-  session_id = 1
-  name = "default"
-  ime_engine = HangulImeEngine.init(allocator, "direct")
+Allocate SessionEntry:
+  session.session_id = 1
+  session.name = "default"
+  session.ime_engine = HangulImeEngine.init(allocator, "direct")
+  pane_slots = [MAX_PANES]?Pane{null} // initialized empty
+  free_mask = 0xFFFF
+  dirty_mask = 0x0000
 
 Create initial Pane:
   forkpty() -> (pty_fd, child_pid)
@@ -227,7 +231,7 @@ Remove `listen_fd` from kqueue. No new `accept()` calls will be made. Existing c
 
 #### Step 2: Flush All ImeEngines
 
-For each session: call `session.engine.deactivate()`. This eagerly flushes any active preedit composition:
+For each session: call `entry.session.ime_engine.deactivate()`. This eagerly flushes any active preedit composition:
 
 - If the engine has pending preedit text, `deactivate()` returns an `ImeResult` with `committed_text` set.
 - The daemon writes the committed text to the session's focused pane PTY via `write(pty_fd, committed_text)`.
