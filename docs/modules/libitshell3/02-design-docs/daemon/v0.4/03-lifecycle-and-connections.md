@@ -107,11 +107,11 @@ Allocate Session:
   ime_engine = HangulImeEngine.init(allocator, "direct")
 
 Create initial Pane:
-  forkpty() -> (pty_master_fd, child_pid)
+  forkpty() -> (pty_fd, child_pid)
   Terminal.init(allocator, .{.cols = 80, .rows = 24})
   pane_id = 1
 
-Register pty_master_fd with kqueue:
+Register pty_fd with kqueue:
   EVFILT_READ on pty_fd — triggers on shell output
 ```
 
@@ -206,7 +206,7 @@ Step 1: Stop accepting connections
 Step 2: Flush all ImeEngines
   |
   v
-Step 3: Notify clients (ServerShutdown message)
+Step 3: Notify clients (Disconnect with reason: server_shutdown)
   |
   v
 Step 4: Wait for client disconnect (2-5s timeout)
@@ -236,13 +236,13 @@ For each session: call `session.engine.deactivate()`. This eagerly flushes any a
 
 #### Step 3: Notify Clients
 
-Send `ServerShutdown` message to all connected clients via their `conn.send()`. This is a best-effort notification — if `send()` returns `.would_block` or `.peer_closed`, the daemon does not retry.
+Send `Disconnect` message with `reason: server_shutdown` to all connected clients via their `conn.send()`. This is a best-effort notification — if `send()` returns `.would_block` or `.peer_closed`, the daemon does not retry.
 
 #### Step 4: Wait for Client Disconnect
 
 Set a kqueue timer (EVFILT_TIMER, 2-5 seconds). Continue processing the event loop during this window to allow clients to:
 
-- Receive the `ServerShutdown` message
+- Receive the `Disconnect` message
 - Send any final messages (e.g., session detach acknowledgment)
 - Close their connections gracefully
 
@@ -380,7 +380,7 @@ Free ClientState:
 
 Client disconnection does NOT affect sessions. Sessions persist until their panes exit or the daemon shuts down. This is the fundamental property of a terminal multiplexer — sessions survive client detach/crash/reconnect.
 
-**Note on DISCONNECTING bypass**: Unexpected disconnects go directly to `[closed]` without passing through the DISCONNECTING state. This is intentional. The DISCONNECTING state exists to drain pending outbound messages (e.g., after ServerShutdown), but when the peer has already disconnected, there is no socket to drain to — any pending messages are undeliverable. The state machine diagram in Section 4.1 shows the primary graceful flow; unexpected disconnects (`conn.recv()` returning `.peer_closed`) are a distinct path that skips DISCONNECTING because the drain step is semantically inapplicable.
+**Note on DISCONNECTING bypass**: Unexpected disconnects go directly to `[closed]` without passing through the DISCONNECTING state. This is intentional. The DISCONNECTING state exists to drain pending outbound messages (e.g., after `Disconnect` with `reason: server_shutdown`), but when the peer has already disconnected, there is no socket to drain to — any pending messages are undeliverable. The state machine diagram in Section 4.1 shows the primary graceful flow; unexpected disconnects (`conn.recv()` returning `.peer_closed`) are a distinct path that skips DISCONNECTING because the drain step is semantically inapplicable.
 
 ---
 
@@ -403,7 +403,7 @@ The daemon uses a subset of the canonical 6-state model from protocol doc 01 (Se
                     v
                  READY  <----------+
           (authenticated,           |
-           not attached to          | SessionDetachRequest
+           not attached to          | DetachSessionRequest
            any session)             |
                     |               |
   AttachSessionRequest|               |
@@ -414,7 +414,7 @@ The daemon uses a subset of the canonical 6-state model from protocol doc 01 (Se
            FrameUpdate, resize, etc.)
                     |
              disconnect / error /
-             ServerShutdown
+             Disconnect
                     v
               DISCONNECTING
           (draining pending
@@ -432,12 +432,12 @@ The daemon uses a subset of the canonical 6-state model from protocol doc 01 (Se
 | HANDSHAKING | Invalid ClientHello / timeout | [closed] | Send error, close connection |
 | READY | AttachSessionRequest | OPERATING | Set `attached_session`, initialize ring cursors for all visible panes, send I-frame for initial screen |
 | READY | Client disconnect | [closed] | Clean up ClientState |
-| OPERATING | SessionDetachRequest | READY | Clear `attached_session`, clear ring cursors |
+| OPERATING | DetachSessionRequest | READY | Clear `attached_session`, clear ring cursors |
 | OPERATING | AttachSessionRequest (different session) | OPERATING | Detach from current session, attach to new session, reinitialize ring cursors |
 | OPERATING | KeyEvent / MouseEvent | OPERATING | Route to attached session's focused pane (Section 4.5) |
-| OPERATING | ResizeRequest | OPERATING | Update `display_info`, recalculate pane dimensions |
+| OPERATING | WindowResize | OPERATING | Update `display_info`, recalculate pane dimensions |
 | OPERATING | Client disconnect | [closed] | Clean up ClientState |
-| OPERATING | ServerShutdown | DISCONNECTING | Begin drain sequence |
+| OPERATING | Disconnect (server_shutdown) | DISCONNECTING | Begin drain sequence |
 | DISCONNECTING | All pending messages sent | [closed] | `conn.close()`, free ClientState |
 | DISCONNECTING | Drain timeout expires | [closed] | `conn.close()`, free ClientState |
 
@@ -450,7 +450,7 @@ const ClientState = struct {
     client_id: u32,
     conn: transport.Connection,
     state: enum { handshaking, ready, operating, disconnecting },
-    attached_session: ?*Session,
+    attached_session: ?*SessionEntry,
     capabilities: CapabilitySet,
     ring_cursors: [MAX_PANES]?RingCursor, // indexed by PaneSlot (0..15)
     display_info: ClientDisplayInfo,

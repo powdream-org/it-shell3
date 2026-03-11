@@ -1,11 +1,12 @@
 # Daemon Internal Architecture
 
-**Status**: Draft v0.3
-**Date**: 2026-03-10
+**Status**: Draft v0.4
+**Date**: 2026-03-11
 **Scope**: libitshell3 daemon internal module structure, event loop, state tree, and ghostty Terminal integration
 **Source resolutions**: R1 (Module Decomposition), R2 (Event Loop Model), R3 (State Tree), R4 (ghostty Terminal Instance Management), Owner Q3 (Preedit/RenderState Validity)
 **v0.2 changes**: Applied v0.2 review note resolutions R1 (16-pane limit, fixed-size data structures), R2 (ime/ -> input/ rename), R3 (protocol scope fix)
 **v0.3 changes**: Absorbed daemon behavioral content from IME contract (I1, I4/I4a/I4b) and protocol docs (P14, P15, P16, P20). Added: 3-phase key pipeline detail (§1.2, §4.3), ImeResult→ghostty API mapping with pseudocode (§4.3), preedit clearing rule (§4.4), ghostty_surface_text prohibition (§4.3), PTY lifecycle (§3.4), frame suppression (§4.5), layout enforcement (§3.5), pane metadata (§3.3)
+**v0.4 changes**: Applied v0.4 review note Resolution 2 (RN-03): Introduced `SessionEntry` in `server/session_entry.zig` as server-side wrapper; moved `pane_slots`, `free_mask`, `dirty_mask` from `Session` (core/) to `SessionEntry` (server/); changed pane storage from `?*Pane` to `?Pane` (by value); updated `SessionManager` to `HashMap(u32, *SessionEntry)`
 
 ---
 
@@ -33,7 +34,7 @@ Zero dependencies on ghostty, OS, or protocol.
 
 | Type | Purpose |
 |------|---------|
-| `Session` | Config, name, ImeEngine interface, preedit cache, focused pane, fixed-size pane slots and tree |
+| `Session` | Config, name, ImeEngine interface, preedit cache, focused pane, tree layout |
 | `SplitNodeData` | Binary split tree node (tagged union: `.leaf` = PaneSlot, `.split` = orientation + ratio) |
 | `PaneId` | `u32` opaque wire identifier (global monotonic, never reused) |
 | `PaneSlot` | `u8` session-local slot index (0..15) for fixed-size array operations |
@@ -132,6 +133,7 @@ Depends on `core/`, `ghostty/`, `input/`, libitshell3-ime, and libitshell3-proto
 | Component | Purpose |
 |-----------|---------|
 | Event loop | kqueue-based, single-threaded (see Section 2) |
+| SessionEntry | Server-side wrapper: Session (core/) + pane_slots + free_mask + dirty_mask (see Section 3.2) |
 | Client manager | Per-client state, connection lifecycle |
 | Ring buffer | Per-pane frame delivery with per-client cursors |
 | Frame coalescing | Adaptive timer for batching frame updates |
@@ -168,10 +170,11 @@ pub const MAX_TREE_NODES = MAX_PANES * 2 - 1; // 31
 
 The 16-pane limit is a UX-driven constraint, not a performance optimization. On a 374x74 terminal, 16 panes at 93x18 is minimum viable; 32 panes at 93x9 is unusable. The limit is enforced server-side via ErrorResponse when a client requests a split that would exceed 16 panes.
 
-Each session maintains a fixed-size pane slot array instead of a dynamic HashMap:
+Each session's pane slots are managed by `SessionEntry` (in `server/`), a server-side wrapper around `Session` (see Section 3.2):
 
 ```zig
-pane_slots: [MAX_PANES]?*Pane, // indexed by PaneSlot (0..15)
+// server/session_entry.zig
+pane_slots: [MAX_PANES]?Pane,  // by value, indexed by PaneSlot (0..15)
 free_mask: u16,                 // bitmap of available slots
 dirty_mask: u16,                // one bit per pane slot, set on PTY read
 ```
@@ -188,7 +191,7 @@ dirty_mask: u16,                // one bit per pane slot, set on PTY read
 2. **Protocol constraint leak**: Session-local PaneId (0..15) exposes the 16-pane limit to wire semantics. Global monotonic u32 keeps the limit invisible to the protocol.
 3. **Hot-path equivalence**: Both options have identical hot-path performance — all hot paths use slot indices, never PaneId.
 
-`SessionManager` continues to use `HashMap(u32, *Session)` for sessions (dynamic count, few instances — no fixed limit for sessions).
+`SessionManager` uses `HashMap(u32, *SessionEntry)` for sessions (dynamic count, few instances — no fixed limit for sessions).
 
 ### 1.6 Inter-Library Dependencies
 
@@ -263,53 +266,56 @@ kqueue timers are kernel-managed, more efficient than userspace timer wheels.
 
 ### 3.1 Decision
 
-Session = Tab merge. No intermediate Tab entity. Each Session directly owns an array-based binary split tree (`[31]?SplitNodeData`) and a fixed pane slot array (`[16]?*Pane`). 16-pane-per-session limit (see Section 1.5).
+Session = Tab merge. No intermediate Tab entity. Each Session directly owns an array-based binary split tree (`[31]?SplitNodeData`). Pane slots (`[16]?Pane`) are managed by `SessionEntry`, a server-side wrapper around Session (see Section 3.2). 16-pane-per-session limit (see Section 1.5).
 
 ### 3.2 Hierarchy
 
 ```
 SessionManager (in server/)
-  +-- HashMap(u32, *Session)
+  +-- HashMap(u32, *SessionEntry)
   |
-  +-- Session (in core/)
-  |     session_id: u32
-  |     name: []const u8
-  |     ime_engine: ImeEngine
-  |     active_input_method: []const u8
-  |     keyboard_layout: []const u8
-  |     tree_nodes: [31]?SplitNodeData       // array-based binary tree (root = index 0)
-  |     pane_slots: [16]?*Pane               // per-session fixed pane array
+  +-- SessionEntry (in server/session_entry.zig)
+  |     session: Session                      // core/ pure state (see below)
+  |     pane_slots: [16]?Pane                 // by value, per-session fixed pane array
   |     free_mask: u16                        // bitmap of available pane slots
   |     dirty_mask: u16                       // bitmap of dirty panes (set on PTY read)
-  |     focused_pane: ?PaneSlot
-  |     creation_timestamp: i64
-  |     current_preedit: ?[]const u8          // cached from last ImeResult
-  |     preedit_buf: [64]u8                   // backing storage for current_preedit
-  |     last_preedit_row: ?u16               // cursor row of last overlaid preedit
   |     |
-  |     +-- SplitNodeData (tagged union in core/)
-  |           .leaf => PaneSlot (u8, 0..15)
-  |           .split => { orientation, ratio }
-  |           Navigation: parent(i) = (i-1)/2, left(i) = 2*i+1, right(i) = 2*i+2
-  |
-  +-- Pane (in server/, referenced via pane_slots)
-        pane_id: u32                          // global monotonic wire identity
-        slot_index: u8                        // position in owning session's pane_slots
-        pty_fd: posix.fd_t
-        child_pid: posix.pid_t
-        terminal: *ghostty.Terminal
-        render_state: *ghostty.RenderState
-        cols: u16
-        rows: u16
-        title: []const u8                    // OSC 0/2 title
-        cwd: []const u8                      // OSC 7 working directory
-        foreground_process: []const u8       // foreground process name
-        foreground_pid: posix.pid_t          // foreground process PID
-        is_running: bool                     // false after child exits
-        exit_status: ?u8                     // set on process exit
+  |     +-- Session (in core/session.zig)
+  |     |     session_id: u32
+  |     |     name: []const u8
+  |     |     ime_engine: ImeEngine
+  |     |     active_input_method: []const u8
+  |     |     keyboard_layout: []const u8
+  |     |     tree_nodes: [31]?SplitNodeData  // array-based binary tree (root = index 0)
+  |     |     focused_pane: ?PaneSlot
+  |     |     creation_timestamp: i64
+  |     |     current_preedit: ?[]const u8    // cached from last ImeResult
+  |     |     preedit_buf: [64]u8             // backing storage for current_preedit
+  |     |     last_preedit_row: ?u16          // cursor row of last overlaid preedit
+  |     |     |
+  |     |     +-- SplitNodeData (tagged union in core/)
+  |     |           .leaf => PaneSlot (u8, 0..15)
+  |     |           .split => { orientation, ratio }
+  |     |           Navigation: parent(i) = (i-1)/2, left(i) = 2*i+1, right(i) = 2*i+2
+  |     |
+  |     +-- Pane (in server/pane.zig, stored by value in pane_slots)
+  |           pane_id: u32                    // global monotonic wire identity
+  |           slot_index: u8                  // position in owning SessionEntry's pane_slots
+  |           pty_fd: posix.fd_t
+  |           child_pid: posix.pid_t
+  |           terminal: *ghostty.Terminal
+  |           render_state: *ghostty.RenderState
+  |           cols: u16
+  |           rows: u16
+  |           title: []const u8              // OSC 0/2 title
+  |           cwd: []const u8                // OSC 7 working directory
+  |           foreground_process: []const u8 // foreground process name
+  |           foreground_pid: posix.pid_t    // foreground process PID
+  |           is_running: bool               // false after child exits
+  |           exit_status: ?u8               // set on process exit
 ```
 
-**Tree node array vs pane slot array**: These are separate index spaces. Tree node indices (0..30) identify positions in the `[31]?SplitNodeData` array. Pane slot indices (0..15) identify positions in the `[16]?*Pane` array. Leaf nodes store pane slot indices. Tree compaction (subtree relocation during split/close) moves tree nodes but does not change the pane slot indices stored in leaf values. Pane slot indices are stable across tree mutations.
+**Tree node array vs pane slot array**: These are separate index spaces. Tree node indices (0..30) identify positions in the `[31]?SplitNodeData` array (in `Session`). Pane slot indices (0..15) identify positions in the `[16]?Pane` array (in `SessionEntry`). Leaf nodes store pane slot indices. Tree compaction (subtree relocation during split/close) moves tree nodes but does not change the pane slot indices stored in leaf values. Pane slot indices are stable across tree mutations.
 
 **Tree mutation complexity**: Split and close operations require subtree relocation within the tree node array. With max depth 4 and 31 nodes, this is bounded at ~15 node copies per operation — trivially fast on cache-hot data (the entire tree fits in L1 cache).
 
@@ -323,7 +329,7 @@ pub const MAX_TREE_NODES = MAX_PANES * 2 - 1; // 31
 pub const PaneId = u32;
 pub const PaneSlot = u8; // 0..15, indexes into pane_slots array
 
-// core/session.zig
+// core/session.zig — pane_slots, free_mask, dirty_mask removed (now in SessionEntry)
 pub const Session = struct {
     session_id: u32,
     name: []const u8,
@@ -331,14 +337,19 @@ pub const Session = struct {
     active_input_method: []const u8,
     keyboard_layout: []const u8,
     tree_nodes: [MAX_TREE_NODES]?SplitNodeData, // 31 entries, root at index 0
-    pane_slots: [MAX_PANES]?*Pane,              // indexed by PaneSlot (0..15)
-    free_mask: u16,                              // bitmap of available pane slots
-    dirty_mask: u16,                             // one bit per pane slot
     focused_pane: ?PaneSlot,
     creation_timestamp: i64,
     current_preedit: ?[]const u8,
     preedit_buf: [64]u8,
     last_preedit_row: ?u16,
+};
+
+// server/session_entry.zig — server-side wrapper bundling Session with pane-slot management
+const SessionEntry = struct {
+    session: Session,
+    pane_slots: [MAX_PANES]?Pane,  // by value, indexed by PaneSlot (0..15)
+    free_mask: u16,                 // bitmap of available pane slots
+    dirty_mask: u16,                // one bit per pane slot
 };
 
 // core/split_node.zig
@@ -350,10 +361,10 @@ pub const SplitNodeData = union(enum) {
     },
 };
 
-// server/pane.zig
+// server/pane.zig — stored by value in SessionEntry.pane_slots
 pub const Pane = struct {
     pane_id: PaneId,
-    slot_index: PaneSlot, // position in owning session's pane_slots
+    slot_index: PaneSlot, // position in owning SessionEntry's pane_slots
     pty_fd: posix.fd_t,
     child_pid: posix.pid_t,
     terminal: *ghostty.Terminal,
@@ -477,10 +488,10 @@ When the daemon receives a key event from a client, the IME routing pipeline (Ph
 
 #### ImeResult → ghostty API Mapping (Phase 2 Detail)
 
-The following pseudocode shows the complete Phase 2 consumption of `ImeResult` in `server/`. The engine is session-scoped — `session.engine` holds the single shared engine. The server tracks `focused_pane` and directs output to that pane's PTY.
+The following pseudocode shows the complete Phase 2 consumption of `ImeResult` in `server/`. The engine is session-scoped — `entry.session.ime_engine` holds the single shared engine. The server tracks `focused_pane` (on `Session`) and directs output to that pane's PTY. Pane slot management (`pane_slots`, `dirty_mask`, `free_mask`) is on `SessionEntry`.
 
 ```zig
-fn handleKeyEventPhase2(session: *Session, focused_pane: *Pane, result: ImeResult) void {
+fn handleKeyEventPhase2(entry: *SessionEntry, focused_pane: *Pane, result: ImeResult) void {
     // 1. Committed text → write directly to PTY
     //    For committed text, the key encoder is NOT used — the text is
     //    already final UTF-8 from the IME engine.
@@ -495,13 +506,13 @@ fn handleKeyEventPhase2(session: *Session, focused_pane: *Pane, result: ImeResul
     //    onto the exported FlatCell[] at frame generation time.
     if (result.preedit_changed) {
         if (result.preedit_text) |text| {
-            @memcpy(session.preedit_buf[0..text.len], text);
-            session.current_preedit = session.preedit_buf[0..text.len];
+            @memcpy(entry.session.preedit_buf[0..text.len], text);
+            entry.session.current_preedit = entry.session.preedit_buf[0..text.len];
         } else {
-            session.current_preedit = null;
+            entry.session.current_preedit = null;
         }
-        // Mark dirty for preedit overlay change
-        session.dirty_mask |= (@as(u16, 1) << focused_pane.slot_index);
+        // Mark dirty for preedit overlay change (dirty_mask is on SessionEntry)
+        entry.dirty_mask |= (@as(u16, 1) << focused_pane.slot_index);
     }
 
     // 3. Forward key → encode via ghostty key encoder and write to PTY
@@ -532,9 +543,9 @@ fn handleKeyEventPhase2(session: *Session, focused_pane: *Pane, result: ImeResul
 **Intra-session pane focus change**: When focus moves from pane A to pane B within the same session, the server flushes the engine and routes the result to pane A before switching focus:
 
 ```zig
-fn handleIntraSessionFocusChange(session: *Session, pane_a: *Pane, pane_b: *Pane) void {
+fn handleIntraSessionFocusChange(entry: *SessionEntry, pane_a: *Pane, pane_b: *Pane) void {
     // 1. Flush composition — committed text goes to pane A's PTY
-    const result = session.engine.flush();
+    const result = entry.session.ime_engine.flush();
 
     // 2. Consume committed text immediately
     if (result.committed_text) |text| {
@@ -543,15 +554,15 @@ fn handleIntraSessionFocusChange(session: *Session, pane_a: *Pane, pane_b: *Pane
 
     // 3. Clear preedit cache
     if (result.preedit_changed) {
-        session.current_preedit = null;
-        session.dirty_mask |= (@as(u16, 1) << pane_a.slot_index);
+        entry.session.current_preedit = null;
+        entry.dirty_mask |= (@as(u16, 1) << pane_a.slot_index);
     }
 
     // 4. Send PreeditEnd(pane=A, reason="focus_changed") to all clients
     sendPreeditEnd(pane_a, "focus_changed");
 
     // 5. Update focused pane — subsequent results route to pane B
-    session.focused_pane = pane_b.slot_index;
+    entry.session.focused_pane = pane_b.slot_index;
 }
 ```
 

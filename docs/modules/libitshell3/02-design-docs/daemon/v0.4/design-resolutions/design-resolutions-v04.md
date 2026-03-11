@@ -28,7 +28,7 @@ Protocol normative name: `DetachSessionRequest` (0x0106).
 |---|------|------|---------|-------------|
 | 1 | `v0.4/03-lifecycle-and-connections.md` | 406 | `SessionDetachRequest` | `DetachSessionRequest` |
 | 2 | `v0.4/03-lifecycle-and-connections.md` | 435 | `SessionDetachRequest` | `DetachSessionRequest` |
-| 3 | `v0.1/design-resolutions/01-daemon-architecture.md` | 443 | `SessionDetachRequest` | `DetachSessionRequest` |
+| 3 | `v0.1/design-resolutions/01-daemon-architecture.md` | 443 | `SessionDetachRequest` | `DetachSessionRequest` | **CANCELLED** — historical document, must not be modified (owner directive) |
 
 ### 1.2 ResizeRequest to WindowResize (1 occurrence)
 
@@ -50,7 +50,7 @@ The protocol has no `ServerShutdown` message type. The protocol defines `Disconn
 | 8 | `v0.4/03-lifecycle-and-connections.md` | 383 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) |
 | 9 | `v0.4/03-lifecycle-and-connections.md` | 417 | `ServerShutdown` | `Disconnect` (state diagram shorthand) |
 | 10 | `v0.4/03-lifecycle-and-connections.md` | 440 | `ServerShutdown` | `Disconnect` (state table shorthand) |
-| 11 | `v0.1/design-resolutions/01-daemon-architecture.md` | 413 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) |
+| 11 | `v0.1/design-resolutions/01-daemon-architecture.md` | 413 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) | **CANCELLED** — historical document, must not be modified (owner directive) |
 
 ### 1.4 Deferred: ErrorResponse Semantic Correction
 
@@ -130,22 +130,23 @@ const SessionEntry = struct {
 
 **Source**: Review note 01 (LOW)
 **Affected docs**: `v0.1/design-resolutions/01-daemon-architecture.md`
+**Status**: **CANCELLED** — owner directive: `v0.1/design-resolutions/01-daemon-architecture.md` is a historical document and must not be modified.
 
-### Decision
+### Decision (cancelled)
 
-Fix 3 stale `SplitNode` references that were missed during the v0.2 V1-03 fix cycle. The v0.1 resolution doc is living normative text.
+~~Fix 3 stale `SplitNode` references that were missed during the v0.2 V1-03 fix cycle.~~
 
-| # | Line | Current | Replacement |
-|---|------|---------|-------------|
-| 1 | 24 | `SplitNode (tree shape, leaf = PaneId)` | `SplitNodeData (tree shape, leaf = PaneSlot)` |
-| 2 | 79 | `Each Session directly owns a SplitNode tree` | `Each Session directly owns a SplitNodeData tree` |
-| 3 | 558 | `SplitNode references PaneId` | `SplitNodeData references PaneSlot` |
-
-Line 558 was discovered by daemon-architect during v0.4 discussion (the original review note listed only lines 23 and 80; actual stale text is at lines 24 and 79).
+| # | Line | Current | Replacement | Status |
+|---|------|---------|-------------|--------|
+| 1 | 24 | `SplitNode (tree shape, leaf = PaneId)` | `SplitNodeData (tree shape, leaf = PaneSlot)` | **CANCELLED** |
+| 2 | 79 | `Each Session directly owns a SplitNode tree` | `Each Session directly owns a SplitNodeData tree` | **CANCELLED** |
+| 3 | 558 | `SplitNode references PaneId` | `SplitNodeData references PaneSlot` | **CANCELLED** |
 
 ### 3.1 Rationale
 
-The v0.1 resolution doc is normative living text (confirmed by v0.2 V1-03 precedent). The v0.2 resolution renamed `SplitNode` to `SplitNodeData` and `PaneId` to `PaneSlot` for internal use, but these 3 narrative occurrences were missed.
+~~The v0.1 resolution doc is normative living text (confirmed by v0.2 V1-03 precedent). The v0.2 resolution renamed `SplitNode` to `SplitNodeData` and `PaneId` to `PaneSlot` for internal use, but these 3 narrative occurrences were missed.~~
+
+Owner overruled: the v0.1 resolution document is historical and must not be modified. These stale references remain in the historical record as-is.
 
 ### 3.2 Wire Protocol Changes
 
