@@ -21,3 +21,9 @@ poc/**/.zig-cache/
 # Editor
 .vscode/
 .idea/
+
+# local configs
+*.local.*
+
+# invoke-agent
+/.invoke-agent
