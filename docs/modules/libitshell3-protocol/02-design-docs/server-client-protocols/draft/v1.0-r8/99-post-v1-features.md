@@ -25,12 +25,12 @@ v1 uses auto-close: when a pane's process exits, the server automatically closes
 
 Post-v1, add a `remain-on-exit` option (per-pane or per-session configuration) that keeps the pane visible with exit status displayed until the user explicitly closes it. tmux supports this via `set -g remain-on-exit on`.
 
-**Implementation note**: When implementing remain-on-exit, ghostty's `wait-after-command` option MUST be considered. libghostty already has the plumbing — the embedder passes `wait_after_command = true` via `Surface.Options` and the Surface stays open after process exit. However, ghostty's behavior (show "Press any key to close" message, close on any keypress) may not match our desired UX (pane stays until explicit `ClosePane`). The daemon may need to handle the process exit callback independently rather than relying on ghostty's built-in wait behavior. See `v0.7/research/04-ghostty-wait-after-command.md` for the full ghostty implementation details.
+**Implementation note**: When implementing remain-on-exit, ghostty's `wait-after-command` option MUST be considered. libghostty already has the plumbing — the embedder passes `wait_after_command = true` via `Surface.Options` and the Surface stays open after process exit. However, ghostty's behavior (show "Press any key to close" message, close on any keypress) may not match our desired UX (pane stays until explicit `ClosePane`). The daemon may need to handle the process exit callback independently rather than relying on ghostty's built-in wait behavior. See `draft/v1.0-r7/research/04-ghostty-wait-after-command.md` for the full ghostty implementation details.
 
 ## 3. Candidate Window Protocol
 
 **Origin**: Doc 05 Open Question #2 (closed in v0.7, owner decision)
-**Updated**: 2026-03-07 (review note `v0.7/review-notes/04-preedit-protocol-overhaul.md`)
+**Updated**: 2026-03-07 (review note `draft/v1.0-r7/review-notes/04-preedit-protocol-overhaul.md`)
 
 Japanese and Chinese IMEs present a candidate list for character selection. This requires:
 - Candidate list data delivery to the client (potentially large for Chinese)
@@ -119,4 +119,4 @@ When multiple clients are attached to the same session, show which clients are f
 
 Zellij supports mirrored (shared view) and independent (per-client focus) modes. Color assignment via `client_id % 10`. Server computes per-client `other_focused_clients` lists. Tab bar and pane frame rendering with graceful text degradation. Full details in v0.5 source document Section 3.
 
-**References**: `v0.5/review-notes-01-per-client-focus-indicators.md` (full original analysis), `v0.7/review-notes/08-per-client-focus-indicators.md` (summary).
+**References**: `draft/v1.0-r5/review-notes-01-per-client-focus-indicators.md` (full original analysis), `draft/v1.0-r7/review-notes/08-per-client-focus-indicators.md` (summary).

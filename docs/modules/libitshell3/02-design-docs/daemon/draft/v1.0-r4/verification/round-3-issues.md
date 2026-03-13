@@ -20,7 +20,7 @@ R2-1, R2-2, R2-3: correctly applied.
 
 ### SEM-R3-1 — MINOR: Doc 04 §7.6 references "ghostty surface" — contradicts headless architecture
 
-**File**: `v0.4/04-runtime-policies.md`, §7.6, line 364
+**File**: `draft/v1.0-r4/04-runtime-policies.md`, §7.6, line 364
 **Sources**: all four verifiers (unanimous)
 
 Current text: "The ghostty surface handles preedit cursor repositioning internally."

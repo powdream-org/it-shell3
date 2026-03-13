@@ -26,7 +26,7 @@ v1: auto-close. When a pane's process exits, the server MUST automatically close
 
 **Cascade with Q1 (last-pane-close)**: If the auto-closed pane was the last pane in the session, the session is auto-destroyed (`ClosePaneResponse` `side_effect = 1`). From all connected clients' UI perspective, this means the terminal tab closes when the last pane's process exits. This cascade is intentional — owner confirmed no issue with this behavior.
 
-**libghostty integration**: ghostty has a `wait-after-command` config option (default `false` = auto-close). libghostty does not read config files — the embedder must explicitly pass `wait_after_command` via `Surface.Options` when creating each Surface. Our daemon (embedder) MUST pass `wait_after_command = false` to ensure auto-close behavior. See `v0.7/research/04-ghostty-wait-after-command.md` for full details.
+**libghostty integration**: ghostty has a `wait-after-command` config option (default `false` = auto-close). libghostty does not read config files — the embedder must explicitly pass `wait_after_command` via `Surface.Options` when creating each Surface. Our daemon (embedder) MUST pass `wait_after_command = false` to ensure auto-close behavior. See `draft/v1.0-r7/research/04-ghostty-wait-after-command.md` for full details.
 
 Remain-on-exit is deferred to post-v1 (see `99-post-v1-features.md` Section 2).
 

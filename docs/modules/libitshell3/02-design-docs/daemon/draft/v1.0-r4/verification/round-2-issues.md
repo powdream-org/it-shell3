@@ -16,7 +16,7 @@ V1-1, V1-2, V1-3, V1-4: all correctly applied.
 
 ### R2-1 — MINOR: Doc 02 version header not updated to v0.4
 
-**File**: `v0.4/02-integration-boundaries.md`, line 3
+**File**: `draft/v1.0-r4/02-integration-boundaries.md`, line 3
 **Sources**: cross-reference-verifier, terminology-verifier
 
 Header reads `**Version**: v0.3` with no `**v0.4 changes**` entry. Doc 02 was modified by the V1-2 fix (§4.1 pseudocode) and by R2-3 below (§4.3 pseudocode). Same pattern as Round 1's V1-1 (which correctly fixed doc 03's header).
@@ -27,7 +27,7 @@ Header reads `**Version**: v0.3` with no `**v0.4 changes**` entry. Doc 02 was mo
 
 ### R2-2 — MINOR: Doc 03 §2.1 stale field name
 
-**File**: `v0.4/03-lifecycle-and-connections.md`, line 234
+**File**: `draft/v1.0-r4/03-lifecycle-and-connections.md`, line 234
 **Sources**: all four verifiers
 
 Current: `session.engine.deactivate()`
@@ -41,7 +41,7 @@ After Resolution 2, the field is `ime_engine` (not `engine`), and server-side co
 
 ### R2-3 — MINOR: Doc 02 §4.3 stale access paths (3 occurrences)
 
-**File**: `v0.4/02-integration-boundaries.md`, lines 333, 335, 336
+**File**: `draft/v1.0-r4/02-integration-boundaries.md`, lines 333, 335, 336
 **Sources**: all four verifiers
 
 | Line | Current | Expected |

@@ -1,7 +1,7 @@
 # 01 — libitshell3 <-> libitshell3-ime Interface Contract
 
 > **Status**: Draft v0.5 — Review issues 2.1, 2.2, 2.3, 2.5a, 2.5b applied. Issue 2.4 deferred to protocol v0.6 (see `protocol-changes-for-v06.md`).
-> **Supersedes**: [v0.4/01-interface-contract.md](../v0.4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v0.3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v0.2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v0.1/01-interface-contract.md)
+> **Supersedes**: [v0.4/01-interface-contract.md](../v1.0-r4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v1.0-r3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v1.0-r2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v1.0-r1/01-interface-contract.md)
 > **Date**: 2026-03-05
 > **Review participants**: protocol-architect, ime-expert, cjk-specialist
 > **PoC validation**: `poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code)

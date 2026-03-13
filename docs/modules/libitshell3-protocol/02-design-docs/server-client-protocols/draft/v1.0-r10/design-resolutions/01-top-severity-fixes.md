@@ -4,7 +4,7 @@
 **Date**: 2026-03-10
 **Status**: Resolved (5/5 unanimous consensus)
 **Participants**: protocol-architect, system-sw-engineer, cjk-specialist, ime-expert, principal-architect
-**Sources**: RN-01 (`v0.9/review-notes/01-scroll-delivery-design.md`), RN-02 (`v0.9/review-notes/02-preeditend-reason-cleanup.md`), cross-team request (`v0.9/cross-team-requests/01-daemon-architecture-requirements.md` Change 3), R3-T01 (`v0.9/handover/handover-to-v0.10.md`)
+**Sources**: RN-01 (`draft/v1.0-r9/review-notes/01-scroll-delivery-design.md`), RN-02 (`draft/v1.0-r9/review-notes/02-preeditend-reason-cleanup.md`), cross-team request (`draft/v1.0-r9/cross-team-requests/01-daemon-architecture-requirements.md` Change 3), R3-T01 (`draft/v1.0-r9/handover/handover-to-v0.10.md`)
 **Scope**: Docs 02, 03, 04, 05, 06
 
 ---
@@ -134,7 +134,7 @@ The handover identified 2 locations in Doc 03. During team discussion, protocol-
 
 ### Rationale
 
-The v0.8 frame_type renumbering (Resolution 8 in `v0.8/design-resolutions/01-preedit-overhaul.md`) changed I-frame from `frame_type=2` to `frame_type=1` and I-unchanged from `frame_type=3` to `frame_type=2`. The attach sequence descriptions were updated to reference `frame_type=2` (I-unchanged) but should have been updated to `frame_type=1 or frame_type=2` (either I-frame variant), since the server may send a fresh I-frame or reuse the latest ring entry depending on whether the pane has changed.
+The v0.8 frame_type renumbering (Resolution 8 in `draft/v1.0-r8/design-resolutions/01-preedit-overhaul.md`) changed I-frame from `frame_type=2` to `frame_type=1` and I-unchanged from `frame_type=3` to `frame_type=2`. The attach sequence descriptions were updated to reference `frame_type=2` (I-unchanged) but should have been updated to `frame_type=1 or frame_type=2` (either I-frame variant), since the server may send a fresh I-frame or reuse the latest ring entry depending on whether the pane has changed.
 
 ---
 

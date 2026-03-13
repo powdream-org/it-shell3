@@ -142,7 +142,7 @@ The daemon v0.3 revision should:
 1. **Absorb** all P1-P20, I1-I9, A1-A2 content into daemon design docs (existing or new)
 2. **Deduplicate** the 8 overlapping topics into single authoritative descriptions
 3. **Update AGENTS.md** line 54 to remove version conflict procedures, keep high-level summary only
-4. **Coordinate** with protocol team (cross-team request filed at `protocol/v0.11/cross-team-requests/`) and IME team (cross-team request filed at `ime-contract/v0.7/cross-team-requests/`) to reduce their docs to wire format / API contract only
+4. **Coordinate** with protocol team (cross-team request filed at `protocol/draft/v1.0-r11/cross-team-requests/`) and IME team (cross-team request filed at `ime-contract/draft/v1.0-r7/cross-team-requests/`) to reduce their docs to wire format / API contract only
 
 Daemon docs may need new sections or a new document (e.g., doc 04) to accommodate flow control, multi-client management, and IME integration topics that don't fit cleanly into the current three docs.
 

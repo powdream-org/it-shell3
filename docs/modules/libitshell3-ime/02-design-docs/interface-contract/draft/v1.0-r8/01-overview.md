@@ -21,7 +21,7 @@
 # 01 — libitshell3 <-> libitshell3-ime Interface Contract
 
 > **Status**: Draft v0.8 — Daemon behavioral content extracted to daemon design docs v0.3 (cross-team revision).
-> **Supersedes**: [v0.7/01-overview.md](../v0.7/01-overview.md), [v0.6/01-overview.md](../v0.6/01-overview.md), [v0.5/01-interface-contract.md](../v0.5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v0.4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v0.3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v0.2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v0.1/01-interface-contract.md)
+> **Supersedes**: [v0.7/01-overview.md](../v1.0-r7/01-overview.md), [v0.6/01-overview.md](../v1.0-r6/01-overview.md), [v0.5/01-interface-contract.md](../v1.0-r5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v1.0-r4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v1.0-r3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v1.0-r2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v1.0-r1/01-interface-contract.md)
 > **Date**: 2026-03-10
 > **Review participants**: protocol-architect, protocol-swe, cjk-specialist, ime-expert, principal-architect, ime-architect, ime-swe
 > **PoC validation**: `poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code); `poc/03-macos-ime-suppression/` — macOS IME suppression validated; `poc/04-libhangul-states/probe.c` — composition_state factual errors confirmed; `poc/05-preedit-visual/` — preedit-as-cell-data rendering validated
@@ -50,7 +50,7 @@ This document defines the **exact interface** between libitshell3 (terminal mult
 
 ## 2. Processing Pipeline
 
-The daemon routes keys through a 3-phase pipeline. Phase 1 (IME processing) is defined by this contract; Phases 0 (global shortcuts, language toggle) and 2 (ghostty integration, PTY writes, preedit overlay) are defined in [daemon design doc 02 §4.2](../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#42-phase-0---1---2-key-routing).
+The daemon routes keys through a 3-phase pipeline. Phase 1 (IME processing) is defined by this contract; Phases 0 (global shortcuts, language toggle) and 2 (ghostty integration, PTY writes, preedit overlay) are defined in [daemon design doc 02 §4.2](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#42-phase-0---1---2-key-routing).
 
 ### Phase 1: IME Engine Processing
 
@@ -94,7 +94,7 @@ When `hangul_ic_process()` returns `false`, libhangul rejected the key (it is no
 
 ## 4. Responsibility Matrix
 
-This matrix covers IME engine responsibilities only. Daemon-side responsibilities (routing, PTY writes, ghostty integration, lifecycle management) are defined in [daemon design doc 02 §4.9](../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#49-daemon-side-responsibility-matrix).
+This matrix covers IME engine responsibilities only. Daemon-side responsibilities (routing, PTY writes, ghostty integration, lifecycle management) are defined in [daemon design doc 02 §4.9](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#49-daemon-side-responsibility-matrix).
 
 | Responsibility | Owner | Rationale |
 |---|---|---|

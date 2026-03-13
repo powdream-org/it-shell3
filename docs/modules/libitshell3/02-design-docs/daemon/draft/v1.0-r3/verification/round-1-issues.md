@@ -44,28 +44,28 @@
 
 ### V1-06 [MEDIUM] RLIMIT_NOFILE residual in protocol doc 01
 
-**Location**: protocol/v0.11/01-protocol-overview.md §5.5.4
+**Location**: protocol/draft/v1.0-r11/01-protocol-overview.md §5.5.4
 **Confirmed by**: HG, SV, CRV confirm (3-1; TV dismisses as out of scope for P3)
 **Description**: §5.5.4 still contains RLIMIT_NOFILE implementation note with "256" and "SHOULD" language. Same content correctly exists in daemon doc 04 §1. Cross-team request P3 targeted removal of this content.
 **Fix**: Remove the RLIMIT_NOFILE implementation note from §5.5.4; replace with brief daemon docs reference.
 
 ### V1-07 [LOW] ERR_RESOURCE_EXHAUSTED lifecycle ambiguity
 
-**Location**: daemon/draft/v1.0-r3/04-runtime-policies.md §1 vs protocol/v0.11/01-protocol-overview.md §5.5.3
+**Location**: daemon/draft/v1.0-r3/04-runtime-policies.md §1 vs protocol/draft/v1.0-r11/01-protocol-overview.md §5.5.3
 **Confirmed by**: HG, SV confirm (2-1; TV out of scope, CRV no opinion)
 **Description**: Daemon doc 04 §1 says error is sent when `CreateSessionRequest` is rejected (post-handshake). Protocol doc 01 §5.5.3 says "rejects a connection" (pre-handshake). Ambiguity about lifecycle stage.
 **Fix**: Clarify in daemon doc 04 §1 and/or protocol doc 01 §5.5.3 at which stage the error is sent.
 
 ### V1-08 [LOW] IME v0.8 doc 04 reference text API names
 
-**Location**: IME/v0.8/04-ghostty-integration.md §5 (reference text)
+**Location**: IME/draft/v1.0-r8/04-ghostty-integration.md §5 (reference text)
 **Confirmed by**: HG, TV, SV confirm (3-1; CRV dismisses as topic description)
 **Description**: Reference text says "drive ghostty APIs (`ghostty_surface_key()`, `ghostty_surface_preedit()`, `key_encode.encode()`)" — names APIs the daemon doesn't use per headless architecture.
 **Fix**: Update API names to match daemon doc 01's headless equivalents when V1-01/V1-02 are fixed.
 
 ### V1-09 [LOW] Section numbering gap in protocol doc 03
 
-**Location**: protocol/v0.11/03-session-pane-management.md §5
+**Location**: protocol/draft/v1.0-r11/03-session-pane-management.md §5
 **Confirmed by**: TV, CRV confirm (HG, SV no opinion)
 **Description**: Section 5 jumps from 5.6 to 5.8 — section 5.7 is missing.
 **Fix**: Renumber 5.8 to 5.7 (or insert missing section).

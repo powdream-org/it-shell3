@@ -1,7 +1,7 @@
 # Daemon Integration Boundaries
 
 **Version**: v0.2
-**Source**: [Design Resolutions — Daemon Architecture](../v0.1/design-resolutions/01-daemon-architecture.md) (Resolutions 5-7, Owner Q1/Q2)
+**Source**: [Design Resolutions — Daemon Architecture](../v1.0-r1/design-resolutions/01-daemon-architecture.md) (Resolutions 5-7, Owner Q1/Q2)
 
 ---
 

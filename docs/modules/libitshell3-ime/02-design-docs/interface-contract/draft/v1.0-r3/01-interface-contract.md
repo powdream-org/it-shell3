@@ -1,7 +1,7 @@
 # 01 — libitshell3 <-> libitshell3-ime Interface Contract
 
 > **Status**: Draft v0.3 — PoC-validated, all resolutions applied.
-> **Supersedes**: [v0.2/01-interface-contract.md](../v0.2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v0.1/01-interface-contract.md), interface-design.md (deleted, merged here), portions of [04-architecture.md](../../../01-overview/04-architecture.md), and [05-integration-with-libitshell3.md](../../../01-overview/05-integration-with-libitshell3.md).
+> **Supersedes**: [v0.2/01-interface-contract.md](../v1.0-r2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v1.0-r1/01-interface-contract.md), interface-design.md (deleted, merged here), portions of [04-architecture.md](../../../01-overview/04-architecture.md), and [05-integration-with-libitshell3.md](../../../01-overview/05-integration-with-libitshell3.md).
 > **Review participants**: principal-architect, ime-expert, ghostty-expert
 > **PoC validation**: `poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code)
 > **Changes from v0.2**: See [Appendix D: Changes from v0.2](#appendix-d-changes-from-v02)

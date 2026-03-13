@@ -3,7 +3,7 @@
 **Date**: 2026-03-10
 **Raised by**: verification team + owner
 **Severity**: HIGH
-**Affected docs**: `v0.2/01-internal-architecture.md` (Sections 1.5, 3.2, 3.3), `v0.1/design-resolutions/01-daemon-architecture.md` (R1, R3), `v0.2/design-resolutions/01-v0.2-review-note-resolutions.md` (Section 1.3)
+**Affected docs**: `draft/v1.0-r2/01-internal-architecture.md` (Sections 1.5, 3.2, 3.3), `draft/v1.0-r1/design-resolutions/01-daemon-architecture.md` (R1, R3), `draft/v1.0-r2/design-resolutions/01-v0.2-review-note-resolutions.md` (Section 1.3)
 **Status**: open
 
 ---

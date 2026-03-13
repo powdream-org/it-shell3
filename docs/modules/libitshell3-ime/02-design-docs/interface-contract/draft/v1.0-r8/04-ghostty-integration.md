@@ -7,7 +7,7 @@
 
 ## 5. ghostty Integration
 
-ghostty integration — how `ImeResult` is consumed by the daemon to drive the key input and preedit pipeline (`key_encode.encode()`, `write(pty_fd)`, `overlayPreedit()`) — is defined in [daemon design doc 01 §4](../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/01-internal-architecture.md) and [daemon design doc 02 §4](../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#4-ime-integration-libitshell3-ime).
+ghostty integration — how `ImeResult` is consumed by the daemon to drive the key input and preedit pipeline (`key_encode.encode()`, `write(pty_fd)`, `overlayPreedit()`) — is defined in [daemon design doc 01 §4](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/01-internal-architecture.md) and [daemon design doc 02 §4](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#4-ime-integration-libitshell3-ime).
 
 The IME engine has no direct interaction with ghostty. It produces `ImeResult` structs; the daemon consumes them.
 
@@ -30,7 +30,7 @@ preedit_buf:   [64]u8   -- holds preedit UTF-8 text
 - 256 bytes for committed text: a single Korean syllable is 3 bytes UTF-8. The longest possible commit from one keystroke is a flushed syllable + a non-jamo character = ~6 bytes. 256 bytes is vastly oversized for safety.
 - 64 bytes for preedit: a single composing syllable is always exactly one character (3 bytes UTF-8). 64 bytes is vastly oversized for safety.
 
-**Caller responsibility**: If the caller needs to retain the text across multiple `processKey()` calls, it must copy the data. See [daemon design doc 02 §4.6](../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#46-critical-runtime-invariant) for the daemon's consumption invariant.
+**Caller responsibility**: If the caller needs to retain the text across multiple `processKey()` calls, it must copy the data. See [daemon design doc 02 §4.6](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#46-critical-runtime-invariant) for the daemon's consumption invariant.
 
 ### Shared Engine Invariant
 

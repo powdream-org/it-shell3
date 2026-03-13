@@ -14,7 +14,7 @@
 ## Resolution 1: Message Type Naming Alignment (6/6 unanimous)
 
 **Source**: Review note 05 (CRITICAL), expanded during discussion to cover all non-normative message type names
-**Affected docs**: `v0.4/03-lifecycle-and-connections.md`, `v0.1/design-resolutions/01-daemon-architecture.md`
+**Affected docs**: `draft/v1.0-r4/03-lifecycle-and-connections.md`, `draft/v1.0-r1/design-resolutions/01-daemon-architecture.md`
 
 ### Decision
 
@@ -26,9 +26,9 @@ Protocol normative name: `DetachSessionRequest` (0x0106).
 
 | # | File | Line | Current | Replacement |
 |---|------|------|---------|-------------|
-| 1 | `v0.4/03-lifecycle-and-connections.md` | 406 | `SessionDetachRequest` | `DetachSessionRequest` |
-| 2 | `v0.4/03-lifecycle-and-connections.md` | 435 | `SessionDetachRequest` | `DetachSessionRequest` |
-| 3 | `v0.1/design-resolutions/01-daemon-architecture.md` | 443 | `SessionDetachRequest` | `DetachSessionRequest` | **CANCELLED** — historical document, must not be modified (owner directive) |
+| 1 | `draft/v1.0-r4/03-lifecycle-and-connections.md` | 406 | `SessionDetachRequest` | `DetachSessionRequest` |
+| 2 | `draft/v1.0-r4/03-lifecycle-and-connections.md` | 435 | `SessionDetachRequest` | `DetachSessionRequest` |
+| 3 | `draft/v1.0-r1/design-resolutions/01-daemon-architecture.md` | 443 | `SessionDetachRequest` | `DetachSessionRequest` | **CANCELLED** — historical document, must not be modified (owner directive) |
 
 ### 1.2 ResizeRequest to WindowResize (1 occurrence)
 
@@ -36,7 +36,7 @@ Protocol normative name: `WindowResize` (0x0190). The context ("Update `display_
 
 | # | File | Line | Current | Replacement |
 |---|------|------|---------|-------------|
-| 4 | `v0.4/03-lifecycle-and-connections.md` | 438 | `ResizeRequest` | `WindowResize` |
+| 4 | `draft/v1.0-r4/03-lifecycle-and-connections.md` | 438 | `ResizeRequest` | `WindowResize` |
 
 ### 1.3 ServerShutdown to Disconnect (7 occurrences)
 
@@ -44,13 +44,13 @@ The protocol has no `ServerShutdown` message type. The protocol defines `Disconn
 
 | # | File | Line | Current | Replacement |
 |---|------|------|---------|-------------|
-| 5 | `v0.4/03-lifecycle-and-connections.md` | 209 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) |
-| 6 | `v0.4/03-lifecycle-and-connections.md` | 239 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) |
-| 7 | `v0.4/03-lifecycle-and-connections.md` | 245 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) |
-| 8 | `v0.4/03-lifecycle-and-connections.md` | 383 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) |
-| 9 | `v0.4/03-lifecycle-and-connections.md` | 417 | `ServerShutdown` | `Disconnect` (state diagram shorthand) |
-| 10 | `v0.4/03-lifecycle-and-connections.md` | 440 | `ServerShutdown` | `Disconnect` (state table shorthand) |
-| 11 | `v0.1/design-resolutions/01-daemon-architecture.md` | 413 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) | **CANCELLED** — historical document, must not be modified (owner directive) |
+| 5 | `draft/v1.0-r4/03-lifecycle-and-connections.md` | 209 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) |
+| 6 | `draft/v1.0-r4/03-lifecycle-and-connections.md` | 239 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) |
+| 7 | `draft/v1.0-r4/03-lifecycle-and-connections.md` | 245 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) |
+| 8 | `draft/v1.0-r4/03-lifecycle-and-connections.md` | 383 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) |
+| 9 | `draft/v1.0-r4/03-lifecycle-and-connections.md` | 417 | `ServerShutdown` | `Disconnect` (state diagram shorthand) |
+| 10 | `draft/v1.0-r4/03-lifecycle-and-connections.md` | 440 | `ServerShutdown` | `Disconnect` (state table shorthand) |
+| 11 | `draft/v1.0-r1/design-resolutions/01-daemon-architecture.md` | 413 | `ServerShutdown` | `Disconnect` (reason: `server_shutdown`) | **CANCELLED** — historical document, must not be modified (owner directive) |
 
 ### 1.4 Deferred: ErrorResponse Semantic Correction
 
@@ -70,7 +70,7 @@ Renaming `ErrorResponse` to `Error` would be misleading because the daemon doc u
 ## Resolution 2: SessionEntry Introduction and pane_slots Migration (6/6 unanimous + owner binding decision)
 
 **Source**: Review note 03 (HIGH), with owner directive on mask placement
-**Affected docs**: `v0.4/01-internal-architecture.md` (Sections 1.5, 3.2, 3.3), `v0.1/design-resolutions/01-daemon-architecture.md` (R1, R3), `v0.2/design-resolutions/01-v0.2-review-note-resolutions.md` (Section 1.3)
+**Affected docs**: `draft/v1.0-r4/01-internal-architecture.md` (Sections 1.5, 3.2, 3.3), `draft/v1.0-r1/design-resolutions/01-daemon-architecture.md` (R1, R3), `draft/v1.0-r2/design-resolutions/01-v0.2-review-note-resolutions.md` (Section 1.3)
 
 ### Decision
 
@@ -129,8 +129,8 @@ const SessionEntry = struct {
 ## Resolution 3: SplitNode Remnants in v0.1 Resolution Doc (6/6 unanimous)
 
 **Source**: Review note 01 (LOW)
-**Affected docs**: `v0.1/design-resolutions/01-daemon-architecture.md`
-**Status**: **CANCELLED** — owner directive: `v0.1/design-resolutions/01-daemon-architecture.md` is a historical document and must not be modified.
+**Affected docs**: `draft/v1.0-r1/design-resolutions/01-daemon-architecture.md`
+**Status**: **CANCELLED** — owner directive: `draft/v1.0-r1/design-resolutions/01-daemon-architecture.md` is a historical document and must not be modified.
 
 ### Decision (cancelled)
 
@@ -157,7 +157,7 @@ Owner overruled: the v0.1 resolution document is historical and must not be modi
 ## Resolution 4: pty_fd Naming Consistency (6/6 unanimous)
 
 **Source**: Review note 02 (LOW)
-**Affected docs**: `v0.4/03-lifecycle-and-connections.md`
+**Affected docs**: `draft/v1.0-r4/03-lifecycle-and-connections.md`
 
 ### Decision
 

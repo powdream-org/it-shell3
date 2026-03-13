@@ -34,7 +34,7 @@
 - [x] Spawn verification team
 - [x] Independent verification by all 4 verifiers
 - [x] Issue cross-validation (peer debate)
-- [x] Record issues: 5 true alarms (V1-01 through V1-05), 3 dismissed. See `v0.8/verification/round-1-issues.md`
+- [x] Record issues: 5 true alarms (V1-01 through V1-05), 3 dismissed. See `./verification/round-1-issues.md`
 - [x] Disband verification team
 
 ## Phase 4b: Fix Cycle (Round 1 issues)
@@ -53,7 +53,7 @@
 - [x] Spawn verification team
 - [x] Independent verification by all 4 verifiers
 - [x] Issue cross-validation (peer debate)
-- [x] Record result: 3 true alarms (V2-01 through V2-03), 3 dismissed. See `v0.8/verification/round-2-issues.md`
+- [x] Record result: 3 true alarms (V2-01 through V2-03), 3 dismissed. See `./verification/round-2-issues.md`
 
 ## Phase 4d: Fix Cycle (Round 2 issues)
 
@@ -69,7 +69,7 @@
 - [x] Spawn verification team
 - [x] Independent verification by all 4 verifiers
 - [x] Issue cross-validation (peer debate)
-- [x] Record result: 2 true alarms (V3-01, V3-02), 5 dismissed. See `v0.8/verification/round-3-issues.md`
+- [x] Record result: 2 true alarms (V3-01, V3-02), 5 dismissed. See `./verification/round-3-issues.md`
 
 ## Phase 4f: Fix Cycle (Round 3 issues)
 
@@ -84,7 +84,7 @@
 - [x] Spawn verification team
 - [x] Independent verification by all 4 verifiers
 - [x] Issue cross-validation (peer debate)
-- [x] Record result: 2 minor issues (V4-01, V4-02), 0 dismissed. See `v0.8/verification/round-4-issues.md`
+- [x] Record result: 2 minor issues (V4-01, V4-02), 0 dismissed. See `./verification/round-4-issues.md`
 
 ## Phase 4h: Fix Cycle (Round 4 issues)
 
@@ -99,7 +99,7 @@
 - [x] Spawn verification team
 - [x] Independent verification by all 4 verifiers
 - [x] Issue cross-validation (peer debate)
-- [x] Record result: 3 minor issues (V5-01, V5-02, V5-03), 1 dismissed. See `v0.8/verification/round-5-issues.md`
+- [x] Record result: 3 minor issues (V5-01, V5-02, V5-03), 1 dismissed. See `./verification/round-5-issues.md`
 
 ## Phase 4j: Fix Cycle (Round 5 issues)
 
@@ -115,7 +115,7 @@
 - [x] Spawn verification team
 - [x] Independent verification by all 4 verifiers
 - [x] Issue cross-validation (peer debate)
-- [x] Record result: 2 minor issues (V6-01, V6-02), 2 dismissed. See `v0.8/verification/round-6-issues.md`
+- [x] Record result: 2 minor issues (V6-01, V6-02), 2 dismissed. See `./verification/round-6-issues.md`
 
 ## Phase 4l: Fix Cycle (Round 6 issues)
 
@@ -130,7 +130,7 @@
 - [x] Spawn verification team
 - [x] Independent verification by all 4 verifiers
 - [x] Issue cross-validation (peer debate)
-- [x] Record result: 1 true alarm (V7-01), 1 dismissed. See `v0.8/verification/round-7-issues.md`
+- [x] Record result: 1 true alarm (V7-01), 1 dismissed. See `./verification/round-7-issues.md`
 
 ## Phase 4n: Fix Cycle (Round 7 issues)
 
@@ -144,7 +144,7 @@
 - [x] Spawn verification team
 - [x] Independent verification by all 4 verifiers
 - [x] Issue cross-validation (peer debate)
-- [x] Record result: 1 true alarm (V8-01), 2 dismissed. See `v0.8/verification/round-8-issues.md`
+- [x] Record result: 1 true alarm (V8-01), 2 dismissed. See `./verification/round-8-issues.md`
 
 ## Phase 4p: Fix Cycle (Round 8 issues)
 
@@ -158,7 +158,7 @@
 - [x] Spawn verification team
 - [x] Independent verification by all 4 verifiers
 - [x] Issue cross-validation (peer debate)
-- [x] Record result: 1 true alarm (V9-01), 0 dismissed. See `v0.8/verification/round-9-issues.md`
+- [x] Record result: 1 true alarm (V9-01), 0 dismissed. See `./verification/round-9-issues.md`
 
 ## Phase 4r: Fix Cycle (Round 9 issues)
 
@@ -172,7 +172,7 @@
 - [x] Spawn verification team
 - [x] Independent verification by all 4 verifiers
 - [x] Issue cross-validation (peer debate)
-- [x] Record result: 1 true alarm (V10-01), 0 dismissed. See `v0.8/verification/round-10-issues.md`
+- [x] Record result: 1 true alarm (V10-01), 0 dismissed. See `./verification/round-10-issues.md`
 
 ## Phase 4t: Fix Cycle (Round 10 issues)
 
@@ -194,4 +194,4 @@
 - [x] Clean verification pass achieved (3/4 CLEAN in round 11; owner stopped loop)
 - [x] Commit protocol v0.8 + IME contract v0.7 (`670e105`)
 - [x] Carry forward 15 unclosed review notes to v0.9 (renumbered by severity)
-- [x] Report to owner (handover document: `v0.8/handover/handover-to-v0.9.md`)
+- [x] Report to owner (handover document: `draft/v1.0-r8/handover/handover-to-v0.9.md`)

@@ -1,7 +1,7 @@
 # Daemon Integration Boundaries
 
 **Version**: v0.3
-**Source**: [Design Resolutions — Daemon Architecture](../v0.1/design-resolutions/01-daemon-architecture.md) (Resolutions 5-7, Owner Q1/Q2)
+**Source**: [Design Resolutions — Daemon Architecture](../v1.0-r1/design-resolutions/01-daemon-architecture.md) (Resolutions 5-7, Owner Q1/Q2)
 **v0.3 changes**: Absorbed daemon behavioral content from IME contract v0.7 (I2, I3, I5, I6, I8, I9) and verified protocol doc P5 coverage.
 
 ---
@@ -268,7 +268,7 @@ consume(session1.focused_pane.pty, result)
 session2.engine.activate()
 ```
 
-**Source**: [Design Resolutions — Per-Session Engine Architecture](../../libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r6/design-resolutions-per-tab-engine.md) (Resolutions 1-8).
+**Source**: [Design Resolutions — Per-Session Engine Architecture](../../../../../libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r6/design-resolutions-per-tab-engine.md) (Resolutions 1-8).
 
 ### 4.2 Phase 0 -> 1 -> 2 Key Routing
 
@@ -359,7 +359,7 @@ When the user changes focus between panes within the same session, the daemon fl
 
 **No composition restoration**: When focus returns to a previously-focused pane, the engine starts with empty composition. libhangul has no snapshot/restore API, and users don't expect to resume mid-syllable after switching panes. This matches ibus-hangul and fcitx5-hangul, which both flush on focus-out with no restoration on focus-in.
 
-**Source**: [Design Resolutions — Per-Session Engine](../../libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r6/design-resolutions-per-tab-engine.md) (Resolution 2).
+**Source**: [Design Resolutions — Per-Session Engine](../../../../../libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r6/design-resolutions-per-tab-engine.md) (Resolution 2).
 
 ### 4.5 No Per-Pane Locks
 

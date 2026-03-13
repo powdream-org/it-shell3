@@ -10,7 +10,7 @@
 
 ### V1-1 — CRITICAL: Doc 03 version header not updated to v0.4
 
-**File**: `v0.4/03-lifecycle-and-connections.md`, lines 3–8
+**File**: `draft/v1.0-r4/03-lifecycle-and-connections.md`, lines 3–8
 **Sources**: SEM-4, CRV-1, T-2 (merged)
 
 Version header still reads `**Version**: v0.3` with no `**v0.4 changes**` entry. The document was modified in v0.4 by:
@@ -26,7 +26,7 @@ Doc 01 follows the correct pattern (`Draft v0.4` + `**v0.4 changes**` entry). Do
 
 ### V1-2 — MINOR: Doc 02 pseudocode uses stale field names
 
-**File**: `v0.4/02-integration-boundaries.md`, §4.1 (lines 261–268)
+**File**: `draft/v1.0-r4/02-integration-boundaries.md`, §4.1 (lines 261–268)
 **Source**: SEM-3
 
 Pseudocode uses `session.engine.flush()` and `session1.engine.deactivate()`. After v0.4 Resolution 2:
@@ -41,7 +41,7 @@ Correct access path: `entry.session.ime_engine.flush()`. Doc 01 §4.3 already us
 
 ### V1-3 — MINOR: `ClosePane` instead of `ClosePaneRequest` in doc 01
 
-**File**: `v0.4/01-internal-architecture.md`, line 392
+**File**: `draft/v1.0-r4/01-internal-architecture.md`, line 392
 **Source**: T-1
 
 Line 392: "same sequence as explicit `ClosePane`" — normative protocol name is `ClosePaneRequest` (0x0144).
@@ -53,7 +53,7 @@ Line 395 (same paragraph) already correctly uses `ClosePaneRequest`.
 
 ### V1-4 — MINOR: Doc 03 §1.1 Step 6 says "Allocate Session" instead of SessionEntry
 
-**File**: `v0.4/03-lifecycle-and-connections.md`, §1.1 Step 6 (line 104)
+**File**: `draft/v1.0-r4/03-lifecycle-and-connections.md`, §1.1 Step 6 (line 104)
 **Source**: T-3
 
 Pseudocode says "Allocate Session:" but after v0.4 Resolution 2 the server allocates `SessionEntry` (wrapping Session + pane_slots + free_mask + dirty_mask). §4.3 of the same document already uses `?*SessionEntry` for `ClientState.attached_session`.

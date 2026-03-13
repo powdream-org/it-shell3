@@ -16,7 +16,7 @@ SEM-R3-1: correctly applied. Doc 04 §7.6 no longer contains any Surface referen
 
 ### CRX-R4-1 — MINOR: Doc 04 version header not updated to v0.4
 
-**File**: `v0.4/04-runtime-policies.md`, line 3
+**File**: `draft/v1.0-r4/04-runtime-policies.md`, line 3
 **Sources**: cross-reference-verifier, history-guardian (unanimous)
 
 Header reads `**Version**: v0.3`. This document is in the `v0.4/` directory and was modified in this revision cycle (SEM-R3-1 fix in Round 3). All other v0.4 docs (doc01, doc02, doc03) correctly declare `**Version**: v0.4` with `**v0.4 changes**` entries.

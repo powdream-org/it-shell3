@@ -3,7 +3,7 @@
 > **Date**: 2026-03-07
 > **Author**: team-lead (with owner review)
 > **Scope**: Review notes, open questions triage, and design insights from the v0.7 revision and verification cycle
-> **Prerequisite reading**: All files in `v0.7/review-notes/`, `v0.7/verification/round-3-issues.md`
+> **Prerequisite reading**: All files in `draft/v1.0-r7/review-notes/`, `./verification/round-3-issues.md`
 
 ---
 
@@ -29,7 +29,7 @@ Owner review session produced review notes beyond the 3 verification-derived not
 - `04-preedit-protocol-overhaul` (CRITICAL): Preedit is cell data, not metadata. Removes `composition_state`, FrameUpdate preedit JSON, dual-channel design, ring buffer bypass, cursor/width fields, Section 3, Section 10.1. Consolidated from earlier separate notes after visual PoC confirmed ghostty's preedit rendering model.
 - `06-zoom-split-interaction` (MEDIUM): Open discussion, no pre-selected direction.
 - `07-pane-auto-close-on-exit` (MEDIUM): Auto-close on process exit, cascade to session destroy.
-See `v0.7/review-notes/` for the full list.
+See `draft/v1.0-r7/review-notes/` for the full list.
 
 ---
 

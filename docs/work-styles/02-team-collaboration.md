@@ -310,7 +310,7 @@ If a session ends mid-discussion (context window exhaustion, crash, etc.), first
 Agents sometimes complete their reasoning but fail to actually create files on disk. When assigning a task that requires a file output, always be explicit:
 
 - Bad: "Write up the analysis"
-- Good: "Use the Write tool to create the analysis at `docs/.../v0.7/research-tmux-resize.md`"
+- Good: "Use the Write tool to create the analysis at `docs/.../v1.0-r7/research-tmux-resize.md`"
 
 This is especially important for resolution documents, research reports, and new spec versions where the agent might confuse the discussion itself with the deliverable.
 

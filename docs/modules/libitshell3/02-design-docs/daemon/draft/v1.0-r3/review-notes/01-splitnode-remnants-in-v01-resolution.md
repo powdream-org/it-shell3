@@ -3,7 +3,7 @@
 **Date**: 2026-03-10
 **Raised by**: verification team
 **Severity**: LOW
-**Affected docs**: `v0.1/design-resolutions/01-daemon-architecture.md` — R1 (line 23), R3 (line 80)
+**Affected docs**: `draft/v1.0-r1/design-resolutions/01-daemon-architecture.md` — R1 (line 23), R3 (line 80)
 **Status**: open
 
 ---

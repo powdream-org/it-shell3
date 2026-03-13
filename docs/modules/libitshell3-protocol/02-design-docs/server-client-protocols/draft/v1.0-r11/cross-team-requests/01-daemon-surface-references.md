@@ -4,7 +4,7 @@
 **Source team**: daemon
 **Source version**: daemon v0.4
 **Source resolution**: N/A — discovered during daemon v0.4 verification (SEM-R3 observation)
-**Target docs**: `v0.11/05-cjk-preedit-protocol.md` §4.2
+**Target docs**: `draft/v1.0-r11/05-cjk-preedit-protocol.md` §4.2
 **Status**: open
 
 ---

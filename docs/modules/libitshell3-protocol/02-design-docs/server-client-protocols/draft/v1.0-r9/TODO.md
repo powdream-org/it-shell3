@@ -50,7 +50,7 @@ Priority 0 only (PoC-validated items: review notes 16–21). All other review no
 - [x] Verification clean for v0.9 scope
 - [x] Commit v0.9 documents (`5119f59`)
 - [x] Report to owner
-- [x] Handover written (`v0.9/handover/handover-to-v0.10.md`)
+- [x] Handover written (`draft/v1.0-r9/handover/handover-to-v0.10.md`)
 
 ## Carryover to v0.10
 

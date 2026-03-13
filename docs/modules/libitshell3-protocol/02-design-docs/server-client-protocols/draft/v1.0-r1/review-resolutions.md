@@ -1,7 +1,7 @@
 # Review Resolutions: Server-Client Protocol v0.1
 
 **Date**: 2026-03-04
-**Review notes**: [review-notes-01-protocol-overview.md](./v0.1/review-notes-01-protocol-overview.md)
+**Review notes**: [review-notes-01-protocol-overview.md](./review-notes-01-protocol-overview.md)
 **Participants**: protocol-architect (docs 01, 02), systems-engineer (docs 03, 06), rendering-cjk-specialist (docs 04, 05)
 **Status**: Consensus reached on all 6 issues + cross-document inconsistencies
 

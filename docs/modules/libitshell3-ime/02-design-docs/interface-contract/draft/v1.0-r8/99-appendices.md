@@ -493,7 +493,7 @@ This section documents all changes made from the v0.6 interface contract. Source
 
 ## Appendix J: Changes from v0.7
 
-**Cross-team revision**: Daemon behavioral content extracted to daemon design docs v0.3 per cross-team request (`v0.7/cross-team-requests/01-daemon-behavior-extraction.md`). The IME contract now focuses on engine API, type definitions, composition rules, and engine-internal behavior. Daemon-side integration (routing, ghostty API usage, lifecycle management, persistence) is defined in daemon design docs.
+**Cross-team revision**: Daemon behavioral content extracted to daemon design docs v0.3 per cross-team request (`draft/v1.0-r7/cross-team-requests/01-daemon-behavior-extraction.md`). The IME contract now focuses on engine API, type definitions, composition rules, and engine-internal behavior. Daemon-side integration (routing, ghostty API usage, lifecycle management, persistence) is defined in daemon design docs.
 
 ### J.1 Processing Pipeline Reduced to Phase 1 Only (I1)
 

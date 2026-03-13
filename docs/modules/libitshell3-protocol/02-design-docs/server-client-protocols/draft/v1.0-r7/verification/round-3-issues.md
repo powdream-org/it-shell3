@@ -59,7 +59,7 @@
 | Issue | Reason for Dismissal |
 |-------|---------------------|
 | SV3-3: ContinuePane recovery missing LayoutChanged | Dismissed unanimously. PausePane does not suppress the direct message queue. LayoutChanged is enqueued and delivered during the pause window. No catch-up needed on ContinuePane. |
-| CR3-2: Doc 05 changelog reference to "design-resolutions-resize-health.md Addendum B" | Dismissed unanimously. The file exists at `v0.6/design-resolutions-resize-health.md` and Addendum B is present at lines 360-366. The reference is version-unqualified but the target exists and is correct. |
+| CR3-2: Doc 05 changelog reference to "design-resolutions-resize-health.md Addendum B" | Dismissed unanimously. The file exists at `draft/v1.0-r6/design-resolutions-resize-health.md` and Addendum B is present at lines 360-366. The reference is version-unqualified but the target exists and is correct. |
 
 ## Verification Termination
 

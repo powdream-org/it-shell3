@@ -85,7 +85,7 @@ Three new entries added to `docs/insights/design-principles.md`:
 
 ### Daemon architecture v0.1 (01-daemon-architecture-requirements.md)
 
-The daemon team's v0.1 revision cycle produced three requirements for the protocol team. See `v0.9/cross-team-requests/01-daemon-architecture-requirements.md` for full details.
+The daemon team's v0.1 revision cycle produced three requirements for the protocol team. See `draft/v1.0-r9/cross-team-requests/01-daemon-architecture-requirements.md` for full details.
 
 1. **Layer 4 Transport**: The protocol library must own transport (Listener, Connection, socket path resolution, stale socket detection, peer credential extraction). This is the most significant structural addition — a new module alongside the existing I/O-free layers.
 2. **C API header export**: Codec and framing layers (L1-L2) need a C API header for the Swift client.

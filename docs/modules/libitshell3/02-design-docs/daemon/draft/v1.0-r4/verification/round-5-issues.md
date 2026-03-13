@@ -16,7 +16,7 @@ CRX-R4-1: correctly applied. All 4 doc headers now say `**Version**: v0.4`.
 
 ### SEM-R5-1 — MINOR: Doc 04 §7.3 and §11 false "ONLY" claim about engine.reset()
 
-**File**: `v0.4/04-runtime-policies.md`, lines 338 and 517
+**File**: `draft/v1.0-r4/04-runtime-policies.md`, lines 338 and 517
 **Sources**: semantic-verifier, cross-reference-verifier, history-guardian (unanimous)
 
 **Contradiction**: §7.3 (line 338) states:

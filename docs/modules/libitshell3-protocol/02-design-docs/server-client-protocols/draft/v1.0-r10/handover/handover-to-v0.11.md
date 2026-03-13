@@ -65,7 +65,7 @@ Before applying review note 06, the team should identify all locations in Docs 0
 
 ### Cross-team request: daemon behavior extraction
 
-The daemon team (v0.2) filed a cross-team request at `v0.10/cross-team-requests/01-daemon-behavior-extraction.md` requesting removal of daemon-side behavioral descriptions from all 6 protocol docs. 23 specific changes across docs 01-06 covering process management, flow control policies, multi-client resize logic, preedit ownership algorithms, coalescing internals, and PTY management. These changes MUST be applied simultaneously with daemon v0.3 absorbing the same content. See the cross-team request for the full change list.
+The daemon team (v0.2) filed a cross-team request at `draft/v1.0-r10/cross-team-requests/01-daemon-behavior-extraction.md` requesting removal of daemon-side behavioral descriptions from all 6 protocol docs. 23 specific changes across docs 01-06 covering process management, flow control policies, multi-client resize logic, preedit ownership algorithms, coalescing internals, and PTY management. These changes MUST be applied simultaneously with daemon v0.3 absorbing the same content. See the cross-team request for the full change list.
 
 ### Idle suppression interaction
 

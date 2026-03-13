@@ -31,7 +31,7 @@ The contract's scope should be: type definitions (KeyEvent, ImeResult), vtable m
 
 ### Cross-team request: daemon behavior extraction
 
-The daemon team (v0.2) filed a cross-team request at `v0.7/cross-team-requests/01-daemon-behavior-extraction.md` requesting removal of daemon-side behavioral descriptions from IME contract docs. 9 specific changes across 01-overview, 02-types, 03-engine-interface, 04-ghostty-integration, 05-extensibility, and design-resolutions. These changes MUST be applied simultaneously with daemon v0.3 absorbing the same content. See the cross-team request for the full change list.
+The daemon team (v0.2) filed a cross-team request at `draft/v1.0-r7/cross-team-requests/01-daemon-behavior-extraction.md` requesting removal of daemon-side behavioral descriptions from IME contract docs. 9 specific changes across 01-overview, 02-types, 03-engine-interface, 04-ghostty-integration, 05-extensibility, and design-resolutions. These changes MUST be applied simultaneously with daemon v0.3 absorbing the same content. See the cross-team request for the full change list.
 
 This is the highest priority for v0.8. The contract should become leaner and more focused.
 

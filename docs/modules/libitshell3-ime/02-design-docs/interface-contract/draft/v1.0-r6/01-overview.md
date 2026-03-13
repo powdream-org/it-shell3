@@ -20,7 +20,7 @@
 # 01 — libitshell3 <-> libitshell3-ime Interface Contract
 
 > **Status**: Draft v0.6 — Per-session engine architecture. Owner decisions 1–4 applied. macOS IME suppression PoC findings incorporated.
-> **Supersedes**: [v0.5/01-interface-contract.md](../v0.5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v0.4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v0.3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v0.2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v0.1/01-interface-contract.md)
+> **Supersedes**: [v0.5/01-interface-contract.md](../v1.0-r5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v1.0-r4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v1.0-r3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v1.0-r2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v1.0-r1/01-interface-contract.md)
 > **Date**: 2026-03-05
 > **Review participants**: protocol-architect, ime-expert, cjk-specialist
 > **PoC validation**: `poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code); `poc/03-macos-ime-suppression/` — macOS IME suppression validated

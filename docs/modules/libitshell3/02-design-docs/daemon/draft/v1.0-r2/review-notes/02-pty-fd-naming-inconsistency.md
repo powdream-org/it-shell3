@@ -3,7 +3,7 @@
 **Date**: 2026-03-10
 **Raised by**: verification team
 **Severity**: LOW
-**Affected docs**: `v0.2/03-lifecycle-and-connections.md` — Section 1.1 Step 6 pseudocode
+**Affected docs**: `draft/v1.0-r2/03-lifecycle-and-connections.md` — Section 1.1 Step 6 pseudocode
 **Status**: open
 
 ---

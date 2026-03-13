@@ -247,7 +247,7 @@ v1 ships `"direct"` + `"korean_2set"` only. The full table is documented to esta
 
 The implementation must handle the case where `hangul_ic_process()` returns `false` (key rejected by libhangul). See [Section 2: Phase 1 hangul_ic_process() Return-False Handling](01-overview.md#phase-1-hangul_ic_process-return-false-handling) for the full algorithm.
 
-**Session persistence**: `active_input_method` (string) is the only **engine-internal** field needed to reconstruct a `HangulImeEngine` on session restore — the server creates a new engine with the saved `input_method` string. Composition state is never persisted — the engine always starts with empty composition. See [daemon design doc 02 §4.1](../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#41-per-session-imeengine-lifecycle) for the full persistence and lifecycle details.
+**Session persistence**: `active_input_method` (string) is the only **engine-internal** field needed to reconstruct a `HangulImeEngine` on session restore — the server creates a new engine with the saved `input_method` string. Composition state is never persisted — the engine always starts with empty composition. See [daemon design doc 02 §4.1](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#41-per-session-imeengine-lifecycle) for the full persistence and lifecycle details.
 
 ### 3.8 MockImeEngine (For Testing)
 

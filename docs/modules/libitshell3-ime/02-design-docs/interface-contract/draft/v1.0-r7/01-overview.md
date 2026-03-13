@@ -21,7 +21,7 @@
 # 01 — libitshell3 <-> libitshell3-ime Interface Contract
 
 > **Status**: Draft v0.7 — composition_state removed from ImeResult; preedit model simplified. Cross-team preedit overhaul resolutions applied.
-> **Supersedes**: [v0.6/01-overview.md](../v0.6/01-overview.md), [v0.5/01-interface-contract.md](../v0.5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v0.4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v0.3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v0.2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v0.1/01-interface-contract.md)
+> **Supersedes**: [v0.6/01-overview.md](../v1.0-r6/01-overview.md), [v0.5/01-interface-contract.md](../v1.0-r5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v1.0-r4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v1.0-r3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v1.0-r2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v1.0-r1/01-interface-contract.md)
 > **Date**: 2026-03-07
 > **Review participants**: protocol-architect, protocol-swe, cjk-specialist, ime-expert, principal-architect, ime-architect, ime-swe
 > **PoC validation**: `poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code); `poc/03-macos-ime-suppression/` — macOS IME suppression validated; `poc/04-libhangul-states/probe.c` — composition_state factual errors confirmed; `poc/05-preedit-visual/` — preedit-as-cell-data rendering validated

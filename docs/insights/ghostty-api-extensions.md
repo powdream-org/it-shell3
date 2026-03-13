@@ -165,4 +165,4 @@ All use the `ghostty-vt` internal Zig module (not the C API). For libitshell3 pr
 - `poc/07-renderstate-bulk-api/README.md` — Bulk export + benchmark
 - `poc/08-renderstate-reinjection/README.md` — Re-injection + GPU rendering verification
 - `poc/06-renderstate-extraction/ghostty-modifications.patch` — All changes as a patch file
-- Review notes 16–21 in `docs/modules/libitshell3-protocol/.../v0.8/review-notes/`
+- Review notes 16–21 in `docs/modules/libitshell3-protocol/.../v1.0-r8/review-notes/`

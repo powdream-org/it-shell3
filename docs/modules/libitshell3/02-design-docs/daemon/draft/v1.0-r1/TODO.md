@@ -26,7 +26,7 @@
 ### Design Documents
 - Protocol spec v0.9: `docs/modules/libitshell3-protocol/02-design-docs/server-client-protocols/draft/v1.0-r9/`
 - IME contract v0.7: `docs/modules/libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r7/`
-- Protocol handover to v0.10: `v0.9/handover/handover-to-v0.10.md`
+- Protocol handover to v0.10: `draft/v1.0-r9/handover/handover-to-v0.10.md`
 
 ### Overview & Insights
 - libghostty API: `docs/modules/libitshell3/01-overview/01-libghostty-api.md`

@@ -5,7 +5,7 @@
 > Daemon TODO (primary): `docs/modules/libitshell3/02-design-docs/daemon/draft/v1.0-r3/TODO.md`
 > See daemon v0.3 TODO for full phase tracking. This file tracks protocol-specific deliverables only.
 >
-> Cross-team request: `v0.10/cross-team-requests/01-daemon-behavior-extraction.md`
+> Cross-team request: `draft/v1.0-r10/cross-team-requests/01-daemon-behavior-extraction.md`
 >
 > **Model policy**: writing — **sonnet**; verification — **opus** for history-guardian only
 

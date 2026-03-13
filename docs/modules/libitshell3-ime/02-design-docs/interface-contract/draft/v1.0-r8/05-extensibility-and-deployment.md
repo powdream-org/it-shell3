@@ -72,7 +72,7 @@ To add a new language (e.g., Japanese via libkkc):
 
 ## 8. C API Boundary
 
-libitshell3-ime exports a Zig API only; it has no public C header. It is an internal dependency of libitshell3, statically linked into the daemon binary. See [daemon design doc 02 §5](../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#5-c-api-surface-design) for the full C API surface design.
+libitshell3-ime exports a Zig API only; it has no public C header. It is an internal dependency of libitshell3, statically linked into the daemon binary. See [daemon design doc 02 §5](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#5-c-api-surface-design) for the full C API surface design.
 
 ---
 
@@ -80,4 +80,4 @@ libitshell3-ime exports a Zig API only; it has no public C header. It is an inte
 
 The engine constructor accepts a canonical `input_method` string: `HangulImeEngine.init(allocator, input_method)`. This is the only engine-internal field needed to reconstruct an engine on session restore. Composition state is never persisted — the engine always starts with empty composition.
 
-Session persistence procedures (save/restore timing, flush-on-save policy, persistence schema) are defined in [daemon design doc 02 §4.1](../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#41-per-session-imeengine-lifecycle) and daemon doc 04 §8.
+Session persistence procedures (save/restore timing, flush-on-save policy, persistence schema) are defined in [daemon design doc 02 §4.1](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#41-per-session-imeengine-lifecycle) and daemon doc 04 §8.

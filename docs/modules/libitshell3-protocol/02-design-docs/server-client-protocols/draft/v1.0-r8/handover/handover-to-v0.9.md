@@ -3,7 +3,7 @@
 > **Date**: 2026-03-08 (updated from 2026-03-07)
 > **Author**: team-lead (with owner review)
 > **Scope**: Preedit protocol overhaul — cross-team revision with IME Contract v0.7; **PoC 06–08 findings added 2026-03-08**
-> **Prerequisite reading**: All files in `v0.8/review-notes/` (01–21), `v0.8/design-resolutions/01-preedit-overhaul.md`, PoC READMEs (`poc/06-renderstate-extraction/`, `poc/07-renderstate-bulk-api/`, `poc/08-renderstate-reinjection/`)
+> **Prerequisite reading**: All files in `draft/v1.0-r8/review-notes/` (01–21), `draft/v1.0-r8/design-resolutions/01-preedit-overhaul.md`, PoC READMEs (`poc/06-renderstate-extraction/`, `poc/07-renderstate-bulk-api/`, `poc/08-renderstate-reinjection/`)
 
 ---
 

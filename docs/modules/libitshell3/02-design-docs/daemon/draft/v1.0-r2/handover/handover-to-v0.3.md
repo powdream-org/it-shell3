@@ -59,8 +59,8 @@ Remove version conflict handling procedures from AGENTS.md line 54 after daemon 
 ### 5. Coordination with protocol v0.11 and IME v0.8
 
 Cross-team requests filed at:
-- `protocol/v0.10/cross-team-requests/01-daemon-behavior-extraction.md` (23 changes)
-- `ime-contract/v0.7/cross-team-requests/01-daemon-behavior-extraction.md` (9 changes)
+- `protocol/draft/v1.0-r10/cross-team-requests/01-daemon-behavior-extraction.md` (23 changes)
+- `ime-contract/draft/v1.0-r7/cross-team-requests/01-daemon-behavior-extraction.md` (9 changes)
 
 Extraction from protocol/IME MUST happen simultaneously with daemon v0.3 absorption. The three revisions should be coordinated — possibly as a single multi-target revision cycle.
 
