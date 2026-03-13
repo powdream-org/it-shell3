@@ -149,4 +149,4 @@ With delta compression (only dirty rows), typical throughput would be well under
 
 - `poc/06-renderstate-extraction/` — RenderState extraction validation
 - `poc/06-renderstate-extraction/vendors/ghostty/src/terminal/render_export.zig` — API implementation
-- Protocol v0.8: `docs/modules/libitshell3-protocol/02-design-docs/server-client-protocols/v0.8/04-input-and-renderstate.md`
+- Protocol v0.8: `docs/modules/libitshell3-protocol/02-design-docs/server-client-protocols/draft/v1.0-r8/04-input-and-renderstate.md`

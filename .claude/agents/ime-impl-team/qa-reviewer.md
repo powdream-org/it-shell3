@@ -129,7 +129,7 @@ When reviewing implementation:
 
 | File | Purpose |
 |------|---------|
-| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.7/02-types.md` | Scenario matrix, type definitions |
-| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.7/03-engine-interface.md` | Engine interface, vtable |
+| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r7/02-types.md` | Scenario matrix, type definitions |
+| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r7/03-engine-interface.md` | Engine interface, vtable |
 | `.claude/plan/ime-implementation-plan.md` | Full test matrix (§3.1) |
 | `poc/01-ime-key-handling/poc.c` | Reference implementation for comparison |

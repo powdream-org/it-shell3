@@ -150,4 +150,4 @@ Research findings suggest **Option A** (populate a client-side Terminal, let `up
 
 - `poc/05-preedit-visual/` — preedit rendering behavior PoC
 - `poc/02-ime-ghostty-real/` — IME pipeline + text readback PoC
-- Protocol v0.8: `docs/modules/libitshell3-protocol/02-design-docs/server-client-protocols/v0.8/04-input-and-renderstate.md`
+- Protocol v0.8: `docs/modules/libitshell3-protocol/02-design-docs/server-client-protocols/draft/v1.0-r8/04-input-and-renderstate.md`

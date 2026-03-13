@@ -102,10 +102,10 @@ Phase 1 for Korean mode:
 
 | File | Purpose |
 |------|---------|
-| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.7/01-overview.md` | Processing pipeline, return-false handling |
-| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.7/02-types.md` | KeyEvent, ImeResult, scenario matrix |
-| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.7/03-engine-interface.md` | ImeEngine vtable, HangulImeEngine, MockImeEngine |
-| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/v0.7/04-ghostty-integration.md` | Memory ownership, buffer sizes |
+| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r7/01-overview.md` | Processing pipeline, return-false handling |
+| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r7/02-types.md` | KeyEvent, ImeResult, scenario matrix |
+| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r7/03-engine-interface.md` | ImeEngine vtable, HangulImeEngine, MockImeEngine |
+| `docs/modules/libitshell3-ime/02-design-docs/interface-contract/draft/v1.0-r7/04-ghostty-integration.md` | Memory ownership, buffer sizes |
 | `docs/modules/libitshell3-ime/01-overview/02-libhangul-api.md` | libhangul C API reference |
 | `poc/01-ime-key-handling/poc.c` | Reference C implementation |
 | `vendors/libhangul/hangul/hangul.h` | libhangul public API header |
