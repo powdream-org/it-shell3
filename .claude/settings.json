@@ -2,5 +2,16 @@
   "attribution": {
     "commit": "",
     "pr": ""
+  },
+  "extraKnownMarketplaces": {
+    "powdream-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "powdream/claude-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "invoke-agent@powdream-plugins": true
   }
 }
