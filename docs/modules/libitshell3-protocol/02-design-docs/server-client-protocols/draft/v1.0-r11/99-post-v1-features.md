@@ -94,7 +94,7 @@ The client **application layer** must read the nonce from its message queue and 
 
 ## 5. Per-Client Focus Indicators
 
-**Origin**: v0.5 review note `review-notes-01-per-client-focus-indicators.md` Issue 1. Carried forward through v0.6 handover (Priority 4), v0.7 TODO (Phase 6c), v0.7 review note `08-per-client-focus-indicators.md`. Deferred to post-v1 by owner decision.
+**Origin**: v0.5 review note `review-notes-01-per-client-focus-indicators.md` Issue 1. Carried forward through v0.6 handover (Priority 4), v0.7 TODO (Phase 6c). Deferred to post-v1 by owner decision.
 
 When multiple clients are attached to the same session, show which clients are focused on which tabs and panes — spatial awareness for collaborative or multi-device usage (e.g., macOS + iPad viewing the same session).
 
@@ -119,4 +119,4 @@ When multiple clients are attached to the same session, show which clients are f
 
 Zellij supports mirrored (shared view) and independent (per-client focus) modes. Color assignment via `client_id % 10`. Server computes per-client `other_focused_clients` lists. Tab bar and pane frame rendering with graceful text degradation. Full details in v0.5 source document Section 3.
 
-**References**: `draft/v1.0-r5/review-notes-01-per-client-focus-indicators.md` (full original analysis), `draft/v1.0-r7/review-notes/08-per-client-focus-indicators.md` (summary).
+**References**: `draft/v1.0-r5/review-notes-01-per-client-focus-indicators.md` (full original analysis).
