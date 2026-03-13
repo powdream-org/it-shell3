@@ -3,22 +3,30 @@
 ## Location and Naming
 
 ```
-v<X>/handover/handover-to-v<next>.md
+draft/vX.Y-rN/handover/handover-to-r(N+1).md    (more revisions needed)
+{topic}/inbox/handover/handover-for-vX.Y.md      (stable declared)
 ```
 
-One handover per version. Written at session end when the review round completes.
+When stable is declared, the handover is placed in `inbox/handover/` — the
+input tray the next revision cycle team reads during Requirements Intake (3.1).
+The next revision cycle's target version (minor bump `vX.(Y+1)` vs. major bump
+`v(X+1).0`) is decided by the owner at that Requirements Intake, not at
+handover time.
+
+One handover per review cycle completion. Written at the end of every Review Cycle
+when the owner declares the review complete (workflow step 4.3).
 
 ## Purpose
 
 The handover captures **what is NOT in the review notes** — context, perspective,
 and judgment that would otherwise be lost between sessions. The reader is expected to
-read all review notes in `v<X>/review-notes/` independently; the handover does not
-repeat their content.
+read all review notes in `draft/vX.Y-rN/review-notes/` independently; the handover
+does not repeat their content.
 
 ## File Format
 
 ```markdown
-# Handover: {Spec Area} v<X> to v<next>
+# Handover: {Spec Area} vX.Y-rN to vX.Y-r(N+1)
 
 **Date**: YYYY-MM-DD
 **Author**: {team lead or owner}
@@ -68,7 +76,7 @@ document that agents and humans can consult without reading every handover in hi
 
 | Do not include | Why | Where it belongs |
 |----------------|-----|-----------------|
-| Per-issue details (problem, analysis, proposed fix) | Duplicates review notes | `review-notes/{NN}-{topic}.md` |
+| Per-issue details (problem, analysis, proposed fix) | Duplicates review notes | `draft/vX.Y-rN/review-notes/{NN}-{topic}.md` |
 | Per-document change checklists | Derived from review notes at apply time | Revision Cycle task descriptions |
-| File location indexes | Filesystem is the source of truth | `ls v<X>/review-notes/` |
+| File location indexes | Filesystem is the source of truth | `ls draft/vX.Y-rN/review-notes/` |
 | Team composition recommendations | May not apply to next session | Workflow doc or agent definitions |

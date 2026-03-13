@@ -2,20 +2,36 @@
 
 ## Location and Naming
 
-Cross-team requests are placed in the TARGET team's **latest (current) version
-directory**, not the source team's and not a future version that doesn't exist yet.
-This follows the same convention as handover documents: outputs of the current
-version that serve as inputs to the next revision.
+Cross-team requests are placed according to the target team's current state:
+
+**If the target team has an active draft** (`draft/vX.Y-rN/` exists and is in progress):
 
 ```
-{target-team}/v<current>/cross-team-requests/{NN}-{source-team}-{topic}.md
+{target-team}/draft/vX.Y-rN/cross-team-requests/{NN}-{source-team}-{topic}.md
 ```
+
+**If the target team is idle** (stable `vX.Y/` declared, no new draft started yet):
+
+```
+{target-team}/inbox/cross-team-requests/{NN}-{source-team}-{topic}-from-v{X.Y}.md
+```
+
+The `-from-v{X.Y}` suffix encodes the source team's version that produced the
+request, so the target team can identify the origin by filename alone (without
+opening the file). The `{X.Y}` is the source team's minor version (e.g., `v0.7`);
+the round number is omitted as it is not meaningful to the receiving team.
+
+The `inbox/` directory is unversioned. The target team's leader consumes all
+`inbox/cross-team-requests/` files during the next Requirements Intake (step 3.1)
+and moves them into the new `draft/vX.Y-r1/cross-team-requests/` directory at
+that time (dropping the `-from-v{X.Y}` suffix, as the draft path provides context).
 
 | Component | Rule |
 |-----------|------|
 | `{NN}` | Two-digit sequential number, starting at `01`. |
 | `{source-team}` | The team that produced the request (e.g., `ime`, `protocol`). |
 | `{topic}` | Short kebab-case slug describing the change (e.g., `per-session-engine`, `keyframe-model`). |
+| `{X.Y}` | Source team's minor version that produced the request (inbox only). |
 
 ## When Created
 
@@ -31,10 +47,10 @@ document writing.
 
 **Date**: YYYY-MM-DD
 **Source team**: {team that produced this request}
-**Source version**: {version of the source team's docs that produced this, e.g., "IME contract v0.6"}
+**Source version**: {draft version of the source team's docs that produced this, e.g., "IME contract draft/v1.0-r3"}
 **Source resolution**: {resolution document that drove this change, if applicable}
 **Target docs**: {list of target spec documents affected}
-**Status**: open | applied in v<Y> | deferred to v<Y>
+**Status**: open | applied in draft/vX.Y-rN | deferred to draft/vX.Y-rN | deferred to vX.Y
 
 ---
 
@@ -66,9 +82,8 @@ Cycle (step 3.1 Requirements Intake). They are listed as an input source alongsi
 review notes, handover documents, and PoC findings.
 
 Cross-team requests do NOT appear in the source team's handover document.
-However, the **target team's** handover to `v<current+1>` MUST mention incoming
-cross-team requests so the next revision's team leader discovers them during
-requirements intake.
+However, the **target team's** handover MUST mention incoming cross-team requests
+so the next revision's team leader discovers them during requirements intake.
 
 ## Relationship to Other Artifacts
 

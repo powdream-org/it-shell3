@@ -7,32 +7,73 @@ design workflow. Each artifact type has its own file.
 
 ## Directory Structure
 
-Each version directory contains subdirectories for review and design artifacts:
+Full path: `docs/{component}/02-design-docs/{topic}/`
+
+Draft version directories contain all working artifacts. Stable version directories
+contain only the final spec documents. The `inbox/` directory is the input tray
+for the next revision cycle — it holds the stable handover and any incoming
+cross-team requests received while the team has no active draft.
+
+**Example 1 — active work on v1.0-r3 (v1.0 not yet stable):**
 
 ```
-v<X>/
-├── TODO.md
-├── 01-spec-doc.md
-├── 02-spec-doc.md
-├── ...
-├── design-resolutions/
-│   ├── 01-{topic}.md
-│   └── ...
-├── research/
-│   ├── 01-{source}-{topic}.md
-│   └── ...
-├── review-notes/
-│   ├── 01-{topic}.md
-│   └── ...
-├── cross-team-requests/
-│   ├── 01-{source-team}-{topic}.md
-│   └── ...
-├── verification/
-│   ├── round-1-issues.md
-│   ├── round-2-issues.md
-│   └── ...
-└── handover/
-    └── handover-to-v<next>.md
+{topic}/
+├── inbox/
+│   ├── handover/             ← empty until stable declared
+│   └── cross-team-requests/
+│       └── 01-{source-team}-{topic}-from-v{X.Y}.md   ← received while team is idle
+├── draft/
+│   ├── v1.0-r1/              ← historical; all possible subdirectories shown here
+│   │   ├── TODO.md
+│   │   ├── 01-spec-doc.md
+│   │   ├── 02-spec-doc.md
+│   │   ├── design-resolutions/
+│   │   │   ├── 01-{topic}.md
+│   │   │   └── ...
+│   │   ├── research/
+│   │   │   ├── 01-{source}-{topic}.md
+│   │   │   └── ...
+│   │   ├── review-notes/
+│   │   │   ├── 01-{topic}.md
+│   │   │   └── ...
+│   │   ├── cross-team-requests/
+│   │   │   ├── 01-{source-team}-{topic}.md
+│   │   │   └── ...
+│   │   ├── verification/
+│   │   │   ├── round-1-issues.md
+│   │   │   ├── round-2-issues.md
+│   │   │   └── ...
+│   │   └── handover/
+│   │       └── handover-to-r2.md
+│   ├── v1.0-r2/              ← historical
+│   │   └── ...
+│   └── v1.0-r3/              ← current working version
+│       ├── TODO.md
+│       ├── 01-spec-doc.md    (updated)
+│       └── ...
+└── (vX.Y/ does not exist until stable declared)
+```
+
+**Example 2 — v1.0 stable declared, v1.1 work in progress:**
+
+```
+{topic}/
+├── inbox/
+│   ├── handover/
+│   │   └── handover-for-v1.0.md              ← consumed at v1.1-r1 Requirements Intake
+│   └── cross-team-requests/
+│       └── 01-protocol-team-keyframe-model-from-v0.7.md
+├── draft/
+│   ├── v1.0-r1/              ← historical
+│   ├── v1.0-r2/              ← historical
+│   ├── v1.0-r3/              ← historical
+│   └── v1.1-r1/              ← current working version
+│       ├── TODO.md
+│       ├── 01-spec-doc.md
+│       └── ...
+└── v1.0/                     ← stable; spec docs only
+    ├── 01-spec-doc.md
+    └── 02-spec-doc.md
 ```
 
 ---
@@ -62,6 +103,7 @@ v<X>/
 | Review notes without status | Can't tell what's resolved | Always maintain status field |
 | Agent team review producing review-notes files | Confuses tracking — team resolves issues inline | Team produces design-resolutions or review-resolutions, not review-notes |
 | Mixing multiple unrelated topics in one review note | Hard to track resolution independently | One topic per file, even if both are LOW severity |
+| Placing process artifacts (review-notes, design-resolutions, verification, research, cross-team-requests, handover) in stable vX.Y/ | Stable dirs are spec-only. Process artifacts live in draft/vX.Y-rN/; the stable handover lives in inbox/handover/. | All process artifacts stay in draft/vX.Y-rN/. Write handover-for-vX.Y.md to inbox/handover/ at stable declaration. |
 
 ---
 

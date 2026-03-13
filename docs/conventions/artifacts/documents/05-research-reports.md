@@ -1,7 +1,7 @@
 # Research Reports
 
 ```
-v<X>/research/{NN}-{source}-{topic}.md
+draft/vX.Y-rN/research/{NN}-{source}-{topic}.md
 ```
 
 | Component | Rule |

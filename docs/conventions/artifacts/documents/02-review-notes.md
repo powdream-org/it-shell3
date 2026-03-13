@@ -3,12 +3,12 @@
 ## Location and Naming
 
 ```
-v<X>/review-notes/{NN}-{topic}.md
+draft/vX.Y-rN/review-notes/{NN}-{topic}.md
 ```
 
 | Component | Rule |
 |-----------|------|
-| `{NN}` | Two-digit sequential number, starting at `01`. Monotonically increasing within the version — never reused, never reordered. |
+| `{NN}` | Two-digit sequential number, starting at `01`. Monotonically increasing within the draft version — never reused, never reordered. |
 | `{topic}` | Short kebab-case slug describing the concern (e.g., `resize-clipping`, `output-delivery-architecture`, `stale-client-disconnect`). |
 
 New issues get the next available number. There is no distinction by source (owner,
@@ -36,7 +36,7 @@ Every review note file MUST follow this structure:
 **Raised by**: {who — "owner", agent name, or "verification team"}
 **Severity**: CRITICAL | HIGH | MEDIUM | LOW
 **Affected docs**: {list of affected spec documents}
-**Status**: open | resolved in v<Y> | deferred to v<Y>
+**Status**: open | resolved in draft/vX.Y-rN | deferred to draft/vX.Y-rN | deferred to vX.Y
 
 ---
 
@@ -74,7 +74,7 @@ If left to designers, state: "Left to designers for resolution."}
 
 ## Resolution
 
-{Filled when the issue is resolved. State what was done and in which version.
+{Filled when the issue is resolved. State what was done and in which draft version.
 Leave empty while the issue is open.}
 ```
 

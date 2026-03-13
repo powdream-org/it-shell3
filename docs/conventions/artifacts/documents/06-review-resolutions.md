@@ -1,7 +1,7 @@
 # Review Resolutions
 
 ```
-v<X>/review-resolutions/{NN}-{topic}.md
+draft/vX.Y-rN/review-resolutions/{NN}-{topic}.md
 ```
 
 `{NN}` is a zero-padded sequence number. Produced when the team agrees on fixes

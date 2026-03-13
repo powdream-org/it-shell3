@@ -1,7 +1,7 @@
 # Verification Issues
 
 ```
-v<X>/verification/round-{N}-issues.md
+draft/vX.Y-rN/verification/round-{N}-issues.md
 ```
 
 | Component | Rule |
@@ -10,7 +10,7 @@ v<X>/verification/round-{N}-issues.md
 
 Produced by the team leader during the Revision Cycle (step 3.8) after
 verification agents complete cross-validation (step 3.7). Lives inside
-the `verification/` subdirectory of the version directory.
+the `verification/` subdirectory of the draft version directory.
 
 ## Required Content
 

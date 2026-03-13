@@ -1,7 +1,7 @@
 # Design Resolutions
 
 ```
-v<X>/design-resolutions/{NN}-{topic}.md
+draft/vX.Y-rN/design-resolutions/{NN}-{topic}.md
 ```
 
 | Component | Rule |
@@ -11,7 +11,7 @@ v<X>/design-resolutions/{NN}-{topic}.md
 
 Produced by the design team during the Revision Cycle (step 3.3) when discussion
 reaches consensus on new design decisions. Lives inside the `design-resolutions/`
-subdirectory of the version directory.
+subdirectory of the draft version directory.
 
 ## Required Content
 

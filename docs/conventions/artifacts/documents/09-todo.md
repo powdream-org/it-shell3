@@ -3,10 +3,10 @@
 ## Location and Naming
 
 ```
-v<X>/TODO.md
+draft/vX.Y-rN/TODO.md
 ```
 
-One TODO per version. Created at the start of the Revision Cycle (Section 3.1 Requirements Intake) and updated throughout the cycle.
+One TODO per draft version. Created at the start of the Revision Cycle (Section 3.1 Requirements Intake) and updated throughout the cycle.
 
 ## Purpose
 
@@ -15,7 +15,7 @@ The TODO tracks progress across all phases of a revision cycle. It serves as the
 ## File Format
 
 ```markdown
-# {Spec Area} v<X> TODO
+# {Spec Area} vX.Y-rN TODO
 
 ## Phase 1: {Phase Name}
 
@@ -49,7 +49,7 @@ The TODO tracks progress across all phases of a revision cycle. It serves as the
 ## Example
 
 ```markdown
-# Protocol v0.7 TODO
+# Protocol v1.0-r7 TODO
 
 ## Phase 1: Research (Issues 22-24 prior art)
 

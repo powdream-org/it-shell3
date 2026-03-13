@@ -21,7 +21,7 @@ definitions, and communication rules, see
 stateDiagram-v2
     [*] --> NoDocument
     NoDocument --> RevisionCycle : owner gives requirements
-    RevisionCycle --> ReviewCycle : commit next version
+    RevisionCycle --> ReviewCycle : commit draft/vX.Y-rN
     ReviewCycle --> RevisionCycle : owner writes<br/>review notes
     ReviewCycle --> vNStable : owner declares stable
     vNStable --> RevisionCycle : new requirements
@@ -30,13 +30,15 @@ stateDiagram-v2
 Full example of version progression:
 
 ```
-[No Document] ---(requirements)---> [Revision] ---(commit v0.1)---> [Review]
-[Review] ---(review notes)---> [Revision] ---(commit v0.2)---> [Review]
-[Review] ---(review notes)---> [Revision] ---(commit v0.3)---> [Review]
-[Review] ---(owner declares stable)---> [v1 STABLE]
-[v1 STABLE] ---(new requirements)---> [Revision] ---(commit v1.1)---> [Review]
-[Review] ---(review notes)---> [Revision] ---(commit v1.2)---> [Review]
-[Review] ---(owner declares stable)---> [v2 STABLE]
+[No Document] ---(requirements)---> [Revision] ---(commit draft/v1.0-r1)---> [Review]
+[Review] ---(review notes)---> [Revision] ---(commit draft/v1.0-r2)---> [Review]
+[Review] ---(review notes)---> [Revision] ---(commit draft/v1.0-r3)---> [Review]
+[Review] ---(owner declares stable)---> [v1.0 STABLE]
+[v1.0 STABLE] ---(minor requirements)---> [Revision] ---(commit draft/v1.1-r1)---> [Review]
+[Review] ---(review notes)---> [Revision] ---(commit draft/v1.1-r2)---> [Review]
+[Review] ---(owner declares stable)---> [v1.1 STABLE]
+[v1.1 STABLE] ---(major requirements)---> [Revision] ---(commit draft/v2.0-r1)---> [Review]
+[Review] ---(owner declares stable)---> [v2.0 STABLE]
 ```
 
 ### States
@@ -46,16 +48,19 @@ Full example of version progression:
 | **No Document** | Entry point. No existing design documents for this topic. |
 | **Revision Cycle** | The team produces or updates documents based on requirements, review notes, and handover input. Ends with a commit. |
 | **Review Cycle** | The owner evaluates committed documents, asks questions, and produces review notes. Ends when the owner declares the review complete. |
-| **vN Stable** | The owner has declared the current version stable. No further changes until new requirements arrive. |
+| **vX.Y Stable** | The owner has declared the current version stable. No further changes until new requirements arrive. |
 
 ### Transitions
 
-- **v0.x** versions are draft iterations. Each revision/review loop produces the
-  next v0.x until the owner is satisfied.
-- When the owner declares a version stable, it becomes **vN** (e.g., v1). The
-  version number is an integer, not a decimal.
-- New requirements on a stable vN start a new **v(N+1).x** draft cycle. The same
-  revision/review process applies.
+- **`draft/vX.Y-rN`** versions are draft iterations toward stable `vX.Y`. Each
+  revision/review loop produces the next `draft/vX.Y-r(N+1)` until the owner
+  is satisfied.
+- When the owner declares a version stable, the team leader creates `vX.Y/`
+  containing only the final spec documents (no process artifacts). The draft
+  directories remain as historical record.
+- New requirements on a stable `vX.Y` start a new `draft/vX.(Y+1)-r1` (minor
+  change) or `draft/v(X+1).0-r1` (major change) cycle. The owner decides which
+  at requirements intake. The same revision/review process applies.
 - There is no distinction between "initial draft" and "subsequent revision" --
   every version follows the same Revision Cycle steps (Section 3).
 
@@ -79,10 +84,16 @@ graph TD
     D2 --> disband2(["Disband Team"])
     disband2 --> spawn3(["Spawn Verification Team"])
     spawn3 --> E["3.6 Cross-Document<br/>Verification<br/>(independent)"]
-    E --> F["3.7 Issue<br/>Cross-Validation<br/>(verifiers debate)"]
+    E --> F["3.7 Issue<br/>Double-Check<br/>(independent)"]
     F -- "all issues<br/>dismissed" --> disband4(["Disband Team"])
-    F -- "true alarms<br/>confirmed" --> G["3.8 Issue Recording<br/>& Decision"]
-    G --> disband3(["Disband Team"])
+    F -- "contested" --> owner_esc1(["Owner Decision"])
+    owner_esc1 -- "all dismissed" --> disband4
+    owner_esc1 -- "confirmed issues<br/>remain" --> G["3.8 Issue Recording<br/>& Decision"]
+    F -- "confirmed" --> G
+    G -- "rounds 1–3" --> disband3(["Disband Team"])
+    G -- "round 4+" --> owner_esc2(["Owner Triage"])
+    owner_esc2 -- "proceed" --> disband3
+    owner_esc2 -- "declare clean/<br/>deferred" --> disband4
     disband3 --> spawn2
     disband4 --> H["3.9 Commit & Report"]
     H --> I["4.1 Owner Review<br/>Session"]
@@ -100,23 +111,30 @@ The team leader receives requirements from the owner and assembles the team.
 | Review notes | From the previous Review Cycle (Section 4.2) |
 | Handover document | From the previous Review Cycle (Section 4.3) |
 | PoC findings | From a PoC experiment (see [PoC Workflow](./04-poc-workflow.md)) |
-| Cross-team requests | From other teams' `v<X>/cross-team-requests/` directories (see [Cross-Team Requests](../conventions/artifacts/documents/07-cross-team-requests.md)) |
+| Cross-team requests | From other teams' `draft/vX.Y-rN/cross-team-requests/` (active draft) or `{team}/inbox/cross-team-requests/` (idle team, filenames include `-from-v{X.Y}` suffix) (see [Cross-Team Requests](../conventions/artifacts/documents/07-cross-team-requests.md)) |
+| Handover (stable) | From `{team}/inbox/handover/handover-for-vX.Y.md` if the previous cycle declared stable |
 | Extra notes / constraints | Owner provides as additional context |
 
 **Outputs:**
 
 | Output | Location |
 |--------|----------|
-| `TODO.md` | `v<X>/TODO.md` — Tracks all phases and tasks for this revision cycle. See [TODO Convention](../conventions/artifacts/documents/09-todo.md). |
+| `TODO.md` | `draft/vX.Y-rN/TODO.md` — Tracks all phases and tasks for this revision cycle. See [TODO Convention](../conventions/artifacts/documents/09-todo.md). |
 
-**Actions:**
+**Steps:**
 
-1. Team leader creates `TODO.md` in the version directory, breaking down the revision cycle into phases with checkboxes for each task.
-2. Team leader assembles the team by spawning **ALL** core members listed in
+1. Team leader creates `TODO.md` in the new draft version directory, breaking
+   down the revision cycle into phases with checkboxes for each task.
+2. **Context check:** Before spawning, ask the owner via `AskUserQuestion` if
+   the remaining context window is **25% or below**: _"Context window is X%
+   remaining. Run `/compact` before spawning? (yes / no)"_ If yes, wait for
+   the owner to run `/compact` and confirm before proceeding. (`/compact` is a
+   user-only command — the team leader cannot execute it.)
+3. Team leader assembles the team by spawning **ALL** core members listed in
    the team's agent directory (opus). The team leader does NOT choose a
    subset. See [Team Collaboration](./02-team-collaboration.md) for team
    structure and role definitions.
-3. Team leader passes all input materials to the team.
+4. Team leader passes all input materials to the team.
 
 ### 3.2 Team Discussion & Consensus
 
@@ -177,40 +195,46 @@ step.**
 
 **Steps:**
 
-1. Team leader spawns **ALL** core members of the team as **fresh** agents.
+1. **Context check:** Before spawning, ask the owner via `AskUserQuestion` if
+   the remaining context window is **25% or below**: _"Context window is X%
+   remaining. Run `/compact` before spawning? (yes / no)"_ If yes, wait for
+   the owner to run `/compact` and confirm before proceeding.
+2. Team leader spawns **ALL** core members of the team as **fresh** agents.
    The team leader does NOT choose a subset — every core member listed in
    the team's agent directory is spawned. These agents have no memory of the
    discussion — they work purely from the resolution document.
    **Model selection:** Use the model specified in each agent's definition
    file for Rounds 1-2. For Round 3 and beyond (fix cycles for
    mechanical/trivial corrections), use **sonnet** to reduce token cost.
-2. Show them the resolution document and the previous version of the spec
-   documents (if updating an existing version, not creating from scratch).
+3. Show them the resolution document and the previous draft version's spec
+   documents (if updating an existing draft, not creating from scratch).
+   If this is the first revision of a new topic, show only the resolution
+   document — no previous spec docs exist yet.
    **Explicitly instruct: negotiate assignments only — do NOT edit any files
    yet.**
-3. Team members negotiate among themselves who handles which document or
+4. Team members negotiate among themselves who handles which document or
    section. This includes cross-team request files if the resolution identified
    changes affecting other teams.
-4. When each member individually judges that negotiation is complete, they
+5. When each member individually judges that negotiation is complete, they
    send a **direct message** to the team leader with their negotiation result
    (who owns which document/section). The team leader does NOT prompt or
    ask for reports — each member reports autonomously when they believe
    agreement has been reached.
-5. The team leader waits until **ALL** members have reported. Once all
+6. The team leader waits until **ALL** members have reported. Once all
    reports are in, the team leader checks whether the reports are
    **identical** (same assignment mapping). This is a mechanical equality
    check only — the team leader does NOT judge correctness, fairness, or
    optimality of the assignments.
-   - **If identical**: Negotiation is complete. Proceed to step 6.
+   - **If identical**: Negotiation is complete. Proceed to step 7.
    - **If not identical**: The team leader **unilaterally picks one
      mapping** and proceeds immediately. No re-negotiation rounds.
      The team leader selects the mapping with the strongest support
      (most reports aligned) or makes a judgment call if evenly split.
      This is a token-saving measure — re-negotiation rarely converges
      and wastes resources.
-6. The team leader shuts down all **unassigned** agents (those with no
+7. The team leader shuts down all **unassigned** agents (those with no
    editing tasks). Only agents with actual assignments remain.
-7. After all unassigned agents have shut down, proceed to **3.5**.
+8. After all unassigned agents have shut down, proceed to **3.5**.
 
 ### 3.5 Document Writing
 
@@ -222,11 +246,12 @@ initiates this step.
 
 1. The team leader sends a message to each assigned agent: "Begin writing
    your assigned changes." This is the signal that editing may start.
-2. Each member writes their assigned spec documents: new files for v0.1,
-   updated files for v\<prev\> to v\<next\>.
+2. Each member writes their assigned spec documents into the current draft
+   version directory (`draft/vX.Y-rN/`): new files for the first revision
+   (`r1`), updated files for subsequent revisions.
 3. If assigned, the responsible core member writes cross-team request files
-   and places them in the target team's `v<X>/cross-team-requests/` directory.
-   Format follows
+   and places them in the target team's `draft/vX.Y-rN/cross-team-requests/`
+   directory. Format follows
    [Cross-Team Requests](../conventions/artifacts/documents/07-cross-team-requests.md).
 4. When all writing is complete, the team leader disbands the team.
 
@@ -235,77 +260,69 @@ agents race to edit files before negotiation completes — causing duplicate
 edits, merge conflicts, and wasted work. The team leader is the gatekeeper
 between negotiation and execution.
 
-### 3.6 Cross-Document Consistency Verification
+### 3.6 Cross-Document Consistency Verification (Phase 1)
 
-Fresh verification agents independently verify that the written documents
-are correct and consistent.
+Two fresh Phase 1 verification agents independently analyze the written
+documents via Gemini and report issue lists.
 
 **Steps:**
 
-1. Team leader spawns **ALL** members of the verification team as **fresh**
-   agents. The team leader does NOT choose a subset — every member
-   listed in `.claude/agents/verification/` is spawned. Each agent's
-   model is defined in its own agent file. These agents have
-   no memory of who wrote what.
-2. Show them **all** newly written documents and the resolution document.
-3. Present the goal: verify that documents are consistent. Do NOT give
-   detailed instructions, assign verification areas, or direct their work.
-4. **Each verifier independently reads ALL documents.** This is
-   cross-document verification — every verifier must read every document to
-   check consistency across the full set. Documents are NOT split among
-   members. Each verifier produces their own complete issue list.
+1. **Context check:** Before spawning, ask the owner via `AskUserQuestion` if
+   the remaining context window is **25% or below**: _"Context window is X%
+   remaining. Run `/compact` before spawning? (yes / no)"_ If yes, wait for
+   the owner to run `/compact` and confirm before proceeding.
+2. Team leader spawns **both** Phase 1 agents from
+   `.claude/agents/verification/phase1/` as fresh agents:
+   - `consistency-verifier` — structural integrity, cross-references, terminology
+   - `semantic-verifier` — logical contradictions, behavioral inconsistencies
+3. Provide both agents with: the list of all newly written document paths and
+   the resolution document path. Each agent reads files and delegates the
+   analysis to Gemini independently.
+4. Do NOT assign areas or direct their work — each agent covers its full domain.
+5. Each agent reports its issue list to the team leader. Disband Phase 1 agents.
 
 **Cascaded re-raise monitoring (Round 3+):** From the third verification
 round onward, the team leader MUST check whether newly raised issues fall
 into either of these cascading patterns:
 
-1. **Re-raises of settled items**: Issues that are re-litigations of items
-   already fixed or dismissed in previous rounds. Verifiers operating on
-   fresh context have no memory of prior round decisions and may repeat
-   the same arguments indefinitely (e.g., a variant of a fixed issue, or
-   an exact repeat of a dismissed issue).
-2. **Minor cascading inconsistencies from fixes**: Issues where a previous
-   round's fix itself introduced a minor new inconsistency (e.g., fixing
-   a term in one location reveals the same term was used elsewhere, or a
-   diagram label no longer matches updated text). These are real but
-   trivially mechanical, and continuing the fix-verify loop for them
-   yields diminishing returns.
+1. **Re-raises of settled items**: Issues already fixed or dismissed in
+   previous rounds. Phase 1 agents have no memory of prior round decisions
+   and may repeat the same findings.
+2. **Minor cascading inconsistencies from fixes**: A previous fix introduced
+   a trivially mechanical new inconsistency. Continuing the loop yields
+   diminishing returns.
 
 If the team leader suspects either pattern, they MUST report to the owner
-with the evidence (which prior round handled the item, how, and why the
-new issue is cascading) and let the owner decide whether to proceed with
-cross-validation or declare clean.
+with the evidence and let the owner decide whether to proceed or declare clean.
 
-### 3.7 Issue Cross-Validation
+### 3.7 Issue Double-Check (Phase 2)
 
-The verifiers discuss and filter their combined findings.
+Two fresh Phase 2 review agents independently evaluate the combined Phase 1
+issue list via Gemini and report a confirm/dismiss verdict per issue.
+**There is no peer-to-peer debate** — each agent works independently.
 
-**Team leader's role:**
+**Steps:**
 
-1. **EXPLICITLY** initiate step 3.7 by presenting the goal: "Reach
-   unanimous consensus on every raised issue. Dismiss false alarms,
-   confirm true alarms."
-2. Do NOT direct the discussion, assign speaking order, judge issues,
-   or suggest which issues are true or false.
-3. Wait for the verifiers to deliver a consolidated list.
+1. Team leader collects all issues from both Phase 1 agents into a single
+   combined list and spawns **both** Phase 2 agents from
+   `.claude/agents/verification/phase2/` as fresh agents:
+   - `history-guardian` — identifies historical false alarms
+   - `issue-reviewer` — identifies general false alarms (scope creep, misread
+     context, overly strict interpretation)
+2. Provide both agents with: the combined Phase 1 issue list and the document
+   paths. Each agent independently evaluates every issue via Gemini.
+3. Each agent reports a verdict (`confirm` / `dismiss` + one-line reason)
+   for every issue. Disband Phase 2 agents.
 
-**Verifier rules:**
+**Outcome rules (team leader applies):**
 
-- Verifiers communicate **peer-to-peer, directly with each other**.
-  The team leader is NOT a message proxy.
-- Unanimous consensus required for every issue — no majority vote.
-  If a verifier believes an issue is real, they must logically persuade
-  the others. If others present a convincing counter-argument, the
-  verifier withdraws honestly.
-- Discussion continues until every issue is confirmed or dismissed.
-- Verifiers self-organize: they decide how to discuss among themselves.
-
-**Outcomes:**
-
-- If **all issues are dismissed**: the verifiers report a clean result.
-  Proceed to **3.9**.
-- If **true alarms are confirmed**: the verifiers deliver a single
-  consolidated list of unanimously confirmed issues. Proceed to **3.8**.
+- Issue is **confirmed** (true alarm) if **both** Phase 2 agents say `confirm`.
+- Issue is **dismissed** if **both** Phase 2 agents say `dismiss`.
+- Issue is **contested** if one agent says `confirm` and the other says `dismiss` →
+  the team leader reports the contested issue(s) to the **owner** with both agents'
+  reasons and requests a binding decision before proceeding.
+- If **all issues are dismissed**: clean result. Proceed to **3.9**.
+- If **confirmed or owner-resolved issues remain**: proceed to **3.8**.
 
 ### 3.8 Issue Recording & Decision
 
@@ -314,15 +331,25 @@ The team leader records confirmed issues and decides the next step.
 **Steps:**
 
 1. The team leader writes confirmed issues to
-   `v<X>/verification/round-{N}-issues.md` (where `{N}` is the
+   `draft/vX.Y-rN/verification/round-{N}-issues.md` (where `{N}` is the
    verification round number, starting at 1). Format follows
    [Verification Issues](../conventions/artifacts/documents/08-verification-issues.md).
 2. Disband the verification team.
-3. Go back to **3.4** — spawn fresh agents and pass the issue file as
-   input alongside the resolution document. The fresh team uses this
-   list to know exactly what needs fixing.
-4. There is NO limit on how many rounds of 3.4 to 3.8 can repeat.
-   Continue until a clean verification pass is achieved.
+3. Decide next step based on round number:
+   - **Rounds 1–3**: Go back to **3.4** automatically. Spawn fresh agents and
+     pass the issue file alongside the resolution document.
+   - **Round 4 non-CLEAN**: Do NOT proceed automatically. The team leader
+     reports all outstanding issues to the **owner**, requests triage (which
+     issues are truly blocking vs. acceptable), and asks whether to proceed
+     with round 5. The owner has two options:
+     - **Proceed**: Go back to **3.4** for another fix round.
+     - **Declare clean**: Treat remaining issues as acceptable. Proceed to **3.9**.
+     - **Declare deferred**: Accept remaining issues as known but defer them to a
+       future version. Proceed to **3.9**.
+   - **Round 5+ non-CLEAN**: Every non-CLEAN round triggers another owner
+     escalation. The team leader reports the new round's issues to the owner
+     and requests explicit approval to continue each time. Same three options
+     apply (proceed / declare clean / declare deferred).
 
 **Key invariant:** Verification does NOT produce review notes. During the
 Revision Cycle, no review-note files are created. The team leader records
@@ -338,13 +365,24 @@ The team leader finalizes and reports.
 
 1. Team leader disbands the verification team.
 2. Team leader commits the documents.
-3. Team leader reports to the owner: what was produced, which version, and a
-   summary of key decisions.
-4. This ends the Revision Cycle. Proceed to the Review Cycle (Section 4).
+3. Team leader reports to the owner: what was produced, which draft version
+   (e.g., `draft/v1.0-r3`), and a summary of key decisions.
+4. **STOP. The Revision Cycle is now complete. The team leader does nothing
+   further.** No review notes, no handover document, no further commits.
+
+The Review Cycle (Section 4) begins **only when the owner opens a new session
+and starts reviewing**. The team leader cannot initiate, advance, or complete
+any part of the Review Cycle on their own.
 
 ---
 
 ## 4. Review Cycle
+
+> **⚠️ OWNER-INITIATED ONLY.** The Review Cycle begins when the owner opens a
+> session. The team leader MUST NOT write review notes, handover documents, or
+> any Review Cycle artifact without an explicit instruction from the owner in
+> that session. Every action in this section requires a preceding owner
+> instruction — the team leader never acts unilaterally.
 
 ### Flowchart
 
@@ -358,7 +396,8 @@ graph TD
     A -- "owner requests<br/>review note" --> B["4.2 Review Notes<br/>& Commit<br/>(team leader writes)"]
     B --> A
     A -- "owner declares<br/>review complete" --> C["4.3 Handover & Commit<br/>(team leader writes)"]
-    C --> D["Cycle ends"]
+    C -- "more revisions<br/>needed" --> RevisionCycle["Back to 3.1"]
+    C -- "stable declared" --> D["Cycle ends"]
 ```
 
 ### 4.1 Owner Review Session
@@ -379,7 +418,9 @@ The owner reviews the committed documents and asks questions.
 
 ### 4.2 Review Notes & Commit
 
-Review notes are created only when the owner explicitly instructs.
+Review notes are created **only** when the owner explicitly instructs in the
+current session. The team leader MUST NOT create review notes proactively,
+preemptively, or based on its own judgment of what the owner might want.
 
 **Steps:**
 
@@ -387,7 +428,7 @@ Review notes are created only when the owner explicitly instructs.
    note.
 2. Format follows
    [Review Notes](../conventions/artifacts/documents/02-review-notes.md).
-3. Location: `v<X>/review-notes/{NN}-{topic}.md`
+3. Location: `draft/vX.Y-rN/review-notes/{NN}-{topic}.md`
 4. Each review note is committed immediately after creation.
 5. After committing, return to 4.1 (the owner may continue reviewing).
 
@@ -396,64 +437,75 @@ things the team leader does personally rather than delegating.
 
 ### 4.3 Handover & Commit
 
-The team leader writes a handover document when the owner declares the review
-complete.
+The team leader writes a handover document **only when the owner explicitly
+declares the review cycle complete**. The team leader MUST NOT write the
+handover document, create the stable directory, or commit without this
+explicit declaration from the owner.
 
 **Steps:**
 
-1. The owner declares the review cycle complete.
-2. The team leader writes `v<X>/handover/handover-to-v<next>.md`.
+1. The owner explicitly declares the review cycle complete.
+2. The team leader writes the handover. Filename and location depend on outcome:
+   - More revisions needed: `draft/vX.Y-rN/handover/handover-to-r(N+1).md`
+   - Stable declared: `{topic}/inbox/handover/handover-for-vX.Y.md` (where X.Y
+     is the version just declared stable)
+
+   When stable is declared, the next revision cycle's target version (minor
+   bump `vX.(Y+1)` vs. major bump `v(X+1).0`) is determined by the owner at
+   the next Requirements Intake (3.1), not at handover time.
 3. Content: insights learned during the Revision Cycle (3.1-3.9) and Review
    Cycle (4.1-4.2) that the NEXT revision cycle's team should know. This
    includes design philosophy, owner priorities, new conventions, and any
    context that review notes alone do not capture.
 4. Format follows
    [Handover](../conventions/artifacts/documents/03-handover.md).
-5. Commit the handover.
+5. **If stable declared only:** the team leader also creates `vX.Y/` containing
+   only the final spec documents (files matching `[0-9]+-*.md`) copied from
+   `draft/vX.Y-rN/`. Process artifacts are NOT copied — they remain in the
+   draft directory as historical record. The handover (`handover-for-vX.Y.md`)
+   is placed in `{topic}/inbox/handover/`, NOT inside `vX.Y/`.
+6. Commit.
 
-This ends the current cycle. The next Revision Cycle will consume: the committed
-spec documents + review notes + handover as input.
+**If more revisions needed:** the next Revision Cycle starts with
+`draft/vX.Y-r(N+1)/`, consuming: previous draft's spec docs + review notes +
+handover as input.
+
+**If stable declared:** the cycle ends. The next Revision Cycle (when new
+requirements arrive) starts with `draft/v<next>-r1/`, consuming: `vX.Y/` spec
+docs + review notes + handover from `{topic}/inbox/handover/` as input.
 
 ---
 
-## 5. Artifacts
+## 5. Anti-Patterns
+
+| Anti-pattern | Why it is wrong | Correct behavior |
+|---|---|---|
+| Team leader writes review notes after committing, without owner instruction | Review notes record the **owner's** concerns. A team leader's self-assessment is not a review note. | STOP after 3.9. Write review notes only when the owner explicitly instructs in 4.2. |
+| Team leader writes handover after committing, without owner declaring review complete | Handover summarizes what the **owner** learned during review. No review happened. | Write handover only after the owner explicitly declares the review cycle complete in 4.3. |
+| Team leader commits review notes or handover in the same commit as spec docs | Conflates Revision and Review cycles, making git history unreadable. | Spec docs are committed in 3.9. Review notes and handover are committed separately in 4.2/4.3. |
+| Team leader self-declares "review complete" and proceeds to next revision | Only the owner can declare a review complete. | Wait for the owner. Do not advance the cycle without an explicit owner declaration. |
+| Agents edit files before assignment negotiation completes (3.4→3.5) | Fastest agent applies all fixes; others find nothing to do — duplicate edits, merge conflicts, wasted work. | Negotiation (3.4) and writing (3.5) are separated by an explicit gate. No editing until the team leader signals "begin writing." See also [02-team-collaboration.md §7](./02-team-collaboration.md#7-lessons-learned-and-anti-patterns). |
+| Team leader prompts consensus reporter to deliver (3.2→3.3) | Pre-empts the reporter's autonomous judgment; may cut off a team member who had more to say. | The consensus reporter decides when consensus is reached and delivers unprompted. The team leader waits. See also [02-team-collaboration.md §7](./02-team-collaboration.md#7-lessons-learned-and-anti-patterns). |
+| Team stops at resolution document and skips document writing (3.3→3.5) | Resolution document is an intermediate artifact, not the deliverable. Spec documents are never updated. | After the resolution is verified and the team is respawned (3.4), assigned agents must produce updated spec files in 3.5. See also [02-team-collaboration.md §7](./02-team-collaboration.md#7-lessons-learned-and-anti-patterns). |
+| Team leader writes verification issues to `review-notes/` | Conflates verification artifacts with owner feedback. Verification issues are transient inputs for the fix team; review notes are permanent owner-requested records. | Write issues to `draft/vX.Y-rN/verification/round-{N}-issues.md` (3.8). Review notes are only created at owner instruction in 4.2. |
+
+---
+
+## 6. Artifacts
 
 ### Artifact Matrix
 
 | Artifact | Created During | Created By | Location | Convention |
 |----------|---------------|------------|----------|------------|
-| `design-resolutions-{topic}.md` | Revision 3.3 | Core member (representative) | `v<X>/design-resolutions/` | [design-resolutions.md](../conventions/artifacts/documents/04-design-resolutions.md) |
-| `research-{source}-{topic}.md` | Revision 3.2 | Researcher | `v<X>/research/` | [research-reports.md](../conventions/artifacts/documents/05-research-reports.md) |
-| Spec documents (`01-xx.md`, etc.) | Revision 3.5 | Core members | `v<X>/` | -- |
-| `review-notes/{NN}-{topic}.md` | Review 4.2 | Team leader | `v<X>/review-notes/` | [review-notes.md](../conventions/artifacts/documents/02-review-notes.md) |
-| `handover-to-v<next>.md` | Review 4.3 | Team leader | `v<X>/handover/` | [handover.md](../conventions/artifacts/documents/03-handover.md) |
-| `cross-team-requests/{NN}-{topic}.md` | Revision 3.5 | Core member | Target team's `v<X>/cross-team-requests/` | [cross-team-requests.md](../conventions/artifacts/documents/07-cross-team-requests.md) |
-| `round-{N}-issues.md` | Revision 3.8 | Team leader | `v<X>/verification/` | [verification-issues.md](../conventions/artifacts/documents/08-verification-issues.md) |
+| `design-resolutions-{topic}.md` | Revision 3.3 | Core member (representative) | `draft/vX.Y-rN/design-resolutions/` | [design-resolutions.md](../conventions/artifacts/documents/04-design-resolutions.md) |
+| `research-{source}-{topic}.md` | Revision 3.2 | Researcher | `draft/vX.Y-rN/research/` | [research-reports.md](../conventions/artifacts/documents/05-research-reports.md) |
+| Spec documents (`01-xx.md`, etc.) | Revision 3.5 | Core members | `draft/vX.Y-rN/` | -- |
+| `review-notes/{NN}-{topic}.md` | Review 4.2 | Team leader | `draft/vX.Y-rN/review-notes/` | [review-notes.md](../conventions/artifacts/documents/02-review-notes.md) |
+| `handover-to-r(N+1).md` | Review 4.3 | Team leader | `draft/vX.Y-rN/handover/` | [handover.md](../conventions/artifacts/documents/03-handover.md) |
+| `handover-for-vX.Y.md` | Review 4.3 (stable) | Team leader | `{topic}/inbox/handover/` | [handover.md](../conventions/artifacts/documents/03-handover.md) |
+| `cross-team-requests/{NN}-{topic}.md` | Revision 3.5 | Core member | Target team's `draft/vX.Y-rN/cross-team-requests/` or `{team}/inbox/` (idle) | [cross-team-requests.md](../conventions/artifacts/documents/07-cross-team-requests.md) |
+| `round-{N}-issues.md` | Revision 3.8 | Team leader | `draft/vX.Y-rN/verification/` | [verification-issues.md](../conventions/artifacts/documents/08-verification-issues.md) |
 
 ### Version Directory Structure
 
-```
-docs/{component}/02-design-docs/{topic}/
-+-- v0.1/
-|   +-- 01-xxx.md
-|   +-- 02-xxx.md
-|   +-- design-resolutions/
-|   |   +-- 01-{topic}.md
-|   +-- research/
-|   |   +-- 01-{source}-{topic}.md
-|   +-- review-notes/
-|   |   +-- 01-{topic}.md
-|   +-- cross-team-requests/
-|   |   +-- 01-{source-team}-{topic}.md
-|   +-- verification/
-|   |   +-- round-1-issues.md
-|   |   +-- round-2-issues.md
-|   +-- handover/
-|       +-- handover-to-v0.2.md
-+-- v0.2/
-|   +-- 01-xxx.md  (updated)
-|   +-- ...
-+-- v1/  (stable release)
-    +-- 01-xxx.md
-    +-- ...
-```
+See [Document Artifact Conventions — Directory Structure](../conventions/artifacts/documents/01-overview.md#directory-structure) for the canonical directory layout with examples.
