@@ -13,5 +13,23 @@
   },
   "enabledPlugins": {
     "invoke-agent@powdream-plugins": true
+  },
+  "statusLine": {
+    "type": "command",
+    "command": ".claude/statusline.sh",
+    "padding": 0
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-context.sh 25"
+          }
+        ]
+      }
+    ]
   }
 }
