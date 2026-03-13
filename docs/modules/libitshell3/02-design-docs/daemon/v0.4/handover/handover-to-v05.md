@@ -1,40 +1,35 @@
 # Handover: Daemon Design v0.4 to v0.5
 
-**Date**: 2026-03-11
+**Date**: 2026-03-13
 **Author**: team leader
 
 ---
 
-## Summary of v0.4
+## Insights and New Perspectives
 
-v0.4 resolved 4 carry-over review notes from v0.3:
+**Version header hygiene**: Every verification round found at least one doc with a stale version header. Future revision cycles should update version headers as a mandatory first step in the writing phase (Section 3.5), before verification begins.
 
-1. **RN-05 (CRITICAL)**: Message type naming alignment — 9 occurrences renamed in doc03: `SessionDetachRequest`→`DetachSessionRequest`, `ResizeRequest`→`WindowResize`, `ServerShutdown`→`Disconnect(reason:server_shutdown)`. 2 occurrences in v0.1 historical doc were cancelled (historical doc must not be modified).
+**Pre-existing issues in "unchanged" docs**: Doc04 was marked "unchanged" in v0.4 but accumulated 3 issues during verification. Verification reads all docs, not just changed ones — this is correct behavior. Future cycles should not assume "unchanged" docs are issue-free when read by fresh agents for the first time.
 
-2. **RN-03 (HIGH)**: `SessionEntry` introduced in `server/session_entry.zig` — `pane_slots`, `free_mask`, `dirty_mask` moved from `Session(core/)` to `SessionEntry(server/)`, resolving the `core/→server/` reverse dependency. `SessionManager` updated to `HashMap(u32, *SessionEntry)`. `focused_pane` stays in `Session`.
+**Historical document rule**: v0.1 design resolution docs must not be modified. They are permanent historical artifacts. Established in v0.4.
 
-3. **RN-02 (LOW)**: `pty_master_fd`→`pty_fd` in doc03 §1.1 Step 6 pseudocode.
+**Team leader violations (lessons from this cycle)**:
+- The team leader applied Round 1 fixes directly instead of delegating to fix agents. The team leader is a facilitator, not a doer — even mechanical, trivial fixes must be delegated.
+- The team leader created this handover and a review note at the end of the Revision Cycle, before the Review Cycle began. Handover must be written only after the owner declares the review cycle complete (Section 4.3). Review notes must be created only when the owner explicitly requests them (Section 4.2).
+- A protocol-side observation found during daemon verification was incorrectly filed as a daemon review note. Observations requiring changes in another team's documents must be filed as a cross-team request in the target team's directory — not as a review note in the source team's directory.
 
-4. **RN-01 (LOW)**: CANCELLED — v0.1 resolution doc is a historical artifact; must not be modified.
+## Design Philosophy
 
-Verification took 6 rounds (10 issues total). Notable findings:
-- 7 issues were writing/missed-update errors caught in Rounds 1–2
-- 3 issues were pre-existing problems in doc04 (originally "unchanged" in v0.4 but reviewed for the first time): Surface API reference (SEM-R3-1), false version header (CRX-R4-1), false "ONLY reset()" claim (SEM-R5-1)
+None.
 
-## Insights
+## Owner Priorities
 
-**Version header hygiene**: Every round found at least one doc with a stale version header. Consider making version header updates a mandatory checklist item in the writing phase (before verification begins) for future revisions.
+None — v0.5 is driven by the owner's review of v0.4 documents.
 
-**Doc04 pre-existing issues**: Doc04 was supposed to be "unchanged" in v0.4 but accumulated 3 issues in verification. This is because verification reads all docs, not just changed ones. This is the correct behavior — but it means "unchanged" docs may still generate fixes. Future revision cycles should note which docs are truly unchanged vs. which are being touched for the first time by a thorough verification pass.
+## New Conventions and Procedures
 
-**Historical documents**: The rule "v0.1 design resolution docs must not be modified" was established in v0.4. Future cycles must remember this. Resolution 3 (RN-01) was formally CANCELLED with rationale in the design resolutions doc.
-
-## Owner Priorities for v0.5
-
-No carry-over review notes at this time. The only open item is:
-
-- **Review note 01** (LOW): Protocol doc v0.11 stale Surface references (`ghostty_surface_preedit()` in §4.2). Scope: protocol module, not daemon. Forwarded to next protocol revision cycle.
+None.
 
 ## Pre-Discussion Research Tasks
 
-None required. v0.5 should be driven by new review notes from the owner review of v0.4.
+None.

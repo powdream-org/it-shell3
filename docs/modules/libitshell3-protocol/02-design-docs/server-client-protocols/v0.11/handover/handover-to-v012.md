@@ -21,6 +21,10 @@ The section renumbering fix (V1-09, §5.7→5.8 gap in doc 03) suggests that pre
 
 The 6 carry-over review notes (01-06) from v0.10 are all MEDIUM/LOW and none are blocking. They represent genuine design gaps (mouse+preedit interaction, zoom+split, pane auto-close, hyperlink encoding, frame_type=2 removal) that should be addressed when implementation approaches.
 
+**Incoming cross-team requests** (see `v0.11/cross-team-requests/`):
+
+- `01-daemon-surface-references.md` (daemon v0.4): Remove stale `ghostty_surface_preedit()` references in `05-cjk-preedit-protocol.md` §4.2 (~lines 361, 383, 396). Protocol docs must not describe server-side implementation details.
+
 ## New Conventions and Procedures
 
 None.
