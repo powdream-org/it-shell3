@@ -40,8 +40,6 @@ This document defines the **exact interface** between libitshell3 (terminal mult
 
 ## 2. Responsibility Matrix
 
-This matrix covers IME engine responsibilities only. Daemon-side responsibilities (routing, PTY writes, ghostty integration, lifecycle management) are defined in [daemon design doc 02 §4.9](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#49-daemon-side-responsibility-matrix).
-
 | Responsibility | Owner | Rationale |
 |---|---|---|
 | HID keycode -> ASCII character | **libitshell3-ime** | IME needs ASCII for `hangul_ic_process()`. Mapping is layout-dependent (Korean 2-set vs 3-set). |
