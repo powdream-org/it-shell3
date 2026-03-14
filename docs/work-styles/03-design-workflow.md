@@ -315,9 +315,8 @@ issue list via Gemini and report a confirm/dismiss verdict per issue.
 1. Team leader collects all issues from both Phase 1 agents into a single
    combined list and spawns **both** Phase 2 agents from
    `.claude/agents/verification/phase2/` as fresh agents:
-   - `history-guardian` — identifies historical false alarms
-   - `issue-reviewer` — identifies general false alarms (scope creep, misread
-     context, overly strict interpretation)
+   - `issue-reviewer-fast` (sonnet) — evaluates all false alarm categories
+   - `issue-reviewer-deep` (opus) — evaluates all false alarm categories independently
 2. Provide both agents with: the combined Phase 1 issue list and the document
    paths. Each agent independently evaluates every issue via Gemini using the
    `/invoke-agent:prompt` skill per its agent definition —
