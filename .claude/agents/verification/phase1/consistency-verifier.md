@@ -75,10 +75,21 @@ Prompt checklist — ask Gemini to cover both domains:
 Ask Gemini to report each issue with: severity (`critical`/`minor`), location
 (document + section), description, and expected correction.
 
-### Step 3 — Format and report
+### Step 3 — Filter and report
 
-Parse Gemini's response. Format the issues into the standard verification issue
-format. Report to the team leader via message. Do NOT write any files.
+Before formatting, filter Gemini's findings against the Dismissed Issues Summary
+(if one was provided). For each finding, ask: does the **reason for dismissal**
+of any previously dismissed item apply equally to this finding — even if the
+specific instance differs? If yes, drop the finding silently. Do not report it
+to the team leader.
 
-If zero issues found, explicitly state that all documents are clean for
-consistency and structural integrity.
+Apply the filter by principle, not by literal match. Example: if a dismissed
+item's reason was "PLAN.md is a planning artifact scheduled for deletion, not
+normative," then any new finding about a different part of PLAN.md that shares
+the same root cause is also dismissed without reporting.
+
+After filtering, format the remaining findings into the standard verification
+issue format. Report to the team leader via message. Do NOT write any files.
+
+If zero issues remain after filtering, explicitly state that all documents are
+clean for consistency and structural integrity.
