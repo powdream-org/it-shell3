@@ -25,8 +25,13 @@ given. Also read the resolution document.
 
 Construct a prompt covering the checklist below. Then:
 
-1. Use the `/invoke-agent:gemini` skill with your prompt → note the **output ID** returned.
+1. Use the `/invoke-agent:prompt` skill with `--to gemini --new` and your prompt → note the **output ID** returned.
 2. Use the `/invoke-agent:output` skill with that output ID → retrieve Gemini's analysis.
+
+**Fallback**: If the invoke-agent call fails for any reason (auth error, rate limit, CLI not
+found, timeout, or any non-zero exit), perform the full analysis yourself directly using your
+domain expertise. Do NOT skip the analysis — Claude performing it directly is always preferable
+to reporting no results.
 
 Prompt checklist — ask Gemini to cover:
 

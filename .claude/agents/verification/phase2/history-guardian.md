@@ -5,7 +5,7 @@ description: >
   records (changelogs, version history, change notes, prior art references)
   against current normative text. Reviews Phase 1 issue list via Gemini and
   vetoes issues that are historical false alarms.
-model: sonnet
+model: opus
 tools:
   - Read
   - Grep
@@ -48,8 +48,13 @@ Construct a prompt containing the full Phase 1 issue list and the historical
 false alarm criteria above. Ask Gemini to evaluate each issue: historical false
 alarm (dismiss) or legitimate normative inconsistency (confirm). Then:
 
-1. Use the `/invoke-agent:gemini` skill with your prompt → note the **output ID** returned.
+1. Use the `/invoke-agent:prompt` skill with `--to gemini --new` and your prompt → note the **output ID** returned.
 2. Use the `/invoke-agent:output` skill with that output ID → retrieve Gemini's verdicts.
+
+**Fallback**: If the invoke-agent call fails for any reason (auth error, rate limit, CLI not
+found, timeout, or any non-zero exit), perform the review yourself directly using your domain
+expertise. Do NOT skip the review — Claude performing it directly is always preferable to
+reporting no results.
 
 ### Step 2 — Report verdict
 

@@ -58,8 +58,13 @@ Construct a prompt with:
 
 Ask Gemini to evaluate each issue: false alarm (dismiss) or legitimate (confirm). Then:
 
-1. Use the `/invoke-agent:gemini` skill with your prompt → note the **output ID** returned.
+1. Use the `/invoke-agent:prompt` skill with `--to gemini --new` and your prompt → note the **output ID** returned.
 2. Use the `/invoke-agent:output` skill with that output ID → retrieve Gemini's verdicts.
+
+**Fallback**: If the invoke-agent call fails for any reason (auth error, rate limit, CLI not
+found, timeout, or any non-zero exit), perform the review yourself directly using your domain
+expertise. Do NOT skip the review — Claude performing it directly is always preferable to
+reporting no results.
 
 ### Step 3 — Report verdict
 
