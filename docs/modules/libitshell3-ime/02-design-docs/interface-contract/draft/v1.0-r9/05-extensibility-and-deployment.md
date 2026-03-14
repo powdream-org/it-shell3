@@ -1,8 +1,8 @@
-# IME Interface Contract v0.9 — Extensibility and Deployment
+# IME Interface Contract v1.0-r9 — Extensibility and Deployment
 
-> **Version**: v0.9
+> **Version**: v1.0-r9
 > **Date**: 2026-03-14
-> **Part of the IME Interface Contract v0.9. See [01-overview.md](01-overview.md) for the document index.**
+> **Part of the IME Interface Contract v1.0-r9. See [01-overview.md](01-overview.md) for the document index.**
 > **Changes from v0.8**: Sections renumbered per-document sequential (CTR-04). See [Appendix K: Changes from v0.8](99-appendices.md#appendix-k-changes-from-v08).
 
 ## 1. Future Extensibility

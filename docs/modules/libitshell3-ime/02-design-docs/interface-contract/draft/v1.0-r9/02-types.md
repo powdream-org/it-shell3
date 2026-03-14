@@ -1,8 +1,8 @@
-# IME Interface Contract v0.9 — Types
+# IME Interface Contract v1.0-r9 — Types
 
-> **Version**: v0.9
+> **Version**: v1.0-r9
 > **Date**: 2026-03-14
-> **Part of the IME Interface Contract v0.9. See [01-overview.md](01-overview.md) for the document index.**
+> **Part of the IME Interface Contract v1.0-r9. See [01-overview.md](01-overview.md) for the document index.**
 > **Changes from v0.8**: Implementation content (scenario matrix, flush policy details, HangulImeEngine struct) extracted to behavior docs. Surface API references removed. Sections renumbered per-document sequential. See [Appendix K: Changes from v0.8](99-appendices.md#appendix-k-changes-from-v08).
 
 ## 1. KeyEvent (Input to IME)

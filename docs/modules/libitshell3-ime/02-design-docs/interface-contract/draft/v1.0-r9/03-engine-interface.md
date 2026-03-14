@@ -1,8 +1,8 @@
-# IME Interface Contract v0.9 — Engine Interface
+# IME Interface Contract v1.0-r9 — Engine Interface
 
-> **Version**: v0.9
+> **Version**: v1.0-r9
 > **Date**: 2026-03-14
-> **Part of the IME Interface Contract v0.9. See [01-overview.md](01-overview.md) for the document index.**
+> **Part of the IME Interface Contract v1.0-r9. See [01-overview.md](01-overview.md) for the document index.**
 > **Changes from v0.8**: HangulImeEngine concrete struct extracted to behavior docs. Internal step sequence removed from setActiveInputMethod. Surface API references removed from MockImeEngine tests. Sections renumbered per-document sequential. See [Appendix K: Changes from v0.8](99-appendices.md#appendix-k-changes-from-v08).
 
 ## 1. ImeEngine (Interface for Dependency Injection)

@@ -1,8 +1,8 @@
-# IME Interface Contract v0.9 — Overview
+# IME Interface Contract v1.0-r9 — Overview
 
-> **Version**: v0.9
+> **Version**: v1.0-r9
 > **Date**: 2026-03-14
-> **Part of the IME Interface Contract v0.9. See this file for the document index.**
+> **Part of the IME Interface Contract v1.0-r9. See this file for the document index.**
 > **Changes from v0.8**: Implementation content extracted to behavior docs (CTR-02). Sections renumbered per-document sequential (CTR-04). Scope and editorial policy added (CTR-03). See [Appendix K: Changes from v0.8](99-appendices.md#appendix-k-changes-from-v08).
 
 ## Document Index
@@ -24,7 +24,7 @@
 
 # 01 — libitshell3 <-> libitshell3-ime Interface Contract
 
-> **Status**: Draft v0.9 — Implementation content extracted to behavior docs. Sections renumbered per-document sequential. Scope and editorial policy added.
+> **Status**: Draft v1.0-r9 — Implementation content extracted to behavior docs. Sections renumbered per-document sequential. Scope and editorial policy added.
 > **Supersedes**: [v0.8/01-overview.md](../v1.0-r8/01-overview.md), [v0.7/01-overview.md](../v1.0-r7/01-overview.md), [v0.6/01-overview.md](../v1.0-r6/01-overview.md), [v0.5/01-interface-contract.md](../v1.0-r5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v1.0-r4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v1.0-r3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v1.0-r2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v1.0-r1/01-interface-contract.md)
 > **Date**: 2026-03-14
 > **Review participants**: protocol-architect, protocol-swe, cjk-specialist, ime-expert, principal-architect, ime-architect, ime-swe
