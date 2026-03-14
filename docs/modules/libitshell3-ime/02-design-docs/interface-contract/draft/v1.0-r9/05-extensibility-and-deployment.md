@@ -1,4 +1,4 @@
-# IME Interface Contract v1.0-r9 — Extensibility and Deployment
+# IME Interface Contract — Extensibility and Deployment
 
 ## 1. Future Extensibility
 

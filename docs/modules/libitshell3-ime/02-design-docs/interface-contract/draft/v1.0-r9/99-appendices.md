@@ -1,9 +1,4 @@
-# IME Interface Contract v0.8 — Appendices
-
-> **Version**: v0.8
-> **Date**: 2026-03-10
-> **Part of the IME Interface Contract v0.8. See [01-overview.md](01-overview.md) for the document index.**
-> **Changes from v0.7**: See [Appendix J: Changes from v0.7](#appendix-j-changes-from-v07)
+# IME Interface Contract — Appendices
 
 ## Appendix A: Stale Documentation Notes
 

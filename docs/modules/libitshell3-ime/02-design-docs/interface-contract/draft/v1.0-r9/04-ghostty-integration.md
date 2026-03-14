@@ -1,4 +1,4 @@
-# IME Interface Contract v1.0-r9 — ghostty Integration (Reference)
+# IME Interface Contract — ghostty Integration (Reference)
 
 ## 1. ghostty Integration
 

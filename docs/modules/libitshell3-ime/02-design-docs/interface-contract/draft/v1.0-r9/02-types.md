@@ -1,4 +1,4 @@
-# IME Interface Contract v1.0-r9 — Types
+# IME Interface Contract — Types
 
 ## 1. KeyEvent (Input to IME)
 

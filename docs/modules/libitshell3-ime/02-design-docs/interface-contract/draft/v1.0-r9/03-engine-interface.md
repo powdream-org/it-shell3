@@ -1,4 +1,4 @@
-# IME Interface Contract v1.0-r9 — Engine Interface
+# IME Interface Contract — Engine Interface
 
 ## 1. ImeEngine (Interface for Dependency Injection)
 

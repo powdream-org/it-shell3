@@ -1,4 +1,4 @@
-# IME Interface Contract v1.0-r9 — Overview
+# IME Interface Contract — Overview
 
 ## Document Index
 
