@@ -55,10 +55,21 @@ pub const KeyEvent = struct {
         return self.modifiers.ctrl or self.modifiers.alt or self.modifiers.super_key;
     }
 
-    /// Returns true if this is a printable key position (letters, digits, punctuation).
-    /// Based on HID usage codes for the US ANSI keyboard.
+    /// Returns true if this key position produces a printable character
+    /// (letter, digit, or punctuation) on a US ANSI keyboard.
+    /// Based on USB HID Keyboard/Keypad page (0x07).
+    ///
+    /// Printable ranges:
+    ///   0x04–0x27  a–z (0x04–0x1D), 1–0 (0x1E–0x27)
+    ///   0x2D–0x38  punctuation: - = [ ] \ # ; ' ` , . /
+    ///
+    /// Explicitly excluded control keys in the gap 0x28–0x2C:
+    ///   0x28 Enter, 0x29 Escape, 0x2A Backspace, 0x2B Tab, 0x2C Space
+    /// These are flush-triggering or forwarding keys, never composition input.
+    /// Space (0x2C) is always forwarded even in direct mode.
     pub fn isPrintablePosition(self: KeyEvent) bool {
-        return (self.hid_keycode >= 0x04 and self.hid_keycode <= 0x38);
+        return (self.hid_keycode >= 0x04 and self.hid_keycode <= 0x27) or
+               (self.hid_keycode >= 0x2D and self.hid_keycode <= 0x38);
     }
 };
 ```
