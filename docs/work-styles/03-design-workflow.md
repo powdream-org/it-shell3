@@ -295,6 +295,11 @@ into either of these cascading patterns:
 2. **Minor cascading inconsistencies from fixes**: A previous fix introduced
    a trivially mechanical new inconsistency. Continuing the loop yields
    diminishing returns.
+3. **Explanatory note cascade**: A fix that adds a clarifying note (e.g.,
+   enumerating which keys belong to a category) may contain an overly broad
+   claim that contradicts another document. When a fix note groups multiple
+   items under a single behavioral label ("all of these → path X"), verify
+   each item individually against all other documents before committing.
 
 If the team leader suspects either pattern, they MUST report to the owner
 with the evidence and let the owner decide whether to proceed or declare clean.

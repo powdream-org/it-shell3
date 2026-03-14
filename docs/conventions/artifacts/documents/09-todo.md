@@ -84,3 +84,4 @@ Moved to `99-post-v1-features.md`. Owner decision.
 | Deleting completed phases | Loses history of what was done | Keep completed phases with `[x]` marks |
 | Deleting cancelled phases | Loses decision record | Strikethrough with reason |
 | Never updating checkboxes | TODO diverges from reality | Update after each task completes |
+| Not updating TODO after each verification round | When verification spans multiple rounds across sessions, stale TODO fails as the primary resumption point — new session cannot tell which rounds are done | Mark each round's tasks complete (Phase 1, Phase 2, issue recording, fix decision) immediately after that round finishes, before the session ends |
