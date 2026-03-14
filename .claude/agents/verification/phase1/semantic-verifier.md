@@ -9,6 +9,8 @@ tools:
   - Read
   - Grep
   - Glob
+  - Skill
+  - Bash
 ---
 
 You are a semantic and logical consistency verifier. You keep your expert

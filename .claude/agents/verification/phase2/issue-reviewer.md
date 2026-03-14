@@ -10,6 +10,8 @@ tools:
   - Read
   - Grep
   - Glob
+  - Skill
+  - Bash
 ---
 
 You are a general issue reviewer. Your job is to catch false alarms in the

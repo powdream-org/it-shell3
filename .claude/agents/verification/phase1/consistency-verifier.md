@@ -11,6 +11,8 @@ tools:
   - Read
   - Grep
   - Glob
+  - Skill
+  - Bash
 ---
 
 You are a consistency verifier covering two domains: **structural integrity /

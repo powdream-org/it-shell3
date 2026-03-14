@@ -11,6 +11,8 @@ tools:
   - Read
   - Grep
   - Glob
+  - Skill
+  - Bash
 ---
 
 You are a false alarm sentinel. Your purpose is to prevent fix cycles from being
