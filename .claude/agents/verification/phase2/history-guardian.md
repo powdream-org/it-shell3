@@ -1,11 +1,11 @@
 ---
 name: history-guardian
 description: >
-  Phase 2 reviewer. Guards against false alarms that stem from four root causes:
+  Phase 2 reviewer. Guards against false alarms that stem from three root causes:
   (1) historical records compared against current normative text, (2) verification
-  records reflecting past-fixed issues, (3) planning artifact label mismatches,
-  and (4) issues already covered by an open CTR or work order. Reviews Phase 1
-  issue list via Gemini and vetoes issues that fall into any of these categories.
+  records reflecting past-fixed issues, and (3) issues already covered by an open
+  CTR or work order. Reviews Phase 1 issue list via Gemini and vetoes issues that
+  fall into any of these categories.
 model: opus
 tools:
   - Read
@@ -47,23 +47,14 @@ You receive the combined Phase 1 issue list from the team leader.
    are expected to describe problems that subsequent fixes have resolved.
    **Veto.**
 
-**Category 3 — Planning artifacts**
+**Category 3 — Open work orders**
 
-6. **PLAN.md / TODO.md label mismatches**: Issue flags a mismatch between a
-   label used in PLAN.md or TODO.md (e.g., "behavior doc 04") and the actual
-   filename used in filed documents. PLAN.md and TODO.md are process artifacts
-   scheduled for deletion at commit time — they are not normative. Any finding
-   whose root cause is a PLAN.md or TODO.md label or gap is a false alarm.
-   **Veto.**
-
-**Category 4 — Open work orders**
-
-7. **Already covered by a filed CTR**: Issue flags a problem in a source
+6. **Already covered by a filed CTR**: Issue flags a problem in a source
    document that is already explicitly targeted by a filed Cross-Team Request
    (CTR) for removal, replacement, or correction. The CTR is the work order;
    the gap in the source document is the expected pre-fix state, not a defect
    in the behavior team's deliverables. **Veto.**
-8. **Other team's document, other team's responsibility**: Issue flags a problem
+7. **Other team's document, other team's responsibility**: Issue flags a problem
    in a document owned and maintained by another team, where no CTR has been
    filed incorrectly. The fix belongs to that team's backlog, not here.
    **Veto.**
@@ -80,7 +71,7 @@ You receive the combined Phase 1 issue list from the team leader.
 
 ### Step 1 — Run Gemini review
 
-Construct a prompt containing the full Phase 1 issue list and all four dismiss
+Construct a prompt containing the full Phase 1 issue list and all three dismiss
 categories above. Ask Gemini to evaluate each issue: false alarm (dismiss under
 one of the four categories, naming which) or legitimate defect (confirm). Then:
 
