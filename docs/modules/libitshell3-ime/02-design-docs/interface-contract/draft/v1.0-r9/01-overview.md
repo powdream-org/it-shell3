@@ -22,15 +22,6 @@
 
 ---
 
-# 01 — libitshell3 <-> libitshell3-ime Interface Contract
-
-> **Status**: Draft v1.0-r9 — Implementation content extracted to behavior docs. Sections renumbered per-document sequential. Scope and editorial policy added.
-> **Supersedes**: [v0.8/01-overview.md](../v1.0-r8/01-overview.md), [v0.7/01-overview.md](../v1.0-r7/01-overview.md), [v0.6/01-overview.md](../v1.0-r6/01-overview.md), [v0.5/01-interface-contract.md](../v1.0-r5/01-interface-contract.md), [v0.4/01-interface-contract.md](../v1.0-r4/01-interface-contract.md), [v0.3/01-interface-contract.md](../v1.0-r3/01-interface-contract.md), [v0.2/01-interface-contract.md](../v1.0-r2/01-interface-contract.md), [v0.1/01-interface-contract.md](../v1.0-r1/01-interface-contract.md)
-> **Date**: 2026-03-14
-> **Review participants**: protocol-architect, protocol-swe, cjk-specialist, ime-expert, principal-architect, ime-architect, ime-swe
-> **PoC validation**: `poc/02-ime-ghostty-real/poc-ghostty-real.m` — 22/24 tests pass (2 skipped due to libghostty VT parser bug, not IME code); `poc/03-macos-ime-suppression/` — macOS IME suppression validated; `poc/04-libhangul-states/probe.c` — composition_state factual errors confirmed; `poc/05-preedit-visual/` — preedit-as-cell-data rendering validated
-> **Changes from v0.8**: See [Appendix K: Changes from v0.8](99-appendices.md#appendix-k-changes-from-v08)
-
 ## 1. Overview
 
 This document defines the **exact interface** between libitshell3 (terminal multiplexer daemon) and libitshell3-ime (native IME engine). It specifies:
