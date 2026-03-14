@@ -99,7 +99,7 @@ call; zero heap allocation per keystroke") as a one-liner.
 
 ## 4. Cross-Team Requests to File
 
-Three CTRs are needed: one to the daemon team, two to the interface-contract team.
+Four CTRs are needed: one to the daemon team, three to the interface-contract team.
 All are filed after the behavior doc is created (so cross-reference links are valid).
 
 ### CTR-01: Simplify Phase 1 subgraph in daemon architecture diagram
@@ -187,6 +187,35 @@ engine implementor needs. The `behavior/` topic now owns all such content.
 | `00-index.md` (or equivalent README) | Add one-line scope statement: "This doc set covers the caller-facing API only. For engine implementation details, see `behavior/`." |
 | All future revisions | Enforce above policy at authoring time; flag violations in review |
 
+### CTR-04: Renumber section ordering across all interface-contract documents
+
+**Source team**: ime-behavior (this team)
+**Target team**: ime-interface-contract
+**File location**: `interface-contract/draft/v1.0-r9/cross-team-requests/03-behavior-team-renumber-sections.md`
+  _(filed into inbox if v1.0-r9 not yet started:_
+  `interface-contract/inbox/cross-team-requests/03-behavior-team-renumber-sections-from-v1.0.md`)
+
+**Context**: The current section numbering across all interface-contract design docs
+is inconsistent — section numbers within individual documents do not follow a uniform
+or logical progression, making the documents hard to navigate and cross-reference.
+After CTR-02 removes content and CTR-03 establishes scope, section numbers will have
+additional gaps that make renumbering necessary anyway.
+
+**Required changes**:
+
+| Target Doc | Change Type |
+|-----------|-------------|
+| `01-overview.md` | Renumber all top-level and nested sections sequentially from 1 |
+| `02-types.md` | Renumber all top-level and nested sections sequentially from 1 |
+| `03-engine-interface.md` | Renumber all top-level and nested sections sequentially from 1 |
+| `04-ghostty-integration.md` | Renumber all top-level and nested sections sequentially from 1 |
+| Any remaining docs | Renumber all top-level and nested sections sequentially from 1 |
+
+**Constraints**:
+- Apply after CTR-02 content removal so renumbering reflects the final structure.
+- Update all internal cross-references (`§ 3.2`, `see Section 4.1`, etc.) to match new numbers.
+- Update the index/TOC if one exists.
+
 ---
 
 ## 5. Execution Order
@@ -195,9 +224,12 @@ engine implementor needs. The `behavior/` topic now owns all such content.
 2. File CTR-01 to daemon team (Phase 1 diagram simplification).
 3. File CTR-02 to interface-contract team (content removal).
 4. File CTR-03 to interface-contract team (editorial policy).
-5. Daemon team applies CTR-01 in their next revision cycle.
-6. Interface-contract team applies CTR-02 + CTR-03 in their next revision cycle.
+5. File CTR-04 to interface-contract team (section renumbering).
+6. Daemon team applies CTR-01 in their next revision cycle.
+7. Interface-contract team applies CTR-02 + CTR-03 + CTR-04 in their next revision cycle
+   (CTR-02 first; CTR-03 and CTR-04 after content removal is complete).
 
-Step 1 must complete before steps 2–4 (cross-reference links must exist).
-Steps 2, 3, and 4 are independent of each other.
-CTR-02 and CTR-03 target the same team and may be bundled into one revision cycle.
+Step 1 must complete before steps 2–5 (cross-reference links must exist).
+Steps 2, 3, 4, and 5 are independent of each other.
+CTR-02, CTR-03, and CTR-04 target the same team and are bundled into one revision cycle.
+Within that cycle: CTR-02 (remove content) → CTR-04 (renumber) → CTR-03 (policy, ongoing).
