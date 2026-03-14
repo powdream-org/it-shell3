@@ -44,16 +44,16 @@ the team leader.
   does not reflect the change)
 - Real broken references or identifier mismatches
 
-### Step 1 — Re-read relevant documents
+### Step 1 — Identify relevant documents
 
-Use Read/Grep to look up the specific locations cited in the Phase 1 issues.
-Collect the surrounding context for each issue.
+Note the file paths cited in the Phase 1 issues. Do not read or embed document
+excerpts — Gemini will read the files directly.
 
 ### Step 2 — Run Gemini review
 
 Construct a prompt with:
 - The Phase 1 issue list
-- The relevant document excerpts collected in Step 1
+- The file paths of relevant documents (for Gemini to read directly)
 - The false alarm criteria above
 
 Ask Gemini to evaluate each issue: false alarm (dismiss) or legitimate (confirm). Then:

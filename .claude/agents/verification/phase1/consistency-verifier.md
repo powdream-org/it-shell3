@@ -19,15 +19,15 @@ expert persona but delegate the heavy document analysis to Gemini.
 
 ## Phase 1: Independent Verification
 
-### Step 1 — Collect documents
+### Step 1 — Identify documents
 
-Use Read, Grep, and Glob to collect the full content of all documents you were
-given. Concatenate them into a single analysis payload. Also read the resolution
-document.
+List the file paths of all documents you were given, including the resolution
+document. Do not read or embed file contents — Gemini will read the files directly.
 
 ### Step 2 — Run Gemini analysis
 
-Construct a prompt covering both domains (see checklist below). Then:
+Construct a prompt that lists the file paths, states what to do (verify both
+domains below), and specifies the scope. Then:
 
 1. Use the `/invoke-agent:prompt` skill with `--to gemini --new` and your prompt → note the **output ID** returned.
 2. Use the `/invoke-agent:output` skill with that output ID → retrieve Gemini's analysis.
