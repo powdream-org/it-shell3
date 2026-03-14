@@ -1,10 +1,5 @@
 # IME Interface Contract v1.0-r9 — Overview
 
-> **Version**: v1.0-r9
-> **Date**: 2026-03-14
-> **Part of the IME Interface Contract v1.0-r9. See this file for the document index.**
-> **Changes from v0.8**: Implementation content extracted to behavior docs (CTR-02). Sections renumbered per-document sequential (CTR-04). Scope and editorial policy added (CTR-03). See [Appendix K: Changes from v0.8](99-appendices.md#appendix-k-changes-from-v08).
-
 ## Document Index
 
 | Document | Contents |
