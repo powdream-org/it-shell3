@@ -21,6 +21,15 @@ persona but delegate the heavy document analysis to Gemini.
 List the file paths of all documents you were given, including the resolution
 document. Do not read or embed file contents — Gemini will read the files directly.
 
+### Step 1b — Note previously dismissed items (Round 2+ only)
+
+If the team leader provided a Dismissed Issues Summary from previous rounds,
+note those items. When constructing the Gemini prompt in Step 2, include them
+as exclusions: instruct Gemini to skip any finding that substantially overlaps
+with a previously dismissed item, even if phrased differently. If a finding is
+closely related to a dismissed item but represents a genuinely new and distinct
+problem, include it and briefly explain what makes it distinct.
+
 ### Step 2 — Run Gemini analysis
 
 Construct a prompt that lists the file paths, states what to do (verify the

@@ -276,8 +276,12 @@ documents via Gemini and report issue lists.
    - `consistency-verifier` — structural integrity, cross-references, terminology
    - `semantic-verifier` — logical contradictions, behavioral inconsistencies
 3. Provide both agents with: the list of all newly written document paths and
-   the resolution document path. Each agent reads files and delegates the
-   analysis to Gemini independently.
+   the resolution document path. Each agent delegates document analysis to
+   Gemini via the `/invoke-agent:prompt` skill per its agent definition —
+   **do NOT instruct agents to read the files directly.**
+   **Round 2+ only:** Also pass the Dismissed Issues Summary from all previous
+   `round-{N}-issues.md` files and instruct agents to skip any finding that
+   substantially overlaps with a previously dismissed issue.
 4. Do NOT assign areas or direct their work — each agent covers its full domain.
 5. Each agent reports its issue list to the team leader. Disband Phase 1 agents.
 
@@ -310,7 +314,9 @@ issue list via Gemini and report a confirm/dismiss verdict per issue.
    - `issue-reviewer` — identifies general false alarms (scope creep, misread
      context, overly strict interpretation)
 2. Provide both agents with: the combined Phase 1 issue list and the document
-   paths. Each agent independently evaluates every issue via Gemini.
+   paths. Each agent independently evaluates every issue via Gemini using the
+   `/invoke-agent:prompt` skill per its agent definition —
+   **do NOT instruct agents to read the files directly.**
 3. Each agent reports a verdict (`confirm` / `dismiss` + one-line reason)
    for every issue. Disband Phase 2 agents.
 
@@ -489,6 +495,8 @@ docs + review notes + handover from `{topic}/inbox/handover/` as input.
 | Team stops at resolution document and skips document writing (3.3→3.5) | Resolution document is an intermediate artifact, not the deliverable. Spec documents are never updated. | After the resolution is verified and the team is respawned (3.4), assigned agents must produce updated spec files in 3.5. See also [02-team-collaboration.md §7](./02-team-collaboration.md#7-lessons-learned-and-anti-patterns). |
 | Team leader writes verification issues to `review-notes/` | Conflates verification artifacts with owner feedback. Verification issues are transient inputs for the fix team; review notes are permanent owner-requested records. | Write issues to `draft/vX.Y-rN/verification/round-{N}-issues.md` (3.8). Review notes are only created at owner instruction in 4.2. |
 | Team leader leaves Phase 1 or Phase 2 agents alive after they report | Agents accumulate across verification rounds, consuming tokens and creating confusion about which agents are active. Each verification phase is a one-shot task — once reported, the agent has no further role. | Disband Phase 1 agents immediately after collecting issue lists (3.6 step 5). Disband Phase 2 agents immediately after collecting verdicts (3.7 step 3). |
+| Team leader spawn prompt tells Phase 1 or Phase 2 agents to "read files" or "analyze documents directly" | Overrides the agent's defined workflow of delegating analysis to Gemini via the invoke-agent skill, defeating the token-saving architecture and causing agents to perform expensive reads themselves. | Follow 3.6 step 3 and 3.7 step 2 exactly: provide file paths only, without instructing agents to read them. Agents follow their agent-definition workflow. |
+| Team leader spawns Phase 1 agents in Round 2+ without passing the Dismissed Issues Summary | Phase 1 agents have no memory of prior rounds and will re-raise already-settled findings, creating churn and wasting fix cycles. | From Round 2 onward, collect the Dismissed Issues Summary from all previous `round-{N}-issues.md` files and include it in the Phase 1 spawn prompt (3.6 step 3). |
 
 ---
 
