@@ -1,3 +1,6 @@
 {
-  "cSpell.import": ["./cspell.json"]
+  "cSpell.import": [
+    "./cspell.json"
+  ],
+  "cmake.ignoreCMakeListsMissing": true
 }
