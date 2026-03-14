@@ -111,7 +111,7 @@ fn libhangulKeyboardId(input_method: []const u8) ?[]const u8 {
 }
 ```
 
-### Canonical Input Method Registry
+### 2.1 Canonical Input Method Registry
 
 | Canonical string | libhangul keyboard ID | Description |
 |---|---|---|
