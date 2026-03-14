@@ -36,8 +36,6 @@ This document defines the **exact interface** between libitshell3 (terminal mult
 5. **Testable via trait.** libitshell3 depends on an `ImeEngine` interface, not the concrete implementation. Mock injection for tests.
 6. **Framework owns input method management.** libitshell3 (the framework) decides what input methods are available and which is active. The engine receives `setActiveInputMethod()` calls and processes keys accordingly. (Informed by fcitx5/ibus: language enumeration and toggle logic live in the framework, not in individual engines.)
 
-> **Pipeline context**: The daemon routes keys through a 3-phase pipeline. Phase 1 (IME processing) is defined by this contract; Phases 0 (global shortcuts, language toggle) and 2 (ghostty integration, PTY writes, preedit overlay) are defined in [daemon design doc 02 §4.2](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#42-phase-0---1---2-key-routing). For the Phase 1 internal algorithm, see [behavior/draft/v1.0-r1/01-processkey-algorithm.md](../../../behavior/draft/v1.0-r1/01-processkey-algorithm.md) and [behavior/draft/v1.0-r1/11-hangul-ic-process-handling.md](../../../behavior/draft/v1.0-r1/11-hangul-ic-process-handling.md).
-
 ---
 
 ## 2. Responsibility Matrix
