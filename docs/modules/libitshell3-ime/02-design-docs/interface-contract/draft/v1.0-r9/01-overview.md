@@ -40,6 +40,8 @@ This document defines the **exact interface** between libitshell3 (terminal mult
 
 ## 2. Responsibility Matrix
 
+This matrix covers IME engine responsibilities only.
+
 | Responsibility | Owner | Rationale |
 |---|---|---|
 | HID keycode -> ASCII character | **libitshell3-ime** | IME needs ASCII for `hangul_ic_process()`. Mapping is layout-dependent (Korean 2-set vs 3-set). |
