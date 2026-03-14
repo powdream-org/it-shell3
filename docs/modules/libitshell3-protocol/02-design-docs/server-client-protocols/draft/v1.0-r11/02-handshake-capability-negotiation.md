@@ -14,44 +14,41 @@ The handshake phase occurs immediately after transport-layer connection. All han
 
 After the handshake, the client SHOULD send a `ClientDisplayInfo` message to provide display and transport characteristics that inform the server's adaptive coalescing model.
 
-```
-Client                                  Server
-  |                                       |
-  |---- [transport connect] ------------>|
-  |                                       |
-  |---- ClientHello (0x0001) ----------->|
-  |     {version, client_type, name,     |
-  |      capabilities, cjk_caps,         |
-  |      preferred_input_methods, ...}   |
-  |                                       |  validate version
-  |                                       |  validate auth (UID)
-  |                                       |  compute negotiated caps
-  |                                       |  assign client_id
-  |                                       |
-  |<---- ServerHello (0x0002) -----------|
-  |      {version, server_name,          |
-  |       negotiated_caps, session_list, |
-  |       client_id,                     |
-  |       supported_input_methods,       |
-  |       coalescing_config}             |
-  |                                       |
-  |      [state -> READY]                |
-  |                                       |
-  |---- ClientDisplayInfo (0x0505) ----->|  (optional, recommended)
-  |     {display_refresh_hz, power_state,|
-  |      preferred_max_fps,              |
-  |      transport_type, estimated_rtt_ms,|
-  |      bandwidth_hint}                 |
-  |                                       |
-  |---- AttachSessionRequest (0x0104) -->|
-  |  or CreateSessionRequest (0x0100) -->|
-  |  or AttachOrCreateRequest (0x010C) ->|
-  |                                       |
-  |<---- AttachSessionResponse (0x0105) -|
-  |   or CreateSessionResponse (0x0101) -|
-  |   or AttachOrCreateResponse (0x010D)-|
-  |                                       |
-  |      [state -> OPERATING]            |
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+
+    Client->>Server: [transport connect]
+    Client->>Server: ClientHello (0x0001)<br/>{version, client_type, name,<br/>capabilities, cjk_caps,<br/>preferred_input_methods, ...}
+
+    Note right of Server: validate version
+    Note right of Server: validate auth (UID)
+    Note right of Server: compute negotiated caps
+    Note right of Server: assign client_id
+
+    Server->>Client: ServerHello (0x0002)<br/>{version, server_name,<br/>negotiated_caps, session_list,<br/>client_id,<br/>supported_input_methods,<br/>coalescing_config}
+
+    Note over Client,Server: [state -> READY]
+
+    opt recommended
+        Client->>Server: ClientDisplayInfo (0x0505)<br/>{display_refresh_hz, power_state,<br/>preferred_max_fps,<br/>transport_type, estimated_rtt_ms,<br/>bandwidth_hint}
+        Note right of Server: send after ServerHello (READY state)
+        Note right of Server: re-send on display/power/transport change
+    end
+
+    alt Attach to existing session
+        Client->>Server: AttachSessionRequest (0x0104)
+        Server->>Client: AttachSessionResponse (0x0105)
+    else Create new session
+        Client->>Server: CreateSessionRequest (0x0100)
+        Server->>Client: CreateSessionResponse (0x0101)
+    else Attach or create
+        Client->>Server: AttachOrCreateRequest (0x010C)
+        Server->>Client: AttachOrCreateResponse (0x010D)
+    end
+
+    Note over Client,Server: [state -> OPERATING]
 ```
 
 ---
@@ -604,51 +601,25 @@ if "celldata_encoding" in negotiated_caps:
 
 ### 8.7 Negotiation Summary
 
-```
-Client                                  Server
-  |                                       |
-  |  ClientHello:                         |
-  |    version_min=1, version_max=1       |
-  |    caps = [clipboard_sync, mouse,     |
-  |            selection, search,         |
-  |            fd_passing]                |
-  |    cjk = [preedit, ambiguous_width,   |
-  |           double_width, preedit_sync] |
-  |    render = [cell_data, dirty_tracking,|
-  |              cursor_style]             |
-  |    preferred_input_methods =          |
-  |      [{method: "direct"},             |
-  |       {method: "korean_2set"}]        |
-  |                                       |
-  |                                       |  server_caps = [clipboard_sync,
-  |                                       |                 mouse, selection, search]
-  |                                       |  server_cjk = [preedit, ambiguous_width,
-  |                                       |                double_width]
-  |                                       |  server_render = [cell_data, dirty_tracking,
-  |                                       |                   cursor_style]
-  |                                       |  server_input_methods =
-  |                                       |    [{method: "direct", layouts: ["qwerty"]},
-  |                                       |     {method: "korean_2set", layouts: ["qwerty"]}]
-  |                                       |
-  |                                       |  negotiated_caps = intersection
-  |                                       |    = [clipboard_sync, mouse,
-  |                                       |       selection, search]
-  |                                       |  negotiated_cjk = [preedit, ambiguous_width,
-  |                                       |                    double_width]
-  |                                       |  negotiated_render = [cell_data, dirty_tracking,
-  |                                       |                       cursor_style]
-  |                                       |  client_id = 3
-  |                                       |
-  |  ServerHello:                         |
-  |    version = 1                        |
-  |    client_id = 3                      |
-  |    caps = [negotiated set]            |
-  |    cjk = [negotiated set]             |
-  |    render = [negotiated set]          |
-  |    supported_input_methods = [...]    |
-  |    coalescing_config = {...}          |
-  |                                       |
-  |  Both sides now use negotiated caps   |
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+
+    Client->>Server: ClientHello<br/>version_min=1, version_max=1<br/>caps = [clipboard_sync, mouse, selection, search, fd_passing]<br/>cjk = [preedit, ambiguous_width, double_width, preedit_sync]<br/>render = [cell_data, dirty_tracking, cursor_style]<br/>preferred_input_methods = [{method: "direct"}, {method: "korean_2set"}]
+
+    Note right of Server: server_caps = [clipboard_sync, mouse, selection, search]
+    Note right of Server: server_cjk = [preedit, ambiguous_width, double_width]
+    Note right of Server: server_render = [cell_data, dirty_tracking, cursor_style]
+    Note right of Server: server_input_methods =<br/>[{method: "direct", layouts: ["qwerty"]},<br/>{method: "korean_2set", layouts: ["qwerty"]}]
+    Note right of Server: negotiated_caps = intersection<br/>= [clipboard_sync, mouse, selection, search]
+    Note right of Server: negotiated_cjk = [preedit, ambiguous_width, double_width]
+    Note right of Server: negotiated_render = [cell_data, dirty_tracking, cursor_style]
+    Note right of Server: client_id = 3
+
+    Server->>Client: ServerHello<br/>version = 1<br/>client_id = 3<br/>caps = [negotiated set]<br/>cjk = [negotiated set]<br/>render = [negotiated set]<br/>supported_input_methods = [...]<br/>coalescing_config = {...}
+
+    Note over Client,Server: Both sides now use negotiated caps
 ```
 
 ---

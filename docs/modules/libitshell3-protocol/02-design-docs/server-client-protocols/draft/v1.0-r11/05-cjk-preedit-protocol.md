@@ -79,27 +79,21 @@ The server owns the native IME engine (libitshell3-ime). The client sends ONLY r
 
 **Preedit is cell data, not metadata.** The server calls `ghostty_surface_preedit()` on its own surface, injecting preedit cells into frame cell data when serializing FrameUpdate. The client renders cells — it has no concept of preedit and never calls `ghostty_surface_preedit()`. All preedit rendering goes through one path: cell data in I/P-frames via the ring buffer.
 
-```
-Client A (active typist)          Server (libitshell3-ime)         Client B (observer)
-------------------------          ----------------------           --------------------
-
-KeyEvent(HID keycode)  ----->    IME Composition Engine
-                                       |
-                                       +-- Preedit changed?
-                                       |     +-- Yes: ghostty_surface_preedit()
-                                       |     |         |
-                                       |     |         +-- Preedit cells injected into frame cell data
-                                       |     |         +-- FrameUpdate (cell data via ring) -> Client A
-                                       |     |         +-- FrameUpdate (cell data via ring) -> Client B
-                                       |     |         +-- PreeditUpdate (metadata) -----> Client A
-                                       |     |         +-- PreeditUpdate (metadata) -----> Client B
-                                       |     |
-                                       |     +-- No: process normally
-                                       |
-                                       +-- Text committed?
-                                             +-- Write to PTY
-                                             +-- PreeditEnd (S->C) ------> Client A
-                                             +-- PreeditEnd (S->C) ------> Client B
+```mermaid
+flowchart TD
+    A["Client A: KeyEvent(HID keycode)"] --> B["Server: IME Composition Engine"]
+    B --> C{"Preedit changed?"}
+    C -- Yes --> D["ghostty_surface_preedit()"]
+    D --> E["Preedit cells injected into frame cell data"]
+    E --> F["FrameUpdate (cell data via ring) → Client A"]
+    E --> G["FrameUpdate (cell data via ring) → Client B"]
+    E --> H["PreeditUpdate (metadata) → Client A"]
+    E --> I["PreeditUpdate (metadata) → Client B"]
+    C -- No --> J["Process normally"]
+    B --> K{"Text committed?"}
+    K -- Yes --> L["Write to PTY"]
+    L --> M["PreeditEnd (S→C) → Client A"]
+    L --> N["PreeditEnd (S→C) → Client B"]
 ```
 
 **Single-path rendering model**: Preedit rendering is through cell data in I/P-frames. The dedicated preedit messages (0x0400-0x04FF) are lifecycle/metadata only — used for multi-client coordination, composition tracking, and debugging. Not used for rendering. A client that only needs to render can ignore all 0x04xx messages.
@@ -472,23 +466,19 @@ The `"client_disconnected"` reason is reused here because from the remaining cli
 4. Send InputMethodAck to all attached clients
 
 **Wire trace** (commit_current=true):
-```
-Client A                Server                  Client B
---------                ------                  --------
-InputMethodSwitch(
-  pane=1,
-  input_method="direct",
-  commit_current=true) ->
-                        [Preedit active: "한"]
-                        Write "한" to PTY
-                        PreeditEnd(pane=1, reason=committed,
-                                   committed_text="한") --------> Client A
-                        PreeditEnd(pane=1, reason=committed,
-                                   committed_text="한") --------> Client B
-                        InputMethodAck(pane=1,
-                          active_input_method="direct",
-                          previous_input_method="korean_2set") -> Client A
-                        InputMethodAck(pane=1, ...) -----------> Client B
+```mermaid
+sequenceDiagram
+    participant A as Client A
+    participant S as Server
+    participant B as Client B
+
+    A->>S: InputMethodSwitch(pane=1, input_method="direct", commit_current=true)
+    Note over S: Preedit active: "한"
+    Note over S: Write "한" to PTY
+    S->>A: PreeditEnd(pane=1, reason=committed, committed_text="한")
+    S->>B: PreeditEnd(pane=1, reason=committed, committed_text="한")
+    S->>A: InputMethodAck(pane=1, active_input_method="direct", previous_input_method="korean_2set")
+    S->>B: InputMethodAck(pane=1, active_input_method="direct", previous_input_method="korean_2set")
 ```
 
 **Note**: The server-side hotkey detection path (e.g., Right-Alt detected from KeyEvent) follows the same sequence. The `commit_current` behavior for hotkey-triggered switches is implementation-defined (recommended: `commit_current=true` as default).

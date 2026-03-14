@@ -394,42 +394,40 @@ All input messages share the same Unix domain socket connection as other protoco
 
 ### 3.2 Input Flow Summary
 
-```
-Client                                    Server
-------                                    ------
+```mermaid
+flowchart TD
+    subgraph Client
+        A["User presses key"]
+        B["KeyEvent<br/>(JSON: HID keycode, mods, input_method)"]
+        K["CellData → RenderState population"]
+        L["ghostty rendering pipeline<br/>(font shaping, atlas, GPU buffers)"]
+        M["Metal drawFrame()"]
+    end
 
- [User presses key]
-     |
-     v
- KeyEvent(JSON: HID keycode, mods, input_method)
-     |
-     +--- Unix socket ------------------>  Input Dispatcher
-     |                                       |
-     |                                       v
-     |                                   libitshell3-ime
-     |                                   (Layout Mapper + Composition Engine)
-     |                                       |
-     |                                       +-- Preedit? --> Update preedit state
-     |                                       |                     |
-     |                                       +-- Commit? --> Write to PTY
-     |                                                            |
-     |                                                            v
-     |                                                       libghostty-vt
-     |                                                       Terminal.vtStream()
-     |                                                            |
-     |                                                            v
-     |                                                       RenderState.update()
-     |                                                            |
-     <---- FrameUpdate (binary cells + JSON metadata) -----------+
-     |
-     v
- CellData → RenderState population
-     |
-     v
- ghostty rendering pipeline (font shaping, atlas, GPU buffers)
-     |
-     v
- Metal drawFrame()
+    subgraph Server
+        D["Input Dispatcher"]
+        E["libitshell3-ime<br/>(Layout Mapper + Composition Engine)"]
+        F{"Preedit?"}
+        G["Update preedit state"]
+        H{"Commit?"}
+        I["Write to PTY"]
+        J1["libghostty-vt<br/>Terminal.vtStream()"]
+        J2["RenderState.update()"]
+    end
+
+    A --> B
+    B -- "Unix socket" --> D
+    D --> E
+    E --> F
+    E --> H
+    F -- "Yes" --> G
+    H -- "Yes" --> I
+    G --> J1
+    I --> J1
+    J1 --> J2
+    J2 -- "FrameUpdate<br/>(binary cells + JSON metadata)" --> K
+    K --> L
+    L --> M
 ```
 
 ---

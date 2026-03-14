@@ -57,11 +57,14 @@
 
 **Socket path resolution algorithm:**
 
-```
-1. If $ITSHELL3_SOCKET is set -> use it directly
-2. If $XDG_RUNTIME_DIR is set -> $XDG_RUNTIME_DIR/itshell3/<server-id>.sock
-3. Otherwise -> $TMPDIR/itshell3-<uid>/<server-id>.sock
-4. If $TMPDIR is unset -> /tmp/itshell3-<uid>/<server-id>.sock
+```mermaid
+flowchart TD
+    A{"$ITSHELL3_SOCKET set?"} -->|Yes| B["Use $ITSHELL3_SOCKET directly"]
+    A -->|No| C{"$XDG_RUNTIME_DIR set?"}
+    C -->|Yes| D["$XDG_RUNTIME_DIR/itshell3/&lt;server-id&gt;.sock"]
+    C -->|No| E{"$TMPDIR set?"}
+    E -->|Yes| F["$TMPDIR/itshell3-&lt;uid&gt;/&lt;server-id&gt;.sock"]
+    E -->|No| G["/tmp/itshell3-&lt;uid&gt;/&lt;server-id&gt;.sock"]
 ```
 
 The `<server-id>` is a short identifier (default: `default`) allowing multiple daemon instances.
@@ -474,40 +477,18 @@ See doc 06 for detailed message specifications. All messages in this range use J
 
 ### 5.1 State Diagram
 
-```
-                    +-------------+
-                    | DISCONNECTED|
-                    +------+------+
-                           | connect()
-                           v
-                    +-------------+
-                    | CONNECTING  |
-                    +------+------+
-                           | socket connected
-                           v
-                    +-------------+
-              +-----| HANDSHAKING |
-              |     +------+------+
-              |            | ClientHello <-> ServerHello success
-              |            v
-              |     +-------------+
-              |     |   READY     |<---- SessionDetached
-              |     +------+------+
-              |            | SessionAttach / SessionCreate / AttachOrCreate
-              |            v
-              |     +-------------+
-              |     | OPERATING   |
-              |     +------+------+
-              |            | Disconnect / error / timeout
-              |            v
-              |     +--------------+
-              +---->|DISCONNECTING |
-                    +------+-------+
-                           | connection closed
-                           v
-                    +-------------+
-                    | DISCONNECTED|
-                    +-------------+
+```mermaid
+stateDiagram-v2
+    [*] --> DISCONNECTED
+    DISCONNECTED --> CONNECTING : connect()
+    CONNECTING --> HANDSHAKING : socket connected
+    HANDSHAKING --> READY : ClientHello <-> ServerHello success
+    HANDSHAKING --> DISCONNECTING : Disconnect / error / timeout
+    READY --> OPERATING : SessionAttach / SessionCreate / AttachOrCreate
+    OPERATING --> READY : SessionDetached
+    OPERATING --> DISCONNECTING : Disconnect / error / timeout
+    DISCONNECTING --> DISCONNECTED : connection closed
+    DISCONNECTED --> [*]
 ```
 
 ### 5.2 State Descriptions
