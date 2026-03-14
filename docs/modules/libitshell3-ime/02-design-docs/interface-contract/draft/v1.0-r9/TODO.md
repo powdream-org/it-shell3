@@ -3,9 +3,9 @@
 > **Inputs:**
 > - Review note 01: `draft/v1.0-r8/review-notes/01-surface-api-references-in-comments.md` (LOW)
 > - Handover: `draft/v1.0-r8/handover/handover-to-v09.md`
-> - CTR-02: `inbox/cross-team-requests/01-behavior-team-extract-impl-content-from-v1.0.md`
-> - CTR-03: `inbox/cross-team-requests/02-behavior-team-editorial-policy-from-v1.0.md`
-> - CTR-04: `inbox/cross-team-requests/03-behavior-team-renumber-sections-from-v1.0.md`
+> - CTR-02: `draft/v1.0-r8/cross-team-requests/01-behavior-team-extract-impl-content-from-v1.0.md`
+> - CTR-03: `draft/v1.0-r8/cross-team-requests/02-behavior-team-editorial-policy-from-v1.0.md`
+> - CTR-04: `draft/v1.0-r8/cross-team-requests/03-behavior-team-renumber-sections-from-v1.0.md`
 >
 > **Owner additional requirement:** Section numbering consistency comprehensive check
 > (scope A: 5 interface-contract docs only).
