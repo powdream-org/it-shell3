@@ -14,33 +14,48 @@ PLAN.md serves as the resolution document. Owner approved skip to 3.4.
 ## Phase 3: Document Writing (3.5)
 
 **New behavior docs:**
-- [x] 01-processkey-algorithm.md — system-sw-engineer (merged daemon Phase 1 subgraph + interface-contract lines 57–67)
-- [x] 02-scenario-matrix.md — sw-architect (from interface-contract `02-types.md` lines 125–158)
-- [x] 03-modifier-flush-policy.md — system-sw-engineer (from interface-contract `02-types.md` lines 160–186)
-- [x] 10-hangul-engine-internals.md — ime-expert (from interface-contract `03-engine-interface.md` lines 128–248 + `04-ghostty-integration.md` lines 17–31)
-- [x] 11-hangul-ic-process-handling.md — ime-expert (from interface-contract `01-overview.md` lines 71–92)
+- [x] 01-processkey-algorithm.md — system-sw-engineer
+- [x] 02-scenario-matrix.md — sw-architect
+- [x] 03-modifier-flush-policy.md — system-sw-engineer
+- [x] 10-hangul-engine-internals.md — ime-expert
+- [x] 11-hangul-ic-process-handling.md — ime-expert
 
 **Cross-team requests:**
-- [x] CTR-01 → daemon: system-sw-engineer — `daemon/draft/v1.0-r4/cross-team-requests/01-ime-behavior-simplify-phase1-diagram.md`
-- [x] CTR-02 → ime-contract: ime-expert — `interface-contract/inbox/cross-team-requests/01-behavior-team-extract-impl-content-from-v1.0.md`
-- [x] CTR-03 → ime-contract: principal-architect — `interface-contract/inbox/cross-team-requests/02-behavior-team-editorial-policy-from-v1.0.md`
-- [x] CTR-04 → ime-contract: sw-architect — `interface-contract/inbox/cross-team-requests/03-behavior-team-renumber-sections-from-v1.0.md`
+- [x] CTR-01 → daemon: `daemon/draft/v1.0-r4/cross-team-requests/01-ime-behavior-simplify-phase1-diagram.md`
+- [x] CTR-02 → ime-contract: `interface-contract/inbox/cross-team-requests/01-behavior-team-extract-impl-content-from-v1.0.md`
+- [x] CTR-03 → ime-contract: `interface-contract/inbox/cross-team-requests/02-behavior-team-editorial-policy-from-v1.0.md`
+- [x] CTR-04 → ime-contract: `interface-contract/inbox/cross-team-requests/03-behavior-team-renumber-sections-from-v1.0.md`
 
-## Phase 4: Verification (3.6 + 3.7)
+## Phase 4: Verification (3.6–3.8) — 4 rounds
 
-- [x] Spawn consistency-verifier + semantic-verifier (Phase 1)
-- [x] Collect issue lists
-- [x] Spawn history-guardian + issue-reviewer (Phase 2)
-- [x] Determine confirmed / dismissed / contested
+### Round 1
+- [x] Phase 1 (consistency + semantic verifiers) — 5 confirmed, 3 dismissed
+- [x] Phase 2 (history-guardian + issue-reviewer) — contested issues escalated to owner
+- [x] Owner resolved contested items (ISSUE-4, 6, 7)
+- [x] round-1-issues.md written
 
-## Phase 5: Issue Fix (3.8) — if needed
+### Round 2
+- [x] Phase 1 — 4 confirmed (A, F, R2-2, R2-6), 8 dismissed
+- [x] Phase 2 — all confirmed
+- [x] round-2-issues.md written
+- [x] Fixes applied (A, F, R2-2, R2-6 + interface-contract 02-types.md isPrintablePosition fix)
 
-- [x] Record issues to verification/round-1-issues.md
-- [ ] Owner resolves 3 contested issues (ISSUE-4, 6, 7)
-- [ ] Spawn fresh team for fix round (confirmed issues: 1, 2, 3, 5 + any contested accepted)
+### Round 3
+- [x] Phase 1 — 2 confirmed critical (R3-sem-1, R3-sem-2), 2 dismissed
+- [x] Phase 2 — both confirmed
+- [x] round-3-issues.md written
+- [x] Fixes applied: isPrintablePosition() range corrected; prev_preedit_buf content tracking
 
-## Phase 6: Commit (3.9)
+### Round 4
+- [x] Phase 1 — R4-cons-1 (minor), R4-sem-1 (critical)
+- [x] Phase 2 — R4-cons-1 contested, R4-sem-1 confirmed
+- [x] Owner triage: R4-cons-1 dismissed, R4-sem-1 deferred to v1.0-r2
+- [x] round-4-issues.md written
 
-- [ ] Remove PLAN.md (planning artifact, not a spec document)
-- [ ] Commit all new documents
-- [ ] Report to owner
+## Phase 5: Commit (3.9)
+
+- [x] Commit all spec docs, verification records, CTRs (commit 6a68975)
+
+## Phase 6: Review Cycle (4.x)
+
+- [x] review-notes/01-backspace-flush-path-grouping.md — R4-sem-1 deferred to v1.0-r2 (commit after 6a68975)
