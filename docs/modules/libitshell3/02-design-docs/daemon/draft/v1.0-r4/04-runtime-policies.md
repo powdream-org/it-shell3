@@ -79,13 +79,19 @@ The daemon maintains two health states per client, orthogonal to connection life
 
 ### 3.2 PausePane Health Escalation Timeline
 
-```
-T=0s:    PausePane received. Client still healthy. Still participates in resize.
-T=5s:    Resize exclusion. Daemon recalculates effective size without this client.
-T=60s:   Stale transition (local Unix socket transport).
-         Daemon sends ClientHealthChanged (0x0185) to peer clients.
-T=120s:  Stale transition (SSH tunnel transport).
-T=300s:  Eviction. Daemon sends Disconnect("stale_client") and tears down connection.
+```mermaid
+stateDiagram-v2
+    state "Healthy<br/>(T=0s)<br/>PausePane received.<br/>Still participates in resize." as healthy
+    state "Resize Excluded<br/>(T=5s)<br/>Daemon recalculates effective size<br/>without this client." as resize_excluded
+    state "Stale — Local<br/>(T=60s)<br/>Unix socket transport.<br/>Daemon sends ClientHealthChanged (0x0185)<br/>to peer clients." as stale_local
+    state "Stale — SSH<br/>(T=120s)<br/>SSH tunnel transport.<br/>Daemon sends ClientHealthChanged (0x0185)<br/>to peer clients." as stale_ssh
+    state "Evicted<br/>(T=300s)<br/>Daemon sends Disconnect('stale_client')<br/>and tears down connection." as evicted
+
+    healthy --> resize_excluded : +5s · resize exclusion
+    resize_excluded --> stale_local : +55s · stale timeout (local)
+    resize_excluded --> stale_ssh : +115s · stale timeout (SSH)
+    stale_local --> evicted : +240s · eviction timeout
+    stale_ssh --> evicted : +180s · eviction timeout
 ```
 
 All timeouts are configurable via FlowControlConfig (Section 4.3). The 5s grace period and the stale timeout serve different purposes:

@@ -16,26 +16,17 @@ The daemon follows a 7-step startup sequence. Each step has a single responsibil
 
 ### 1.1 Startup Sequence
 
-```
-Step 1: Parse CLI args
-  |
-  v
-Step 2: Check existing daemon (stale socket detection)
-  |
-  v
-Step 3: Initialize kqueue (+ signal filters)
-  |
-  v
-Step 4: Bind Unix socket (transport.Listener)
-  |  register listener.fd() with kqueue
-  v
-Step 5: Initialize ghostty config
-  |
-  v
-Step 6: Create default session (PTY fork + Terminal.init)
-  |  register pty_fd with kqueue
-  v
-Step 7: Enter event loop (kevent64)
+```mermaid
+flowchart TD
+    S1["Step 1: Parse CLI args"]
+    S2["Step 2: Check existing daemon<br/>(stale socket detection)"]
+    S3["Step 3: Initialize kqueue<br/>(+ signal filters)"]
+    S4["Step 4: Bind Unix socket<br/>(transport.Listener)<br/><i>register listener.fd() with kqueue</i>"]
+    S5["Step 5: Initialize ghostty config"]
+    S6["Step 6: Create default session<br/>(PTY fork + Terminal.init)<br/><i>register pty_fd with kqueue</i>"]
+    S7["Step 7: Enter event loop<br/>(kevent64)"]
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
 ```
 
 #### Step 1: Parse CLI Arguments
@@ -170,19 +161,22 @@ If no daemon is running, the client is responsible for starting one. The auto-st
 
 **Client connect-or-start flow:**
 
-```
-connect(socket_path)
-  |
-  +-- Success -> handshake -> operate
-  |
-  +-- ECONNREFUSED -> stale socket
-  |     unlink(socket_path)
-  |     start daemon (LaunchAgent or fork+exec)
-  |     retry connect with backoff
-  |
-  +-- ENOENT -> no socket file
-        start daemon (LaunchAgent or fork+exec)
-        retry connect with backoff
+```mermaid
+flowchart TD
+    C{"connect(socket_path)"}
+    SUCCESS["Success"]
+    HANDSHAKE["handshake"]
+    OPERATE["operate"]
+    REFUSED["ECONNREFUSED<br/>(stale socket)"]
+    R1["unlink(socket_path)"]
+    NOENT["ENOENT<br/>(no socket file)"]
+    START["start daemon<br/>(LaunchAgent or fork+exec)"]
+    RETRY["retry connect with backoff"]
+
+    C --> SUCCESS --> HANDSHAKE --> OPERATE
+    C --> REFUSED --> R1 --> START
+    C --> NOENT --> START
+    START --> RETRY
 ```
 
 **Reconnection backoff after daemon crash or restart:** Exponential backoff with jitter: 100ms, 200ms, 400ms, ..., max 10s. After 5 consecutive failed connection attempts, the client reports the failure to the user (e.g., dialog or status bar notification). The client distinguishes clean exit (socket file removed by graceful shutdown) from crash (stale socket file still present).
@@ -203,26 +197,17 @@ All three trigger the same 7-step graceful shutdown sequence.
 
 ### 2.1 Graceful Shutdown Sequence
 
-```
-Step 1: Stop accepting connections
-  |
-  v
-Step 2: Flush all ImeEngines
-  |
-  v
-Step 3: Notify clients (Disconnect with reason: server_shutdown)
-  |
-  v
-Step 4: Wait for client disconnect (2-5s timeout)
-  |
-  v
-Step 5: Reap child processes
-  |
-  v
-Step 6: Close listener
-  |
-  v
-Step 7: Exit
+```mermaid
+flowchart TD
+    S1["Step 1: Stop accepting connections"]
+    S2["Step 2: Flush all ImeEngines"]
+    S3["Step 3: Notify clients<br/>(Disconnect with reason: server_shutdown)"]
+    S4["Step 4: Wait for client disconnect<br/>(2-5s timeout)"]
+    S5["Step 5: Reap child processes"]
+    S6["Step 6: Close listener"]
+    S7["Step 7: Exit"]
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
 ```
 
 #### Step 1: Stop Accepting Connections
@@ -396,36 +381,16 @@ Each client connection is managed by a per-client state machine. The daemon trac
 
 The daemon uses a subset of the canonical 6-state model from protocol doc 01 (Section 5.2). DISCONNECTED and CONNECTING are client-side only — the daemon never initiates connections. The daemon's state machine starts at HANDSHAKING after `Listener.accept()`.
 
-```
-                  accept()
-                    |
-                    v
-              HANDSHAKING
-          (ClientHello/ServerHello
-           capability negotiation)
-                    |
-                    v
-                 READY  <----------+
-          (authenticated,           |
-           not attached to          | DetachSessionRequest
-           any session)             |
-                    |               |
-  AttachSessionRequest|               |
-                    v               |
-               OPERATING -----------+
-          (attached to session,
-           full protocol: KeyEvent,
-           FrameUpdate, resize, etc.)
-                    |
-             disconnect / error /
-             Disconnect
-                    v
-              DISCONNECTING
-          (draining pending
-           outbound messages)
-                    |
-                    v
-          [conn.close(), state freed]
+```mermaid
+stateDiagram-v2
+    [*] --> HANDSHAKING : accept()
+    HANDSHAKING --> READY : success
+    READY --> OPERATING : AttachSessionRequest
+    OPERATING --> READY : DetachSessionRequest
+    OPERATING --> DISCONNECTING : peer closed (unexpected disconnect)
+    OPERATING --> DISCONNECTING : socket error
+    OPERATING --> DISCONNECTING : Disconnect msg (graceful shutdown)
+    DISCONNECTING --> [*] : conn.close(), state freed
 ```
 
 ### 4.2 State Transitions
@@ -519,17 +484,21 @@ When a client reconnects to a running daemon (after disconnect, crash, or daemon
 
 **Reconnection sequence:**
 
-```
-1. Client establishes new Unix socket connection
-2. Normal ClientHello / ServerHello handshake
-   -> client receives new client_id (monotonic, never reused)
-3. Client sends ListSessionsRequest to discover available sessions
-4. Client sends ClientDisplayInfo with terminal dimensions
-5. Client sends AttachSessionRequest for desired session
-6. Server responds with AttachSessionResponse
-   (includes active_input_method, active_keyboard_layout)
-   + I-frame per visible pane (full screen state)
-7. Client is fully resynchronized
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+
+    Note over Client,Server: 1. Client establishes new Unix socket connection
+    Client->>Server: 2. ClientHello
+    Server->>Client: 2. ServerHello (new client_id, monotonic, never reused)
+    Client->>Server: 3. ListSessionsRequest (discover available sessions)
+    Server->>Client: 3. ListSessionsResponse
+    Client->>Server: 4. ClientDisplayInfo (terminal dimensions)
+    Client->>Server: 5. AttachSessionRequest (desired session)
+    Server->>Client: 6. AttachSessionResponse<br/>(includes active_input_method,<br/>active_keyboard_layout)
+    Server->>Client: 6. I-frame per visible pane (full screen state)
+    Note over Client,Server: 7. Client is fully resynchronized
 ```
 
 **Why no incremental replay:** Every reconnection is a full state resync via I-frame from the shared ring buffer (Section 5). The full state for a typical terminal (120x40) is under 35 KB — small enough that full resync is simpler and more reliable than maintaining per-client sequence watermarks across disconnections. If reconnection latency becomes a problem, incremental replay can be added later.
@@ -707,15 +676,21 @@ This is client-side logic, not daemon logic. The daemon binary is the same regar
 
 When the client connects to a running daemon, it receives `server_version` in the ServerHello handshake message. If this version differs from the client's bundled daemon binary version, the client initiates a daemon restart:
 
-```
-1. Client receives ServerHello with server_version
-2. Compare server_version with bundled binary version
-3. If mismatch:
-   a. launchctl unload com.powdream.itshell3.daemon.plist
-   b. kill(daemon_pid, SIGTERM)   // graceful shutdown
-   c. Wait for socket to become unavailable (poll with timeout)
-   d. launchctl load with updated plist pointing to new binary
-   e. Reconnect via standard handshake flow (Section 4.6)
+```mermaid
+flowchart TD
+    S1["1. Client receives ServerHello<br/>with server_version"]
+    S2["2. Compare server_version with<br/>bundled binary version"]
+    D{{"3. Version mismatch?"}}
+    MATCH["Versions match:<br/>continue normal operation"]
+    A["a. launchctl unload<br/>com.powdream.itshell3.daemon.plist"]
+    B["b. kill(daemon_pid, SIGTERM)<br/>(graceful shutdown)"]
+    C["c. Wait for socket to become<br/>unavailable (poll with timeout)"]
+    E["d. launchctl load with updated<br/>plist pointing to new binary"]
+    F["e. Reconnect via standard<br/>handshake flow (Section 4.6)"]
+
+    S1 --> S2 --> D
+    D -- No --> MATCH
+    D -- Yes --> A --> B --> C --> E --> F
 ```
 
 **Rationale:** The daemon binary is bundled inside the client app. When the user updates the app (via DMG or Homebrew), the bundled daemon binary changes but the running daemon is still the old version. The client detects this at handshake and forces an upgrade. This is the same pattern used by tmux — the client and server must be the same version.
@@ -768,15 +743,18 @@ The server selects a protocol version within the client's declared range. If the
 
 The daemon always interacts with `transport.Connection` values. Whether a client connected locally or through an SSH tunnel is invisible to the daemon:
 
-```
-Local client:
-  Client -> Unix socket -> Daemon
-  Daemon sees: transport.Connection from Listener.accept()
+```mermaid
+flowchart LR
+    subgraph Local["Local client"]
+        LC["Client"] --> US1["Unix socket"] --> D1["Daemon"]
+    end
 
-SSH-tunneled client:
-  Client -> SSH tunnel -> sshd -> Unix socket -> Daemon
-  Daemon sees: transport.Connection from Listener.accept()
-  (sshd's UID is accepted per trust model in protocol doc 01 Section 2.2)
+    subgraph SSH["SSH-tunneled client"]
+        RC["Client"] --> ST["SSH tunnel"] --> SSHD["sshd"] --> US2["Unix socket"] --> D2["Daemon"]
+    end
+
+    D1 -.- Note1["Daemon sees:<br/>transport.Connection<br/>from Listener.accept()"]
+    D2 -.- Note2["Daemon sees:<br/>transport.Connection<br/>from Listener.accept()<br/>(sshd's UID accepted per<br/>trust model in protocol<br/>doc 01 Section 2.2)"]
 ```
 
 The daemon has no "local vs remote" code path. All clients are `Connection` values with `recv()`, `send()`, `sendv()`, and `close()`. This is a structural property of the architecture, not an abstraction to be maintained.

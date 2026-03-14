@@ -79,47 +79,48 @@ Depends on `core/` only. No ghostty dependency.
 
 Every key event from a client passes through three sequential phases:
 
-```
-Client sends: HID keycode + modifiers + shift
-                    |
-                    v
-+--------------------------------------------------+
-|  Phase 0: Global Shortcut Check (input/)         |
-|                                                   |
-|  - Language switch -> setActiveInputMethod(id)    |
-|    (toggle key detection is libitshell3's concern)|
-|  - App-level shortcuts that bypass IME entirely   |
-|  - If consumed: STOP                              |
-+----------------------+---------------------------+
-                       | not consumed
-                       v
-+--------------------------------------------------+
-|  Phase 1: IME Engine (libitshell3-ime)           |
-|                                                   |
-|  processKey(KeyEvent) -> ImeResult                |
-|                                                   |
-|  Engine internally:                               |
-|  - Checks modifiers (Ctrl/Alt/Cmd) -> flush + fwd|
-|  - Checks non-printable (arrow/F-key) -> flush+fwd|
-|  - Feeds printable to libhangul -> compose        |
-|  - Handles "not consumed" (hangul_ic_process()    |
-|    returns false): flush + forward rejected key   |
-|  - Returns committed/preedit/forward_key          |
-+----------------------+---------------------------+
-                       | ImeResult
-                       v
-+--------------------------------------------------+
-|  Phase 2: ghostty Integration (server/)          |
-|                                                   |
-|  committed_text -> write(pty_fd, utf8)            |
-|                    or key_encode.encode()          |
-|                                                   |
-|  preedit_text   -> @memcpy to session.preedit_buf |
-|                    overlay at export time          |
-|                                                   |
-|  forward_key    -> key_encode.encode(event, opts) |
-|                 -> write(pty_fd, encoded)          |
-+--------------------------------------------------+
+```mermaid
+flowchart TD
+    INPUT["Client sends:<br/>HID keycode + modifiers + shift"]
+    INPUT --> P0_check
+
+    subgraph P0["Phase 0: Global Shortcut Check (input/)"]
+        P0_check{"Language switch<br/>or app-level shortcut?"}
+    end
+
+    P0_check -- "consumed" --> STOP["STOP"]
+    P0_check -- "not consumed" --> P1_process
+
+    subgraph P1["Phase 1: IME Engine (libitshell3-ime)"]
+        P1_process["processKey(KeyEvent)"]
+        P1_mod{"Modifier key?<br/>Ctrl / Alt / Cmd"}
+        P1_print{"Printable?"}
+        P1_hangul["Feed to libhangul<br/>→ compose"]
+        P1_ic{"hangul_ic_process()<br/>returned true?"}
+        P1_flush_mod["flush + forward key"]
+        P1_flush_np["flush + forward key"]
+        P1_flush_rej["flush + forward rejected key"]
+        P1_result(["ImeResult<br/>committed / preedit / forward_key"])
+
+        P1_process --> P1_mod
+        P1_mod -- "Yes" --> P1_flush_mod --> P1_result
+        P1_mod -- "No" --> P1_print
+        P1_print -- "No (arrow / F-key / etc.)" --> P1_flush_np --> P1_result
+        P1_print -- "Yes" --> P1_hangul --> P1_ic
+        P1_ic -- "Yes" --> P1_result
+        P1_ic -- "No" --> P1_flush_rej --> P1_result
+    end
+
+    P1_result --> P2_committed
+    P1_result --> P2_preedit
+    P1_result --> P2_fwd
+
+    subgraph P2["Phase 2: ghostty Integration (server/)"]
+        P2_committed["committed_text"] --> P2_write_utf8["write(pty_fd, utf8)"]
+        P2_committed --> P2_encode_committed["key_encode.encode()"]
+        P2_preedit["preedit_text"] --> P2_memcpy["@memcpy to session.preedit_buf<br/>overlay at export time"]
+        P2_fwd["forward_key"] --> P2_encode["key_encode.encode(event, opts)"] --> P2_write_fwd["write(pty_fd, encoded)"]
+    end
 ```
 
 **Why IME runs before keybindings**: When the user presses Ctrl+C during Korean composition (preedit = "하"), Phase 0 checks — Ctrl+C is not a language toggle. Phase 1: engine detects Ctrl modifier, flushes "하", returns `{ committed: "하", forward_key: Ctrl+C }`. Phase 2: committed text "하" is written to PTY, then Ctrl+C is encoded via `key_encode.encode()` and written to PTY. This ensures the user's in-progress composition is preserved before any control key action.
@@ -270,49 +271,65 @@ Session = Tab merge. No intermediate Tab entity. Each Session directly owns an a
 
 ### 3.2 Hierarchy
 
-```
-SessionManager (in server/)
-  +-- HashMap(u32, *SessionEntry)
-  |
-  +-- SessionEntry (in server/session_entry.zig)
-  |     session: Session                      // core/ pure state (see below)
-  |     pane_slots: [16]?Pane                 // by value, per-session fixed pane array
-  |     free_mask: u16                        // bitmap of available pane slots
-  |     dirty_mask: u16                       // bitmap of dirty panes (set on PTY read)
-  |     |
-  |     +-- Session (in core/session.zig)
-  |     |     session_id: u32
-  |     |     name: []const u8
-  |     |     ime_engine: ImeEngine
-  |     |     active_input_method: []const u8
-  |     |     keyboard_layout: []const u8
-  |     |     tree_nodes: [31]?SplitNodeData  // array-based binary tree (root = index 0)
-  |     |     focused_pane: ?PaneSlot
-  |     |     creation_timestamp: i64
-  |     |     current_preedit: ?[]const u8    // cached from last ImeResult
-  |     |     preedit_buf: [64]u8             // backing storage for current_preedit
-  |     |     last_preedit_row: ?u16          // cursor row of last overlaid preedit
-  |     |     |
-  |     |     +-- SplitNodeData (tagged union in core/)
-  |     |           .leaf => PaneSlot (u8, 0..15)
-  |     |           .split => { orientation, ratio }
-  |     |           Navigation: parent(i) = (i-1)/2, left(i) = 2*i+1, right(i) = 2*i+2
-  |     |
-  |     +-- Pane (in server/pane.zig, stored by value in pane_slots)
-  |           pane_id: u32                    // global monotonic wire identity
-  |           slot_index: u8                  // position in owning SessionEntry's pane_slots
-  |           pty_fd: posix.fd_t
-  |           child_pid: posix.pid_t
-  |           terminal: *ghostty.Terminal
-  |           render_state: *ghostty.RenderState
-  |           cols: u16
-  |           rows: u16
-  |           title: []const u8              // OSC 0/2 title
-  |           cwd: []const u8                // OSC 7 working directory
-  |           foreground_process: []const u8 // foreground process name
-  |           foreground_pid: posix.pid_t    // foreground process PID
-  |           is_running: bool               // false after child exits
-  |           exit_status: ?u8               // set on process exit
+```mermaid
+classDiagram
+    class SessionManager {
+        +HashMap~u32, *SessionEntry~ sessions
+    }
+
+    class SessionEntry {
+        <<server/session_entry.zig>>
+        +Session session
+        +Pane?[16] pane_slots
+        +u16 free_mask
+        +u16 dirty_mask
+    }
+
+    class Session {
+        <<core/session.zig>>
+        +u32 session_id
+        +[]const u8 name
+        +ImeEngine ime_engine
+        +[]const u8 active_input_method
+        +[]const u8 keyboard_layout
+        +SplitNodeData?[31] tree_nodes
+        +PaneSlot? focused_pane
+        +i64 creation_timestamp
+        +[]const u8? current_preedit
+        +u8[64] preedit_buf
+        +u16? last_preedit_row
+    }
+
+    class SplitNodeData {
+        <<tagged union in core/>>
+        +PaneSlot leaf
+        +Orientation orientation
+        +f32 ratio
+        Navigation: parent = i-1 /2, left = 2*i+1, right = 2*i+2
+    }
+
+    class Pane {
+        <<server/pane.zig>>
+        +u32 pane_id
+        +u8 slot_index
+        +posix.fd_t pty_fd
+        +posix.pid_t child_pid
+        +*ghostty.Terminal terminal
+        +*ghostty.RenderState render_state
+        +u16 cols
+        +u16 rows
+        +[]const u8 title
+        +[]const u8 cwd
+        +[]const u8 foreground_process
+        +posix.pid_t foreground_pid
+        +bool is_running
+        +u8? exit_status
+    }
+
+    SessionManager "1" *-- "*" SessionEntry : sessions
+    SessionEntry "1" *-- "1" Session : session
+    SessionEntry "1" *-- "1..16" Pane : pane_slots[16]
+    Session "1" *-- "1..31" SplitNodeData : tree_nodes[31]
 ```
 
 **Tree node array vs pane slot array**: These are separate index spaces. Tree node indices (0..30) identify positions in the `[31]?SplitNodeData` array (in `Session`). Pane slot indices (0..15) identify positions in the `[16]?Pane` array (in `SessionEntry`). Leaf nodes store pane slot indices. Tree compaction (subtree relocation during split/close) moves tree nodes but does not change the pane slot indices stored in leaf values. Pane slot indices are stable across tree mutations.
@@ -601,23 +618,16 @@ Failure to clear preedit state leaves stale composed characters on screen after 
 
 The complete export pipeline for a single pane:
 
-```
-terminal.vtStream(pty_bytes)        // Process PTY output
-    |
-    v
-RenderState.update(alloc, &terminal)  // Snapshot terminal state
-    |
-    v
-bulkExport(alloc, &render_state, &terminal)  // Produce FlatCell[]
-    |
-    v
-overlayPreedit(export_result, session.current_preedit, cursor)  // Inject preedit
-    |
-    v
-serialize FrameUpdate -> ring buffer  // Ready for client delivery
-    |
-    v
-conn.sendv(iovecs)                    // Zero-copy to socket
+```mermaid
+flowchart TD
+    S1["terminal.vtStream(pty_bytes)<br/>Process PTY output"]
+    S2["RenderState.update(alloc, &terminal)<br/>Snapshot terminal state"]
+    S3["bulkExport(alloc, &render_state, &terminal)<br/>Produce FlatCell[]"]
+    S4["overlayPreedit(export_result, session.current_preedit, cursor)<br/>Inject preedit"]
+    S5["serialize FrameUpdate → ring buffer<br/>Ready for client delivery"]
+    S6["conn.sendv(iovecs)<br/>Zero-copy to socket"]
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6
 ```
 
 **Frame suppression for undersized panes**: The server MUST NOT generate `FrameUpdate` for panes with `cols < 2` or `rows < 1`. This occurs during resize animations or aggressive pane splitting. When dimensions fall below these minimums:

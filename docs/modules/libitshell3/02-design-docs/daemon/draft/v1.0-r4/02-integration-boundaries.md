@@ -275,11 +275,9 @@ entry2.session.ime_engine.activate()
 
 Key input flows through three phases across three modules:
 
-```
-┌──────────────────┐     ┌─────────────────────┐     ┌──────────────────┐
-│  Phase 0 (input/)│────>│ Phase 1 (libitshell3 │────>│ Phase 2 (server/)│
-│  Shortcut check  │     │ -ime: processKey)    │     │  I/O + ghostty   │
-└──────────────────┘     └─────────────────────┘     └──────────────────┘
+```mermaid
+flowchart LR
+    A["Phase 0 (input/)<br/>Shortcut check"] --> B["Phase 1(libitshell3-ime:)<br/>processKey"] --> C["Phase 2 (server/)<br/>I/O + ghostty"]
 ```
 
 **Phase 0** — `input/` module (shortcut interception):
