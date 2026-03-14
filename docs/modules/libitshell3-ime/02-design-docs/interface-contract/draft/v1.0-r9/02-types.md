@@ -1,10 +1,5 @@
 # IME Interface Contract v1.0-r9 — Types
 
-> **Version**: v1.0-r9
-> **Date**: 2026-03-14
-> **Part of the IME Interface Contract v1.0-r9. See [01-overview.md](01-overview.md) for the document index.**
-> **Changes from v0.8**: Implementation content (scenario matrix, flush policy details, HangulImeEngine struct) extracted to behavior docs. Surface API references removed. Sections renumbered per-document sequential. See [Appendix K: Changes from v0.8](99-appendices.md#appendix-k-changes-from-v08).
-
 ## 1. KeyEvent (Input to IME)
 
 ```zig
@@ -77,7 +72,6 @@ pub const KeyEvent = struct {
 - `shift` is separate from `modifiers` because Shift participates in character production (Korean jamo selection), while Ctrl/Alt/Cmd trigger composition flush. This mirrors the ibus-hangul pattern where `IBUS_CONTROL_MASK | IBUS_MOD1_MASK` triggers flush but `IBUS_SHIFT_MASK` does not.
 - `action` (press/release/repeat) added based on ghostty's `ghostty_input_action_e`. Release events are needed for future Kitty keyboard protocol support. The IME engine typically ignores release events.
 - **Wire-to-KeyEvent mapping**: The daemon decomposes the protocol wire modifier bitmask into `KeyEvent` fields before calling `processKey()`. See [daemon design doc 02 §4.2](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#wire-to-keyevent-decomposition) for the full mapping table.
-
 ## 2. ImeResult (Output from IME)
 
 ```zig
@@ -132,13 +126,11 @@ pub const ImeResult = struct {
 ```
 
 For the complete scenario matrix and direct mode behavior, see [behavior/draft/v1.0-r1/02-scenario-matrix.md](../../../behavior/draft/v1.0-r1/02-scenario-matrix.md).
-
 ## 3. Modifier Flush Policy
 
 When the IME has active preedit and a modifier+key or special key arrives, the engine **flushes (commits)** the in-progress composition, then forwards the key. The preedit is never silently discarded. Shift does NOT flush — it participates in jamo selection (e.g., ㄱ→ㄲ).
 
 For the complete flush policy table, examples, and verification against ibus-hangul/fcitx5-hangul, see [behavior/draft/v1.0-r1/03-modifier-flush-policy.md](../../../behavior/draft/v1.0-r1/03-modifier-flush-policy.md).
-
 ## 4. Input Method Identifiers
 
 The canonical representation for input method identification is a **single string** (`input_method: []const u8`). This is the ONLY representation that crosses any component boundary — protocol wire, IME contract API, session persistence, configuration.

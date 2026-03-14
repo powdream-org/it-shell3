@@ -1,10 +1,5 @@
 # IME Interface Contract v1.0-r9 — Engine Interface
 
-> **Version**: v1.0-r9
-> **Date**: 2026-03-14
-> **Part of the IME Interface Contract v1.0-r9. See [01-overview.md](01-overview.md) for the document index.**
-> **Changes from v0.8**: HangulImeEngine concrete struct extracted to behavior docs. Internal step sequence removed from setActiveInputMethod. Surface API references removed from MockImeEngine tests. Sections renumbered per-document sequential. See [Appendix K: Changes from v0.8](99-appendices.md#appendix-k-changes-from-v08).
-
 ## 1. ImeEngine (Interface for Dependency Injection)
 
 ```zig
@@ -119,7 +114,6 @@ pub const ImeEngine = struct {
 - Comptime generics (`fn Session(comptime Ime: type) type`) would monomorphize all Session code per IME type, inflating binary size when multiple engines exist.
 - vtable is a single pointer indirection — negligible cost at the call rates we see (< 100 calls/second for human typing).
 - vtable works with C FFI (comptime generics don't export to C).
-
 ## 2. setActiveInputMethod Behavior
 
 `setActiveInputMethod()` is the only input-method-switching method. It handles both language switches (e.g., `"korean_2set"` -> `"direct"`) and layout switches (e.g., `"korean_2set"` -> `"korean_3set_final"`) uniformly. Its behavior depends on whether the requested input method differs from the current one:
@@ -153,7 +147,6 @@ Return `error.UnsupportedInputMethod`. The server MUST only send input method st
 > **Discard-and-switch pattern**: `reset()` followed by `setActiveInputMethod()` is safe for discard-and-switch when the caller holds the per-session lock. After `reset()`, the engine is empty and `setActiveInputMethod()` performs a no-flush switch. This pattern implements the protocol's `commit_current=false` on InputMethodSwitch.
 
 For the concrete `HangulImeEngine` implementation (struct fields, vtable implementations, libhangul keyboard ID mapping, canonical input method registry, processKey algorithm, and session persistence), see [behavior/draft/v1.0-r1/10-hangul-engine-internals.md](../../../behavior/draft/v1.0-r1/10-hangul-engine-internals.md).
-
 ## 3. MockImeEngine (For Testing)
 
 ```zig

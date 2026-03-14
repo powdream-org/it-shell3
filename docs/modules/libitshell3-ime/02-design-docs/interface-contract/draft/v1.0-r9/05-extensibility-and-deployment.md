@@ -1,10 +1,5 @@
 # IME Interface Contract v1.0-r9 — Extensibility and Deployment
 
-> **Version**: v1.0-r9
-> **Date**: 2026-03-14
-> **Part of the IME Interface Contract v1.0-r9. See [01-overview.md](01-overview.md) for the document index.**
-> **Changes from v0.8**: Sections renumbered per-document sequential (CTR-04). See [Appendix K: Changes from v0.8](99-appendices.md#appendix-k-changes-from-v08).
-
 ## 1. Future Extensibility
 
 ### Candidate Support (Japanese/Chinese)
@@ -69,13 +64,11 @@ To add a new language (e.g., Japanese via libkkc):
 5. No changes to `KeyEvent`, `ImeResult`, or the processing pipeline.
 
 ---
-
 ## 2. C API Boundary
 
 libitshell3-ime exports a Zig API only; it has no public C header. It is an internal dependency of libitshell3, statically linked into the daemon binary. See [daemon design doc 02 §5](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#5-c-api-surface-design) for the full C API surface design.
 
 ---
-
 ## 3. Session Persistence
 
 The engine constructor accepts a canonical `input_method` string: `HangulImeEngine.init(allocator, input_method)`. This is the only engine-internal field needed to reconstruct an engine on session restore. Composition state is never persisted — the engine always starts with empty composition.

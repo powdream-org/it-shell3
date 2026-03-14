@@ -1,10 +1,5 @@
 # IME Interface Contract v1.0-r9 — ghostty Integration (Reference)
 
-> **Version**: v1.0-r9
-> **Date**: 2026-03-14
-> **Part of the IME Interface Contract v1.0-r9. See [01-overview.md](01-overview.md) for the document index.**
-> **Changes from v0.8**: CTR-02 (buffer layout/sizing details extracted to behavior docs), CTR-04 (per-document sequential renumbering). See [Appendix K: Changes from v0.8](99-appendices.md#appendix-k-changes-from-v08).
-
 ## 1. ghostty Integration
 
 ghostty integration — how `ImeResult` is consumed by the daemon to drive the key input and preedit pipeline (`key_encode.encode()`, `write(pty_fd)`, `overlayPreedit()`) — is defined in [daemon design doc 01 §4](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/01-internal-architecture.md) and [daemon design doc 02 §4](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#4-ime-integration-libitshell3-ime).
