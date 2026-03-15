@@ -26,7 +26,7 @@ sequenceDiagram
     participant Server
 
     Client->>Server: [transport connect]
-    Client->>Server: ClientHello (0x0001)<br/>{version, client_type, name,<br/>capabilities, cjk_caps,<br/>preferred_input_methods, ...}
+    Client->>Server: ClientHello (0x0001)<br/>{version, client_type, name,<br/>capabilities,<br/>preferred_input_methods, ...}
 
     Note right of Server: validate version
     Note right of Server: validate auth (UID)
@@ -78,12 +78,6 @@ payload is a JSON object.
     "search",
     "fd_passing"
   ],
-  "cjk_capabilities": [
-    "preedit",
-    "ambiguous_width",
-    "double_width",
-    "preedit_sync"
-  ],
   "render_capabilities": ["cell_data", "dirty_tracking", "cursor_style"],
   "preferred_input_methods": [
     { "method": "direct" },
@@ -105,9 +99,8 @@ payload is a JSON object.
 | `protocol_version_max`    | u8       | Maximum protocol version the client supports                         |
 | `client_type`             | string   | Client type (see 2.2)                                                |
 | `capabilities`            | string[] | General capability flag names (see Section 4)                        |
-| `cjk_capabilities`        | string[] | CJK capability flag names (see Section 5)                            |
-| `render_capabilities`     | string[] | Render capability flag names (see Section 6)                         |
-| `preferred_input_methods` | object[] | Client's preferred input methods in priority order (see Section 6.3) |
+| `render_capabilities`     | string[] | Render capability flag names (see Section 5)                         |
+| `preferred_input_methods` | object[] | Client's preferred input methods in priority order (see Section 5.3) |
 | `client_name`             | string   | Client name (e.g., "it-shell3-macos", "it-shell3-ios")               |
 | `client_version`          | string   | Version string (e.g., "1.0.0")                                       |
 | `terminal_type`           | string   | Terminal type (e.g., "xterm-256color", "ghostty")                    |
@@ -123,7 +116,7 @@ compatibility).
 
 **Input method objects**: Each entry in `preferred_input_methods` is an object
 with a required `method` field and an optional `layout` field (omitted =
-`"qwerty"` default, per the JSON optional field convention). See Section 6.3 for
+`"qwerty"` default, per the JSON optional field convention). See Section 5.3 for
 details.
 
 ### 2.2 Client Type Enum
@@ -153,12 +146,6 @@ A macOS native client connecting for the first time:
     "selection",
     "search",
     "fd_passing"
-  ],
-  "cjk_capabilities": [
-    "preedit",
-    "ambiguous_width",
-    "double_width",
-    "preedit_sync"
   ],
   "render_capabilities": [
     "cell_data",
@@ -197,7 +184,6 @@ On the wire, this is sent as:
   "protocol_version": 1,
   "client_id": 1,
   "negotiated_caps": ["clipboard_sync", "mouse", "selection", "search"],
-  "negotiated_cjk_caps": ["preedit", "ambiguous_width", "double_width"],
   "negotiated_render_caps": ["cell_data", "dirty_tracking", "cursor_style"],
   "supported_input_methods": [
     { "method": "direct", "layouts": ["qwerty"] },
@@ -235,9 +221,8 @@ On the wire, this is sent as:
 | `protocol_version`        | u8       | Negotiated protocol version                                                                                                                                         |
 | `client_id`               | u32      | Server-assigned client ID for this connection. Monotonically increasing per daemon lifetime. Used for preedit ownership comparison and multi-client identification. |
 | `negotiated_caps`         | string[] | Negotiated general capability flag names                                                                                                                            |
-| `negotiated_cjk_caps`     | string[] | Negotiated CJK capability flag names                                                                                                                                |
 | `negotiated_render_caps`  | string[] | Negotiated render capability flag names                                                                                                                             |
-| `supported_input_methods` | object[] | Server's supported input methods with available layouts (see Section 6.3)                                                                                           |
+| `supported_input_methods` | object[] | Server's supported input methods with available layouts (see Section 5.3)                                                                                           |
 | `server_pid`              | u32      | Server daemon PID (for debugging)                                                                                                                                   |
 | `server_name`             | string   | Server name (e.g., "itshell3d")                                                                                                                                     |
 | `server_version`          | string   | Version string                                                                                                                                                      |
@@ -305,7 +290,6 @@ Server responding with one existing session, assigning client_id 3:
   "protocol_version": 1,
   "client_id": 3,
   "negotiated_caps": ["clipboard_sync", "mouse", "selection", "search"],
-  "negotiated_cjk_caps": ["preedit", "ambiguous_width", "double_width"],
   "negotiated_render_caps": ["cell_data", "dirty_tracking", "cursor_style"],
   "supported_input_methods": [
     { "method": "direct", "layouts": ["qwerty"] },
@@ -408,81 +392,9 @@ capability flag reserves this negotiation path without adding v1 complexity.
 
 ---
 
-## 5. CJK Capability Flags
+## 5. Render Capability Flags
 
-The `cjk_capabilities` array uses the following names. These are separate from
-general capabilities because CJK support involves multiple independent features
-that compose differently.
-
-| Name                   | Internal Bit | Description                                                      |
-| ---------------------- | ------------ | ---------------------------------------------------------------- |
-| `"preedit"`            | 0            | Supports IME preedit synchronization (`PreeditStart/Update/End`) |
-| `"ambiguous_width"`    | 1            | Supports ambiguous-width character configuration sync            |
-| `"double_width"`       | 2            | Supports double-width (fullwidth) character rendering            |
-| `"preedit_sync"`       | 3            | Supports multi-client preedit broadcast (`PreeditSync`)          |
-| `"jamo_decomposition"` | 4            | Supports Korean Jamo decomposition-aware backspace               |
-| `"composition_engine"` | 5            | Server has a native IME composition engine (libitshell3-ime)     |
-
-### 5.1 CJK Capability Semantics
-
-**`"preedit"` (bit 0)**: The fundamental CJK feature. When negotiated:
-
-- The server sends `PreeditStart` (`0x0400`), `PreeditUpdate` (`0x0401`), and
-  `PreeditEnd` (`0x0402`) messages to the client
-- The server tracks per-session preedit state using its native IME engine
-  (libitshell3-ime) — one engine per session, shared by all panes
-- Preedit rendering is always available through cell data in I/P-frames
-  regardless of capability negotiation — the server injects preedit cells into
-  the terminal grid and they are included in FrameUpdate cell data automatically
-- The client sends raw HID keycodes via `KeyEvent`; the server processes them
-  through the composition engine and pushes preedit state to all attached
-  clients
-
-**`"ambiguous_width"` (bit 1)**: When negotiated:
-
-- Client and server sync `unicode-ambiguous-is-wide` configuration via
-  `AmbiguousWidthConfig` (`0x0406`)
-- Both sides agree on whether ambiguous-width characters occupy 1 or 2 cells
-
-**`"double_width"` (bit 2)**: When negotiated:
-
-- The server sends proper `wide` cell attributes in `FrameUpdate` binary
-  CellData
-- The client renders CJK ideographs at double width
-- (This is expected to be supported by all it-shell3 clients; the flag exists
-  for forward compatibility with minimal third-party clients)
-
-**`"preedit_sync"` (bit 3)**: Requires `"preedit"`. When negotiated:
-
-- The server sends `PreeditSync` (0x0403) full-state snapshots to clients that
-  attach to a pane with an active composition session
-- `PreeditSync` is the only message gated by this capability.
-  `PreeditStart`/`PreeditUpdate`/`PreeditEnd` (0x0400-0x0402) are gated by
-  `"preedit"` (bit 0) alone and are always broadcast to all clients that
-  negotiated `"preedit"`.
-- Enables multi-viewer CJK composition (e.g., pair programming, shared terminal
-  session)
-
-**`"jamo_decomposition"` (bit 4)**: Requires `"preedit"`. When negotiated:
-
-- The server understands Korean Jamo decomposition rules
-- Backspace during Korean composition correctly decomposes (`han` -> `ha` ->
-  `h-ieung` -> empty)
-- Without this flag, the server treats backspace as a simple character deletion
-
-**`"composition_engine"` (bit 5)**: Informational flag. When set:
-
-- Indicates the server runs libitshell3-ime's native composition engine (not
-  relying on OS IME)
-- The server can guarantee deterministic composition behavior
-- Affects how preedit state is validated (native engine produces only valid
-  Hangul sequences)
-
----
-
-## 6. Render Capability Flags
-
-### 6.1 Render Capabilities
+### 5.1 Render Capabilities
 
 | Name                 | Internal Bit | Description                                                                |
 | -------------------- | ------------ | -------------------------------------------------------------------------- |
@@ -495,7 +407,7 @@ that compose differently.
 | `"hyperlinks"`       | 6            | Supports OSC 8 hyperlink passthrough                                       |
 | `"vt_fallback"`      | 7            | Supports VT re-serialization as a fallback rendering mode                  |
 
-### 6.2 Render Capability Notes
+### 5.2 Render Capability Notes
 
 - `"cell_data"` is the primary rendering mode. All native it-shell3 clients
   support this. When negotiated, the server sends `FrameUpdate` with binary
@@ -506,7 +418,7 @@ that compose differently.
 - `"dirty_tracking"` should be supported by all clients. Without it, the server
   sends full frames on every update (wasteful).
 
-### 6.3 Input Method Negotiation
+### 5.3 Input Method Negotiation
 
 Input method support uses a two-axis model separating the **input method**
 (composition engine) from the **keyboard layout** (physical key mapping):
@@ -576,9 +488,9 @@ adding new languages is just a new string value with zero schema migration.
 
 ---
 
-## 7. ClientDisplayInfo Message (`0x0505`)
+## 6. ClientDisplayInfo Message (`0x0505`)
 
-### 7.1 Overview
+### 6.1 Overview
 
 `ClientDisplayInfo` is an early post-handshake message sent by the client to
 inform the server of display characteristics and transport conditions that
@@ -595,7 +507,7 @@ changing).
 | State        | `READY` or `OPERATING`              |
 | Required     | No (recommended for native clients) |
 
-### 7.2 Payload Schema and Semantics
+### 6.2 Payload Schema and Semantics
 
 The canonical payload schema for `ClientDisplayInfo` (0x0505) and
 `ClientDisplayInfoAck` (0x0506) is defined in **doc 06, Section 1.2**. Doc 06 is
@@ -623,7 +535,7 @@ latency. With SSH tunneling, the daemon sees only a local Unix socket connection
 — heartbeat RTT measures ~0ms regardless of actual network latency. The client
 self-reports transport conditions via this message.
 
-### 7.3 Example: iOS Client on Battery over SSH
+### 6.3 Example: iOS Client on Battery over SSH
 
 ```json
 {
@@ -647,9 +559,9 @@ The server receives this and caps FrameUpdate delivery:
 
 ---
 
-## 8. Negotiation Algorithm
+## 7. Negotiation Algorithm
 
-### 8.1 Protocol Version
+### 7.1 Protocol Version
 
 The server selects the negotiated protocol version as:
 
@@ -665,7 +577,7 @@ if negotiated_version < server_min_version:
 In v1, both `protocol_version_min` and `protocol_version_max` are `1`. This
 field exists for future version negotiation.
 
-### 8.2 General Capabilities
+### 7.2 General Capabilities
 
 ```
 negotiated_caps = intersection(client.capabilities, server.capabilities)
@@ -675,22 +587,7 @@ Each capability is independently negotiated as the intersection of client and
 server flag sets. A capability is active only if both sides support it. Unknown
 capability names are ignored (forward compatibility).
 
-### 8.3 CJK Capabilities
-
-```
-negotiated_cjk_caps = intersection(client.cjk_capabilities, server.cjk_capabilities)
-```
-
-With dependency enforcement:
-
-```
-if "preedit" not in negotiated_cjk_caps:
-    # Preedit is the foundation; without it, dependent caps are meaningless
-    remove "preedit_sync" from negotiated_cjk_caps
-    remove "jamo_decomposition" from negotiated_cjk_caps
-```
-
-### 8.4 Render Capabilities
+### 7.3 Render Capabilities
 
 ```
 negotiated_render_caps = intersection(client.render_capabilities, server.render_capabilities)
@@ -703,7 +600,7 @@ if "cell_data" not in negotiated_render_caps and "vt_fallback" not in negotiated
     -> send Error(ERR_CAPABILITY_REQUIRED, detail="No common rendering mode"), disconnect
 ```
 
-### 8.5 Input Method Negotiation
+### 7.4 Input Method Negotiation
 
 The server includes `supported_input_methods` in ServerHello. The client's
 `preferred_input_methods` from ClientHello are informational — they allow the
@@ -715,7 +612,7 @@ The effective input method set is the intersection of client preferences and
 server support. If a client requests an unsupported method via
 `InputMethodSwitch`, the server responds with `IMEError` (0x04FF).
 
-### 8.6 CELLDATA_ENCODING Negotiation (v2+)
+### 7.5 CELLDATA_ENCODING Negotiation (v2+)
 
 In v1, this is a no-op. For future reference:
 
@@ -732,34 +629,32 @@ if "celldata_encoding" in negotiated_caps:
     server_hello.celldata_encoding = selected
 ```
 
-### 8.7 Negotiation Summary
+### 7.6 Negotiation Summary
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant Server
 
-    Client->>Server: ClientHello<br/>version_min=1, version_max=1<br/>caps = [clipboard_sync, mouse, selection, search, fd_passing]<br/>cjk = [preedit, ambiguous_width, double_width, preedit_sync]<br/>render = [cell_data, dirty_tracking, cursor_style]<br/>preferred_input_methods = [{method: "direct"}, {method: "korean_2set"}]
+    Client->>Server: ClientHello<br/>version_min=1, version_max=1<br/>caps = [clipboard_sync, mouse, selection, search, fd_passing]<br/>render = [cell_data, dirty_tracking, cursor_style]<br/>preferred_input_methods = [{method: "direct"}, {method: "korean_2set"}]
 
     Note right of Server: server_caps = [clipboard_sync, mouse, selection, search]
-    Note right of Server: server_cjk = [preedit, ambiguous_width, double_width]
     Note right of Server: server_render = [cell_data, dirty_tracking, cursor_style]
     Note right of Server: server_input_methods =<br/>[{method: "direct", layouts: ["qwerty"]},<br/>{method: "korean_2set", layouts: ["qwerty"]}]
     Note right of Server: negotiated_caps = intersection<br/>= [clipboard_sync, mouse, selection, search]
-    Note right of Server: negotiated_cjk = [preedit, ambiguous_width, double_width]
     Note right of Server: negotiated_render = [cell_data, dirty_tracking, cursor_style]
     Note right of Server: client_id = 3
 
-    Server->>Client: ServerHello<br/>version = 1<br/>client_id = 3<br/>caps = [negotiated set]<br/>cjk = [negotiated set]<br/>render = [negotiated set]<br/>supported_input_methods = [...]<br/>coalescing_config = {...}
+    Server->>Client: ServerHello<br/>version = 1<br/>client_id = 3<br/>caps = [negotiated set]<br/>render = [negotiated set]<br/>supported_input_methods = [...]<br/>coalescing_config = {...}
 
     Note over Client,Server: Both sides now use negotiated caps
 ```
 
 ---
 
-## 9. Attach/Detach Semantics
+## 8. Attach/Detach Semantics
 
-### 9.1 Session Attach (`0x0104`)
+### 8.1 Session Attach (`0x0104`)
 
 After handshake completes (state = `READY`), the client attaches to a session.
 All attach/detach messages use JSON encoding.
@@ -781,8 +676,8 @@ All attach/detach messages use JSON encoding.
 | `session_id`    | u32  | ID of session to attach to (from SessionDescriptor in ServerHello)       |
 | `cols`          | u16  | Client terminal width in columns                                         |
 | `rows`          | u16  | Client terminal height in rows                                           |
-| `readonly`      | bool | Attach as read-only viewer (see Section 9.7)                             |
-| `detach_others` | bool | Detach other clients from this session (exclusive mode, see Section 9.8) |
+| `readonly`      | bool | Attach as read-only viewer (see Section 8.7)                             |
+| `detach_others` | bool | Detach other clients from this session (exclusive mode, see Section 8.8) |
 
 > **Note**: Pixel dimensions are provided via `WindowResize` (0x0190, doc 03
 > Section 5.1), not at attach time.
@@ -792,7 +687,7 @@ most one session at a time. Sending `AttachSessionRequest` while already
 attached returns `ERR_SESSION_ALREADY_ATTACHED`. To switch sessions, the client
 must first detach (`DetachSessionRequest`).
 
-### 9.2 Session Attached Response (`0x0105`)
+### 8.2 Session Attached Response (`0x0105`)
 
 **AttachSessionResponse payload:**
 
@@ -852,7 +747,7 @@ After receiving `AttachSessionResponse`, the client:
 4. Processes the I-frame (`frame_type=1`) to render the initial viewport
 5. Transitions to `OPERATING` state
 
-### 9.3 AttachOrCreate (`0x010C`)
+### 8.3 AttachOrCreate (`0x010C`)
 
 `AttachOrCreateRequest` is a convenience message that combines attach and create
 semantics, equivalent to tmux's `new-session -A`. See doc 03 for the full
@@ -863,7 +758,7 @@ Semantics: If a session with the given `session_name` exists → attach. If not 
 create. Empty string → attach to most recently active, or create new. See doc 03
 Section 1.13 for field definitions.
 
-### 9.4 Session Create (`0x0100`)
+### 8.4 Session Create (`0x0100`)
 
 If the client wants a new session instead of attaching to an existing one:
 
@@ -911,7 +806,7 @@ All fields are optional. See doc 03 Section 1.1 for full details.
 This is immediately followed by an I-frame (`frame_type=1`) for the initial
 pane.
 
-### 9.5 Session Detach (`0x0106`)
+### 8.5 Session Detach (`0x0106`)
 
 **DetachSessionRequest payload:**
 
@@ -962,7 +857,7 @@ messages when another client attaches with `detach_others: true` or when the
 session is destroyed. In both cases, the evicted client transitions back to
 `READY` state. See doc 03 Section 1.8 for the full detach reason enum.
 
-### 9.6 Multi-Client Attach
+### 8.6 Multi-Client Attach
 
 Multiple clients can attach to the same session simultaneously. The server
 handles this by:
@@ -988,7 +883,7 @@ handles this by:
    `ClientHealthChanged` (0x0185) notifications carrying `session_id`,
    `client_id`, `client_name`, and relevant state information.
 
-### 9.7 Readonly Attach
+### 8.7 Readonly Attach
 
 When `AttachSessionRequest.readonly` is `true`, the client attaches as a
 read-only viewer:
@@ -1006,7 +901,7 @@ read-only viewer:
 
 See doc 03 for the full readonly permissions table.
 
-### 9.8 `detach_others` Behavior
+### 8.8 `detach_others` Behavior
 
 When `AttachSessionRequest.detach_others` is `true`, the server detaches all
 other clients currently attached to the session before completing the attach:
@@ -1016,7 +911,7 @@ other clients currently attached to the session before completing the attach:
 2. Evicted clients transition to `READY` state.
 3. The requesting client's attach proceeds normally with exclusive access.
 
-### 9.9 Multi-Client Resize
+### 8.9 Multi-Client Resize
 
 The server's active resize policy is reported in
 `AttachSessionResponse.resize_policy`. Resize is communicated through
@@ -1032,37 +927,11 @@ re-inclusion hysteresis) are defined in daemon design docs.
 
 ---
 
-## 10. Graceful Fallback Matrix
+## 9. Graceful Fallback Matrix
 
 This matrix shows behavior when capabilities differ between client and server:
 
-### 10.1 CJK Capability Fallback
-
-| Client            | Server            | Behavior                                                                                                                                                                                                                                                                                             |
-| ----------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `"preedit"` = yes | `"preedit"` = yes | Full preedit support: server sends dedicated 0x04xx messages (PreeditStart/Update/End/Sync) to client, server tracks IME state. Preedit rendering is through cell data in I/P-frames (always available regardless of this capability).                                                               |
-| `"preedit"` = yes | `"preedit"` = no  | No server-side composition. Client handles composition locally if it has its own IME. Committed text goes through normal `KeyEvent` (0x0200, doc 04).                                                                                                                                                |
-| `"preedit"` = no  | `"preedit"` = yes | Standard input: server does not send dedicated 0x04xx messages (PreeditStart/Update/End) to this client. Client sends committed text only. Preedit cells are still visible in FrameUpdate cell data (preedit rendering is through cell data, always available regardless of capability negotiation). |
-| `"preedit"` = no  | `"preedit"` = no  | Standard input. No CJK composition awareness.                                                                                                                                                                                                                                                        |
-
-| Client                 | Server                 | Behavior                                                                                                                                                                                                                                                    |
-| ---------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `"preedit_sync"` = yes | `"preedit_sync"` = yes | Multi-client preedit: all attached clients see preedit cell data from the composing pane                                                                                                                                                                    |
-| `"preedit_sync"` = yes | `"preedit_sync"` = no  | No `PreeditSync` (0x0403) late-joining snapshots. Preedit cells remain visible in FrameUpdate cell data for all attached clients. `PreeditStart`/`Update`/`End` (0x0400-0x0402) still broadcast to all clients that negotiated `"preedit"`.                 |
-| `"preedit_sync"` = no  | `"preedit_sync"` = yes | This client does not receive `PreeditSync` (0x0403) late-joining snapshots. `PreeditStart`/`Update`/`End` (0x0400-0x0402) are still delivered if the client negotiated `"preedit"`. Other clients with `"preedit_sync"` = yes still receive synced preedit. |
-
-| Client                       | Server                       | Behavior                                                                                                                            |
-| ---------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `"jamo_decomposition"` = yes | `"jamo_decomposition"` = yes | Korean backspace decomposes Jamo. Server's IME engine updates preedit state accordingly.                                            |
-| `"jamo_decomposition"` = yes | `"jamo_decomposition"` = no  | Server's IME engine does not support Jamo decomposition. Backspace during Korean composition deletes the entire composed character. |
-| `"jamo_decomposition"` = no  | `"jamo_decomposition"` = yes | Server has the capability but client does not need it. No effect.                                                                   |
-
-| Client                    | Server                    | Behavior                                                                                                      |
-| ------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `"ambiguous_width"` = yes | `"ambiguous_width"` = yes | Ambiguous width setting synced via `AmbiguousWidthConfig`. Both sides render consistently.                    |
-| Either side = no          |                           | Default ambiguous width (1 cell). No sync. Minor rendering inconsistencies possible for ambiguous characters. |
-
-### 10.2 Render Capability Fallback
+### 9.1 Render Capability Fallback
 
 | Client                                    | Server                | Behavior                                                                                |
 | ----------------------------------------- | --------------------- | --------------------------------------------------------------------------------------- |
@@ -1075,7 +944,7 @@ This matrix shows behavior when capabilities differ between client and server:
 | `"dirty_tracking"` = yes | `"dirty_tracking"` = yes | Delta updates: only changed rows sent in FrameUpdate            |
 | `"dirty_tracking"` = no  |                          | Full frame on every update. Higher bandwidth, but always works. |
 
-### 10.3 General Capability Fallback
+### 9.2 General Capability Fallback
 
 | Capability            | When Not Negotiated                                                                                |
 | --------------------- | -------------------------------------------------------------------------------------------------- |
@@ -1090,9 +959,9 @@ This matrix shows behavior when capabilities differ between client and server:
 
 ---
 
-## 11. Disconnect and Reconnection
+## 10. Disconnect and Reconnection
 
-### 11.1 Graceful Disconnect (`0x0005`)
+### 10.1 Graceful Disconnect (`0x0005`)
 
 **Disconnect payload (JSON):**
 
@@ -1108,7 +977,7 @@ This matrix shows behavior when capabilities differ between client and server:
 | `reason` | string | Disconnect reason: `"normal"`, `"error"`, `"timeout"`, `"version_mismatch"`, `"auth_failed"`, `"server_shutdown"`, `"replaced"`, `"stale_client"` |
 | `detail` | string | Human-readable detail string                                                                                                                      |
 
-### 11.2 Reconnection
+### 10.2 Reconnection
 
 Reconnection uses the normal handshake flow. There is no incremental
 reconnection protocol (no "replay from sequence N"). Every reconnection is a
@@ -1119,9 +988,9 @@ reattach, I-frame resync) is defined in daemon design docs.
 
 ---
 
-## 12. Security Considerations
+## 11. Security Considerations
 
-### 12.1 Unix Socket Authentication
+### 11.1 Unix Socket Authentication
 
 Unix socket connections are authenticated by kernel-level UID verification. Only
 connections from the same UID as the daemon process are accepted. No additional
@@ -1131,7 +1000,7 @@ guarantees the peer identity.
 Authentication implementation details (syscall selection, socket file
 permissions, directory permissions) are defined in daemon design docs.
 
-### 12.2 SSH Tunnel Authentication
+### 11.2 SSH Tunnel Authentication
 
 For remote access, authentication is handled entirely by SSH. When a client
 connects through an SSH tunnel, `getpeereid()` returns sshd's UID. The daemon
@@ -1139,7 +1008,7 @@ accepts this because SSH has already authenticated the user at the transport
 layer. The trust chain is: SSH authentication → sshd process → Unix socket →
 daemon. See doc 01 Section 12.2 for details.
 
-### 12.3 Handshake Timeouts
+### 11.3 Handshake Timeouts
 
 | Timeout                                                                          | Duration   | Action                                  |
 | -------------------------------------------------------------------------------- | ---------- | --------------------------------------- |
@@ -1150,13 +1019,12 @@ daemon. See doc 01 Section 12.2 for details.
 
 ---
 
-## 13. Design Decisions Needing Validation
+## 12. Design Decisions Needing Validation
 
 | Decision                                                        | Status       | Notes                                                                                                                                                                                                                                                                                                                                                    |
 | --------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | JSON encoding for all handshake messages                        | **Decided**  | Self-describing, debuggable, cross-language (Swift JSONDecoder). Capability arrays use string names instead of bitmasks for readability. Internal implementation maps to bitmasks.                                                                                                                                                                       |
 | String-based capability names (not bitmasks) in JSON            | **Decided**  | Self-documenting on the wire. Unknown names are ignored for forward compatibility. Server maps to internal bitmask representation for O(1) lookups.                                                                                                                                                                                                      |
-| Separate CJK capability field                                   | **Proposed** | Keeps CJK concerns in a dedicated namespace. Could have been in the general capabilities, but separation makes the CJK feature matrix clearer.                                                                                                                                                                                                           |
 | JSON for layout data in AttachSessionResponse                   | **Proposed** | JSON is simple to implement (`std.json` in Zig) and human-readable for debugging. Layout data is sent infrequently (only on attach/layout change), so JSON overhead is acceptable.                                                                                                                                                                       |
 | Full state resync on reconnect (no incremental replay)          | **Proposed** | Simpler to implement and reason about. Full FrameUpdate is under 35 KB. If reconnection latency becomes a problem, incremental replay can be added later by tracking per-client sequence watermarks.                                                                                                                                                     |
 | Heartbeat interval 30s                                          | **Proposed** | Matches common practice (SSH default is 15s with 3 retries = 45s). Adjustable via `heartbeat_interval_ms` in ServerHello.                                                                                                                                                                                                                                |
@@ -1189,7 +1057,7 @@ daemon. See doc 01 Section 12.2 for details.
 ### v0.7 (2026-03-05)
 
 - **`stale_client` disconnect reason** (Issue 3): Added `"stale_client"` to the
-  Disconnect reason enum in Section 11.1. Used when the server evicts a client
+  Disconnect reason enum in Section 10.1. Used when the server evicts a client
   at T=300s after PausePane health escalation.
 - **Session-level IME fields in AttachSessionResponse** (IME cross-team Change
   2): Replaced `pane_input_methods` array with session-level
@@ -1199,13 +1067,13 @@ daemon. See doc 01 Section 12.2 for details.
   `resize_policy` field reporting the server's active resize policy (`"latest"`
   or `"smallest"`). Informational, not negotiated.
 - **Multi-client resize algorithm rewritten** (Resolutions 1, 3, 5, 6): Section
-  9.9 now describes `latest`/`smallest` dual-policy model with stale client
+  8.9 now describes `latest`/`smallest` dual-policy model with stale client
   exclusion, 250ms debounce, 5s re-inclusion hysteresis, and viewport clipping
   for undersized clients.
-- **Multi-client attach updated** (Resolutions 1, 7, 12): Section 9.6 updated
+- **Multi-client attach updated** (Resolutions 1, 7, 12): Section 8.6 updated
   for latest/smallest policy, per-session preedit exclusivity, shared ring
   buffer frame delivery, and ClientHealthChanged (0x0185) notifications.
-- **Reconnection updated**: Section 11.2 references I-frame recovery from shared
+- **Reconnection updated**: Section 10.2 references I-frame recovery from shared
   ring buffer instead of `dirty=full` FrameUpdate. AttachSessionResponse
   references updated for session-level IME fields.
 - **Design decisions updated**: Preedit exclusivity scope changed from per-pane
@@ -1225,10 +1093,10 @@ daemon. See doc 01 Section 12.2 for details.
   AttachSessionRequest. Pixel dimensions come via WindowResize (0x0190, doc 03
   Section 5.1).
 - **ClientDisplayInfo deduplication** (Issue 6): Replaced inline schema
-  definition in Section 7 with cross-reference to doc 06 Section 1.5
+  definition in Section 6 with cross-reference to doc 06 Section 1.5
   (authoritative). Retained handshake-context semantics and example.
 - **FrameAck reference removed** (Issue 9): Removed dangling `FrameAck`
-  reference from Section 9.6 (message type was never defined).
+  reference from Section 8.6 (message type was never defined).
 - **KeyInput renamed to KeyEvent** (Issue 10): Replaced `KeyInput` with
   `KeyEvent` (0x0200) to match doc 04 authoritative name.
 - **PreeditEnd reason fixed** (Issue 11): Changed preedit exclusivity
