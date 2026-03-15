@@ -16,6 +16,11 @@ agent forwarding, 2FA). Eliminates mTLS cert management and custom port 7822.
 Neither tmux nor zellij implements custom network transport. Single Unix socket
 implementation — remote clients tunnel through SSH to the same socket.
 
+No `"remote"` client type in the protocol. With SSH tunneling, all clients
+connect via Unix socket. Transport distinction is moved to
+`ClientDisplayInfo.transport_type` (a runtime-updatable message, not part of
+capability negotiation).
+
 ## Consequences
 
 - No custom TLS implementation to audit or maintain.

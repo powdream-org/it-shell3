@@ -21,6 +21,10 @@ Two related decisions:
    intra-session pane focus change. At most one pane per session can have active
    preedit (preedit exclusivity invariant).
 
+Two-axis input method model: separates input method (composition engine) from
+keyboard layout (physical key mapping). String identifiers everywhere for
+self-documentation. No numeric layout_id table needed.
+
 See also ADR 00001 (Native IME over OS IME) for the higher-level decision to use
 native Zig IME instead of OS IME frameworks.
 
