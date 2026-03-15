@@ -1016,13 +1016,3 @@ daemon. See doc 01 Section 12.2 for details.
 | `ClientHello` -> `ServerHello`                                                   | 5 seconds  | Send `Error(ERR_INVALID_STATE)`, close  |
 | `READY` -> `AttachSessionRequest`/`CreateSessionRequest`/`AttachOrCreateRequest` | 60 seconds | Send `Disconnect(TIMEOUT)`, close       |
 | Heartbeat response                                                               | 90 seconds | Send `Disconnect(TIMEOUT)`, close       |
-
----
-
-## 12. Design Decisions Needing Validation
-
-| Decision                                               | Status       | Notes                                                                                                                                                                                                |
-| ------------------------------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| JSON for layout data in AttachSessionResponse          | **Proposed** | JSON is simple to implement (`std.json` in Zig) and human-readable for debugging. Layout data is sent infrequently (only on attach/layout change), so JSON overhead is acceptable.                   |
-| Full state resync on reconnect (no incremental replay) | **Proposed** | Simpler to implement and reason about. Full FrameUpdate is under 35 KB. If reconnection latency becomes a problem, incremental replay can be added later by tracking per-client sequence watermarks. |
-| Heartbeat interval 30s                                 | **Proposed** | Matches common practice (SSH default is 15s with 3 retries = 45s). Adjustable via `heartbeat_interval_ms` in ServerHello.                                                                            |
