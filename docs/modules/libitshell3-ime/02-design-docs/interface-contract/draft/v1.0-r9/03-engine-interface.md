@@ -99,54 +99,98 @@ pub const ImeEngine = struct {
 
 **Vtable design (8 methods):**
 
-| Method | Purpose | Returns |
-|--------|---------|---------|
-| `processKey` | Core key processing | ImeResult |
-| `flush` | Commit in-progress composition | ImeResult |
-| `reset` | Discard composition (error recovery) | void |
-| `isEmpty` | Query composition state | bool |
-| `activate` | Session gained focus | void |
-| `deactivate` | Session lost focus (flushes) | ImeResult |
-| `getActiveInputMethod` | Query current input method | `[]const u8` |
+| Method                 | Purpose                                  | Returns                                   |
+| ---------------------- | ---------------------------------------- | ----------------------------------------- |
+| `processKey`           | Core key processing                      | ImeResult                                 |
+| `flush`                | Commit in-progress composition           | ImeResult                                 |
+| `reset`                | Discard composition (error recovery)     | void                                      |
+| `isEmpty`              | Query composition state                  | bool                                      |
+| `activate`             | Session gained focus                     | void                                      |
+| `deactivate`           | Session lost focus (flushes)             | ImeResult                                 |
+| `getActiveInputMethod` | Query current input method               | `[]const u8`                              |
 | `setActiveInputMethod` | Switch input method (flushes atomically) | `error{UnsupportedInputMethod}!ImeResult` |
 
 **Why vtable over comptime generics:**
-- Comptime generics (`fn Session(comptime Ime: type) type`) would monomorphize all Session code per IME type, inflating binary size when multiple engines exist.
-- vtable is a single pointer indirection — negligible cost at the call rates we see (< 100 calls/second for human typing).
+
+- Comptime generics (`fn Session(comptime Ime: type) type`) would monomorphize
+  all Session code per IME type, inflating binary size when multiple engines
+  exist.
+- vtable is a single pointer indirection — negligible cost at the call rates we
+  see (< 100 calls/second for human typing).
 - vtable works with C FFI (comptime generics don't export to C).
+
 ## 2. setActiveInputMethod Behavior
 
-`setActiveInputMethod()` is the only input-method-switching method. It handles both language switches (e.g., `"korean_2set"` -> `"direct"`) and layout switches (e.g., `"korean_2set"` -> `"korean_3set_final"`) uniformly. Its behavior depends on whether the requested input method differs from the current one:
+`setActiveInputMethod()` is the only input-method-switching method. It handles
+both language switches (e.g., `"korean_2set"` -> `"direct"`) and layout switches
+(e.g., `"korean_2set"` -> `"korean_3set_final"`) uniformly. Its behavior depends
+on whether the requested input method differs from the current one:
 
-**Case 1: Switching to a different input method (e.g., `"korean_2set"` -> `"direct"`):**
+**Case 1: Switching to a different input method (e.g., `"korean_2set"` ->
+`"direct"`):**
 
-The engine atomically flushes any in-progress composition and switches to the new input method. The returned `ImeResult`:
-- If composition was active: `ImeResult{ .committed_text = flushed_text, .preedit_text = null, .forward_key = null, .preedit_changed = true }`.
-- If composition was not active (engine was already empty): `ImeResult{ .committed_text = null, .preedit_text = null, .forward_key = null, .preedit_changed = false }`.
+The engine atomically flushes any in-progress composition and switches to the
+new input method. The returned `ImeResult`:
 
-`preedit_changed` follows [Section 2](02-types.md#2-imeresult-output-from-ime)'s definition: it is `true` only when the preedit state actually transitions (here, non-null to null from flushing). When the engine was already empty, preedit remains null throughout (null to null) — no transition occurred, so `preedit_changed` is `false`.
+- If composition was active:
+  `ImeResult{ .committed_text = flushed_text, .preedit_text = null, .forward_key = null, .preedit_changed = true }`.
+- If composition was not active (engine was already empty):
+  `ImeResult{ .committed_text = null, .preedit_text = null, .forward_key = null, .preedit_changed = false }`.
 
-For the internal step sequence (libhangul flush, mode update, keyboard selection), see `10-hangul-engine-internals.md` in the behavior docs.
+`preedit_changed` follows [Section 2](02-types.md#2-imeresult-output-from-ime)'s
+definition: it is `true` only when the preedit state actually transitions (here,
+non-null to null from flushing). When the engine was already empty, preedit
+remains null throughout (null to null) — no transition occurred, so
+`preedit_changed` is `false`.
 
-**Case 2: "Switching" to the already-active input method (e.g., `"korean_2set"` -> `"korean_2set"`):**
+For the internal step sequence (libhangul flush, mode update, keyboard
+selection), see `10-hangul-engine-internals.md` in the behavior docs.
+
+**Case 2: "Switching" to the already-active input method (e.g., `"korean_2set"`
+-> `"korean_2set"`):**
 
 Return `ImeResult{}` (all null/false). No flush, no state change.
 
 **Case 3: Unsupported input method string:**
 
-Return `error.UnsupportedInputMethod`. The server MUST only send input method strings from the canonical registry (see `10-hangul-engine-internals.md` in the behavior docs, Canonical Input Method Registry section). Receiving an unrecognized string is a server bug.
+Return `error.UnsupportedInputMethod`. The server MUST only send input method
+strings from the canonical registry (see `10-hangul-engine-internals.md` in the
+behavior docs, Canonical Input Method Registry section). Receiving an
+unrecognized string is a server bug.
 
-**Rationale for no-op on same-method**: The user toggled to the same mode by mistake (or the framework called it redundantly). Flushing would be a surprising side effect — the user didn't intend to commit their in-progress composition. This matches fcitx5 (`InputMethodManager::setCurrentGroup()`) and ibus (`ibus_bus_set_global_engine()`), both of which treat same-engine switches as no-ops.
+**Rationale for no-op on same-method**: The user toggled to the same mode by
+mistake (or the framework called it redundantly). Flushing would be a surprising
+side effect — the user didn't intend to commit their in-progress composition.
+This matches fcitx5 (`InputMethodManager::setCurrentGroup()`) and ibus
+(`ibus_bus_set_global_engine()`), both of which treat same-engine switches as
+no-ops.
 
-**Atomicity**: `setActiveInputMethod()` flushes and switches in a single call. The caller must NOT call `flush()` then `setActiveInputMethod()` separately — a key event arriving between those two calls could be processed in the wrong input method.
+**Atomicity**: `setActiveInputMethod()` flushes and switches in a single call.
+The caller must NOT call `flush()` then `setActiveInputMethod()` separately — a
+key event arriving between those two calls could be processed in the wrong input
+method.
 
-**forward_key is always null**: `setActiveInputMethod()` is called from Phase 0 in response to a toggle key that has already been consumed. There is no key to forward. If a toggle key (e.g., Right Alt) leaked through to ghostty, it would produce garbage escape sequences (`\e` prefix for Alt).
+**forward_key is always null**: `setActiveInputMethod()` is called from Phase 0
+in response to a toggle key that has already been consumed. There is no key to
+forward. If a toggle key (e.g., Right Alt) leaked through to ghostty, it would
+produce garbage escape sequences (`\e` prefix for Alt).
 
-**String parameter ownership**: The `method` parameter is borrowed for the duration of the call. The engine copies the string into its own storage (or references a static string) — the caller does not need to keep the pointer alive after the call returns.
+**String parameter ownership**: The `method` parameter is borrowed for the
+duration of the call. The engine copies the string into its own storage (or
+references a static string) — the caller does not need to keep the pointer alive
+after the call returns.
 
-> **Discard-and-switch pattern**: `reset()` followed by `setActiveInputMethod()` is safe for discard-and-switch when the caller holds the per-session lock. After `reset()`, the engine is empty and `setActiveInputMethod()` performs a no-flush switch. This pattern implements the protocol's `commit_current=false` on InputMethodSwitch.
+> **Discard-and-switch pattern**: `reset()` followed by `setActiveInputMethod()`
+> is safe for discard-and-switch when the caller holds the per-session lock.
+> After `reset()`, the engine is empty and `setActiveInputMethod()` performs a
+> no-flush switch. This pattern implements the protocol's `commit_current=false`
+> on InputMethodSwitch.
 
-For the concrete `HangulImeEngine` implementation (struct fields, vtable implementations, libhangul keyboard ID mapping, canonical input method registry, processKey algorithm, and session persistence), see `10-hangul-engine-internals.md` in the behavior docs.
+For the concrete `HangulImeEngine` implementation (struct fields, vtable
+implementations, libhangul keyboard ID mapping, canonical input method registry,
+processKey algorithm, and session persistence), see
+`10-hangul-engine-internals.md` in the behavior docs.
+
 ## 3. MockImeEngine (For Testing)
 
 ```zig

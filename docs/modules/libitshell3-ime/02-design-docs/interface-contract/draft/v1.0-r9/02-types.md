@@ -69,10 +69,20 @@ pub const KeyEvent = struct {
 
 **Design notes:**
 
-- `hid_keycode` is the USB HID usage code — a physical key position. Korean input depends on physical key position (not the produced character), making HID the correct representation.
-- `shift` is separate from `modifiers` because Shift participates in character production (Korean jamo selection), while Ctrl/Alt/Cmd trigger composition flush. This mirrors the ibus-hangul pattern where `IBUS_CONTROL_MASK | IBUS_MOD1_MASK` triggers flush but `IBUS_SHIFT_MASK` does not.
-- `action` (press/release/repeat) added based on ghostty's `ghostty_input_action_e`. Release events are needed for future Kitty keyboard protocol support. The IME engine typically ignores release events.
-- **Wire-to-KeyEvent mapping**: The daemon decomposes the protocol wire modifier bitmask into `KeyEvent` fields before calling `processKey()`. See the `libitshell3` daemon design docs for the full mapping table.
+- `hid_keycode` is the USB HID usage code — a physical key position. Korean
+  input depends on physical key position (not the produced character), making
+  HID the correct representation.
+- `shift` is separate from `modifiers` because Shift participates in character
+  production (Korean jamo selection), while Ctrl/Alt/Cmd trigger composition
+  flush. This mirrors the ibus-hangul pattern where
+  `IBUS_CONTROL_MASK | IBUS_MOD1_MASK` triggers flush but `IBUS_SHIFT_MASK` does
+  not.
+- `action` (press/release/repeat) added based on ghostty's
+  `ghostty_input_action_e`. Release events are needed for future Kitty keyboard
+  protocol support. The IME engine typically ignores release events.
+- **Wire-to-KeyEvent mapping**: The daemon decomposes the protocol wire modifier
+  bitmask into `KeyEvent` fields before calling `processKey()`. See the
+  `libitshell3` daemon design docs for the full mapping table.
 
 ## 2. ImeResult (Output from IME)
 
@@ -127,30 +137,54 @@ pub const ImeResult = struct {
 };
 ```
 
-For the complete scenario matrix and direct mode behavior, see `02-scenario-matrix.md` in the behavior docs.
+For the complete scenario matrix and direct mode behavior, see
+`02-scenario-matrix.md` in the behavior docs.
 
 ## 3. Modifier Flush Policy
 
-When the IME has active preedit and a modifier+key or special key arrives, the engine **flushes (commits)** the in-progress composition, then forwards the key. The preedit is never silently discarded. Shift does NOT flush — it participates in jamo selection (e.g., ㄱ→ㄲ).
+When the IME has active preedit and a modifier+key or special key arrives, the
+engine **flushes (commits)** the in-progress composition, then forwards the key.
+The preedit is never silently discarded. Shift does NOT flush — it participates
+in jamo selection (e.g., ㄱ→ㄲ).
 
-For the complete flush policy table, examples, and verification against ibus-hangul/fcitx5-hangul, see `03-modifier-flush-policy.md` in the behavior docs.
+For the complete flush policy table, examples, and verification against
+ibus-hangul/fcitx5-hangul, see `03-modifier-flush-policy.md` in the behavior
+docs.
 
 ## 4. Input Method Identifiers
 
-The canonical representation for input method identification is a **single string** (`input_method: []const u8`). This is the ONLY representation that crosses any component boundary — protocol wire, IME contract API, session persistence, configuration.
+The canonical representation for input method identification is a **single
+string** (`input_method: []const u8`). This is the ONLY representation that
+crosses any component boundary — protocol wire, IME contract API, session
+persistence, configuration.
 
-**Naming convention**: `{language}_{human_readable_variant}`. The language prefix identifies which composition pipeline to use. The suffix is a human-readable layout/variant name, not an engine-native ID.
+**Naming convention**: `{language}_{human_readable_variant}`. The language
+prefix identifies which composition pipeline to use. The suffix is a
+human-readable layout/variant name, not an engine-native ID.
 
-- `"direct"` — special case, no language prefix. Direct passthrough, no composition. Used for English, Latin scripts, and any non-composing layout.
-- `"korean_*"` — Korean Hangul composition via libhangul. Jamo are assembled into syllables algorithmically.
-- Future: `"japanese_*"` (kana composition + kanji candidate selection), `"chinese_*"` (pinyin/wubi/zhuyin composition + hanzi candidate selection).
+- `"direct"` — special case, no language prefix. Direct passthrough, no
+  composition. Used for English, Latin scripts, and any non-composing layout.
+- `"korean_*"` — Korean Hangul composition via libhangul. Jamo are assembled
+  into syllables algorithmically.
+- Future: `"japanese_*"` (kana composition + kanji candidate selection),
+  `"chinese_*"` (pinyin/wubi/zhuyin composition + hanzi candidate selection).
 
 **Input method management protocol (simplified from v0.1):**
 
 libitshell3 owns input method selection. The interaction is:
 
-1. **At startup**: libitshell3 creates the engine knowing what input methods it supports (hardcoded for v1: `"direct"` + `"korean_2set"`). No runtime discovery needed.
-2. **Input method switch**: When the user presses the toggle key (detected by libitshell3), libitshell3 calls `setActiveInputMethod(input_method)`. The IME atomically flushes any pending composition and switches.
-3. **Synchronization**: libitshell3 can call `getActiveInputMethod()` at any time to query the current state (e.g., after session restore).
+1. **At startup**: libitshell3 creates the engine knowing what input methods it
+   supports (hardcoded for v1: `"direct"` + `"korean_2set"`). No runtime
+   discovery needed.
+2. **Input method switch**: When the user presses the toggle key (detected by
+   libitshell3), libitshell3 calls `setActiveInputMethod(input_method)`. The IME
+   atomically flushes any pending composition and switches.
+3. **Synchronization**: libitshell3 can call `getActiveInputMethod()` at any
+   time to query the current state (e.g., after session restore).
 
-> **Orthogonal axis: `keyboard_layout`**: Physical keyboard layout (QWERTY/AZERTY/QWERTZ) is a separate per-session field, orthogonal to `input_method`. Korean input methods always use QWERTY-normalized input regardless of physical keyboard. The `keyboard_layout` field persists across input method switches. See the `libitshell3-protocol` server-client-protocols docs for details.
+> **Orthogonal axis: `keyboard_layout`**: Physical keyboard layout
+> (QWERTY/AZERTY/QWERTZ) is a separate per-session field, orthogonal to
+> `input_method`. Korean input methods always use QWERTY-normalized input
+> regardless of physical keyboard. The `keyboard_layout` field persists across
+> input method switches. See the `libitshell3-protocol` server-client-protocols
+> docs for details.
