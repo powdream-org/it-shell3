@@ -72,7 +72,7 @@ pub const KeyEvent = struct {
 - `hid_keycode` is the USB HID usage code — a physical key position. Korean input depends on physical key position (not the produced character), making HID the correct representation.
 - `shift` is separate from `modifiers` because Shift participates in character production (Korean jamo selection), while Ctrl/Alt/Cmd trigger composition flush. This mirrors the ibus-hangul pattern where `IBUS_CONTROL_MASK | IBUS_MOD1_MASK` triggers flush but `IBUS_SHIFT_MASK` does not.
 - `action` (press/release/repeat) added based on ghostty's `ghostty_input_action_e`. Release events are needed for future Kitty keyboard protocol support. The IME engine typically ignores release events.
-- **Wire-to-KeyEvent mapping**: The daemon decomposes the protocol wire modifier bitmask into `KeyEvent` fields before calling `processKey()`. See [daemon design doc 02 §4.2](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#wire-to-keyevent-decomposition) for the full mapping table.
+- **Wire-to-KeyEvent mapping**: The daemon decomposes the protocol wire modifier bitmask into `KeyEvent` fields before calling `processKey()`. See the `libitshell3` daemon design docs for the full mapping table.
 
 ## 2. ImeResult (Output from IME)
 

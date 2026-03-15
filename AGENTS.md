@@ -97,6 +97,23 @@ External projects used for design reference (not vendored — local paths are in
 - [**Commit Messages**](docs/conventions/commit-messages.md) — Conventional commits format. **English only.**
 - [**Document Artifact Conventions**](docs/conventions/artifacts/documents/01-overview.md) — Naming, format, and content rules for all document artifacts (review notes, handovers, design resolutions, research reports, cross-team requests).
 
+### Cross-Module References
+
+When referencing documents in another module (e.g., `libitshell3-ime` → `libitshell3` or `libitshell3-protocol`), **do NOT use exact file path links**. Exact paths include revision numbers (`v1.0-r12`) that break every revision cycle.
+
+Instead, use a loose prose reference:
+
+```markdown
+<!-- Avoid: exact path, breaks on every revision -->
+See [daemon design doc 02 §4.2](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#42-...) for details.
+
+<!-- Prefer: loose module reference, always valid -->
+See the `libitshell3` daemon design docs for details.
+See the `libitshell3-protocol` server-client-protocols docs for details.
+```
+
+Intra-module links (within the same module's `behavior/`, `interface-contract/`, etc.) may use relative paths since they move together on revision.
+
 ## Work Styles
 
 > **⚠️ MANDATORY: You(main agent, team leader) MUST read and strictly follow all work-style docs under `docs/work-styles/` before starting any team-based work. No exceptions.**

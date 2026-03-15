@@ -2,7 +2,7 @@
 
 ## 1. ghostty Integration
 
-ghostty integration — how `ImeResult` is consumed by the daemon to drive the key input and preedit pipeline (`key_encode.encode()`, `write(pty_fd)`, `overlayPreedit()`) — is defined in [daemon design doc 01 §4](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/01-internal-architecture.md) and [daemon design doc 02 §4](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#4-ime-integration-libitshell3-ime).
+ghostty integration — how `ImeResult` is consumed by the daemon to drive the key input and preedit pipeline (`key_encode.encode()`, `write(pty_fd)`, `overlayPreedit()`) — is defined in the `libitshell3` daemon design docs.
 
 The IME engine has no direct interaction with ghostty. It produces `ImeResult` structs; the daemon consumes them.
 
@@ -12,7 +12,7 @@ The IME engine has no direct interaction with ghostty. It produces `ImeResult` s
 
 For buffer layout, sizing rationale, and libhangul memory model details, see [behavior/draft/v1.0-r1/10-hangul-engine-internals.md](../../../behavior/draft/v1.0-r1/10-hangul-engine-internals.md) Section 3.
 
-**Caller responsibility**: If the caller needs to retain the text across multiple `processKey()` calls, it must copy the data. See [daemon design doc 02 §4.6](../../../../../libitshell3/02-design-docs/daemon/draft/v1.0-r3/02-integration-boundaries.md#46-critical-runtime-invariant) for the daemon's consumption invariant.
+**Caller responsibility**: If the caller needs to retain the text across multiple `processKey()` calls, it must copy the data. See the `libitshell3` daemon design docs for the daemon's consumption invariant.
 
 ### Shared Engine Invariant
 
