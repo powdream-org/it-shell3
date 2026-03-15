@@ -261,3 +261,16 @@ UnderlineColorTable formats.
 **References**: ghostty `hyperlink.zig:20-23` (offset hash map pattern),
 `page.zig:1899,1995` (per-row/per-cell hyperlink flags), `Overlay.zig:149-199`
 (rendering uses boolean flag only).
+
+## 7. Application-Layer Compression
+
+**Origin**: ADR 00014. Removed from v1 during design phase.
+
+v1 has no application-layer compression. SSH's built-in compression
+(`Compression yes`) covers WAN scenarios. Neither tmux nor zellij compresses at
+the application protocol layer. The COMPRESSED flag (header bit 1) and
+`"compression"` capability name are reserved for potential future use.
+
+If benchmarking in v2 shows benefit beyond SSH compression, application-layer
+compression should be added with explicit exclusion of Preedit and Interactive
+tier messages to preserve latency guarantees.
