@@ -30,3 +30,5 @@ Two related decisions:
   (ClientHealthChanged).
 - Server-internal complexity (smooth degradation, escalation timeline) does not
   leak into the protocol.
+- Per-client viewport scrolling (to see clipped areas under `latest` policy) is
+  not considered for v1. Smaller clients simply clip to their top-left region.

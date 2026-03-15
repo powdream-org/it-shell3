@@ -1055,26 +1055,18 @@ protocol).
 
 The server supports two resize policies, configured per-session as a server-side
 setting (not protocol-negotiated). The active policy is reported in
-`AttachSessionResponse.resize_policy` (informational).
+`AttachSessionResponse.resize_policy` (informational). See ADR 00012 for the
+design rationale.
 
 | Policy     | Behavior                                                                    | Default           |
 | ---------- | --------------------------------------------------------------------------- | ----------------- |
 | `latest`   | PTY dimensions set to the most recently active client's reported size       | **Yes** (default) |
 | `smallest` | PTY dimensions set to `min(cols)` x `min(rows)` across all eligible clients | Opt-in            |
 
-**`latest` policy** is the default, matching tmux 3.1+ behavior. For
-libitshell3's primary use case (single user, multiple devices — macOS desktop +
-iPad), `latest` prevents an idle device's dimensions from constraining the
-active device.
-
 > **Normative**: When the effective terminal size exceeds a client's reported
 > dimensions (WindowResize cols/rows), the client MUST render only the top-left
 > region corresponding to its own dimensions. Content beyond the client's
-> viewport boundary is clipped. The protocol does not provide per-client
-> viewport scrolling in v1.
-
-**v1 scope**: Two policies only (`latest` and `smallest`). `largest` and
-`manual` are deferred to v2.
+> viewport boundary is clipped.
 
 ### 5.3 `latest_client_id` Tracking
 
@@ -1207,14 +1199,7 @@ model. Per-client focus can be added later as an opt-in capability.
 - SplitPane, ClosePane, ResizePane, etc., affect the shared layout.
 - All attached clients receive the resulting LayoutChanged notification.
 
-### 8.3 Window Size
-
-The effective terminal size for a session is determined by the active resize
-policy (`latest` or `smallest`), communicated via
-`AttachSessionResponse.resize_policy`. See Section 5 for wire behavior. Resize
-algorithm internals are defined in daemon design docs.
-
-### 8.4 Input Method State
+### 8.3 Input Method State
 
 Input method state is communicated per-session through the following wire fields
 and messages:
@@ -1229,7 +1214,7 @@ and messages:
 Per-session IME engine lifecycle (creation, activation, deactivation, detach
 preservation, session restore) is defined in daemon design docs.
 
-### 8.5 Client Health
+### 8.4 Client Health
 
 The protocol defines two health states orthogonal to connection lifecycle:
 `healthy` and `stale`. Health transitions are communicated via
