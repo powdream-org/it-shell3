@@ -1068,41 +1068,10 @@ design rationale.
 > region corresponding to its own dimensions. Content beyond the client's
 > viewport boundary is clipped.
 
-### 5.3 `latest_client_id` Tracking
+Resize algorithm internals (`latest_client_id` tracking, stale client exclusion,
+debounce, client detach resize) are defined in daemon design docs.
 
-The server tracks `latest_client_id` per session, updated on:
-
-- KeyEvent received from a client
-- WindowResize received from a client
-- NOT on HeartbeatAck (passive liveness does not indicate active use)
-
-When the latest client detaches or becomes stale, the server falls back to the
-next most-recently-active healthy client. If no client has any recorded
-activity, fall back to the client with the largest terminal dimensions.
-
-### 5.4 Resize Wire Behavior
-
-When the server determines the effective terminal size has changed, it:
-
-1. Sends `LayoutChanged` to ALL attached clients with updated pane dimensions.
-2. Writes I-frame(s) for affected panes to the ring buffer.
-3. Sends `WindowResizeAck` to the sending client.
-
-The resize algorithm internals (policy computation, debounce, PTY ioctl,
-coalescing tier suppression during resize) are defined in daemon design docs.
-
-### 5.5 Stale Client Exclusion
-
-Clients in the `stale` health state are excluded from the resize calculation.
-Stale exclusion policy, re-inclusion hysteresis, and client detach resize
-behavior are defined in daemon design docs.
-
-### 5.6 Client Detach Resize
-
-When a client detaches, the server recomputes the effective size and sends
-`LayoutChanged` if the size changes.
-
-### 5.7 WindowResizeAck (0x0191)
+### 5.3 WindowResizeAck (0x0191)
 
 ```json
 {
