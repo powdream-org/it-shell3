@@ -1,6 +1,7 @@
 # 00001. Use Architecture Decision Records for Design Decisions
 
-Date: 2026-03-15
+- Date: 2026-03-15
+- Status: Accepted
 
 ## Context
 

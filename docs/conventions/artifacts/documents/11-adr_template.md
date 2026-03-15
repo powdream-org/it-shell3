@@ -1,6 +1,7 @@
 # NNNNN. Title
 
-Date: YYYY-MM-DD
+- Date: YYYY-MM-DD
+- Status: Proposed
 
 ## Context
 

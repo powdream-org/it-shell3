@@ -87,6 +87,7 @@ Use the Edit tool to replace the placeholders in the copied file:
 - `NNNNN` → zero-padded number
 - `Title` → drafted title
 - `YYYY-MM-DD` → today's date
+- `Proposed` → keep as `Proposed` (default for new ADRs)
 - Empty `## Context`, `## Decision`, `## Consequences` sections → drafted
   content
 

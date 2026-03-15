@@ -42,12 +42,13 @@ Example: `00003-rendertstate-instead-of-vt-reserialization.md`
 
 ## Format
 
-Each ADR contains exactly three sections. No Status section.
+Each ADR contains exactly four sections.
 
 ```markdown
 # NNNNN. Title
 
-Date: YYYY-MM-DD
+- Date: YYYY-MM-DD
+- Status: Proposed | Accepted | Deprecated | Superseded by NNNNN
 
 ## Context
 
@@ -62,6 +63,18 @@ What specific choice was made?
 What becomes easier or harder as a result?
 ```
 
+### Status Values
+
+| Status                  | Meaning                                        |
+| ----------------------- | ---------------------------------------------- |
+| **Proposed**            | Under discussion, not yet confirmed            |
+| **Accepted**            | Confirmed and in effect                        |
+| **Deprecated**          | No longer relevant or recommended              |
+| **Superseded by NNNNN** | Replaced by a newer ADR (reference its number) |
+
+When an ADR is superseded, update its Status to `Superseded by NNNNN` and write
+the new ADR that replaces it.
+
 ---
 
 ## When to Write an ADR
@@ -73,7 +86,7 @@ would wonder about. Typical triggers:
 - Protocol design choices (e.g., "why binary header instead of JSON?")
 - Architectural patterns (e.g., "why daemon + client instead of in-process?")
 - Implementation strategy (e.g., "why native IME instead of OS IME?")
-- Deliberate tradeoffs (e.g., "why no Status section in ADRs?")
+- Deliberate tradeoffs (e.g., "why native IME instead of OS IME?")
 
 When in doubt, write one. ADRs are cheap; archaeological digs are not.
 
