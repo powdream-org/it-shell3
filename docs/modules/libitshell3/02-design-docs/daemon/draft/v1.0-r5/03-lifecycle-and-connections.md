@@ -1,18 +1,9 @@
 # Daemon Lifecycle and Client Connections
 
-**Version**: v0.5 **Status**: Draft **Scope**: Daemon startup/shutdown
-sequences, client connection lifecycle, ring buffer delivery model, auto-start,
-crash recovery, reconnection, version conflict handling **Source resolutions**:
-R8 (Daemon Lifecycle), R9 (Client Connection Lifecycle) **Cross-references**: R5
-(Protocol Boundary / Transport Layer), R2 (Event Loop Model), R6 (IME
-Integration) **v0.3 changes**: Absorbed P1 (auto-start), P2 (crash recovery FD
-passing), P6 (reconnection procedure), P9 (ring buffer sizing/keyframe), A1
-(local version conflict), A2 (remote version conflict) from protocol and
-AGENTS.md per daemon v0.3 cross-team revision **v0.4 changes**: Applied R1
-(message type renames: `ServerShutdown`→`Disconnect(reason:server_shutdown)`,
-`SessionDetachRequest`→`DetachSessionRequest`, `ResizeRequest`→`WindowResize`),
-R4 (`pty_master_fd`→`pty_fd`), updated §4.3 `ClientState.attached_session` to
-`?*SessionEntry` per R2
+- **Date**: 2026-03-11
+- **Scope**: Daemon startup/shutdown sequences, client connection lifecycle,
+  ring buffer delivery model, auto-start, crash recovery, reconnection, and
+  version conflict handling
 
 ---
 

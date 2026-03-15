@@ -1,14 +1,9 @@
 # Daemon Runtime Policies
 
-**Version**: v0.5 **Status**: Draft **Scope**: Connection limits, multi-client
-resize, health escalation, flow control, adaptive coalescing, preedit ownership
-and lifecycle, session persistence, notification defaults, heartbeat policy
-**Source topics**: P3, P4, P7, P8, P10, P11, P12, P13, P17+I7, P18, P19
-**Cross-references**: doc 01 (Module Decomposition, Event Loop), doc 02 (IME
-Integration), doc 03 (Client Connections, Ring Buffer Delivery) **v0.4
-changes**: Updated §7.6 to remove stale ghostty Surface reference — preedit
-cursor repositioning on resize now correctly attributed to `overlayPreedit()` at
-export time per headless architecture (SEM-R3-1)
+- **Date**: 2026-03-11
+- **Scope**: Connection limits, multi-client resize, health escalation, flow
+  control, adaptive coalescing, preedit ownership and lifecycle, session
+  persistence, notification defaults, and heartbeat policy
 
 ---
 

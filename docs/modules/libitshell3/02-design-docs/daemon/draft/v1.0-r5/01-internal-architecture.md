@@ -1,22 +1,8 @@
 # Daemon Internal Architecture
 
-**Status**: Draft v0.5 **Date**: 2026-03-11 **Scope**: libitshell3 daemon
-internal module structure, event loop, state tree, and ghostty Terminal
-integration **Source resolutions**: R1 (Module Decomposition), R2 (Event Loop
-Model), R3 (State Tree), R4 (ghostty Terminal Instance Management), Owner Q3
-(Preedit/RenderState Validity) **v0.2 changes**: Applied v0.2 review note
-resolutions R1 (16-pane limit, fixed-size data structures), R2 (ime/ -> input/
-rename), R3 (protocol scope fix) **v0.3 changes**: Absorbed daemon behavioral
-content from IME contract (I1, I4/I4a/I4b) and protocol docs (P14, P15, P16,
-P20). Added: 3-phase key pipeline detail (§1.2, §4.3), ImeResult→ghostty API
-mapping with pseudocode (§4.3), preedit clearing rule (§4.4),
-ghostty_surface_text prohibition (§4.3), PTY lifecycle (§3.4), frame suppression
-(§4.5), layout enforcement (§3.5), pane metadata (§3.3) **v0.4 changes**:
-Applied v0.4 review note Resolution 2 (RN-03): Introduced `SessionEntry` in
-`server/session_entry.zig` as server-side wrapper; moved `pane_slots`,
-`free_mask`, `dirty_mask` from `Session` (core/) to `SessionEntry` (server/);
-changed pane storage from `?*Pane` to `?Pane` (by value); updated
-`SessionManager` to `HashMap(u32, *SessionEntry)`
+- **Date**: 2026-03-11
+- **Scope**: libitshell3 daemon internal module structure, event loop, state
+  tree, and ghostty Terminal integration
 
 ---
 
@@ -144,8 +130,8 @@ PTY. This ensures the user's in-progress composition is preserved before any
 control key action.
 
 For the internal `processKey()` decision algorithm (modifier handling, printable
-key dispatch, libhangul composition), see
-[IME behavior: processKey algorithm](../../../../../libitshell3-ime/02-design-docs/behavior/draft/v1.0-r1/01-processkey-algorithm.md).
+key dispatch, libhangul composition), see `01-processkey-algorithm.md` in the
+`libitshell3-ime` behavior docs.
 
 Phase 0 and Phase 1 execute in `input/` (depends only on `core/`). Phase 2
 executes in `server/` (depends on `ghostty/` for key encoding and preedit

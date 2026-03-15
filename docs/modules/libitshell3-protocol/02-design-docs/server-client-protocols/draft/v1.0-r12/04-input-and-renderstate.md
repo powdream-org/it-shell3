@@ -79,21 +79,6 @@ Bit  Modifier
  7   (reserved)
 ```
 
-#### Wire-to-IME KeyEvent Mapping
-
-The server decomposes the wire `modifiers` bitmask into the IME contract's
-separated fields:
-
-| Wire modifier bits           | IME KeyEvent field     | Notes                                                                                          |
-| ---------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
-| Bit 0 (Shift)                | `shift: bool`          | Separated because Shift participates in jamo selection (e.g., ㄱ vs ㄲ), not composition flush |
-| Bits 1-3 (Ctrl, Alt, Super)  | `modifiers: Modifiers` | These trigger composition flush in the IME engine                                              |
-| Bits 4-5 (CapsLock, NumLock) | Dropped                | Intentionally not consumed by IME — see IME contract Section 3.1                               |
-| Bits 6-7                     | Reserved               | Must be 0                                                                                      |
-
-See IME Interface Contract Section 3.1 for the rationale behind separating Shift
-from other modifiers.
-
 #### HID Keycodes
 
 The `keycode` field uses USB HID Usage Table codes (same address space as
@@ -149,30 +134,6 @@ orthogonal per-session property and is NOT encoded in the `input_method` string.
 It is established at handshake and omitted from KeyEvent. In v1, only `"qwerty"`
 is supported.
 
-#### Example: Typing Korean "한"
-
-```
-1. User presses 'H' key (HID 0x0B), input_method=korean_2set
-   KeyEvent: {"keycode": 11, "action": 0, "modifiers": 0, "input_method": "korean_2set"}
-   Server IME: maps H -> ㅎ, enters composing state, emits preedit "ㅎ"
-
-2. User presses 'A' key (HID 0x04)
-   KeyEvent: {"keycode": 4, "action": 0, "modifiers": 0, "input_method": "korean_2set"}
-   Server IME: maps A -> ㅏ, composes ㅎ+ㅏ=하, emits preedit "하"
-
-3. User presses 'N' key (HID 0x11)
-   KeyEvent: {"keycode": 17, "action": 0, "modifiers": 0, "input_method": "korean_2set"}
-   Server IME: maps N -> ㄴ, composes 하+ㄴ=한, emits preedit "한"
-
-4. User presses Space (HID 0x2C), commits
-   KeyEvent: {"keycode": 44, "action": 0, "modifiers": 0, "input_method": "korean_2set"}
-   Server IME: commits "한" to PTY, clears preedit
-```
-
-Note: The client sends identical KeyEvent messages regardless of whether
-composition is active. The server's IME engine tracks composition state
-internally.
-
 ### 2.2 TextInput (type = 0x0201)
 
 For direct text insertion that bypasses IME processing. Primary use case:
@@ -222,13 +183,6 @@ For text larger than 65535 bytes, use PasteData (0x0205).
 
 Sub-cell precision is provided via f32 for `x` and `y` to support fractional
 cell positioning (useful for future sixel/image region click detection).
-
-> **Normative — Preedit interaction**: If preedit is active when a MouseButton
-> event arrives, the server MUST commit preedit before processing the mouse
-> event. The server sends `PreeditEnd` with `reason="committed"` and the
-> committed text is written to the PTY, then forwards the mouse event. See doc
-> 05 Section 6 for the normative rules on mouse event interaction with active
-> preedit.
 
 ### 2.4 MouseMove (type = 0x0203)
 
@@ -333,113 +287,11 @@ enables focus reporting (CSI ? 1004 h).
 | `pane_id` | u32  | Target pane                         |
 | `focused` | bool | true=gained focus, false=lost focus |
 
-### 2.8 Readonly Client Input Restrictions
-
-Clients attached with the `readonly` flag (see doc 02 for the flag, doc 03
-Section 9 for the authoritative permissions table) are restricted in which input
-messages they may send. The server MUST reject prohibited messages with
-ERR_ACCESS_DENIED (error code 0x00000203).
-
-**Readonly clients MAY send (non-mutating)**:
-
-| Message                | Rationale                                          |
-| ---------------------- | -------------------------------------------------- |
-| MouseScroll (0x0204)   | Viewport navigation, does not alter terminal state |
-| FocusEvent (0x0206)    | Advisory, does not alter terminal state            |
-| ScrollRequest (0x0301) | Viewport navigation                                |
-| SearchRequest (0x0303) | Read-only query                                    |
-| SearchCancel (0x0305)  | Cancels own search                                 |
-
-**Readonly clients MUST NOT send (mutating)**:
-
-| Message                    | Rationale                            |
-| -------------------------- | ------------------------------------ |
-| KeyEvent (0x0200)          | Generates terminal input             |
-| TextInput (0x0201)         | Injects text into PTY                |
-| MouseButton (0x0202)       | Can trigger terminal mouse reporting |
-| MouseMove (0x0203)         | Can trigger terminal mouse tracking  |
-| PasteData (0x0205)         | Writes to PTY                        |
-| InputMethodSwitch (0x0404) | Mutates session IME state            |
-
-> **Authoritative source**: Doc 03 Section 9 defines the complete readonly
-> permissions table across all message types. The tables above are an
-> input-specific summary for convenience; if they conflict with doc 03 Section
-> 9, doc 03 is authoritative.
-
 ---
 
-## 3. Input Channel Architecture
+## 3. RenderState Messages (Server -> Client)
 
-### 3.1 Multiplexed vs. Dedicated Channel
-
-**Decision: Multiplexed with priority.**
-
-All input messages share the same Unix domain socket connection as other
-protocol messages. However, input messages receive processing priority on the
-server side.
-
-**Rationale**:
-
-- A separate input channel adds connection management complexity (two sockets
-  per client)
-- Unix domain sockets have sufficient bandwidth (>1 GB/s) — congestion is not a
-  realistic concern
-- The server's event loop processes input messages with higher priority than
-  control/management messages
-- Key-to-screen latency target: <1ms on Unix socket (verified in Doc 13's
-  analysis)
-
-**Server processing priority order**:
-
-1. KeyEvent, TextInput (highest — affects what the user sees immediately)
-2. MouseButton, MouseScroll (user interaction)
-3. MouseMove (bulk, can be coalesced)
-4. PasteData (bulk transfer)
-5. FocusEvent (advisory)
-
-### 3.2 Input Flow Summary
-
-```mermaid
-flowchart TD
-    subgraph Client
-        A["User presses key"]
-        B["KeyEvent<br/>(JSON: HID keycode, mods, input_method)"]
-        K["CellData → RenderState population"]
-        L["ghostty rendering pipeline<br/>(font shaping, atlas, GPU buffers)"]
-        M["Metal drawFrame()"]
-    end
-
-    subgraph Server
-        D["Input Dispatcher"]
-        E["libitshell3-ime<br/>(Layout Mapper + Composition Engine)"]
-        F{"Preedit?"}
-        G["Update preedit state"]
-        H{"Commit?"}
-        I["Write to PTY"]
-        J1["libghostty-vt<br/>Terminal.vtStream()"]
-        J2["RenderState.update()"]
-    end
-
-    A --> B
-    B -- "Unix socket" --> D
-    D --> E
-    E --> F
-    E --> H
-    F -- "Yes" --> G
-    H -- "Yes" --> I
-    G --> J1
-    I --> J1
-    J1 --> J2
-    J2 -- "FrameUpdate<br/>(binary cells + JSON metadata)" --> K
-    K --> L
-    L --> M
-```
-
----
-
-## 4. RenderState Messages (Server -> Client)
-
-### 4.1 FrameUpdate (type = 0x0300)
+### 3.1 FrameUpdate (type = 0x0300)
 
 The primary rendering message. Carries the full or partial terminal viewport
 state.
@@ -563,11 +415,11 @@ Bit  Section             When present
  4   DirtyRows           When frame_type=0 (P-frame with dirty rows) or frame_type=1 (I-frame)
  5   (reserved)          Formerly MouseState (now in JSON metadata)
  6   (reserved)          Formerly TerminalModes (now in JSON metadata)
- 7   JSONMetadata        When JSON metadata blob is present (see Section 4.2)
+ 7   JSONMetadata        When JSON metadata blob is present (see Section 3.2)
  8-15 (reserved)
 ```
 
-### 4.2 JSON Metadata Blob (section_flags bit 7)
+### 3.2 JSON Metadata Blob (section_flags bit 7)
 
 When bit 7 of `section_flags` is set, a JSON metadata blob follows the binary
 DirtyRows/CellData section (or immediately after the binary frame header if no
@@ -711,7 +563,7 @@ scrollback). When non-zero, the client forwards mouse events to the server.
 | `application_keypad`      | bool | Application keypad mode                     |
 | `kitty_keyboard_flags`    | u8   | Kitty keyboard protocol flags (4-bit value) |
 
-### 4.3 DirtyRows Section (section_flags bit 4)
+### 3.3 DirtyRows Section (section_flags bit 4)
 
 Contains the actual cell data for rows that changed. This section uses **binary
 encoding** for compact, RLE-compatible transport.
@@ -767,8 +619,8 @@ Bit     Field               Description
 > copy/paste is designed, `wrap` can be defined without a protocol version bump.
 
 Followed by `num_cells` entries of `CellData` (16 bytes each, fixed-size), then
-per-row side tables (GraphemeTable and UnderlineColorTable). See Section 4.4 for
-CellData encoding and Section 4.5 for the per-row side tables.
+per-row side tables (GraphemeTable and UnderlineColorTable). See Section 3.4 for
+CellData encoding and Section 3.5 for the per-row side tables.
 
 **Note**: `num_cells` may be less than `cols` when trailing cells are
 default/empty. The client fills remaining cells with the default background.
@@ -781,7 +633,7 @@ rows represent ALL rows that changed since the most recent I-frame, not just
 rows changed since the previous P-frame. A client that skipped intermediate
 P-frames can apply any P-frame directly against the I-frame's row data.
 
-### 4.4 CellData Encoding
+### 3.4 CellData Encoding
 
 Each cell in a dirty row is encoded as a fixed 16-byte struct:
 
@@ -824,7 +676,7 @@ Bits 0-1 define the cell's content type (matching ghostty's `ContentTag` enum):
 Bits 2-7 are reserved and MUST be 0.
 
 When `content_tag=1`, the receiver MUST look up the cell's column index in the
-row's GraphemeTable (Section 4.5) to obtain extra codepoints.
+row's GraphemeTable (Section 3.5) to obtain extra codepoints.
 
 #### PackedColor (4 bytes)
 
@@ -855,14 +707,14 @@ Bit   Flag
 12-15 (reserved)
 ```
 
-### 4.5 Per-Row Side Tables
+### 3.5 Per-Row Side Tables
 
 After each row's CellData array, two side tables follow. Both are present for
 every row (empty tables use a 2-byte zero count header).
 
 ```
 RowData body layout:
-  RowHeader (Section 4.3)
+  RowHeader (Section 3.3)
   CellData[num_cells]           (16 bytes each, fixed)
   GraphemeTable                 (variable, per-row)
   UnderlineColorTable           (variable, per-row)
@@ -910,12 +762,12 @@ first, then applies underline colors from this table.
 
 ---
 
-## 5. RenderState: Run-Length Encoding Optimization
+## 4. RenderState: Run-Length Encoding Optimization
 
 For rows with many consecutive cells sharing the same style (common for blank
 lines, monochrome text), an optional RLE encoding reduces bandwidth.
 
-### 5.1 RLE Cell Encoding
+### 4.1 RLE Cell Encoding
 
 When a row uses RLE (indicated by `rle_encoded` in `row_flags`, see Section
 4.3), cells are encoded as runs:
@@ -936,9 +788,9 @@ RLE cell array, same as for non-RLE rows.
 **Heuristic**: The server uses RLE when it reduces the row size by at least 25%.
 Otherwise, it sends individual cells.
 
-### 5.2 Row Header Extension for RLE
+### 4.2 Row Header Extension for RLE
 
-Bit 1 of `row_flags` (see Section 4.3) indicates RLE encoding:
+Bit 1 of `row_flags` (see Section 3.3) indicates RLE encoding:
 
 ```
 row_flags bit 1: rle_encoded (0=individual cells, 1=run-length encoded)
@@ -946,13 +798,13 @@ row_flags bit 1: rle_encoded (0=individual cells, 1=run-length encoded)
 
 ---
 
-## 6. Scrollback Messages
+## 5. Scrollback Messages
 
 The client does not hold scrollback data. All scrollback access is
 request/response through the server. All scrollback and search messages use
 **JSON payloads** (ENCODING=0).
 
-### 6.1 ScrollRequest (type = 0x0301)
+### 5.1 ScrollRequest (type = 0x0301)
 
 Client -> server. Requests scrolling the viewport.
 
@@ -978,7 +830,7 @@ buffer like any other I-frame. When one client scrolls, all attached clients
 receive the scrolled viewport. This is consistent with the globally singleton
 session model.
 
-### 6.2 ScrollPosition (type = 0x0302)
+### 5.2 ScrollPosition (type = 0x0302)
 
 Server -> all clients notification of current scroll position (sent with or
 after FrameUpdate).
@@ -1003,7 +855,7 @@ after FrameUpdate).
 
 This allows the client to render a scrollbar indicator.
 
-### 6.3 SearchRequest (type = 0x0303)
+### 5.3 SearchRequest (type = 0x0303)
 
 Client -> server. Initiates a search in the scrollback buffer.
 
@@ -1029,7 +881,7 @@ Client -> server. Initiates a search in the scrollback buffer.
 | `wrap_around`    | bool   | Wrap around at buffer boundaries |
 | `query`          | string | UTF-8 search string              |
 
-### 6.4 SearchResult (type = 0x0304)
+### 5.4 SearchResult (type = 0x0304)
 
 Server -> client. Reports the result of a search.
 
@@ -1058,7 +910,7 @@ Server -> client. Reports the result of a search.
 The server also sends a FrameUpdate scrolling the viewport to show the match and
 highlighting the matched range in the selection.
 
-### 6.5 SearchCancel (type = 0x0305)
+### 5.5 SearchCancel (type = 0x0305)
 
 Client -> server. Cancels an active search.
 
@@ -1076,12 +928,12 @@ Client -> server. Cancels an active search.
 
 ---
 
-## 7. FrameUpdate Frame Types
+## 6. FrameUpdate Frame Types
 
 The `frame_type` field in FrameUpdate controls what sections are present and how
 the client processes the frame:
 
-### 7.1 frame_type=0 (P-frame, partial)
+### 6.1 frame_type=0 (P-frame, partial)
 
 Partial update. When dirty rows exist, DirtyRows section is present
 (section_flags bit 4 set) with cumulative dirty rows since the most recent
@@ -1118,7 +970,7 @@ Total:          ~2,704 bytes
 
 With RLE (mostly empty rows): **~300-600 bytes**.
 
-### 7.2 frame_type=1 (I-frame)
+### 6.2 frame_type=1 (I-frame)
 
 Self-contained keyframe. Everything is present. Sent periodically (default:
 every 1 second), on resize, screen switch (primary/alternate), initial attach,
@@ -1130,7 +982,7 @@ reference.
 
 **Required sections**: DirtyRows (all rows, binary), JSON metadata blob
 (dimensions, colors — including `fg`, `bg`, and full `palette` (256 entries, 768
-bytes) — cursor, terminal modes, mouse state). See Section 4.2 "Colors are
+bytes) — cursor, terminal modes, mouse state). See Section 3.2 "Colors are
 rendering-critical" normative note for rationale. **Typical size for 80x24
 terminal**:
 
@@ -1150,9 +1002,9 @@ With typical styling (most cells default): **~6,000-10,000 bytes**. With RLE:
 
 ---
 
-## 8. Bandwidth Analysis
+## 7. Bandwidth Analysis
 
-### 8.1 Scenario Estimates
+### 7.1 Scenario Estimates
 
 | Scenario                                | Message Size | Frequency                  | Bandwidth     | Notes                                    |
 | --------------------------------------- | ------------ | -------------------------- | ------------- | ---------------------------------------- |
@@ -1166,7 +1018,7 @@ With typical styling (most cells default): **~6,000-10,000 bytes**. With RLE:
 | Scrolling (24 rows dirty)               | ~6-10 KB     | ~30/s during active scroll | ~180-300 KB/s |                                          |
 | Heavy output (e.g., `cat large_file`)   | ~6-10 KB     | Coalesced ceiling ~60/s    | ~360-600 KB/s | Coalesced ceiling, not sustained target  |
 
-### 8.2 Bandwidth Budget
+### 7.2 Bandwidth Budget
 
 - **Unix domain socket**: >1 GB/s throughput, <0.1ms latency
 - **LAN (iOS -> macOS)**: ~100 MB/s, 1-5ms latency
@@ -1178,7 +1030,7 @@ which is negligible on local connections and acceptable on SSH. The 16-byte
 CellData (down from 20 bytes) reduces I-frame sizes by ~20%. The bottleneck over
 WAN is latency, not bandwidth.
 
-### 8.3 Event-Driven Coalescing
+### 7.3 Event-Driven Coalescing
 
 FrameUpdates are sent only when dirty state exists. There is no fixed fps
 target. See doc 01 Section 10 for the wire-observable delivery model. Coalescing
@@ -1194,11 +1046,11 @@ exist, the server sends `frame_type=1` (I-frame) containing all rows. The
 I-frame timer is independent of the coalescing tiers — it fires at a fixed
 interval regardless of PTY throughput.
 
-### 8.4 Measured Wire Overhead (PoC Baseline)
+### 7.4 Measured Wire Overhead (PoC Baseline)
 
 The following measurements were collected from PoC 06-08 on Apple Silicon
 (ReleaseFast build, 1000 iterations after warmup). All measurements use the
-16-byte FlatCell format (see Section 4.4).
+16-byte FlatCell format (see Section 3.4).
 
 | Metric                              | 80x24         | 300x80        | Notes                                                   |
 | ----------------------------------- | ------------- | ------------- | ------------------------------------------------------- |
@@ -1221,9 +1073,9 @@ frame).
 
 ---
 
-## 9. Compression
+## 8. Compression
 
-### 9.1 Reserved for Future Use
+### 8.1 Reserved for Future Use
 
 The COMPRESSED flag (bit 1 of the header flags byte) is reserved for future use.
 In protocol version 1, compression is not implemented. Senders MUST NOT set the
@@ -1241,9 +1093,9 @@ tier messages to preserve latency guarantees.
 
 ---
 
-## 10. Message Type Summary
+## 9. Message Type Summary
 
-### 10.1 Input Messages (Client -> Server): 0x0200-0x02FF
+### 9.1 Input Messages (Client -> Server): 0x0200-0x02FF
 
 All input messages use JSON payloads (16-byte binary header + JSON body).
 
@@ -1257,7 +1109,7 @@ All input messages use JSON payloads (16-byte binary header + JSON body).
 | `0x0205` | PasteData   | Clipboard paste, chunked (JSON)                   |
 | `0x0206` | FocusEvent  | Window focus gained/lost (JSON)                   |
 
-### 10.2 RenderState Messages (Server -> Client): 0x0300-0x03FF
+### 9.2 RenderState Messages (Server -> Client): 0x0300-0x03FF
 
 | Type     | Name           | Encoding               | Description                                            |
 | -------- | -------------- | ---------------------- | ------------------------------------------------------ |
@@ -1275,7 +1127,7 @@ FrameUpdate use JSON payloads (ENCODING=0).
 
 ---
 
-## 11. Open Questions
+## 10. Open Questions
 
 1. **~~Cell deduplication~~** **Closed (v0.7)**: Unnecessary. The I/P-frame
    model already reduces bandwidth via dirty-row-only P-frames. 16 bytes/cell
@@ -1390,7 +1242,7 @@ Offset  Hex                                       Description
 | Empty (trailing)               | 16 B, or omitted with short num_cells | 0 B                          | ~varies                                 |
 
 **Effective cell size**: 16 bytes/cell for >98% of terminal content. Grapheme
-clusters and underline colors are in per-row side tables (Section 4.5), adding
+clusters and underline colors are in per-row side tables (Section 3.5), adding
 cost only when present. Per-row overhead for empty side tables: 4 bytes (two u16
 zero-count headers).
 
