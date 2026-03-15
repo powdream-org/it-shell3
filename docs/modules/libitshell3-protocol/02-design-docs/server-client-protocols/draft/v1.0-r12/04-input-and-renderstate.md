@@ -2,115 +2,6 @@
 
 - **Date**: 2026-03-14
 
-**Changes from v0.11** (design resolution `01-protocol-v012.md`):
-
-- **Resolution 1: Mouse + preedit interaction cross-reference**: Added
-  cross-reference note in Section 2.3 (MouseButton): if preedit is active when a
-  MouseButton event arrives, the server MUST commit preedit before processing
-  the mouse event. See doc 05 Section 6 for normative rules.
-- **Resolution 4: Hyperlink CellData encoding deferred**: Open Question #4
-  closed. Hyperlink encoding deferred to post-v1. `row_flags.hyperlink` bit 4
-  retained for row-level presence detection. Design direction documented in
-  `99-post-v1-features.md` Section 6.
-- **Resolution 6: `frame_type=2` removed**: `frame_type` values reduced from 3
-  (0-2) to 2 (0-1). `frame_type=2` (I-frame, unchanged) removed — idle panes
-  produce no frames instead of byte-identical duplicates. Section 4.1 normative
-  notes updated, Section 7.3 removed entirely, Section 8.3 updated.
-- **CTR-01: Remove `ghostty_surface_preedit()` reference**: Replaced server-side
-  API name in Section 4.2 JSON metadata note with wire-observable language ("the
-  server injects preedit cells into frame cell data").
-- **Resolution 9: Subsection numbering**: Added subsection numbers to unnumbered
-  `###` subsections in Sections 1, 5, 10.
-
-**Changes from v0.8** (PoC alignment — design resolution `01-poc-alignment.md`):
-
-- **Resolution 1: 16-byte fixed CellData**: Replaced 20-byte variable-length
-  CellData with 16-byte fixed-size FlatCell. Grapheme clusters moved to per-row
-  GraphemeTable side table. Underline colors moved to per-row
-  UnderlineColorTable side table. `extra_count`, `extra_codepoints`, and
-  per-cell `underline_color` fields removed. New `content_tag` field (u8) added.
-  Section 4.4, Section 5, Section 7.1, Section 7.2, Section 8.1, Appendix A,
-  Appendix B rewritten.
-- **Resolution 3: `selection_flags` renamed to `row_flags`**: The existing
-  `selection_flags` byte in RowData (Section 4.3) is renamed to `row_flags`. New
-  bits defined: `semantic_prompt` (bits 2-3) and `hyperlink` (bit 4). Bit 5
-  reserved for future `wrap`. Section 4.3, Section 5, Appendix A updated.
-- **Resolution 4: Minimum rendering dimensions**: New normative notes in Section
-  4.1 (server-side FrameUpdate suppression below `cols < 2` or `rows < 1`, PTY
-  independence during suppression) and Section 4.2 (client dimension
-  validation).
-- **Resolution 2: Client rendering pipeline revision**: Section 3.2 flow diagram
-  updated (client-side: RenderState population -> ghostty rendering pipeline ->
-  Metal drawFrame). Section 4.1 "CellData is SEMANTIC" normative note revised to
-  describe RenderState population contract. Informative reference implementation
-  note added.
-- **Resolution 5: Colors REQUIRED in I-frames**: Colors section elevated from
-  optional to REQUIRED in I-frames. Normative note added to Section 4.2
-  explaining rendering criticality (`neverExtendBg()`, PackedColor palette
-  resolution). Section 7.2 updated to list colors as required.
-- **Resolution 6: Measured wire overhead added**: New Section 8.4 with PoC 06-08
-  measured performance data (server export, client import, per-cell cost,
-  round-trip fidelity). Qualitative statement on wire overhead vs rendering
-  bottleneck. Known gap noted for grapheme cluster cells.
-
-**Changes from v0.7** (preedit overhaul — design resolution
-`01-preedit-overhaul.md`):
-
-- **Resolution 7: Ring buffer bypass removed**: Preedit-only frame bypass
-  (`frame_type=0` P-metadata) removed. All frames go through the ring buffer.
-  Supersedes v0.6 Resolutions 17, 18, 19.
-- **Resolution 8: `frame_type` renumbered**: 4 values (0-3) reduced to 3 values
-  (0-2). P-metadata removed; P-partial=0, I-frame=1, I-unchanged=2. Section 4.1,
-  Section 7, Appendix A updated. _(Note: v1.0-r12 further reduces to 2 values —
-  see Changes from v0.11.)_
-- **Resolution 2: Preedit JSON section removed**: Entire `preedit` subsection
-  removed from FrameUpdate JSON metadata blob (Section 4.2). Preedit rendering
-  is through cell data in I/P-frames.
-- **Resolution 4: Cursor/width fields removed from preedit messages**: No longer
-  referenced in Section 4.2.
-- **Resolution 6: Cursor style normative note removed**: "Cursor behavior during
-  CJK composition" normative note removed from Section 4.2. Cursor style during
-  composition is a ghostty-internal rendering decision.
-- **Capability interaction note rewritten**: The `"preedit"` capability controls
-  only dedicated 0x04xx messages. Preedit rendering is always available through
-  cell data regardless of capability negotiation.
-
-**Changes from v0.6** (I/P-frame model, ring buffer, and per-session engine —
-design resolutions):
-
-- **Resolution 4: `dirty` field renamed to `frame_type`**: Binary frame header
-  offset 32 changed from `dirty` (3 values) to `frame_type` (4 values:
-  0=P-metadata, 1=P-partial, 2=I-frame, 3=I-unchanged). Section 4.1 updated
-  throughout. _(Note: v0.8 further renumbers to 3 values — see Changes from
-  v0.7. v1.0-r12 further reduces to 2 values — see Changes from v0.11.)_
-- **Resolution 1: P-frame cumulative semantics**: P-frames carry cumulative
-  dirty rows since the most recent I-frame. Any P-frame is independently
-  decodable given only the current I-frame. No sequential dependency between
-  P-frames.
-- **Resolution 5: Keyframe self-containment rule**: I-frames (`frame_type=1`)
-  MUST carry full CellData for ALL rows. Added normative note in Section 4.1.
-  _(Note: v1.0-r12 removed `frame_type=2` — see Changes from v0.11.)_
-- **Resolution 6: `unchanged` advisory hint**: ~~`frame_type=2` (I-frame,
-  unchanged) has strict server-side rule — entire payload must be byte-identical
-  to previous I-frame. Caught-up clients MAY skip; seeked clients MUST
-  process.~~ _Removed in v1.0-r12 — see Changes from v0.11._
-- **Resolution 7: Implicit I-frame reference**: No explicit `keyframe_sequence`
-  field. Client tracks last I-frame `frame_sequence` locally.
-- **Resolution 10: Per-pane dirty bitmap**: Replaced per-client dirty bitmap
-  normative note with per-pane bitmap. Single serialization per pane per frame
-  interval.
-- **Resolution 17: Preedit-only frame bypass**: ~~Preedit-only frames bypass the
-  ring buffer.~~ _Superseded by v0.8 Resolution 7 — all frames go through the
-  ring buffer._
-- **Resolution 19: `frame_sequence` scope updated**: ~~Incremented only for
-  frames written to the ring buffer.~~ _Superseded by v0.8 Resolution 7 — all
-  frames increment `frame_sequence`._
-- **Section 7 rewritten**: "FrameUpdate Dirty Modes" renamed to "FrameUpdate
-  Frame Types". _(v0.6 introduced frame_type values 0-3; v0.8 renumbers to 0-2;
-  v1.0-r12 further reduces to 0-1.)_
-- **Appendix A hex dump updated**: `dirty` field replaced with `frame_type` in
-  example.
-
 ---
 
 ## 1. Overview
@@ -134,42 +25,16 @@ font subsystem (SharedGrid, Atlas, HarfBuzz) and Metal GPU shaders.
 | `0x0200`-`0x02FF` | Input messages       | Client -> Server |
 | `0x0300`-`0x03FF` | RenderState messages | Server -> Client |
 
-### 1.2 Common Message Header (16 bytes)
+### 1.2 Common Message Header
 
-All messages share a 16-byte binary header as defined in doc 01:
-
-```
-Offset  Size  Field        Description
-------  ----  -----        -----------
- 0      2     magic        0x49 0x54 ("IT" in ASCII), little-endian
- 2      1     version      Header format version (current: 1; see doc 01 Section 3.1.1)
- 3      1     flags        Per-message flags (bit 0 = ENCODING: 0=JSON/1=binary,
-                                       bit 1 = COMPRESSED (reserved, v1 MUST NOT set),
-                                       bit 2 = RESPONSE,
-                                       bit 3 = ERROR, bit 4 = MORE_FRAGMENTS,
-                                       bits 5-7 reserved)
- 4      2     msg_type     Message type ID (u16 LE)
- 6      2     reserved     Must be 0
- 8      4     payload_len  Payload length in bytes, NOT including header (u32 LE)
-12      4     sequence     Monotonic sequence number (u32 LE)
-```
-
-- **payload_len**: Size of the payload only. Total message size on wire = 16 +
-  payload_len.
-- The 2-byte reserved field provides natural 4-byte alignment for `payload_len`
-  and `sequence`.
-
-All multi-byte fields are little-endian.
+All messages share the 16-byte binary header defined in
+[Doc 01 §3.1](./01-protocol-overview.md#31-frame-header-16-bytes-fixed).
 
 ---
 
 ## 2. Input Messages (Client -> Server)
 
-All input messages use **JSON payloads**. Each input message consists of the
-16-byte binary header (for O(1) dispatch and framing) followed by a JSON-encoded
-payload body. This provides schema evolution, cross-language client support
-(Swift `JSONDecoder`), and `socat | jq` debuggability for the low-frequency
-input path.
+All input messages use **JSON payloads**.
 
 ### 2.1 KeyEvent (type = 0x0200)
 
@@ -199,13 +64,6 @@ IME engine.
 | `input_method` | string | Active input method identifier (see below)                          |
 | `pane_id`      | u32    | Target pane (optional; omit or 0 = route to session's focused pane) |
 
-**`pane_id` routing**: When `pane_id` is omitted or 0, the server routes the
-KeyEvent to the session's currently focused pane. When present and non-zero, the
-server validates that the pane exists in the client's attached session and
-routes directly. During IME composition, the client SHOULD specify `pane_id` to
-prevent focus-change races — if another client changes focus mid-composition,
-explicitly routed KeyEvents continue to reach the correct pane.
-
 #### Modifier Bitflags (u8)
 
 ```
@@ -220,13 +78,6 @@ Bit  Modifier
  6   (reserved)
  7   (reserved)
 ```
-
-**IME routing validation**: The server MUST validate that `keycode <= 0xE7` (HID
-Keyboard/Keypad page) before routing a KeyEvent to the IME engine via
-`processKey()`. Keycodes above 0xE7 are either modifier keys (0xE0-0xE7, which
-are represented in the `modifiers` bitmask) or non-keyboard HID usages (consumer
-page, etc.) that bypass IME processing entirely. The server forwards such keys
-directly to the terminal without IME involvement.
 
 #### Wire-to-IME KeyEvent Mapping
 
