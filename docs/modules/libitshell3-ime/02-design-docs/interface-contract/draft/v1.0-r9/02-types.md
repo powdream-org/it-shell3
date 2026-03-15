@@ -127,13 +127,13 @@ pub const ImeResult = struct {
 };
 ```
 
-For the complete scenario matrix and direct mode behavior, see [behavior/draft/v1.0-r1/02-scenario-matrix.md](../../../behavior/draft/v1.0-r1/02-scenario-matrix.md).
+For the complete scenario matrix and direct mode behavior, see `02-scenario-matrix.md` in the behavior docs.
 
 ## 3. Modifier Flush Policy
 
 When the IME has active preedit and a modifier+key or special key arrives, the engine **flushes (commits)** the in-progress composition, then forwards the key. The preedit is never silently discarded. Shift does NOT flush — it participates in jamo selection (e.g., ㄱ→ㄲ).
 
-For the complete flush policy table, examples, and verification against ibus-hangul/fcitx5-hangul, see [behavior/draft/v1.0-r1/03-modifier-flush-policy.md](../../../behavior/draft/v1.0-r1/03-modifier-flush-policy.md).
+For the complete flush policy table, examples, and verification against ibus-hangul/fcitx5-hangul, see `03-modifier-flush-policy.md` in the behavior docs.
 
 ## 4. Input Method Identifiers
 

@@ -126,7 +126,7 @@ The engine atomically flushes any in-progress composition and switches to the ne
 
 `preedit_changed` follows [Section 2](02-types.md#2-imeresult-output-from-ime)'s definition: it is `true` only when the preedit state actually transitions (here, non-null to null from flushing). When the engine was already empty, preedit remains null throughout (null to null) — no transition occurred, so `preedit_changed` is `false`.
 
-For the internal step sequence (libhangul flush, mode update, keyboard selection), see [behavior/draft/v1.0-r1/10-hangul-engine-internals.md](../../../behavior/draft/v1.0-r1/10-hangul-engine-internals.md), Section 4.
+For the internal step sequence (libhangul flush, mode update, keyboard selection), see `10-hangul-engine-internals.md` §4 in the behavior docs.
 
 **Case 2: "Switching" to the already-active input method (e.g., `"korean_2set"` -> `"korean_2set"`):**
 
@@ -134,7 +134,7 @@ Return `ImeResult{}` (all null/false). No flush, no state change.
 
 **Case 3: Unsupported input method string:**
 
-Return `error.UnsupportedInputMethod`. The server MUST only send input method strings from the canonical registry (see [behavior/draft/v1.0-r1/10-hangul-engine-internals.md](../../../behavior/draft/v1.0-r1/10-hangul-engine-internals.md), Section: Canonical Input Method Registry). Receiving an unrecognized string is a server bug.
+Return `error.UnsupportedInputMethod`. The server MUST only send input method strings from the canonical registry (see `10-hangul-engine-internals.md` in the behavior docs, Canonical Input Method Registry section). Receiving an unrecognized string is a server bug.
 
 **Rationale for no-op on same-method**: The user toggled to the same mode by mistake (or the framework called it redundantly). Flushing would be a surprising side effect — the user didn't intend to commit their in-progress composition. This matches fcitx5 (`InputMethodManager::setCurrentGroup()`) and ibus (`ibus_bus_set_global_engine()`), both of which treat same-engine switches as no-ops.
 
@@ -146,7 +146,7 @@ Return `error.UnsupportedInputMethod`. The server MUST only send input method st
 
 > **Discard-and-switch pattern**: `reset()` followed by `setActiveInputMethod()` is safe for discard-and-switch when the caller holds the per-session lock. After `reset()`, the engine is empty and `setActiveInputMethod()` performs a no-flush switch. This pattern implements the protocol's `commit_current=false` on InputMethodSwitch.
 
-For the concrete `HangulImeEngine` implementation (struct fields, vtable implementations, libhangul keyboard ID mapping, canonical input method registry, processKey algorithm, and session persistence), see [behavior/draft/v1.0-r1/10-hangul-engine-internals.md](../../../behavior/draft/v1.0-r1/10-hangul-engine-internals.md).
+For the concrete `HangulImeEngine` implementation (struct fields, vtable implementations, libhangul keyboard ID mapping, canonical input method registry, processKey algorithm, and session persistence), see `10-hangul-engine-internals.md` in the behavior docs.
 ## 3. MockImeEngine (For Testing)
 
 ```zig
