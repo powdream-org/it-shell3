@@ -9,7 +9,7 @@
 | 03-engine-interface.md             | ImeEngine vtable, setActiveInputMethod behavior, MockImeEngine                                         |
 | 04-ghostty-integration.md          | Reference — ghostty integration is defined in daemon design docs; memory ownership and buffer lifetime |
 | 05-extensibility-and-deployment.md | Future extensibility, C API boundary, session persistence                                              |
-| 99-appendices.md                   | Change history appendices (A-K)                                                                        |
+| 99-appendices.md                   | Change history appendices (A-H)                                                                        |
 
 > **Scope**: This document set covers the caller-facing API only. For engine
 > implementation details (internal algorithms, libhangul API usage, buffer
