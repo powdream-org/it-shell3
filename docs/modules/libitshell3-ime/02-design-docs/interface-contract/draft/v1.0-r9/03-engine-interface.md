@@ -126,7 +126,7 @@ The engine atomically flushes any in-progress composition and switches to the ne
 
 `preedit_changed` follows [Section 2](02-types.md#2-imeresult-output-from-ime)'s definition: it is `true` only when the preedit state actually transitions (here, non-null to null from flushing). When the engine was already empty, preedit remains null throughout (null to null) — no transition occurred, so `preedit_changed` is `false`.
 
-For the internal step sequence (libhangul flush, mode update, keyboard selection), see `10-hangul-engine-internals.md` §4 in the behavior docs.
+For the internal step sequence (libhangul flush, mode update, keyboard selection), see `10-hangul-engine-internals.md` in the behavior docs.
 
 **Case 2: "Switching" to the already-active input method (e.g., `"korean_2set"` -> `"korean_2set"`):**
 

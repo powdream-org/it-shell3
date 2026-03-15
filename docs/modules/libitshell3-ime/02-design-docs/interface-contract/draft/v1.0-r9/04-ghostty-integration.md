@@ -10,7 +10,7 @@ The IME engine has no direct interaction with ghostty. It produces `ImeResult` s
 
 `ImeResult` slices (`committed_text`, `preedit_text`) point to internal engine buffers, valid until the next mutating call (`processKey()`, `flush()`, `reset()`, `deactivate()`, `setActiveInputMethod()`). Zero heap allocation per keystroke.
 
-For buffer layout, sizing rationale, and libhangul memory model details, see `10-hangul-engine-internals.md` §3 in the behavior docs.
+For buffer layout, sizing rationale, and libhangul memory model details, see `10-hangul-engine-internals.md` in the behavior docs.
 
 **Caller responsibility**: If the caller needs to retain the text across multiple `processKey()` calls, it must copy the data. See the `libitshell3` daemon design docs for the daemon's consumption invariant.
 

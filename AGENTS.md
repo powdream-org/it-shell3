@@ -111,7 +111,7 @@ Instead, use a loose prose reference:
 See [behavior/draft/v1.0-r1/02-scenario-matrix.md](../../../behavior/draft/v1.0-r1/02-scenario-matrix.md).
 See [daemon design doc 02 §4.2](../../../../../libitshell3/.../v1.0-r3/02-integration-boundaries.md#42-...).
 
-<!-- Prefer: name the doc or section without the path -->
+<!-- Prefer: name the doc without the path; omit section numbers (they change too) -->
 See `02-scenario-matrix.md` in the behavior docs for the complete scenario matrix.
 See the `libitshell3` daemon design docs for details.
 See the `libitshell3-protocol` server-client-protocols docs for details.
