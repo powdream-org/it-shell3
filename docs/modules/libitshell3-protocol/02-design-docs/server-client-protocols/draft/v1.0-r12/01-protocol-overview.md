@@ -293,7 +293,18 @@ commitment to reintroduce. SSH compression covers WAN scenarios. Neither tmux
 nor zellij compresses at the application protocol layer. COMPRESSED flag bit and
 `"compression"` capability name reserved for potential future use.
 
-### 3.6 Fragmentation
+### 3.6 JSON Payload Conventions
+
+All messages with ENCODING=0 (JSON) follow these conventions:
+
+- **Field types**: Boolean fields use JSON `true`/`false`. String fields are
+  JSON strings (UTF-8). Integer fields are JSON numbers.
+- **Optional fields**: When a JSON field has no value, the field MUST be omitted
+  from the JSON object. Senders MUST NOT include fields with `null` values.
+  Receivers MUST tolerate both missing keys and `null` values as "absent"
+  (defensive parsing for forward/backward compatibility).
+
+### 3.7 Fragmentation
 
 Messages larger than 1 MiB should be fragmented:
 

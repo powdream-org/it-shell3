@@ -1,4 +1,4 @@
-# 03 - Session and Pane Management Protocol
+# Session and Pane Management Protocol
 
 - **Date**: 2026-03-15
 
@@ -37,28 +37,11 @@ The binary framing header (16 bytes) wraps a JSON object as the payload body.
 Field names in the JSON object correspond to the field names specified in each
 message definition below.
 
-> **Rationale**: Session/pane management messages are low-frequency control
-> messages. JSON encoding provides debuggability (`socat | jq`), schema
-> evolution via optional fields, and straightforward cross-language support
-> (Swift `JSONDecoder`, etc.). See review-notes-02 Round 3 for the full
-> analysis.
-
 ### Conventions
 
-- All multi-byte integers in the binary header are little-endian.
-- Payload bodies are UTF-8 JSON objects.
-- Boolean fields use JSON `true`/`false`.
-- String fields are JSON strings (UTF-8).
-- Integer fields are JSON numbers.
-- **Optional fields**: When a JSON field has no value, the field MUST be omitted
-  from the JSON object. Senders MUST NOT include fields with `null` values.
-  Receivers MUST tolerate both missing keys and `null` values as "absent"
-  (defensive parsing for forward/backward compatibility).
-- `payload_len` in the header is the JSON payload size in bytes (NOT including
-  the 16-byte header). Total message size on wire = 16 + payload_len.
-- All request messages expect a corresponding response message. The response
-  carries the same sequence number as the request for correlation (RESPONSE flag
-  = 1).
+See [Doc 01](./01-protocol-overview.md) for common wire conventions (byte order,
+JSON payload rules, optional field convention, sequence number correlation).
+
 - Directions use integers: 0 = right, 1 = down, 2 = left, 3 = up (matches
   ghostty's `GHOSTTY_SPLIT_DIRECTION`).
 - Ratios are floating-point numbers in the range [0.0, 1.0].
@@ -74,66 +57,71 @@ ID counters are per-type: session IDs and pane IDs use independent counters
 (session 1 and pane 1 can coexist). ID 0 is reserved as a sentinel value
 (meaning "none" or "invalid").
 
-### Cursor Blink
-
-> **Normative note**: Cursor blink is a **client-side** concern. The server
-> sends cursor state (style, visibility, position) in FrameUpdate (doc 04). The
-> client is responsible for implementing blink timing locally. The server never
-> sends blink timer state or blink-phase information. This avoids coupling frame
-> delivery cadence to cosmetic cursor animation.
-
 ---
 
 ## Message Type Assignments
 
-| Type Code                            | Name                   | Direction | Description                              |
-| ------------------------------------ | ---------------------- | --------- | ---------------------------------------- |
-| **Session Messages**                 |                        |           |                                          |
-| `0x0100`                             | CreateSessionRequest   | C -> S    | Create a new session                     |
-| `0x0101`                             | CreateSessionResponse  | S -> C    | Result of session creation               |
-| `0x0102`                             | ListSessionsRequest    | C -> S    | List all sessions                        |
-| `0x0103`                             | ListSessionsResponse   | S -> C    | Session list                             |
-| `0x0104`                             | AttachSessionRequest   | C -> S    | Attach client to session                 |
-| `0x0105`                             | AttachSessionResponse  | S -> C    | Attach result                            |
-| `0x0106`                             | DetachSessionRequest   | C -> S    | Detach client from session               |
-| `0x0107`                             | DetachSessionResponse  | S -> C    | Detach result                            |
-| `0x0108`                             | DestroySessionRequest  | C -> S    | Destroy a session                        |
-| `0x0109`                             | DestroySessionResponse | S -> C    | Destroy result                           |
-| `0x010A`                             | RenameSessionRequest   | C -> S    | Rename a session                         |
-| `0x010B`                             | RenameSessionResponse  | S -> C    | Rename result                            |
-| `0x010C`                             | AttachOrCreateRequest  | C -> S    | Attach to existing session or create new |
-| `0x010D`                             | AttachOrCreateResponse | S -> C    | Attach-or-create result                  |
-| **Pane Messages**                    |                        |           |                                          |
-| `0x0140`                             | CreatePaneRequest      | C -> S    | Create a standalone pane in a session    |
-| `0x0141`                             | CreatePaneResponse     | S -> C    | Result of pane creation                  |
-| `0x0142`                             | SplitPaneRequest       | C -> S    | Split an existing pane                   |
-| `0x0143`                             | SplitPaneResponse      | S -> C    | Split result                             |
-| `0x0144`                             | ClosePaneRequest       | C -> S    | Close a pane                             |
-| `0x0145`                             | ClosePaneResponse      | S -> C    | Close result                             |
-| `0x0146`                             | FocusPaneRequest       | C -> S    | Set focused pane                         |
-| `0x0147`                             | FocusPaneResponse      | S -> C    | Focus result                             |
-| `0x0148`                             | NavigatePaneRequest    | C -> S    | Move focus in a direction                |
-| `0x0149`                             | NavigatePaneResponse   | S -> C    | Navigate result (new focused pane)       |
-| `0x014A`                             | ResizePaneRequest      | C -> S    | Adjust split divider                     |
-| `0x014B`                             | ResizePaneResponse     | S -> C    | Resize result                            |
-| `0x014C`                             | EqualizeSplitsRequest  | C -> S    | Equalize all splits in a session         |
-| `0x014D`                             | EqualizeSplitsResponse | S -> C    | Equalize result                          |
-| `0x014E`                             | ZoomPaneRequest        | C -> S    | Toggle pane zoom                         |
-| `0x014F`                             | ZoomPaneResponse       | S -> C    | Zoom result                              |
-| `0x0150`                             | SwapPanesRequest       | C -> S    | Swap two panes                           |
-| `0x0151`                             | SwapPanesResponse      | S -> C    | Swap result                              |
-| `0x0152`                             | LayoutGetRequest       | C -> S    | Query current layout tree                |
-| `0x0153`                             | LayoutGetResponse      | S -> C    | Current layout tree                      |
-| **Notifications (Server -> Client)** |                        |           |                                          |
-| `0x0180`                             | LayoutChanged          | S -> C    | Layout tree updated                      |
-| `0x0181`                             | PaneMetadataChanged    | S -> C    | Pane metadata updated                    |
-| `0x0182`                             | SessionListChanged     | S -> C    | Session list changed                     |
-| `0x0183`                             | ClientAttached         | S -> C    | A client attached to a session           |
-| `0x0184`                             | ClientDetached         | S -> C    | A client detached from a session         |
-| `0x0185`                             | ClientHealthChanged    | S -> C    | A client's health state changed          |
-| **Window Resize**                    |                        |           |                                          |
-| `0x0190`                             | WindowResize           | C -> S    | Client window resized                    |
-| `0x0191`                             | WindowResizeAck        | S -> C    | Resize acknowledged                      |
+### Session Messages
+
+| Type Code | Name                   | Direction | Description                              |
+| --------- | ---------------------- | --------- | ---------------------------------------- |
+| `0x0100`  | CreateSessionRequest   | C -> S    | Create a new session                     |
+| `0x0101`  | CreateSessionResponse  | S -> C    | Result of session creation               |
+| `0x0102`  | ListSessionsRequest    | C -> S    | List all sessions                        |
+| `0x0103`  | ListSessionsResponse   | S -> C    | Session list                             |
+| `0x0104`  | AttachSessionRequest   | C -> S    | Attach client to session                 |
+| `0x0105`  | AttachSessionResponse  | S -> C    | Attach result                            |
+| `0x0106`  | DetachSessionRequest   | C -> S    | Detach client from session               |
+| `0x0107`  | DetachSessionResponse  | S -> C    | Detach result                            |
+| `0x0108`  | DestroySessionRequest  | C -> S    | Destroy a session                        |
+| `0x0109`  | DestroySessionResponse | S -> C    | Destroy result                           |
+| `0x010A`  | RenameSessionRequest   | C -> S    | Rename a session                         |
+| `0x010B`  | RenameSessionResponse  | S -> C    | Rename result                            |
+| `0x010C`  | AttachOrCreateRequest  | C -> S    | Attach to existing session or create new |
+| `0x010D`  | AttachOrCreateResponse | S -> C    | Attach-or-create result                  |
+
+### Pane Messages
+
+| Type Code | Name                   | Direction | Description                           |
+| --------- | ---------------------- | --------- | ------------------------------------- |
+| `0x0140`  | CreatePaneRequest      | C -> S    | Create a standalone pane in a session |
+| `0x0141`  | CreatePaneResponse     | S -> C    | Result of pane creation               |
+| `0x0142`  | SplitPaneRequest       | C -> S    | Split an existing pane                |
+| `0x0143`  | SplitPaneResponse      | S -> C    | Split result                          |
+| `0x0144`  | ClosePaneRequest       | C -> S    | Close a pane                          |
+| `0x0145`  | ClosePaneResponse      | S -> C    | Close result                          |
+| `0x0146`  | FocusPaneRequest       | C -> S    | Set focused pane                      |
+| `0x0147`  | FocusPaneResponse      | S -> C    | Focus result                          |
+| `0x0148`  | NavigatePaneRequest    | C -> S    | Move focus in a direction             |
+| `0x0149`  | NavigatePaneResponse   | S -> C    | Navigate result (new focused pane)    |
+| `0x014A`  | ResizePaneRequest      | C -> S    | Adjust split divider                  |
+| `0x014B`  | ResizePaneResponse     | S -> C    | Resize result                         |
+| `0x014C`  | EqualizeSplitsRequest  | C -> S    | Equalize all splits in a session      |
+| `0x014D`  | EqualizeSplitsResponse | S -> C    | Equalize result                       |
+| `0x014E`  | ZoomPaneRequest        | C -> S    | Toggle pane zoom                      |
+| `0x014F`  | ZoomPaneResponse       | S -> C    | Zoom result                           |
+| `0x0150`  | SwapPanesRequest       | C -> S    | Swap two panes                        |
+| `0x0151`  | SwapPanesResponse      | S -> C    | Swap result                           |
+| `0x0152`  | LayoutGetRequest       | C -> S    | Query current layout tree             |
+| `0x0153`  | LayoutGetResponse      | S -> C    | Current layout tree                   |
+
+### Notifications (Server -> Client)
+
+| Type Code | Name                | Direction | Description                      |
+| --------- | ------------------- | --------- | -------------------------------- |
+| `0x0180`  | LayoutChanged       | S -> C    | Layout tree updated              |
+| `0x0181`  | PaneMetadataChanged | S -> C    | Pane metadata updated            |
+| `0x0182`  | SessionListChanged  | S -> C    | Session list changed             |
+| `0x0183`  | ClientAttached      | S -> C    | A client attached to a session   |
+| `0x0184`  | ClientDetached      | S -> C    | A client detached from a session |
+| `0x0185`  | ClientHealthChanged | S -> C    | A client's health state changed  |
+
+### Window Resize
+
+| Type Code | Name            | Direction | Description           |
+| --------- | --------------- | --------- | --------------------- |
+| `0x0190`  | WindowResize    | C -> S    | Client window resized |
+| `0x0191`  | WindowResizeAck | S -> C    | Resize acknowledged   |
 
 ---
 

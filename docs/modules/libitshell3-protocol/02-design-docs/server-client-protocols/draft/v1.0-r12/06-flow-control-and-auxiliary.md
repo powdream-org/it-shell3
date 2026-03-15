@@ -1,4 +1,4 @@
-# 06 - Flow Control and Auxiliary Protocols
+# Flow Control and Auxiliary Protocols
 
 - **Date**: 2026-03-14
 

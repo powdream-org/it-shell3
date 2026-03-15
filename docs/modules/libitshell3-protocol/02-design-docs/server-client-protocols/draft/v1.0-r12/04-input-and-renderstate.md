@@ -1,4 +1,4 @@
-# 04 — Input Forwarding and RenderState Protocol
+# Input Forwarding and RenderState Protocol
 
 - **Date**: 2026-03-14
 

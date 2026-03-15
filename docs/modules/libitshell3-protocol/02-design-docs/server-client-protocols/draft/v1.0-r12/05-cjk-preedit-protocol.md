@@ -1,4 +1,4 @@
-# 05 — CJK Preedit Sync and IME Protocol
+# CJK Preedit Sync and IME Protocol
 
 - **Date**: 2026-03-14
 
