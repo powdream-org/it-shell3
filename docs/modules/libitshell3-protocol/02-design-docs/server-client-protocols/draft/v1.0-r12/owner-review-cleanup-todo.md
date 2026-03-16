@@ -74,6 +74,7 @@ if from different source locations.>
 - **DEL-ime-CTR**: Write IME CTR, then delete
 - **DEL-covered**: Already 100% covered by daemon/IME docs — just delete
 - **DEL**: Just delete (non-normative, no destination needed)
+- **MOVE**: Move verbatim to a standalone document outside protocol specs
 - **REWRITE**: Rewrite to wire-observable facts only (remove
   rationale/internals)
 
@@ -81,23 +82,24 @@ if from different source locations.>
 
 ## New ADR Index (00019-00033)
 
-| ADR # | Topic                                                                                          |
-| ----- | ---------------------------------------------------------------------------------------------- |
-| 00019 | Per-session focus model (v1)                                                                   |
-| 00020 | Session attachment model (single-per-connection, readonly, exclusive)                          |
-| 00021 | Preedit single-path rendering model                                                            |
-| 00022 | Server-owned scrollback (no client cache)                                                      |
-| 00023 | Message ordering and delivery guarantees (context before content)                              |
-| 00024 | Capability negotiation mechanics (string arrays, set intersection)                             |
-| 00025 | Input method identifier design (two-axis, string IDs, two-channel state)                       |
-| 00026 | Preedit lifecycle on interrupting events                                                       |
-| 00027 | Pane lifecycle (auto-close, auto-unzoom, remain-on-exit deferred)                              |
-| 00028 | Two-layer error handling model                                                                 |
-| 00029 | Notification subscription model (always-sent vs opt-in)                                        |
-| 00030 | Adaptive coalescing and flow control                                                           |
-| 00031 | Session persistence model (hybrid memory + JSON snapshots)                                     |
-| 00032 | Preedit message simplification (field removals, frame_type=2)                                  |
-| 00033 | Protocol wire conventions (LE byte order, field omission, neutral language, version evolution) |
+| ADR #     | Topic                                                                            |
+| --------- | -------------------------------------------------------------------------------- |
+| 00019     | Per-session focus model (v1)                                                     |
+| 00020     | Session attachment model (single-per-connection, readonly, exclusive)            |
+| 00021     | Preedit single-path rendering model                                              |
+| 00022     | Server-owned scrollback (no client cache)                                        |
+| 00023     | Message ordering and delivery guarantees (context before content)                |
+| 00024     | Capability negotiation mechanics (string arrays, set intersection)               |
+| 00025     | Input method identifier design (two-axis, string IDs, two-channel state)         |
+| 00026     | Preedit lifecycle on interrupting events                                         |
+| 00027     | Pane lifecycle (auto-close, auto-unzoom, remain-on-exit deferred)                |
+| 00028     | Two-layer error handling model                                                   |
+| 00029     | Notification subscription model (always-sent vs opt-in)                          |
+| 00030     | Adaptive coalescing and flow control                                             |
+| 00031     | Session persistence model (hybrid memory + JSON snapshots)                       |
+| 00032     | Preedit message simplification (field removals, frame_type=2)                    |
+| ~~00033~~ | ~~Protocol wire conventions~~ — **EXCLUDED**: content stays in protocol overview |
+| 00034     | Per-connection handshake (no lightweight reconnect optimization in v1)           |
 
 ---
 
@@ -105,60 +107,57 @@ if from different source locations.>
 
 ### 1a. ADRs to write (first occurrence in processing order)
 
-| ADR # | Topic                                | Content from this file                                                                   |
-| ----- | ------------------------------------ | ---------------------------------------------------------------------------------------- |
-| 00020 | Session attachment model             | §5.2: single-session-per-connection rule, "matches tmux behavior"                        |
-| 00030 | Adaptive coalescing and flow control | §1.2 principle 5 (backpressure rationale), §1.2 principle 9 (event-driven not fixed-fps) |
-| 00033 | Protocol wire conventions            | §1.2 principle 4 (LE byte order rationale), §3.1.1 (version byte evolution policy)       |
+| ADR # | Topic                                                                  | Content from this file                                                                                                              |
+| ----- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 00020 | Session attachment model                                               | §5.2: single-session-per-connection rule, "matches tmux behavior"; §5.5.5: tmux precedent (same one-connection-per-session pattern) |
+| 00034 | Per-connection handshake (no lightweight reconnect optimization in v1) | §5.5.4: sub-ms overhead, optimization deferred                                                                                      |
 
-### 1b. ADRs to absorb into (existing ADR, add content)
+### 1b. Standalone document extraction
 
-| ADR #       | Content from this file                      |
-| ----------- | ------------------------------------------- |
-| 00005/06/07 | §8: comparison tables vs tmux/zellij/iTerm2 |
+| Source                        | Lines   | Target                                 | Description                                 |
+| ----------------------------- | ------- | -------------------------------------- | ------------------------------------------- |
+| §8 Comparison tables (entire) | 939-980 | `docs/insights/protocol-comparison.md` | Move §8 verbatim to standalone insights doc |
 
 ### 1c. Daemon CTRs to write (first occurrence)
 
-| CTR #  | Topic                                                 | Content from this file                                                                       |
-| ------ | ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| CTR-06 | Ring buffer architecture and I-frame scheduling       | §5.8: per-pane ring, client cursors, sizing                                                  |
-| CTR-07 | Health escalation and recovery procedures             | §5.7: timeline, timeout values                                                               |
-| CTR-08 | Coalescing tier internals and client power adaptation | §10: tier definitions, WAN adaptation                                                        |
-| CTR-09 | Authentication implementation                         | §2.2 (getpeereid), §12.1 (Unix socket auth), §12.2 (SSH trust chain), §12.3 (timeout values) |
-| CTR-12 | Server-side IME engine lifecycle                      | §5.5: per-session engine instances, libhangul memory cost                                    |
+| CTR #  | Topic                                                 | Content from this file                                                                                                                                |
+| ------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CTR-06 | Ring buffer architecture and I-frame scheduling       | §5.8: per-pane ring, client cursors, sizing                                                                                                           |
+| CTR-07 | Health escalation and recovery procedures             | §5.7: timeline, timeout values                                                                                                                        |
+| CTR-08 | Coalescing tier internals and client power adaptation | §10: tier definitions, WAN adaptation                                                                                                                 |
+| CTR-09 | Authentication implementation                         | §2.2 (getpeereid), §12.1 (Unix socket auth), §12.2 (SSH trust chain), §12.3 (timeout values)                                                          |
+| CTR-12 | Server-side IME engine lifecycle                      | §5.5 lines 717-725 only: per-session engine, libhangul memory cost, preedit exclusivity, per-session locking (rest of §5.5 is wire-observable, stays) |
 
 ### 1d. Cleanup items
 
-| #  | Section                                   | Lines     | Action         | Target              | Description                                  |
-| -- | ----------------------------------------- | --------- | -------------- | ------------------- | -------------------------------------------- |
-| 1  | §1.1 Goals table "Rationale" column       | 13-19     | DEL-ADR-exist  | ADR 00005-00009     | Goal rationale explanations                  |
-| 2  | §1.2 Principle 1 (hybrid encoding)        | 23-31     | DEL-ADR-exist  | ADR 00006           | "for debuggability, schema evolution"        |
-| 3  | §1.2 Principle 2 (server-authoritative)   | 33-38     | DEL-ADR-exist  | ADR 00013           | Philosophy paragraph                         |
-| 4  | §1.2 Principle 3 (capability negotiation) | 40-42     | DEL-ADR-new    | ADR 00024           | "No fragile version-string parsing"          |
-| 5  | §1.2 Principle 4 (little-endian)          | 44-47     | DEL-ADR-new    | ADR 00033           | Byte order rationale                         |
-| 6  | §1.2 Principle 5 (backpressure)           | 57-60     | DEL-ADR-new    | ADR 00030           | Backpressure rationale                       |
-| 7  | §1.2 Principle 8 (semantic CellData)      | 62-67     | DEL-ADR-exist  | ADR 00007           | "Zero-copy wire-to-GPU is not a design goal" |
-| 8  | §1.2 Principle 9 (event-driven)           | 69-73     | DEL-ADR-new    | ADR 00030           | "not fixed-fps" rationale                    |
-| 9  | §2.1 Daemon auto-start                    | 106-109   | DEL-covered    | Daemon 03-lifecycle | Auto-start details                           |
-| 10 | §2.2 SSH tunnel decision                  | 137-143   | DEL-ADR-exist  | ADR 00010           | "Custom TCP+TLS rejected"                    |
-| 11 | §2.2 Security trust model                 | 131-135   | DEL-daemon-CTR | CTR-09              | getpeereid() UID verification                |
-| 12 | §3.1.1 Version byte evolution             | 178-187   | DEL-ADR-new    | ADR 00033           | Evolution policy                             |
-| 13 | §3.3 Encoding flag rationale              | 215-217   | DEL-ADR-exist  | ADR 00006           | "clean split"                                |
-| 14 | §3.5 Compression decision                 | 291-294   | DEL-ADR-exist  | ADR 00014           | "removed from v1"                            |
-| 15 | §5.2 Single-session rule                  | 617-621   | DEL-ADR-new    | ADR 00020           | "matches tmux" rationale                     |
-| 16 | §5.4 Heartbeat RTT rejection              | 688-694   | DEL-ADR-exist  | ADR 00011           | "RTT via heartbeat rejected"                 |
-| 17 | §5.5 Multi-session IME details            | 700-728   | DEL-daemon-CTR | CTR-12              | Per-session engine, libhangul memory         |
-| 18 | §5.6 Resize policy details                | 786-798   | DEL-covered    | Daemon 04-runtime   | Algorithm internals                          |
-| 19 | §5.7 Health escalation                    | 800-817   | DEL-daemon-CTR | CTR-07              | Timeline, timeouts                           |
-| 20 | §5.8 Ring buffer architecture             | 819-847   | DEL-daemon-CTR | CTR-06              | Ring, cursors, sizing                        |
-| 21 | §8 Comparison tables (entire)             | 939-980   | DEL-ADR-absorb | ADR 00005/06/07     | vs tmux/zellij/iTerm2                        |
-| 22 | §9 Bandwidth analysis (entire)            | 983-1027  | REWRITE        | —                   | Keep wire estimates; remove impl analysis    |
-| 23 | §10 Coalescing tier details               | 1030-1048 | DEL-daemon-CTR | CTR-08              | Tier definitions, WAN adaptation             |
-| 24 | §11 Implementation notes (entire)         | 1052-1102 | DEL            | —                   | Zig structs and pseudocode                   |
-| 25 | §12.1 Unix socket auth impl               | 1108-1116 | DEL-daemon-CTR | CTR-09              | Syscall selection, permissions               |
-| 26 | §12.2 SSH tunnel auth impl                | 1119-1134 | DEL-daemon-CTR | CTR-09              | Trust chain, sshd UID                        |
-| 27 | §12.3 Handshake timeout values            | 1136-1143 | DEL-daemon-CTR | CTR-09              | 5s/60s/90s durations                         |
-| 28 | Appendix C Encoding rationale             | 1256-1277 | DEL-ADR-exist  | ADR 00006           | "What killed uniform binary"                 |
+| #  | Section                                   | Lines     | Action         | Target              | Description                                   |
+| -- | ----------------------------------------- | --------- | -------------- | ------------------- | --------------------------------------------- |
+| 1  | §1.1 Goals table "Rationale" column       | 13-19     | DEL-ADR-exist  | ADR 00005-00009     | Goal rationale explanations                   |
+| 2  | §1.2 Principle 1 (hybrid encoding)        | 23-31     | DEL-ADR-exist  | ADR 00006           | "for debuggability, schema evolution"         |
+| 3  | §1.2 Principle 2 (server-authoritative)   | 33-38     | DEL-ADR-exist  | ADR 00013           | Philosophy paragraph                          |
+| 4  | §1.2 Principle 3 (capability negotiation) | 40-42     | DEL-ADR-new    | ADR 00024           | "No fragile version-string parsing"           |
+| 5  | §1.2 Principle 8 (semantic CellData)      | 62-67     | DEL-ADR-exist  | ADR 00007           | "Zero-copy wire-to-GPU is not a design goal"  |
+| 6  | §2.1 Daemon auto-start                    | 106-109   | DEL-covered    | Daemon 03-lifecycle | Auto-start details                            |
+| 7  | §2.2 SSH tunnel decision                  | 137-143   | DEL-ADR-exist  | ADR 00010           | "Custom TCP+TLS rejected"                     |
+| 8  | §2.2 Security trust model                 | 131-135   | DEL-daemon-CTR | CTR-09              | getpeereid() UID verification                 |
+| 9  | §3.3 Encoding flag rationale              | 215-217   | DEL-ADR-exist  | ADR 00006           | "clean split"                                 |
+| 10 | §3.5 Compression decision                 | 291-294   | DEL-ADR-exist  | ADR 00014           | "removed from v1"                             |
+| 11 | §5.2 Single-session rule                  | 617-621   | DEL-ADR-new    | ADR 00020           | "matches tmux" rationale                      |
+| 12 | §5.4 Heartbeat RTT rejection              | 688-694   | DEL-ADR-exist  | ADR 00011           | "RTT via heartbeat rejected"                  |
+| 13 | §5.5 IME state bullet only                | 717-725   | DEL-daemon-CTR | CTR-12              | Per-session engine, libhangul memory, locking |
+| 14 | §5.5.4 Handshake overhead rationale       | 765-775   | DEL-ADR-new    | ADR 00034           | Optimization deferred decision                |
+| 15 | §5.5.5 Precedent: tmux                    | 777-783   | DEL-ADR-new    | ADR 00020           | tmux same pattern rationale                   |
+| 16 | §5.6 Resize policy details                | 786-798   | DEL-covered    | Daemon 04-runtime   | Algorithm internals                           |
+| 17 | §5.7 Health escalation                    | 800-817   | DEL-daemon-CTR | CTR-07              | Timeline, timeouts                            |
+| 18 | §5.8 Ring buffer architecture             | 819-847   | DEL-daemon-CTR | CTR-06              | Ring, cursors, sizing                         |
+| 19 | §8 Comparison tables (entire)             | 939-980   | DEL            | —                   | Moved to `docs/insights/` in step 1b          |
+| 20 | §9 Bandwidth analysis (entire)            | 983-1027  | REWRITE        | —                   | Keep wire estimates; remove impl analysis     |
+| 21 | §10 Coalescing tier details               | 1030-1048 | DEL-daemon-CTR | CTR-08              | Tier definitions, WAN adaptation              |
+| 22 | §11 Implementation notes (entire)         | 1052-1102 | DEL            | —                   | Zig structs and pseudocode                    |
+| 23 | §12.1 Unix socket auth impl               | 1108-1116 | DEL-daemon-CTR | CTR-09              | Syscall selection, permissions                |
+| 24 | §12.2 SSH tunnel auth impl                | 1119-1134 | DEL-daemon-CTR | CTR-09              | Trust chain, sshd UID                         |
+| 25 | §12.3 Handshake timeout values            | 1136-1143 | DEL-daemon-CTR | CTR-09              | 5s/60s/90s durations                          |
+| 26 | Appendix C Encoding rationale             | 1256-1277 | DEL-ADR-exist  | ADR 00006           | "What killed uniform binary"                  |
 
 ---
 
@@ -166,17 +165,17 @@ if from different source locations.>
 
 ### 2a. ADRs to write (first occurrence)
 
-| ADR # | Topic                                    | Content from this file                                       |
-| ----- | ---------------------------------------- | ------------------------------------------------------------ |
-| 00023 | Message ordering and delivery guarantees | §2.3: socket write priority model ("context before content") |
-| 00031 | Session persistence model                | §4.1: hybrid memory + periodic JSON snapshots, 8s auto-save  |
+| ADR # | Topic                                    | Content from this file                                                     |
+| ----- | ---------------------------------------- | -------------------------------------------------------------------------- |
+| 00023 | Message ordering and delivery guarantees | §2.3: socket write priority model ("context before content")               |
+| 00030 | Adaptive coalescing and flow control     | §2.4: PausePane advisory rationale; §7.3: idle-PTY blind spot + mitigation |
+| 00031 | Session persistence model                | §4.1: hybrid memory + periodic JSON snapshots, 8s auto-save                |
 
 ### 2a′. ADRs to add content to (already created in earlier file)
 
-| ADR # | Content from this file                                                     |
-| ----- | -------------------------------------------------------------------------- |
-| 00024 | §8.1: "avoid fragile version-guessing" extension rationale                 |
-| 00030 | §2.4: PausePane advisory rationale; §7.3: idle-PTY blind spot + mitigation |
+| ADR # | Content from this file                                     |
+| ----- | ---------------------------------------------------------- |
+| 00024 | §8.1: "avoid fragile version-guessing" extension rationale |
 
 ### 2b. Daemon CTRs to add content to (already created in File 1)
 
@@ -452,6 +451,6 @@ if from different source locations.>
 | DEL (just delete, non-normative)                 | ~6                                                 |
 | REWRITE (trim to wire facts only)                | ~7                                                 |
 | **Total items**                                  | **~125**                                           |
-| **New ADRs**                                     | **15 (00019-00033)**                               |
+| **New ADRs**                                     | **15 (00019-00032, 00034; 00033 excluded)**        |
 | **New daemon CTRs**                              | **7 (CTR-06 to CTR-12)**                           |
 | **New IME CTRs**                                 | **2 (behavior CTR-01, interface-contract CTR-01)** |
