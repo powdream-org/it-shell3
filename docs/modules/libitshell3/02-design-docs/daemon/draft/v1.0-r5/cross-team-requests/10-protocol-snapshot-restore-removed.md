@@ -39,7 +39,8 @@ the session restore procedure. That request is now void.
    - Post-restore message sequence
 
 2. **Do not implement** Snapshot/Restore functionality in v1. The message type
-   range 0x0700-0x07FF is reserved but unused in v1.
+   definitions (0x0700-0x0707) are deleted from the protocol spec (Doc 06 §4).
+   The 0x0700-0x07FF range is reserved for future use.
 
 ## Summary Table
 
