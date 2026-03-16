@@ -946,14 +946,3 @@ values with `recv()`, `send()`, `sendv()`, and `close()`. This is a structural
 property of the architecture, not an abstraction to be maintained.
 
 ---
-
-## Prior Art
-
-| Reference                                                   | Relevance                                                                       |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| tmux server startup (`server_start()` in `server.c`)        | 7-step startup pattern: socket bind, session create, event loop enter           |
-| tmux signal handling (`server_signal()`)                    | SIGTERM/SIGHUP/SIGCHLD via libevent signal events (equivalent to EVFILT_SIGNAL) |
-| tmux client accept (`server_accept()` in `server-client.c`) | Per-client state, UID verification via `getpeereid()`                           |
-| tmux control mode (`control_pane.offset`)                   | Shared pane buffer with per-client read offsets (ring cursor model)             |
-| tmux multi-client input                                     | All clients can send input, last writer wins                                    |
-| launchd socket activation (`launch_activate_socket()`)      | Inherited fd model for zero-downtime startup                                    |

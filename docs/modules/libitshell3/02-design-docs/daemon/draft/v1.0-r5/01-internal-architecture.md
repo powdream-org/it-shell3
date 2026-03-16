@@ -958,26 +958,3 @@ as ordinary FlatCells in FrameUpdate. The client never knows or cares which
 cells are preedit. The injection mechanism (`overlayPreedit` vs
 `ghostty_surface_preedit`) is a server-side implementation detail invisible to
 the wire.
-
----
-
-## 7. Prior Art Summary
-
-| Reference                                                  | Used for                                                             | Sections      |
-| ---------------------------------------------------------- | -------------------------------------------------------------------- | ------------- |
-| Array-based binary tree (heap data structure)              | Fixed-size tree with index arithmetic                                | 1.5, 3        |
-| tmux (`window.h`, `session.h`, `tty.c`, `server-client.c`) | Pure state / I/O separation                                          | 1             |
-| tmux (single-threaded libevent loop)                       | Event loop model, scaling evidence                                   | 2             |
-| tmux `layout_cell` tree                                    | Binary split tree model                                              | 3             |
-| tmux 250ms TIOCSWINSZ debounce                             | SIGWINCH storm prevention                                            | 3.4           |
-| ghostty (`Terminal.zig`, `Metal.zig`, `Termio.zig`)        | Terminal / renderer / I/O separation                                 | 1             |
-| ghostty `Terminal.init()` (PoC 06)                         | Headless Terminal validation                                         | 4             |
-| ghostty `bulkExport()` (PoC 07)                            | Export performance (22 us/frame)                                     | 2, 4          |
-| ghostty `importFlatCells()` (PoC 08)                       | Client-side RenderState population                                   | 4             |
-| ghostty `renderer.State.preedit` (State.zig:27)            | Preedit storage location                                             | 4, 6          |
-| ghostty `key_encode.encode()` (key_encode.zig:75)          | Stateless key encoding                                               | 4             |
-| ghostty `vtStream()` OSC parsing                           | Pane metadata extraction (title, CWD)                                | 3.6           |
-| cmux (Bonsplit binary split tree)                          | Layout tree model                                                    | 3             |
-| IME contract v0.8                                          | Per-session ImeEngine, Phase 0-1-2 routing, preedit clearing rule    | 1.2, 3, 4     |
-| Protocol spec v0.10                                        | Wire format, PaneId as u32 on wire, frame suppression, PTY lifecycle | 1.5, 3.4, 4.5 |
-| it-shell v1 Korean doubling bug                            | ghostty_surface_text() prohibition                                   | 4.3           |

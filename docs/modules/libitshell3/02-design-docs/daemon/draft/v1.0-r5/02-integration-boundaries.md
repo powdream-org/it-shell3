@@ -705,18 +705,3 @@ create two public APIs to maintain with zero consumers.
 | `Connection.deinit()` with SSH channel cleanup | Phase 5     | v1 Connection holds only an fd (4-byte struct). SSH adds channel state requiring compound deinit. |
 
 ---
-
-## 7. Prior Art
-
-| Reference                                                          | Used for                                                                        |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| h2 (Rust HTTP/2)                                                   | I/O-free protocol state machine (Layers 1-3)                                    |
-| nghttp2 (C HTTP/2)                                                 | Event-driven, caller owns I/O (Layers 1-3)                                      |
-| tmux `server_create_socket()`/`server_accept()`/`client_connect()` | Transport functions in shared code, event loop in consumer (Layer 4)            |
-| Zig `std.net.Stream`/`std.fs.File`                                 | Struct owns fd, provides read/write/close, fd is pub field (Connection pattern) |
-| zellij `IpcStream`                                                 | Shared Read + Write interface for Unix socket IPC (Connection pattern)          |
-| fcitx5 InputMethodEngine                                           | Single `processKey` interface for all languages (IME routing)                   |
-| ibus-hangul                                                        | Modifier flush pattern (IME activate/deactivate)                                |
-| IME contract v0.8                                                  | Per-session ImeEngine, Phase 0-1-2 routing, vtable design                       |
-| IME design resolutions (per-session engine)                        | Lifecycle event mapping, flush vs deactivate, pane-agnosticism (R1-R8)          |
-| Protocol spec v0.10                                                | Wire format, handshake, session management, modifier bitmask                    |
