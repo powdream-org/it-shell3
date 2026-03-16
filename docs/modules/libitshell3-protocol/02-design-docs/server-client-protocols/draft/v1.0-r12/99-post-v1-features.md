@@ -274,3 +274,49 @@ the application protocol layer. The COMPRESSED flag (header bit 1) and
 If benchmarking in v2 shows benefit beyond SSH compression, application-layer
 compression should be added with explicit exclusion of Preedit and Interactive
 tier messages to preserve latency guarantees.
+
+## 8. Floating Panes
+
+**Origin**: Daemon design docs, deferred from v1.
+
+v1 uses a binary split tree for pane layout — each split produces exactly two
+children (horizontal or vertical). This covers all standard terminal multiplexer
+layouts (even splits, asymmetric splits, nested splits).
+
+Floating panes (overlay panes with explicit coordinates, not part of the split
+tree) are a zellij-inspired feature that would require:
+
+- A separate overlay coordinate system independent of the split tree
+- Z-ordering and overlap resolution between floating panes and tiled panes
+- Protocol extensions for floating pane CRUD and positioning
+- Client-side rendering changes to composite floating panes over tiled layout
+
+YAGNI for v1. Binary split tree covers all layout needs. Revisit if users
+request detachable/overlay pane workflows.
+
+**References**: zellij `FloatingPanes` (overlay with explicit coordinates),
+`01-overview/02-window-pane-management.md` comparison table.
+
+## 9. Kitty Keyboard Protocol Support
+
+**Origin**: Daemon design docs, deferred from v1.
+
+v1 uses legacy keyboard mode only. ghostty's `key_encode.encode()` already
+supports Kitty keyboard protocol natively — the encoding infrastructure exists
+in the vendored dependency.
+
+Enabling Kitty keyboard protocol in the daemon would require:
+
+- Release event handling (Kitty protocol sends key-up events; legacy mode does
+  not)
+- Mode negotiation between the application running in the PTY and the daemon
+  (CSI escape sequences for mode switching)
+- Protocol extension to forward Kitty-specific key event fields (e.g.,
+  `associated_text`, `shifted_key`) from client to server
+
+The daemon's `KeyEvent` message (0x0300) currently carries HID keycodes and
+modifier flags, which is sufficient for legacy mode. Kitty mode would extend
+this with additional fields.
+
+**References**: ghostty `key_encode.zig:75` (stateless Kitty encoding), Kitty
+keyboard protocol specification.

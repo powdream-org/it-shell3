@@ -961,18 +961,7 @@ the wire.
 
 ---
 
-## 7. Items Deferred to Future Versions
-
-| Item                                        | Deferred to | Rationale                                                                                                                         |
-| ------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Multiple tabs per session (Session:Tab 1:N) | Phase 3     | v1 is Session:Tab 1:1. Tab entity introduced when use case arrives.                                                               |
-| Floating panes                              | Post-v1     | YAGNI for v1. Binary split tree covers all layout needs.                                                                          |
-| Kitty keyboard protocol support             | Post-v1     | v1 uses legacy mode only. `key_encode.encode()` supports Kitty natively; would need release events when Kitty mode is negotiated. |
-| Multi-threaded event loop                   | Not planned | Single-threaded is sufficient (Section 2.3). Revisit only if profiling proves otherwise.                                          |
-
----
-
-## 8. Prior Art Summary
+## 7. Prior Art Summary
 
 | Reference                                                  | Used for                                                             | Sections      |
 | ---------------------------------------------------------- | -------------------------------------------------------------------- | ------------- |
