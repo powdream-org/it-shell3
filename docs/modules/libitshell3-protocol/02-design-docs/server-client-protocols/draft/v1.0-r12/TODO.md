@@ -211,7 +211,54 @@ resolutions).
 **Round 5 not needed**: all fixes are mechanical (no semantic changes). Owner
 declared CLEAN.
 
-## Phase 6: Commit (3.9)
+## Phase 6: Commit (3.9) ✅
 
-- [ ] Commit `draft/v1.0-r12/`
-- [ ] Report to owner
+- [x] Commit `draft/v1.0-r12/`
+- [x] Report to owner
+
+## Phase 7: Owner Review Cleanup (post-commit)
+
+Owner review identified structural improvements beyond v1.0-r12 resolutions.
+Work in progress — session split point.
+
+### Completed
+
+- [x] Version naming: `v0.12` → `v1.0-r12` throughout all r12 docs
+- [x] Metadata format: convert all `**Key**: value` to `- **Key**: value` bullet
+      items (deno fmt compatibility)
+- [x] Strip non-essential metadata (Status, Version, Author, Depends on, Changes
+      from) from spec doc headers — Date and Scope only per AGENTS.md
+- [x] Remove `# NN —` / `# NN -` prefixes from doc 03–06 titles
+- [x] ADR migration: 19 decided items from Doc 01 §11.3 → ADR 00005–00015
+- [x] ADR migration: 10 decided items from Doc 02 §12 → ADR
+      00006/00010/00013/00016
+- [x] Remove Doc 02 §12 (3 remaining proposed items already covered by ADRs)
+- [x] Remove Doc 02 §5 CJK Capability Flags (non-negotiable, always supported)
+  - Deleted `cjk_capabilities` from ClientHello/ServerHello
+  - Deleted §9.1 CJK Capability Fallback
+  - Renumbered sections 6→5 through 13→12
+- [x] Remove Changelog sections from Doc 01, 02, 03, 06
+- [x] Remove Cursor Blink normative note from Doc 03 (duplicate of Doc 04)
+- [x] Split Doc 03 Message Type Assignments into subsection tables
+- [x] Move JSON Payload Conventions from Doc 03 to Doc 01 §3.6
+- [x] Clean up Doc 03 §5.2 resize rationale (move to ADR 00012)
+- [x] Remove Doc 03 §8.3 Window Size (duplicate of §5.2)
+- [x] ADR 00017: Pane minimum size (2x1), remove Doc 03 §10 Open Questions
+- [x] Move Doc 03 §5.3–5.6 resize internals to daemon CTR-01
+- [x] Remove Doc 04 Changes from v0.11/v0.8/v0.7/v0.6
+- [x] Remove Doc 04 §1.2 header duplication (cross-ref to Doc 01 §3.1)
+- [x] Remove Doc 04 JSON encoding rationale (duplicate of ADR 00006)
+- [x] Remove Doc 04 §2.8 Readonly restrictions (duplicate of Doc 03 §9)
+- [x] Remove Doc 04 IME routing validation (canonical in IME contract)
+- [x] Remove Doc 04 Wire-to-IME KeyEvent Mapping (canonical in daemon docs)
+- [x] Move Doc 04 Korean composition example to daemon CTR-03
+- [x] Move Doc 04 MouseButton preedit interaction to daemon CTR-04 (gap noted)
+- [x] ADR 00018: Multiplexed input channel; move §3 to daemon CTR-05
+
+### Remaining (next session)
+
+- [ ] Continue Doc 04 owner review (§3+ after renumbering)
+- [ ] Doc 05 owner review
+- [ ] Doc 06 owner review
+- [ ] Doc 03 remaining cleanup (if any)
+- [ ] Final commit and handover
