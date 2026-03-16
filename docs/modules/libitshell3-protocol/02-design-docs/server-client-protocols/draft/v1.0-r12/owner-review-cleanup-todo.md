@@ -127,13 +127,13 @@ All steps complete. Doc 01 reduced from ~1277 lines to ~878 lines.
 | 00030 | Adaptive coalescing and flow control     | §2.4: PausePane advisory rationale; §7.3: idle-PTY blind spot + mitigation |
 | 00031 | Session persistence model                | §4.1: hybrid memory + periodic JSON snapshots, 8s auto-save                |
 
-### 2a′. ADRs to add content to (already created in earlier file)
+### 2b. ADRs to add content to (already created in earlier file)
 
 | ADR # | Content from this file                                     |
 | ----- | ---------------------------------------------------------- |
 | 00024 | §8.1: "avoid fragile version-guessing" extension rationale |
 
-### 2b. Daemon CTRs to add content to (already created in File 1)
+### 2c. Daemon CTRs to add content to (already created in File 1)
 
 | CTR #  | Content from this file                                                                |
 | ------ | ------------------------------------------------------------------------------------- |
@@ -141,13 +141,19 @@ All steps complete. Doc 01 reduced from ~1277 lines to ~878 lines.
 | CTR-07 | §2.8 (health escalation refs), §2.9 (recovery wire behavior)                          |
 | CTR-08 | §1.1 (coalescing background)                                                          |
 
-### 2b′. Daemon CTRs to write (first occurrence)
+### 2d. Daemon CTRs to write (first occurrence)
 
 | CTR #  | Topic                     | Content from this file                             |
 | ------ | ------------------------- | -------------------------------------------------- |
 | CTR-10 | Session restore procedure | §4.6: snapshot reading, pane creation, IME re-init |
 
-### 2c. Cleanup items
+### 2e. Standalone document extraction
+
+| Source                      | Lines   | Target                   | Description                            |
+| --------------------------- | ------- | ------------------------ | -------------------------------------- |
+| §7.3 echo_nonce v2 deferral | 916-919 | `99-post-v1-features.md` | echo_nonce — revisit necessity post-v1 |
+
+### 2f. Cleanup items
 
 | #  | Section                               | Lines   | Action            | Target            | Description                         |
 | -- | ------------------------------------- | ------- | ----------------- | ----------------- | ----------------------------------- |
@@ -163,9 +169,10 @@ All steps complete. Doc 01 reduced from ~1277 lines to ~878 lines.
 | 10 | §4.5 RestoreSessionRequest procedure  | 475-481 | DEL-covered       | Daemon docs       | "creates new PTYs, spawns shells"   |
 | 11 | §4.6 RestoreSessionResponse procedure | 523-536 | DEL-daemon-CTR    | CTR-10            | Snapshot reading, pane creation     |
 | 12 | §7.1 Local RTT diagnostics            | 878-890 | DEL               | —                 | Explicitly "not wire protocol"      |
-| 13 | §7.3 RTT heuristic                    | 927-929 | DEL               | —                 | Non-normative guidance              |
-| 14 | §7.3 Idle-PTY blind spot              | 915-924 | DEL-ADR-new       | ADR 00030         | Design tradeoff                     |
-| 15 | §8.1 Extension negotiation rationale  | 935-939 | DEL-ADR-new       | ADR 00024         | "avoid version-guessing"            |
+| 13 | §7.3 RTT heuristic                    | 926-929 | DEL-daemon-CTR    | CTR-07            | Server-side heartbeat RTT heuristic |
+| 14 | §7.3 echo_nonce v2 deferral           | 916-919 | DEL               | —                 | Moved to 99-post-v1 in step 2e      |
+| 15 | §7.3 Idle-PTY blind spot              | 921-924 | DEL-ADR-new       | ADR 00030         | Design tradeoff + mitigation        |
+| 16 | §8.1 Extension negotiation rationale  | 935-939 | DEL-ADR-new       | ADR 00024         | "avoid version-guessing"            |
 
 ---
 
