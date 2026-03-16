@@ -10,63 +10,35 @@
 
 ### 1.1 Primary Goals
 
-| Goal                            | Description                                                                                                                         | Rationale                                                                                                                                                                                                                                                                                                 |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Low-latency input**           | Key events reach the PTY in under 1ms over Unix socket                                                                              | Interactive typing (especially CJK composition) demands imperceptible delay                                                                                                                                                                                                                               |
-| **Efficient rendering updates** | I/P-frame model with periodic keyframes and delta-based RenderState transfer; typical partial update under 1 KB                     | Bandwidth efficiency enables event-driven delta delivery with a coalescing ceiling at display refresh rate. Periodic I-frames (keyframes) provide auto-healing state synchronization for multi-client scenarios. Shared per-pane ring buffer enables O(1) frame serialization regardless of client count. |
-| **CJK-first design**            | Preedit synchronization, Jamo decomposition, ambiguous width negotiation are first-class protocol citizens                          | This is the project's primary differentiator; cannot be bolted on later                                                                                                                                                                                                                                   |
-| **Extensibility**               | Reserved message type ranges, capability negotiation, version-tagged framing                                                        | Protocol must evolve across phases (local Unix, SSH tunneling, new CJK languages)                                                                                                                                                                                                                         |
-| **Debuggability**               | Magic bytes for stream alignment, sequence numbers for packet tracing, well-defined error codes, JSON payloads for control messages | Binary protocols are hard to debug without explicit observability affordances; JSON control messages enable `socat                                                                                                                                                                                        |
+| Goal                            | Description                                                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Low-latency input**           | Key events reach the PTY in under 1ms over Unix socket                                                                              |
+| **Efficient rendering updates** | I/P-frame model with periodic keyframes and delta-based RenderState transfer; typical partial update under 1 KB                     |
+| **CJK-first design**            | Preedit synchronization, Jamo decomposition, ambiguous width negotiation are first-class protocol citizens                          |
+| **Extensibility**               | Reserved message type ranges, capability negotiation, version-tagged framing                                                        |
+| **Debuggability**               | Magic bytes for stream alignment, sequence numbers for packet tracing, well-defined error codes, JSON payloads for control messages |
 
 ### 1.2 Design Principles
 
-1. **Hybrid encoding: binary framing + binary CellData + JSON control.** Every
-   message has a fixed 16-byte binary header for O(1) dispatch. The header's
-   encoding flag (bit 0 of flags byte) indicates the payload format: `0` = JSON
-   payload, `1` = binary payload. `FrameUpdate` uses binary encoding for
-   DirtyRows/CellData (the bulk of the data) with a trailing JSON metadata blob
-   for cursor, colors, and dimensions. All other messages — handshake, session
-   management, input events, errors — use JSON payloads for debuggability,
-   schema evolution, and cross-language ease (Swift `JSONDecoder`,
-   `socat | jq`).
-
-2. **Server-authoritative state.** The daemon owns terminal state (PTY,
-   scrollback, preedit, cursor). Clients are thin renderers that receive state
-   updates and forward raw input. This simplifies multi-client consistency. The
-   server owns the native IME engine (libitshell3-ime) — one engine instance per
-   session, shared by all panes in the session. Clients never perform
-   composition.
-
-3. **Capability negotiation, not version guessing.** Clients and servers declare
-   feature flags during handshake. The intersection determines the active
-   feature set. No fragile version-string parsing (unlike tmux).
-
-4. **Little-endian byte order throughout.** Matches native byte order of all
+1. **Little-endian byte order throughout.** Matches native byte order of all
    target platforms (ARM64 macOS/iOS, x86_64 macOS/Linux). Eliminates byte-swap
    overhead. Zig's `std.mem.writeInt` with `.little` endianness is used for
    serialization.
 
-5. **Sequence numbers for every message.** Enables request-response correlation,
+2. **Sequence numbers for every message.** Enables request-response correlation,
    out-of-order detection, and protocol debugging. Each direction maintains its
    own monotonically increasing sequence counter.
 
-6. **Explicit error reporting.** Every error is a structured message with an
+3. **Explicit error reporting.** Every error is a structured message with an
    error code, the offending sequence number, and a human-readable description.
    No silent drops.
 
-7. **Backpressure-aware.** Flow control messages and a shared per-pane ring
+4. **Backpressure-aware.** Flow control messages and a shared per-pane ring
    buffer prevent buffer bloat when clients cannot keep up with rendering
    updates. Slow clients are advanced to the latest I-frame (keyframe) in the
    ring rather than accumulating stale deltas.
 
-8. **CellData is semantic, not GPU-aligned.** CellData encodes codepoint + style
-   attributes + fg/bg colors + wide flag. The client is responsible for font
-   shaping, glyph atlas management, and GPU buffer construction. Zero-copy
-   wire-to-GPU is not a design goal — GPU structs contain 70%+ client-local data
-   (font atlas coordinates, shaped glyph indices) that the server cannot
-   produce.
-
-9. **Event-driven delta delivery, not fixed-fps.** The server does not render at
+5. **Event-driven delta delivery, not fixed-fps.** The server does not render at
    a fixed frame rate. Updates are driven by PTY output events and coalesced via
    an adaptive cadence model (see Section 10). The coalescing ceiling matches
    the client's display refresh rate (typically 16ms for 60 Hz) but real
@@ -103,11 +75,6 @@ flowchart TD
 The `<server-id>` is a short identifier (default: `default`) allowing multiple
 daemon instances.
 
-**Daemon auto-start:** If the client cannot connect to the daemon socket
-(`ECONNREFUSED` or `ENOENT`), the client MAY auto-start the daemon process.
-Daemon lifecycle management (auto-start, restart, stale socket cleanup,
-reconnection backoff) is defined in daemon design docs.
-
 ### 2.2 Remote Transport: SSH Tunneling (Phase 5)
 
 For iOS-to-macOS and general remote connectivity:
@@ -127,20 +94,6 @@ transport-agnostic with a single transport implementation.
 | Compression    | SSH's built-in compression (`Compression yes`) — no application-layer compression needed                                            |
 | Framing        | Same binary framing as Unix socket (the protocol is transport-agnostic)                                                             |
 | Keepalive      | SSH `ServerAliveInterval` + application-level heartbeat as secondary safety net                                                     |
-
-**Security trust model:** When a client connects through an SSH tunnel,
-`getpeereid()` returns sshd's UID. The daemon accepts this because SSH has
-already authenticated the user at the transport layer. The trust chain is: SSH
-authentication → sshd process → Unix socket → daemon. The daemon trusts sshd's
-UID as a proxy for the authenticated remote user's identity.
-
-**Design decision:** Custom TCP+TLS was considered and rejected. SSH tunneling
-reuses mature authentication infrastructure (keys, agent forwarding, 2FA),
-eliminates mTLS certificate management, removes the need for a custom port and
-firewall configuration, and provides compression at the transport layer. Neither
-tmux nor zellij implements a custom network transport — both rely on SSH for
-remote access. The protocol benefits from a single Unix socket transport
-implementation.
 
 ---
 
@@ -211,10 +164,6 @@ flags byte = `0x03`.
 | ------------ | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `0` (JSON)   | Entire payload is a JSON object                                                     | All control messages: handshake, session management, input events, errors, flow control, heartbeat                   |
 | `1` (binary) | Payload contains binary-encoded data (may include a trailing JSON metadata section) | `FrameUpdate` (0x0300): binary DirtyRows + CellData, followed by a JSON metadata blob for cursor, colors, dimensions |
-
-The encoding flag enables a clean split: bulk cell data (70-95% of FrameUpdate
-payload) is binary for compactness and RLE compatibility, while everything else
-is JSON for debuggability and cross-language ergonomics.
 
 ### 3.3 Wire Format
 
@@ -287,11 +236,6 @@ The COMPRESSED flag (bit 1) is reserved for future use. In protocol version 1,
 compression is not implemented. Senders MUST NOT set the COMPRESSED flag.
 Receivers that encounter COMPRESSED=1 SHOULD send `ERR_PROTOCOL_ERROR` (setting
 a reserved flag is a protocol violation).
-
-**Design decision:** Application-layer compression removed from v1. No
-commitment to reintroduce. SSH compression covers WAN scenarios. Neither tmux
-nor zellij compresses at the application protocol layer. COMPRESSED flag bit and
-`"compression"` capability name reserved for potential future use.
 
 ### 3.6 JSON Payload Conventions
 
@@ -618,7 +562,7 @@ stateDiagram-v2
 most one session at a time. To switch sessions, the client must first detach
 (`DetachSessionRequest`) then attach to the new session. Sending
 `AttachSessionRequest` while already attached returns
-`ERR_SESSION_ALREADY_ATTACHED`. This matches tmux behavior.
+`ERR_SESSION_ALREADY_ATTACHED`.
 
 ### 5.3 State Transitions
 
@@ -685,14 +629,6 @@ MAY maintain a local `HashMap(u32, u64)` mapping `ping_id → send_time` for
 debugging purposes. `RTT = current_time - sent_times[ack.ping_id]`. This is an
 implementation choice, not a wire protocol concern.
 
-**Design decision:** Server-measured RTT via heartbeat was considered and
-rejected. With SSH tunneling, heartbeat RTT only measures the local Unix socket
-hop to sshd (~0ms), not true end-to-end latency. The client is the only entity
-that knows the true transport latency and self-reports it via
-`ClientDisplayInfo.estimated_rtt_ms`. Neither tmux nor zellij measures RTT. If
-accurate clock synchronization is needed in the future, it requires an NTP-style
-4-timestamp exchange — not heartbeat timestamps.
-
 **Disconnect payload (`0x0005`)**: See doc 02, Section 11.1.
 
 ### 5.5 Multi-Session Client Model
@@ -714,15 +650,6 @@ provides:
 - **Independent FrameUpdate streams**: All tabs render simultaneously without
   detach/attach ceremony.
 - **Independent sequence counters**: No cross-session ordering constraints.
-- **Independent IME state**: IME engine instances are per-session (not
-  per-connection or per-pane). Each session has one IME engine shared by all
-  panes in the session. Creating a new connection to a new session creates a new
-  IME engine instance, providing natural preedit isolation between sessions.
-  Per-session libhangul instances are trivially cheap (~few KB each). When
-  multiple connections attach to the same session, they share the same
-  per-session IME state (with per-session locking for preedit ownership). At
-  most one pane in a session can have active preedit at any time (preedit
-  exclusivity invariant).
 - **Independent flow control**: One tab at Bulk tier does not affect another tab
   at Interactive tier.
 
@@ -762,26 +689,6 @@ accommodate a client due to resource limits, it responds with
 defined in daemon design docs. Connection limit policy is defined in daemon
 design docs.
 
-#### 5.5.4 Handshake Overhead
-
-Each connection requires a full ClientHello/ServerHello exchange. This is a
-single JSON round-trip (~200 bytes each way) over a local Unix socket —
-sub-millisecond latency. Even 10 tabs opening simultaneously produce ~10ms of
-total handshake overhead. Over SSH, the protocol handshake RTT is negligible
-compared to SSH connection establishment (key exchange, authentication). No
-lightweight "additional connection" handshake optimization is needed for v1.
-
-**Implementation note**: File descriptor management and resource limits are
-defined in daemon design docs.
-
-#### 5.5.5 Precedent: tmux
-
-tmux uses the same one-connection-per-session pattern. Each `tmux attach`
-process opens its own Unix socket connection to the tmux server. Our model is
-architecturally identical — the difference is that tmux clients are separate
-processes while it-shell3 manages multiple connections within a single GUI app
-process. From the daemon's perspective, the pattern is the same.
-
 ### 5.6 Multi-Client Resize Policy
 
 When multiple clients attach to the same session, the server must determine the
@@ -792,10 +699,6 @@ communicated via `AttachSessionResponse` and applied through
 Clients with smaller dimensions than the effective size MUST clip to their own
 viewport (top-left origin), matching tmux `latest` policy behavior. Per-client
 viewports (scroll to see clipped areas) are deferred to v2.
-
-Resize policy selection, internal tracking (e.g., latest vs smallest algorithm),
-debounce, stale client exclusion, and re-inclusion hysteresis are defined in
-daemon design docs.
 
 ### 5.7 Client Health Model
 
@@ -812,39 +715,7 @@ state. A paused client remains `healthy` until the stale timeout fires.
 Server MAY send `Disconnect` with reason `stale_client` to evict unresponsive
 clients. Health state transitions are communicated via `ClientHealthChanged`
 (0x0185) notifications, sent to all peer clients attached to the same session.
-Health escalation timeline, timeout values, and the stale recovery procedure are
-defined in daemon design docs. See doc 06 Section 2 for wire message
-definitions.
-
-### 5.8 I/P-Frame Model and Shared Ring Buffer
-
-The server uses an I-frame/P-frame model with periodic keyframes for
-multi-client rendering state delivery, analogous to video codec keyframes:
-
-| Concept                | Description                                                                                                                        |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **I-frame (keyframe)** | Full terminal state — all rows, all CellData. Self-contained: a client receiving only an I-frame has complete state.               |
-| **P-frame (delta)**    | Cumulative dirty rows since the most recent I-frame. Independently decodable given only the current I-frame (no sequential chain). |
-| **Keyframe interval**  | Default 1 second, configurable. Every keyframe auto-heals any client-side state drift.                                             |
-
-Frames are stored in a **shared per-pane ring buffer** (default 2 MB). The
-server serializes each frame once into the ring. Per-client read cursors track
-delivery position. This provides O(1) frame serialization and O(1) memory per
-frame regardless of client count.
-
-**Recovery**: All recovery scenarios (ContinuePane after PausePane, buffer
-overrun, stale recovery) collapse into a single operation: advance the client's
-ring cursor to the latest I-frame. The I-frame IS the full state resync — same
-data, same wire format, no special codepath.
-
-**Preedit delivery**: All frames, including those containing preedit cell data,
-go through the ring buffer. There are no bypass paths. Coalescing Tier 0
-(Preedit tier) ensures immediate flush on preedit state change, maintaining
-<33ms preedit latency over Unix socket.
-
-See doc 04 Section 4 for the `frame_type` wire format and I/P-frame semantics.
-See doc 06 Section 2 for ring buffer sizing, socket write priority, and recovery
-procedures.
+See doc 06 Section 2 for wire message definitions.
 
 ---
 
@@ -936,50 +807,6 @@ The `Error` message (`0x00FF`) uses JSON encoding (ENCODING=0):
 
 ---
 
-## 8. Comparison with Existing Protocols
-
-### 8.1 vs. tmux
-
-| Aspect                     | tmux                                                               | libitshell3                                                                                   | Improvement                                                                                                                           |
-| -------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **Framing**                | OpenBSD `imsg` (14 bytes, coupled to `sendmsg`)                    | Custom 16-byte header with magic, version, encoding flag, sequence                            | Portable (no imsg dependency), magic bytes for stream alignment, encoding flag for hybrid binary/JSON, sequence numbers for debugging |
-| **Serialization**          | Hand-rolled C structs, packed with `#pragma pack`                  | Hybrid: binary CellData + JSON control messages                                               | Binary for performance-critical cell data, JSON for debuggability and cross-language ease                                             |
-| **Capability negotiation** | Protocol version in `peerid & 0xff`; features guessed from version | Explicit `ClientHello`/`ServerHello` with feature flag bitmasks                               | No version guessing. Capabilities are declared, not inferred.                                                                         |
-| **CJK support**            | None                                                               | First-class: server-side IME with `PreeditStart/Update/End` (S->C), `PreeditSync`             | Enables IME composition across multiplexed sessions                                                                                   |
-| **Input forwarding**       | `send-keys` text command via control mode                          | JSON `KeyEvent` message with HID keycode, modifiers, input method                             | Lower latency, richer key info (modifier disambiguation, input method awareness)                                                      |
-| **Rendering**              | Raw VT bytes per-pane (client re-parses)                           | Structured `FrameUpdate` with binary CellData, dirty tracking, JSON metadata                  | No redundant VT parse; delta updates reduce bandwidth 10x for typical cases                                                           |
-| **Error handling**         | `MSG_EXIT` with optional text                                      | JSON `Error` with error codes, ref sequence, detail                                           | Programmatic error handling, not string parsing                                                                                       |
-| **Flow control**           | `%pause` / `%continue` (control mode only)                         | JSON `PausePane` / `ContinuePane` / flow control config                                       | Available in all modes, bidirectional, configurable                                                                                   |
-| **Multi-client output**    | Per-client O(N) redraw from authoritative state                    | Shared per-pane ring buffer with I/P-frame model: O(1) serialization, per-client read cursors | Shared ring eliminates per-client buffer copies. I-frame keyframes provide auto-healing.                                              |
-| **Resize policy**          | `WINDOW_SIZE_LATEST` (default since 3.1)                           | `latest` (default) / `smallest` with stale client exclusion and health escalation             | Same proven `latest` default. Health model adds stale timeout, resize exclusion, eviction timeline.                                   |
-| **Extensibility**          | Fixed message type enum in C header                                | Ranged type IDs with reserved ranges for future categories                                    | Can add new message categories without ID conflicts                                                                                   |
-
-### 8.2 vs. zellij
-
-| Aspect                  | zellij                                                                                             | libitshell3                                                                 | Improvement                                                                                                                                                        |
-| ----------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Serialization**       | Protobuf via `prost`                                                                               | Hybrid: binary CellData + JSON control                                      | Fewer dependencies; protobuf rejected for v1 (immature Zig ecosystem, RLE outperforms protobuf for cell data). `CELLDATA_ENCODING` cap flag allows v2 negotiation. |
-| **Rendering model**     | Server sends pre-rendered ANSI strings (`Render(String)`)                                          | Server sends structured `FrameUpdate` with binary cell data + JSON metadata | Client can optimize rendering (GPU batching, font caching). No redundant ANSI parsing.                                                                             |
-| **CJK preedit**         | Not supported (server renders everything)                                                          | Full server-side IME with preedit sync protocol                             | Multi-client IME composition visibility                                                                                                                            |
-| **Threading model**     | Multi-threaded (screen, PTY, plugin, writer threads)                                               | Multi-threaded (similar)                                                    | Comparable; libitshell3 follows zellij's proven pattern                                                                                                            |
-| **Plugins**             | WASM-based plugin system                                                                           | Not in scope for v1                                                         | Reduced complexity; plugins can be added later                                                                                                                     |
-| **Client complexity**   | Thin (receive ANSI, render via termios)                                                            | Moderate (receive cell data, GPU render via Metal)                          | More work per client, but enables hardware-accelerated rendering and client-specific optimizations                                                                 |
-| **Multi-client output** | One authoritative grid, cloned N times at output (O(N), acknowledged suboptimal with TODO comment) | Shared per-pane ring buffer: O(1) write, per-client read cursors            | Eliminates O(N) cloning. zellij's bounded channel (5000) with disconnect-on-overflow vs our ring with I-frame seek recovery.                                       |
-| **Resize policy**       | `smallest` only (acknowledged gap — stale clients constrain active)                                | `latest` (default) / `smallest` with stale client exclusion                 | Eliminates stale-dimensions vulnerability                                                                                                                          |
-
-### 8.3 vs. iTerm2 tmux -CC Integration
-
-| Aspect                 | iTerm2 + tmux -CC                                           | libitshell3                                                          | Improvement                                                                                                                                |
-| ---------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Protocol**           | Text-based `%`-prefixed notifications over PTY              | Binary framing + hybrid encoding over Unix socket                    | Structured, typed, efficient. No text escaping overhead. (tmux-CC brittleness came from ad-hoc protocol design, not text encoding per se.) |
-| **Output encoding**    | Octal-escaped terminal output in `%output`                  | Binary CellData in `FrameUpdate`                                     | No escape/unescape overhead. Client renders directly from semantic cell data.                                                              |
-| **Input forwarding**   | `send-keys` commands with character batching                | JSON `KeyEvent` with HID keycode                                     | Direct, no command overhead, preserves modifier information                                                                                |
-| **CJK preedit**        | None (inherits tmux limitations)                            | Native server-side IME with preedit sync                             | Full IME composition support                                                                                                               |
-| **Session recovery**   | FileDescriptorServer + Mach namespace tricks                | Daemon with auto-reconnect + I-frame seek                            | Simpler, no macOS-specific tricks required. State resync via latest I-frame in the shared ring buffer — same codepath as normal delivery.  |
-| **Adaptive rendering** | 2-tier adaptive cadence (60fps interactive, 15-30fps heavy) | 4-tier adaptive cadence with dedicated preedit tier (see Section 10) | Finer-grained coalescing; dedicated preedit tier for IME latency                                                                           |
-
----
-
 ## 9. Bandwidth Analysis
 
 ### 9.1 FrameUpdate Size Estimates
@@ -1007,11 +834,6 @@ The `Error` message (`0x00FF`) uses JSON encoding (ENCODING=0):
 | Heavy output (`find /`, `cat bigfile`) | 20-30 updates/s       | 100-480 KB/s | Coalescing ceiling; **this is the upper bound, not steady state** |
 | `cat /dev/urandom` stress test         | 30 updates/s (capped) | ~480 KB/s    | Coalesced at Bulk tier (33ms interval)                            |
 
-**Important**: The "heavy output" row represents the coalescing ceiling for
-worst-case burst throughput. Typical terminal operation involves 0-30
-updates/second. The protocol is designed for event-driven delta delivery, not
-sustained high-fps rendering.
-
 ### 9.3 I-Frame (Keyframe) Bandwidth Overhead
 
 Periodic I-frames add a baseline bandwidth cost per pane:
@@ -1020,10 +842,6 @@ Periodic I-frames add a baseline bandwidth cost per pane:
 | ------------------ | ------------ | --------------- | --------- |
 | 80x24 (standard)   | ~33 KB       | ~33 KB/s        | ~132 KB/s |
 | 120x40 (large CJK) | ~82 KB       | ~82 KB/s        | ~328 KB/s |
-
-This overhead is negligible on Unix socket (>1 GB/s capacity) and acceptable on
-SSH (<0.5 MB/s). The keyframe interval is configurable (0.5-5 seconds) for
-bandwidth-constrained links.
 
 ---
 
@@ -1044,63 +862,6 @@ FrameUpdates, balancing latency and throughput.
   `power_state`, `preferred_max_fps`, `transport_type`, `estimated_rtt_ms`,
   `bandwidth_hint` for server-side adaptation.
 
-Coalescing tier definitions, timing values, tier transitions, WAN adaptation
-rules, and power state throttling are defined in daemon design docs.
-
----
-
-## 11. Implementation Notes
-
-### 11.1 Zig Struct Definitions
-
-The header can be represented in Zig as:
-
-```zig
-pub const FrameHeader = extern struct {
-    magic: [2]u8 = .{ 0x49, 0x54 },  // "IT"
-    version: u8 = 1,
-    flags: FrameFlags,
-    msg_type: u16 align(1),  // little-endian
-    reserved: u16 = 0,
-    payload_len: u32 align(1),  // little-endian
-    sequence: u32 align(1),  // little-endian
-
-    pub const SIZE: usize = 16;
-
-    pub const FrameFlags = packed struct(u8) {
-        encoding: bool = false,     // bit 0 (LSB, 0x01): 0=JSON, 1=binary
-        compressed: bool = false,   // bit 1 (0x02): reserved for v2
-        response: bool = false,     // bit 2 (0x04)
-        err: bool = false,          // bit 3 (0x08)
-        more_fragments: bool = false, // bit 4 (0x10)
-        _reserved: u3 = 0,         // bits 5-7
-    };
-};
-```
-
-### 11.2 Reader Loop Pseudocode
-
-```
-fn readMessage(stream) -> Message:
-    header_buf = stream.readExact(16)
-    if header_buf[0..2] != [0x49, 0x54]:
-        return Error(ERR_BAD_MAGIC)
-    header = parseHeader(header_buf)
-    if header.version != PROTOCOL_VERSION:
-        // Exact match: version = header format version (see Section 3.1.1)
-        return Error(ERR_UNSUPPORTED_VERSION)
-    if header.payload_len > MAX_PAYLOAD_SIZE:
-        return Error(ERR_PAYLOAD_TOO_LARGE)
-    payload = stream.readExact(header.payload_len)
-    if header.flags.compressed:
-        return Error(ERR_PROTOCOL_ERROR)  // reserved flag violation
-    if header.flags.encoding == BINARY:
-        return dispatchBinary(header.msg_type, header, payload)
-    else:
-        json = std.json.parse(payload)
-        return dispatchJson(header.msg_type, header, json)
-```
-
 ---
 
 ## 12. Security Considerations
@@ -1108,36 +869,8 @@ fn readMessage(stream) -> Message:
 ### 12.1 Unix Socket Authentication
 
 Unix socket connections are authenticated by kernel-level UID verification. Only
-connections from the same UID as the daemon process are accepted. No additional
-authentication is needed for Unix socket transport because the OS kernel
-guarantees the peer identity.
-
-Authentication implementation details (syscall selection, socket file
-permissions, directory permissions) are defined in daemon design docs.
+connections from the same UID as the daemon process are accepted.
 
 ### 12.2 SSH Tunnel Authentication
 
-For remote access, authentication is handled entirely by SSH:
-
-1. **SSH key authentication**: Standard public key auth, agent forwarding, or
-   password auth — handled by the SSH transport before any protocol messages are
-   exchanged.
-2. **sshd UID trust**: When a client connects through an SSH tunnel,
-   `getpeereid()` returns sshd's UID. The daemon accepts this because SSH has
-   already authenticated the user at the transport layer. The trust chain is:
-   SSH authentication → sshd process → Unix socket → daemon.
-3. **No protocol-level auth**: The `ClientHello`/`ServerHello` handshake is the
-   same for local and tunneled connections. Authentication is transport-layer,
-   not application-layer.
-
-This approach avoids the security audit risk of a custom mTLS/SRP implementation
-and leverages SSH's decades of hardening.
-
-### 12.3 Handshake Timeouts
-
-| Timeout                                                                          | Duration   | Action                                  |
-| -------------------------------------------------------------------------------- | ---------- | --------------------------------------- |
-| Transport connection                                                             | 5 seconds  | Close socket, report connection failure |
-| `ClientHello` -> `ServerHello`                                                   | 5 seconds  | Send `Error(ERR_INVALID_STATE)`, close  |
-| `READY` -> `AttachSessionRequest`/`CreateSessionRequest`/`AttachOrCreateRequest` | 60 seconds | Send `Disconnect(TIMEOUT)`, close       |
-| Heartbeat response                                                               | 90 seconds | Send `Disconnect(TIMEOUT)`, close       |
+See daemon design docs for SSH tunnel authentication implementation.
