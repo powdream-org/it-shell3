@@ -42,7 +42,7 @@ defined before designing the protocol.
 
 ## Consequences
 
-- Doc 06 §4 (Persistence) message definitions removed.
-- CTR-10 (session restore procedure) is obsolete — no implementation needed.
+- Doc 06 §4 (Persistence) message definitions removed. Message type range
+  0x0700-0x07FF reserved for future use.
 - Post-v1: if session restore is revisited, define restore scope (layout only?
   scrollback? new shells?) before designing wire messages.
