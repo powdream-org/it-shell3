@@ -56,16 +56,10 @@ Same as doc 03:
 
 ### 1.1 Background
 
-libitshell3 does not use a fixed frame rate. The server uses adaptive coalescing
-to send FrameUpdates in response to terminal state changes. Coalescing is
-per-(client, pane) — each client receives FrameUpdates at a rate adapted to its
-display, power state, and transport conditions. Preedit state changes are always
-delivered with minimal latency.
-
-Coalescing tier definitions, transition thresholds, timing values, WAN
-adaptation rules, power throttling caps, and idle suppression during resize are
-defined in daemon design docs. See doc 01 Section 10 for the wire-observable
-delivery model.
+The server uses adaptive coalescing for FrameUpdate delivery. Coalescing tier
+definitions and policies are defined in daemon design docs. See
+[doc 01 Section 10](01-protocol-overview.md#10-frameupdate-delivery-model) for
+the wire-observable delivery model.
 
 ### 1.2 Client Power Hints and Display Info
 
@@ -97,21 +91,14 @@ handshake-only — the client may send it at any time.
 }
 ```
 
-| Field                | Type   | Values                                    | Description                                                                                                                                                 |
-| -------------------- | ------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `display_refresh_hz` | number | 60, 120, etc.                             | Display refresh rate                                                                                                                                        |
-| `power_state`        | string | `"ac"`, `"battery"`, `"low_battery"`      | Client power state                                                                                                                                          |
-| `preferred_max_fps`  | number | 0 = no preference                         | Client's preferred fps cap (0 = use server default)                                                                                                         |
-| `transport_type`     | string | `"local"`, `"ssh_tunnel"`, `"unknown"`    | How the client connects to the daemon                                                                                                                       |
-| `estimated_rtt_ms`   | u16    | 0 = unknown/local                         | Client's measured or estimated round-trip time to the daemon. The client is the only entity that knows the true end-to-end latency (see Design Note below). |
-| `bandwidth_hint`     | string | `"local"`, `"lan"`, `"wan"`, `"cellular"` | Network bandwidth class                                                                                                                                     |
-
-> **Design Note — why the client self-reports RTT**: With SSH tunneling, the
-> daemon only sees a Unix socket connection to sshd. Heartbeat RTT only measures
-> the local socket hop (~0ms), not the true end-to-end latency. The client is
-> the only entity that knows the actual transport latency. Neither tmux nor
-> zellij measures server-side RTT. See Issue 2 and Issue 4 resolutions for full
-> rationale.
+| Field                | Type   | Values                                    | Description                                                   |
+| -------------------- | ------ | ----------------------------------------- | ------------------------------------------------------------- |
+| `display_refresh_hz` | number | 60, 120, etc.                             | Display refresh rate                                          |
+| `power_state`        | string | `"ac"`, `"battery"`, `"low_battery"`      | Client power state                                            |
+| `preferred_max_fps`  | number | 0 = no preference                         | Client's preferred fps cap (0 = use server default)           |
+| `transport_type`     | string | `"local"`, `"ssh_tunnel"`, `"unknown"`    | How the client connects to the daemon                         |
+| `estimated_rtt_ms`   | u16    | 0 = unknown/local                         | Client's measured or estimated round-trip time to the daemon. |
+| `bandwidth_hint`     | string | `"local"`, `"lan"`, `"wan"`, `"cellular"` | Network bandwidth class                                       |
 
 **ClientDisplayInfoAck payload** (JSON):
 
@@ -132,10 +119,10 @@ resize are defined in daemon design docs.
 
 ### 2.1 Background
 
-When a pane produces output faster than a client can consume it, the server
-manages delivery through a shared per-pane ring buffer with per-client read
-cursors and an I/P-frame model (doc 04). Ring buffer architecture and
-implementation details are defined in daemon design docs.
+Flow control manages delivery when pane output exceeds client consumption. Ring
+buffer architecture is defined in daemon design docs. See
+[doc 04 Section 4](04-input-and-renderstate.md#4-frameupdate-delivery) for the
+I/P-frame model.
 
 ### 2.2 Message Types
 
@@ -154,21 +141,10 @@ data (I-frames and P-frames) is written once to the ring. Per-client read
 cursors track each client's delivery position. Ring buffer architecture, sizing,
 implementation model, and concurrency details are defined in daemon design docs.
 
-**Socket write priority model ("context before content")**: The server maintains
-two per-client output channels: a direct message queue (priority 1) and the
-shared ring buffer (priority 2). When a socket becomes writable, the server
-drains the direct queue first, then writes ring buffer frames. This guarantees
-that context messages (e.g., `PreeditSync`, `PreeditUpdate`, `PreeditEnd`)
-always arrive at the client before the `FrameUpdate` that reflects the same
-state change — enabling observers to interpret cell data with correct
-composition context.
-
 ### 2.4 PausePane (0x0500)
 
-PausePane is an **advisory signal** sent by the server when a client is falling
-behind on frame delivery. It does NOT stop frame production — the ring writes
-unconditionally. PausePane trigger conditions and health escalation behavior are
-defined in daemon design docs.
+PausePane is advisory. Trigger conditions and health escalation are defined in
+daemon design docs.
 
 **Payload** (JSON):
 
@@ -189,8 +165,7 @@ defined in daemon design docs.
 ### 2.5 ContinuePane (0x0501)
 
 Sent by the client when it has finished processing queued frames and is ready to
-resume normal delivery. In the ring model, the server advances the client's
-cursor to the latest I-frame in the ring.
+resume normal delivery.
 
 **Payload** (JSON):
 
@@ -200,10 +175,9 @@ cursor to the latest I-frame in the ring.
 }
 ```
 
-The server advances the client's ring cursor to the latest I-frame. The client
-receives the I-frame (a complete self-contained terminal state) and resumes
-normal incremental delivery from that point. No `last_processed_seq` field is
-needed — the ring cursor position already tracks the client's state.
+After ContinuePane, the server resumes delivery from the latest I-frame. The
+client receives a complete terminal state and resumes incremental delivery from
+that point.
 
 ### 2.6 FlowControlConfig (0x0502)
 
@@ -270,10 +244,8 @@ and recovery procedures are defined in daemon design docs.
 
 ### 2.9 Recovery Wire Behavior
 
-All recovery scenarios (ContinuePane, ring overwrite, stale recovery) result in
-the server advancing the client's ring cursor to the latest I-frame. On stale
-recovery, the server additionally sends `LayoutChanged` and `PreeditSync` (if
-applicable) before the I-frame.
+On stale recovery, the server sends `LayoutChanged` and `PreeditSync` (if
+applicable), followed by an I-frame (complete terminal state).
 
 ### 2.10 OutputQueueStatus (0x0504)
 
@@ -430,11 +402,8 @@ server, e.g., for paste operations or to sync across multiple clients.
 
 ### 4.1 Background
 
-libitshell3 uses a hybrid persistence model: the daemon holds live state in
-memory, and periodically snapshots to disk (JSON format, 8-second auto-save
-interval, following cmux's proven model). Snapshot/restore messages allow
-clients to trigger snapshots explicitly and to restore sessions after daemon
-restart.
+Session persistence uses periodic snapshots. Persistence model and snapshot
+internals are defined in daemon design docs.
 
 ### 4.2 Message Types
 
@@ -485,9 +454,7 @@ Triggers an immediate snapshot of the specified session to disk.
 
 ### 4.5 RestoreSessionRequest (0x0702)
 
-Requests the server to restore a session from a previously saved snapshot. The
-server creates new PTYs, spawns shells, and applies the saved layout. Scrollback
-is replayed if available.
+Requests the server to restore a session from a previously saved snapshot.
 
 **Payload** (JSON):
 
@@ -875,14 +842,6 @@ timeout?
 | --------- | ---- | -------------------------------------- |
 | `ping_id` | u32  | Monotonic ping counter for correlation |
 
-> **Local RTT diagnostics** (implementation-level, not wire protocol): The
-> sender MAY maintain a local `HashMap(u32, u64)` mapping `ping_id -> send_time`
-> for debugging purposes. `RTT = current_time - sent_times[ack.ping_id]`. This
-> is an implementation choice, not a wire protocol concern. Note that with SSH
-> tunneling, heartbeat RTT only measures the local Unix socket hop to sshd
-> (~0ms), not true end-to-end latency. The client self-reports transport latency
-> via `ClientDisplayInfo.estimated_rtt_ms`.
-
 ### 7.2 Heartbeat Policy
 
 | Parameter          | Default    | Description                                                                          |
@@ -913,32 +872,11 @@ systems:
 | Heartbeat-healthy + output-stale  | `stale` (app frozen, TCP alive)                        |
 | Heartbeat-missed + output-healthy | Connection problem (will resolve or disconnect at 90s) |
 
-**`echo_nonce`** (application-level heartbeat verification) is deferred to v2 in
-the `0x0900` reserved range. For v1, the combination of `latest` default resize
-policy + ring cursor stagnation detection + PausePane escalation covers
-practical scenarios.
-
-The idle-PTY blind spot (no output = no ring cursor movement = no detection of
-frozen client) is mitigated by `latest` policy: an idle client's dimensions are
-irrelevant when another client is active. For `smallest` policy edge cases,
-`echo_nonce` can be added in v2 as a `HEARTBEAT_NONCE` capability.
-
-**Server-side heartbeat RTT** measurement (time between sending Heartbeat and
-receiving HeartbeatAck) MAY be used as an implementation-level heuristic (e.g.,
-RTT >60s for 2 consecutive heartbeats suggests event loop stall). This is
-non-normative implementation guidance, not a protocol state trigger.
-
 ---
 
 ## 8. Extension Negotiation
 
-### 8.1 Background
-
-libitshell3 is designed for long-term evolution. The extension system allows
-clients and servers to negotiate optional features beyond the base protocol.
-This avoids the fragile version-guessing pattern that plagues tmux.
-
-### 8.2 Message Types
+### 8.1 Message Types
 
 | Type Code | Name             | Direction        | Description                              |
 | --------- | ---------------- | ---------------- | ---------------------------------------- |
@@ -946,7 +884,7 @@ This avoids the fragile version-guessing pattern that plagues tmux.
 | `0x0A01`  | ExtensionListAck | S -> C or C -> S | Acknowledge and accept/reject extensions |
 | `0x0A02`  | ExtensionMessage | Either           | Message within a negotiated extension    |
 
-### 8.3 ExtensionList (0x0A00)
+### 8.2 ExtensionList (0x0A00)
 
 Sent during the handshake phase (after capability negotiation, before session
 attach). Both client and server declare the extensions they support.
@@ -966,7 +904,7 @@ attach). Both client and server declare the extensions they support.
 }
 ```
 
-### 8.4 ExtensionListAck (0x0A01)
+### 8.3 ExtensionListAck (0x0A01)
 
 **Payload** (JSON):
 
@@ -986,7 +924,7 @@ attach). Both client and server declare the extensions they support.
 | -------- | ------ | ------------------------------------------------ |
 | `status` | number | 0 = accepted, 1 = rejected, 2 = version mismatch |
 
-### 8.5 ExtensionMessage (0x0A02)
+### 8.4 ExtensionMessage (0x0A02)
 
 Generic wrapper for extension-specific messages. The extension defines its own
 payload format.
@@ -1001,7 +939,7 @@ payload format.
 }
 ```
 
-### 8.6 Extension ID Ranges
+### 8.5 Extension ID Ranges
 
 | Range               | Purpose                                                    |
 | ------------------- | ---------------------------------------------------------- |
@@ -1011,7 +949,7 @@ payload format.
 | `0x8000` - `0xFFFE` | Private/experimental extensions                            |
 | `0xFFFF`            | Reserved                                                   |
 
-### 8.7 Known Core Extensions
+### 8.6 Known Core Extensions
 
 | ID       | Name                | Description                                 |
 | -------- | ------------------- | ------------------------------------------- |

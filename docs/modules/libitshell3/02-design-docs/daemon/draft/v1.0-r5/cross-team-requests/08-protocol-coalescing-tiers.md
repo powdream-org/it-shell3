@@ -39,15 +39,22 @@ they are actually defined there.
    `estimated_rtt_ms`, `bandwidth_hint`).
 4. **Power state throttling**: Define how the server reduces frame delivery rate
    when the client reports low-power state via `ClientDisplayInfo.power_state`.
+5. **Coalescing background (from Doc 06)**: Document that the server uses
+   adaptive coalescing to send FrameUpdates in response to terminal state
+   changes. Coalescing is per-(client, pane). Preedit state changes are always
+   delivered with minimal latency. Define coalescing tier definitions,
+   transition thresholds, timing values, WAN adaptation rules, power throttling
+   caps, and idle suppression during resize.
 
 ## Summary Table
 
-| Target Doc       | Section/Message             | Change Type | Source Resolution            |
-| ---------------- | --------------------------- | ----------- | ---------------------------- |
-| Runtime policies | Coalescing tier definitions | Add         | Protocol v1.0-r12 Doc 01 §10 |
-| Runtime policies | Tier transition rules       | Add         | Protocol v1.0-r12 Doc 01 §10 |
-| Runtime policies | WAN adaptation              | Add         | Protocol v1.0-r12 Doc 01 §10 |
-| Runtime policies | Power state throttling      | Add         | Protocol v1.0-r12 Doc 01 §10 |
+| Target Doc       | Section/Message             | Change Type | Source Resolution             |
+| ---------------- | --------------------------- | ----------- | ----------------------------- |
+| Runtime policies | Coalescing tier definitions | Add         | Protocol v1.0-r12 Doc 01 §10  |
+| Runtime policies | Tier transition rules       | Add         | Protocol v1.0-r12 Doc 01 §10  |
+| Runtime policies | WAN adaptation              | Add         | Protocol v1.0-r12 Doc 01 §10  |
+| Runtime policies | Power state throttling      | Add         | Protocol v1.0-r12 Doc 01 §10  |
+| Runtime policies | Coalescing background       | Add         | Protocol v1.0-r12 Doc 06 §1.1 |
 
 ## Reference: Original Protocol Text (removed from Doc 01 §10)
 
@@ -75,3 +82,22 @@ FrameUpdates, balancing latency and throughput.
 
 Coalescing tier definitions, timing values, tier transitions, WAN adaptation
 rules, and power state throttling are defined in daemon design docs.
+
+## Reference: Original Protocol Text (removed from Doc 06)
+
+The following is the original text from Doc 06 that references daemon
+implementation details for coalescing. This section remains in the protocol spec
+as a forward-reference to daemon design docs; the text below provides context
+for what the daemon must define.
+
+### From Doc 06 §1.1 — Background
+
+libitshell3 does not use a fixed frame rate. The server uses adaptive coalescing
+to send FrameUpdates in response to terminal state changes. Coalescing is
+per-(client, pane) — each client receives FrameUpdates at a rate adapted to its
+display, power state, and transport conditions. Preedit state changes are always
+delivered with minimal latency.
+
+Coalescing tier definitions, transition thresholds, timing values, WAN
+adaptation rules, power throttling caps, and idle suppression during resize are
+defined in daemon design docs.

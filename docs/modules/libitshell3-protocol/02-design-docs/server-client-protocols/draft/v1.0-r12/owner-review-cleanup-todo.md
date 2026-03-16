@@ -117,62 +117,17 @@ All steps complete. Doc 01 reduced from ~1277 lines to ~878 lines.
 
 ---
 
-## File 2: Doc 06 — Flow Control & Auxiliary
+## File 2: Doc 06 — Flow Control & Auxiliary ✅
 
-### 2a. ADRs to write (first occurrence)
+All steps complete. Doc 06 reduced from ~1046 lines to ~952 lines.
 
-| ADR # | Topic                                    | Content from this file                                                     |
-| ----- | ---------------------------------------- | -------------------------------------------------------------------------- |
-| 00023 | Message ordering and delivery guarantees | §2.3: socket write priority model ("context before content")               |
-| 00030 | Adaptive coalescing and flow control     | §2.4: PausePane advisory rationale; §7.3: idle-PTY blind spot + mitigation |
-| 00031 | Session persistence model                | §4.1: hybrid memory + periodic JSON snapshots, 8s auto-save                |
-
-### 2b. ADRs to add content to (already created in earlier file)
-
-| ADR # | Content from this file                                     |
-| ----- | ---------------------------------------------------------- |
-| 00024 | §8.1: "avoid fragile version-guessing" extension rationale |
-
-### 2c. Daemon CTRs to add content to (already created in File 1)
-
-| CTR #  | Content from this file                                                                |
-| ------ | ------------------------------------------------------------------------------------- |
-| CTR-06 | §2.1 (ring buffer background), §2.3 (two-channel mechanism), §2.5 (ring cursor reset) |
-| CTR-07 | §2.8 (health escalation refs), §2.9 (recovery wire behavior)                          |
-| CTR-08 | §1.1 (coalescing background)                                                          |
-
-### 2d. Daemon CTRs to write (first occurrence)
-
-| CTR #  | Topic                     | Content from this file                             |
-| ------ | ------------------------- | -------------------------------------------------- |
-| CTR-10 | Session restore procedure | §4.6: snapshot reading, pane creation, IME re-init |
-
-### 2e. Standalone document extraction
-
-| Source                      | Lines   | Target                   | Description                            |
-| --------------------------- | ------- | ------------------------ | -------------------------------------- |
-| §7.3 echo_nonce v2 deferral | 916-919 | `99-post-v1-features.md` | echo_nonce — revisit necessity post-v1 |
-
-### 2f. Cleanup items
-
-| #  | Section                               | Lines   | Action            | Target            | Description                         |
-| -- | ------------------------------------- | ------- | ----------------- | ----------------- | ----------------------------------- |
-| 1  | §1.1 Coalescing background            | 57-70   | DEL-daemon-CTR    | CTR-08            | Adaptive coalescing strategy        |
-| 2  | §1.2 Design Note (client RTT)         | 109-115 | DEL-ADR-exist     | ADR 00011         | "why client self-reports RTT"       |
-| 3  | §2.1 Ring buffer background           | 133-140 | DEL-daemon-CTR    | CTR-06            | "shared per-pane ring buffer"       |
-| 4  | §2.3 Socket write priority model      | 147-161 | DEL-ADR-new + CTR | ADR 00023, CTR-06 | Decision + mechanism                |
-| 5  | §2.4 PausePane advisory rationale     | 166-171 | DEL-ADR-new       | ADR 00030         | "advisory, does NOT stop"           |
-| 6  | §2.5 ContinuePane ring cursor reset   | 193-206 | DEL-daemon-CTR    | CTR-06            | "advances cursor to latest I-frame" |
-| 7  | §2.8 Health escalation refs           | 254-270 | DEL-daemon-CTR    | CTR-07            | Timeline, stale triggers            |
-| 8  | §2.9 Recovery wire behavior (ring)    | 271-279 | DEL-daemon-CTR    | CTR-07            | "advancing ring cursor"             |
-| 9  | §4.1 Persistence background           | 431-437 | DEL-ADR-new       | ADR 00031         | "hybrid persistence model"          |
-| 10 | §4.5 RestoreSessionRequest procedure  | 475-481 | DEL-covered       | Daemon docs       | "creates new PTYs, spawns shells"   |
-| 11 | §4.6 RestoreSessionResponse procedure | 523-536 | DEL-daemon-CTR    | CTR-10            | Snapshot reading, pane creation     |
-| 12 | §7.1 Local RTT diagnostics            | 878-890 | DEL               | —                 | Explicitly "not wire protocol"      |
-| 13 | §7.3 RTT heuristic                    | 926-929 | DEL-daemon-CTR    | CTR-07            | Server-side heartbeat RTT heuristic |
-| 14 | §7.3 echo_nonce v2 deferral           | 916-919 | DEL               | —                 | Moved to 99-post-v1 in step 2e      |
-| 15 | §7.3 Idle-PTY blind spot              | 921-924 | DEL-ADR-new       | ADR 00030         | Design tradeoff + mitigation        |
-| 16 | §8.1 Extension negotiation rationale  | 935-939 | DEL-ADR-new       | ADR 00024         | "avoid version-guessing"            |
+- [x] 2a. ADRs written: 00023, 00030, 00031
+- [x] 2b. ADR 00024 created with §8.1 extension rationale
+- [x] 2c. CTR-06, CTR-07, CTR-08 extended with Doc 06 content
+- [x] 2d. CTR-10 written (session restore procedure)
+- [x] 2e. echo_nonce already covered in `99-post-v1-features.md` Section 4 — no
+      changes needed
+- [x] 2f. 16 cleanup items applied (14 executed; #7 and #11 already clean)
 
 ---
 

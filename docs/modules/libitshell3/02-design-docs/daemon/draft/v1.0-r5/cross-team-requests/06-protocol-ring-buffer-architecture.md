@@ -38,14 +38,30 @@ field, keyframe interval) remain in the protocol spec.
 3. **Preedit delivery path**: Document that all frames including preedit cell
    data go through the ring buffer with no bypass paths, and that Tier 0
    (Preedit tier) ensures immediate flush for <33ms preedit latency.
+4. **Ring buffer background (from Doc 06)**: Document that when a pane produces
+   output faster than a client can consume it, the server manages delivery
+   through a shared per-pane ring buffer with per-client read cursors and an
+   I/P-frame model.
+5. **Two-channel socket write priority**: Implement per-client two-channel
+   output model — direct message queue (priority 1) and shared ring buffer
+   (priority 2). When a socket becomes writable, drain the direct queue first,
+   then write ring buffer frames.
+6. **Ring cursor reset on ContinuePane**: On ContinuePane, advance the client's
+   ring cursor to the latest I-frame. The client receives the I-frame (complete
+   self-contained terminal state) and resumes normal incremental delivery. No
+   `last_processed_seq` field is needed — the ring cursor position already
+   tracks the client's state.
 
 ## Summary Table
 
-| Target Doc            | Section/Message       | Change Type | Source Resolution             |
-| --------------------- | --------------------- | ----------- | ----------------------------- |
-| Internal architecture | Ring buffer design    | Add         | Protocol v1.0-r12 Doc 01 §5.8 |
-| Runtime policies      | I-frame recovery      | Add         | Protocol v1.0-r12 Doc 01 §5.8 |
-| Runtime policies      | Preedit delivery path | Add         | Protocol v1.0-r12 Doc 01 §5.8 |
+| Target Doc            | Section/Message            | Change Type | Source Resolution             |
+| --------------------- | -------------------------- | ----------- | ----------------------------- |
+| Internal architecture | Ring buffer design         | Add         | Protocol v1.0-r12 Doc 01 §5.8 |
+| Runtime policies      | I-frame recovery           | Add         | Protocol v1.0-r12 Doc 01 §5.8 |
+| Runtime policies      | Preedit delivery path      | Add         | Protocol v1.0-r12 Doc 01 §5.8 |
+| Internal architecture | Ring buffer background     | Add         | Protocol v1.0-r12 Doc 06 §2.1 |
+| Internal architecture | Two-channel write priority | Add         | Protocol v1.0-r12 Doc 06 §2.3 |
+| Runtime policies      | ContinuePane cursor reset  | Add         | Protocol v1.0-r12 Doc 06 §2.5 |
 
 ## Reference: Original Protocol Text (removed from Doc 01 §5.8)
 
@@ -81,3 +97,39 @@ go through the ring buffer. There are no bypass paths. Coalescing Tier 0
 See doc 04 Section 4 for the `frame_type` wire format and I/P-frame semantics.
 See doc 06 Section 2 for ring buffer sizing, socket write priority, and recovery
 procedures.
+
+## Reference: Original Protocol Text (removed from Doc 06)
+
+The following is the original text from Doc 06 that references daemon
+implementation details. These sections remain in the protocol spec as
+forward-references to daemon design docs; the text below provides context for
+what the daemon must define.
+
+### From Doc 06 §2.1 — Background
+
+When a pane produces output faster than a client can consume it, the server
+manages delivery through a shared per-pane ring buffer with per-client read
+cursors and an I/P-frame model (doc 04). Ring buffer architecture and
+implementation details are defined in daemon design docs.
+
+### From Doc 06 §2.3 — Delivery Model Overview (Two-Channel Mechanism)
+
+The server maintains a shared per-pane ring buffer for frame delivery. All frame
+data (I-frames and P-frames) is written once to the ring. Per-client read
+cursors track each client's delivery position. Ring buffer architecture, sizing,
+implementation model, and concurrency details are defined in daemon design docs.
+
+**Socket write priority model**: The server maintains two per-client output
+channels: a direct message queue (priority 1) and the shared ring buffer
+(priority 2). When a socket becomes writable, the server drains the direct queue
+first, then writes ring buffer frames. This guarantees that context messages
+(e.g., `PreeditSync`, `PreeditUpdate`, `PreeditEnd`) always arrive at the client
+before the `FrameUpdate` that reflects the same state change — enabling
+observers to interpret cell data with correct composition context.
+
+### From Doc 06 §2.5 — ContinuePane Ring Cursor Reset
+
+The server advances the client's ring cursor to the latest I-frame. The client
+receives the I-frame (a complete self-contained terminal state) and resumes
+normal incremental delivery from that point. No `last_processed_seq` field is
+needed — the ring cursor position already tracks the client's state.
