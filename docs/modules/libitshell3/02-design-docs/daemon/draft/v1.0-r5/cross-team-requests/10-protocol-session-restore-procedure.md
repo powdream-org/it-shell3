@@ -6,7 +6,8 @@
   draft/v1.0-r12
 - **Source resolution**: owner review (v1.0-r12 cleanup)
 - **Target docs**: daemon design docs
-- **Status**: open
+- **Status**: superseded — Snapshot/Restore removed from v1 scope (ADR 00036).
+  No implementation needed.
 
 ---
 
