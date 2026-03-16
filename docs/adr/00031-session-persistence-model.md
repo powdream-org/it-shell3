@@ -1,7 +1,7 @@
 # 00031. Session Persistence Model (Hybrid Memory + JSON Snapshots)
 
 - Date: 2026-03-16
-- Status: Accepted
+- Status: Superseded by ADR 00036
 
 ## Context
 

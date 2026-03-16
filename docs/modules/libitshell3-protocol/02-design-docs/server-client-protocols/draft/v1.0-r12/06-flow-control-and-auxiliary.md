@@ -929,6 +929,10 @@ attach). Both client and server declare the extensions they support.
 Generic wrapper for extension-specific messages. The extension defines its own
 payload format.
 
+`ExtensionMessage` is subject to the same connection-level message ordering as
+all other messages. Extensions MUST NOT bypass or reorder core protocol
+messages.
+
 **Payload** (JSON):
 
 ```json
@@ -1005,44 +1009,19 @@ If a client or server receives a message with:
 
 ## 11. Open Questions
 
-1. **Clipboard size limit**: Should there be a maximum clipboard data size?
-   Large clipboard contents (e.g., megabytes of text) could cause issues.
-   Suggestion: 10 MB limit with chunked transfer for larger content.
-
-2. **Snapshot format versioning**: How do we handle snapshot format evolution?
-   Suggestion: include a format version number in the JSON snapshot. Newer
-   servers can read older formats but not vice versa.
-
-3. **Extension negotiation timing**: Should extensions be negotiated before or
+1. **Extension negotiation timing**: Should extensions be negotiated before or
    after authentication? Before auth risks information leakage (advertising
    capabilities to unauthenticated clients). After auth adds latency.
    Suggestion: after auth for SSH tunnel transport, during handshake for Unix
    sockets.
 
-4. **Multi-session snapshots**: Should one snapshot file contain multiple
-   sessions, or one file per session? cmux uses one file for the entire app
-   state. Per-session files are simpler for partial restore. Suggestion:
-   per-session files with a manifest.
-
-5. **~~Clipboard sync mode~~** **Closed (v0.7)**: Not a protocol concern.
-   Clipboard access policy (auto-allow, prompt, deny) is implementation-defined
-   by the client app. Normative note added to Section 3.1. Owner decision.
-
-6. **RendererHealth interval**: How frequently should RendererHealth reports be
+2. **RendererHealth interval**: How frequently should RendererHealth reports be
    sent? Too frequent = noise, too infrequent = useless for debugging. The
    subscription system allows per-client configuration, but what should the
    minimum be? Suggestion: 1000 ms minimum.
 
-7. **Extension message ordering**: Should extension messages be ordered with
-   respect to core messages, or can they be interleaved? For simplicity, all
-   messages on a connection are strictly ordered. Extensions cannot bypass this.
-
-8. **Silence detection scope**: Should SilenceDetected fire only for panes with
+3. **Silence detection scope**: Should SilenceDetected fire only for panes with
    recent activity (activity-then-silence pattern), or for any pane that has
    been silent? The activity-then-silence pattern is more useful (build
    completion notification). Suggestion: only fire after at least one byte of
    output has been seen since the last silence notification.
-
-9. **~~Tier transition telemetry~~** **Closed (v0.7)**: RendererHealth's
-   `coalescing_tier` field is sufficient. No dedicated notification needed.
-   Owner confirmed.
