@@ -301,19 +301,6 @@ DirtyRows, CellData) for the performance-critical cell data path, followed by an
 optional JSON metadata blob for cursor, colors, dimensions, mouse state, and
 terminal modes.
 
-> **Normative — CellData is SEMANTIC**: CellData carries semantic content
-> (codepoint, style attributes, colors, wide-char flag) for populating a
-> RenderState on the client. The client populates RenderState from wire CellData
-> and delegates all rendering to ghostty's existing rendering pipeline (font
-> shaping, atlas management, GPU buffer construction, draw). The client does NOT
-> individually perform font shaping, glyph atlas lookup, or GPU buffer
-> construction — these are internal to the rendering pipeline.
-
-> **Informative — Reference implementation**: In ghostty, this pipeline
-> corresponds to `importFlatCells()` (RenderState population from wire data)
-> followed by `rebuildCells()` (font shaping and GPU buffer construction) and
-> `drawFrame()` (Metal GPU rendering). See PoC 08 for validation.
-
 > **Normative note — FrameUpdate delivery scope**: The server sends FrameUpdate
 > messages for ALL panes in the client's attached session that have dirty state,
 > not just the focused pane. Each FrameUpdate carries a `pane_id` identifying

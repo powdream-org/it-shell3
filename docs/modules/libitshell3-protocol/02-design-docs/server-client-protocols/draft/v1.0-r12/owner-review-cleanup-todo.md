@@ -174,23 +174,23 @@ All steps complete.
 
 ### 3e. Cleanup items
 
-| #  | Section                                | Lines     | Action         | Target         | Description                              |
-| -- | -------------------------------------- | --------- | -------------- | -------------- | ---------------------------------------- |
-| 1  | §2.1 Server IME processing             | 41-45     | DEL-daemon-CTR | CTR-12         | "derives text through native IME engine" |
-| 2  | §2.1 Jamo decomposition note           | 94        | DEL-ime-CTR    | IME-beh CTR-01 | "Critical for Jamo decomposition"        |
-| 3  | §2.1 String identifier rationale       | 116-119   | DEL-ADR-new    | ADR 00025      | "self-documenting, no mapping table"     |
-| 4  | §2.1 Engine decomposition              | 121-126   | DEL-ime-CTR    | IME-ic CTR-01  | "decomposed into engine-specific types"  |
-| 5  | §3.1 CellData normative note (ghostty) | 304-315   | REWRITE        | —              | Remove function names; keep generic      |
-| 6  | §3.1 Per-pane delivery rationale       | 317-321   | DEL-ADR-absorb | ADR 00009      | "not just focused pane"                  |
-| 7  | §3.1 Ring buffer / coalescing tiers    | 323-329   | DEL-daemon-CTR | CTR-06         | Server architecture                      |
-| 8  | §3.1 Server renderer minimum           | 363-364   | DEL-covered    | Daemon docs    | "renderer's practical minimum"           |
-| 9  | §3.1 PTY behavior during suppression   | 366-368   | DEL-covered    | Daemon docs    | "defined in daemon design docs"          |
-| 10 | §3.1 I-frame scheduling algorithm      | 1040-1047 | DEL-daemon-CTR | CTR-06         | Timer, ring buffer, interval             |
-| 11 | §3.2 No preedit in JSON metadata       | 498-510   | DEL-ADR-new    | ADR 00021      | Rendering path separation                |
-| 12 | §7.3 Coalescing tier deferral          | 1036-1038 | DEL-covered    | Daemon docs    | "defined in daemon design docs"          |
-| 13 | §7.4 PoC performance measurements      | 1051-1072 | DEL            | —              | Move to PoC docs or delete               |
-| 14 | §8 Compression deferral (entire)       | 1076-1092 | DEL-ADR-exist  | ADR 00014      | One-liner cross-ref                      |
-| 15 | Appendix C Encoding rationale          | 1256-1277 | DEL-ADR-exist  | ADR 00006      | Duplicate                                |
+| #  | Section                                | Lines     | Action         | Target         | Description                                                                |
+| -- | -------------------------------------- | --------- | -------------- | -------------- | -------------------------------------------------------------------------- |
+| 1  | §2.1 Server IME processing             | 41-45     | DEL-daemon-CTR | CTR-12         | "derives text through native IME engine"                                   |
+| 2  | §2.1 Jamo decomposition note           | 94        | DEL-ime-CTR    | IME-beh CTR-01 | "Critical for Jamo decomposition"                                          |
+| 3  | §2.1 String identifier rationale       | 116-119   | DEL-ADR-new    | ADR 00025      | "self-documenting, no mapping table"                                       |
+| 4  | §2.1 Engine decomposition              | 121-126   | DEL-ime-CTR    | IME-ic CTR-01  | "decomposed into engine-specific types"                                    |
+| 5  | §3.1 CellData normative note (ghostty) | 304-315   | DEL-app-CTR    | app CTR-01     | ✅ Both normative + informative blocks → app CTR-01; deleted from protocol |
+| 6  | §3.1 Per-pane delivery rationale       | 317-321   | DEL-ADR-absorb | ADR 00009      | "not just focused pane"                                                    |
+| 7  | §3.1 Ring buffer / coalescing tiers    | 323-329   | DEL-daemon-CTR | CTR-06         | Server architecture                                                        |
+| 8  | §3.1 Server renderer minimum           | 363-364   | DEL-covered    | Daemon docs    | "renderer's practical minimum"                                             |
+| 9  | §3.1 PTY behavior during suppression   | 366-368   | DEL-covered    | Daemon docs    | "defined in daemon design docs"                                            |
+| 10 | §3.1 I-frame scheduling algorithm      | 1040-1047 | DEL-daemon-CTR | CTR-06         | Timer, ring buffer, interval                                               |
+| 11 | §3.2 No preedit in JSON metadata       | 498-510   | DEL-ADR-new    | ADR 00021      | Rendering path separation                                                  |
+| 12 | §7.3 Coalescing tier deferral          | 1036-1038 | DEL-covered    | Daemon docs    | "defined in daemon design docs"                                            |
+| 13 | §7.4 PoC performance measurements      | 1051-1072 | DEL            | —              | Move to PoC docs or delete                                                 |
+| 14 | §8 Compression deferral (entire)       | 1076-1092 | DEL-ADR-exist  | ADR 00014      | One-liner cross-ref                                                        |
+| 15 | Appendix C Encoding rationale          | 1256-1277 | DEL-ADR-exist  | ADR 00006      | Duplicate                                                                  |
 
 ---
 
