@@ -152,27 +152,27 @@ All steps complete.
 | 00022 | Server-owned scrollback (no client cache) | §5.0: request/response model, §5.1: scroll broadcast to all clients      |
 | 00025 | Input method identifier design            | §2.1: string identifier rationale ("self-documenting, no mapping table") |
 
-### 3a′. ADRs to add content to (already created)
+### 3b. ADRs to add content to (already created)
 
 | ADR # | Content from this file                                      |
 | ----- | ----------------------------------------------------------- |
 | 00009 | §3.1: per-pane delivery rationale ("not just focused pane") |
 
-### 3b. Daemon CTRs to add content to (already created)
+### 3c. Daemon CTRs to add content to (already created)
 
 | CTR #  | Content from this file                                                     |
 | ------ | -------------------------------------------------------------------------- |
 | CTR-06 | §3.1 (ring buffer / coalescing tiers), §3.1 (I-frame scheduling algorithm) |
 | CTR-12 | §2.1 (server IME processing: "derives text through native IME engine")     |
 
-### 3c. IME CTRs to write (first occurrence)
+### 3d. IME CTRs to write (first occurrence)
 
 | Target                 | CTR #  | Topic                                      | Content from this file                        |
 | ---------------------- | ------ | ------------------------------------------ | --------------------------------------------- |
 | IME behavior           | CTR-01 | Preedit lifecycle details                  | §2.1: Jamo decomposition note                 |
 | IME interface-contract | CTR-01 | Engine decomposition and per-session state | §2.1: "decomposed into engine-specific types" |
 
-### 3d. Cleanup items
+### 3e. Cleanup items
 
 | #  | Section                                | Lines     | Action         | Target         | Description                              |
 | -- | -------------------------------------- | --------- | -------------- | -------------- | ---------------------------------------- |
@@ -203,34 +203,34 @@ All steps complete.
 | 00026 | Preedit lifecycle on interrupting events | §6.1-6.10 (all decisions: pane close cancels, disconnect commits, focus change commits, mouse button commits/scroll preserves, IME switch commit_current, Escape commits, daemon restart commits); §8.2-8.3 (commit-on-restore, resume deferred to v2) |
 | 00032 | Preedit message simplification           | §2.2/2.4 changes-from (remove composition_state, cursor/width; retain text for multi-client coordination; remove frame_type=2)                                                                                                                         |
 
-### 4a′. ADRs to add content to (already created)
+### 4b. ADRs to add content to (already created)
 
 | ADR # | Content from this file                                                                                |
 | ----- | ----------------------------------------------------------------------------------------------------- |
 | 00021 | §1.1 (preedit as cell data rationale, capability decoupling), §13.1 (single-path rendering rationale) |
 | 00023 | §13.2 (message ordering, "context before content principle")                                          |
 
-### 4b. Daemon CTRs to write (first occurrence)
+### 4c. Daemon CTRs to write (first occurrence)
 
 | CTR #  | Topic                                  | Content from this file                                                                                                                                    |
 | ------ | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | CTR-11 | Preedit race condition server behavior | §6.1-6.10: server-side cancel/commit procedures, hotkey detection, resize repositioning, keystroke coalescing; §10.1: error handling (log, commit, reset) |
 
-### 4b′. Daemon CTRs to add content to (already created)
+### 4d. Daemon CTRs to add content to (already created)
 
 | CTR #  | Content from this file                                                                                  |
 | ------ | ------------------------------------------------------------------------------------------------------- |
 | CTR-08 | §7: preedit delivery latency, coalescing bypass                                                         |
 | CTR-12 | §3.1 (setActiveInputMethod, locking), §3.3 (per-session state), §8.2 (engine initialization on restore) |
 
-### 4c. IME CTRs to add content to (already created in File 3)
+### 4e. IME CTRs to add content to (already created in File 3)
 
 | Target                 | CTR #  | Content from this file                                                 |
 | ---------------------- | ------ | ---------------------------------------------------------------------- |
 | IME behavior           | CTR-01 | §2.3: Escape behavior rationale ("matches ibus-hangul, fcitx5-hangul") |
 | IME interface-contract | CTR-01 | §1.1 (HangulInputContext, jamo stack), §3.3 (per-session engine state) |
 
-### 4d. Cleanup items
+### 4f. Cleanup items
 
 | #  | Section                                       | Lines     | Action            | Target            | Description                          |
 | -- | --------------------------------------------- | --------- | ----------------- | ----------------- | ------------------------------------ |
@@ -275,7 +275,7 @@ All steps complete.
 | 00019 | Per-session focus model (v1)     | §8.9: viewport clipping (related); main content from Doc 03 §8.1                       |
 | 00024 | Capability negotiation mechanics | §2.1 (string arrays over bitmasks), §7.2 (set intersection), §7.3 (render requirement) |
 
-### 5a′. ADRs to add content to (already created)
+### 5b. ADRs to add content to (already created)
 
 | ADR # | Content from this file                                                                                                    |
 | ----- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -283,7 +283,7 @@ All steps complete.
 | 00023 | §8.2 (direct message queue, priority 1)                                                                                   |
 | 00025 | §5.3 (two-axis model, string identifiers, field naming asymmetry)                                                         |
 
-### 5b. Daemon CTRs to add content to (already created)
+### 5c. Daemon CTRs to add content to (already created)
 
 | CTR #  | Content from this file                                       |
 | ------ | ------------------------------------------------------------ |
@@ -291,7 +291,7 @@ All steps complete.
 | CTR-08 | §6.2 (server coalescing behavior), §6.3 (iOS tier breakdown) |
 | CTR-09 | §11.1 (auth ref), §11.3 (timeout values)                     |
 
-### 5c. Cleanup items
+### 5d. Cleanup items
 
 | #  | Section                            | Lines     | Action         | Target              | Description                   |
 | -- | ---------------------------------- | --------- | -------------- | ------------------- | ----------------------------- |
@@ -330,7 +330,7 @@ All steps complete.
 | 00028 | Two-layer error handling model  | §6: status codes vs Error message split                                             |
 | 00029 | Notification subscription model | §4: always-sent session-scope notifications                                         |
 
-### 6a′. ADRs to add content to (already created)
+### 6b. ADRs to add content to (already created)
 
 | ADR # | Content from this file                                                          |
 | ----- | ------------------------------------------------------------------------------- |
@@ -338,13 +338,13 @@ All steps complete.
 | 00023 | §1.6 ("context before content" principle), §7 (sequence correlation + ordering) |
 | 00025 | §2.1/2.3 (IME inheritance), §3.1 (two-channel IME state model)                  |
 
-### 6b. Daemon CTRs to add content to (already created)
+### 6c. Daemon CTRs to add content to (already created)
 
 | CTR #  | Content from this file                 |
 | ------ | -------------------------------------- |
 | CTR-07 | §8.4 (health state + resize exclusion) |
 
-### 6c. Cleanup items
+### 6d. Cleanup items
 
 | #  | Section                            | Lines     | Action         | Target            | Description                    |
 | -- | ---------------------------------- | --------- | -------------- | ----------------- | ------------------------------ |
@@ -365,7 +365,7 @@ All steps complete.
 | 15 | §8.1 Per-session focus decision    | 1154-1158 | DEL-ADR-new    | ADR 00019         | "Decision for v1"              |
 | 16 | §8.4 Health + resize exclusion     | 1186-1192 | DEL-daemon-CTR | CTR-07            | "Stale excluded from resize"   |
 
-### 6d. Additional changes (discovered during Doc 06 review)
+### 6e. Additional changes (discovered during Doc 06 review)
 
 - [x] §1.9 DestroySessionRequest: cascade block removed → CTR-14
 - [x] §4.3 SessionListChanged: event value table added
