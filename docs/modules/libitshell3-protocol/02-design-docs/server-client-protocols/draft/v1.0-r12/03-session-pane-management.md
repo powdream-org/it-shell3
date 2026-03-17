@@ -310,18 +310,6 @@ details (signal handling, resource teardown) are defined in daemon design docs.
 | `session_id` | u32     | Session to destroy                              |
 | `force`      | boolean | true = force-kill even if processes are running |
 
-**Cascade behavior for attached clients**: When a session is destroyed while
-other clients are attached, the server:
-
-1. Sends `SessionListChanged` with `event: "destroyed"` to ALL connected
-   clients.
-2. Sends forced `DetachSessionResponse` with `reason: "session_destroyed"` to
-   every client attached to the destroyed session (except the requesting client,
-   which receives the DestroySessionResponse).
-3. Those clients transition back to READY state.
-4. Sends `ClientDetached` notification to the requesting client for each
-   detached client.
-
 ### 1.10 DestroySessionResponse (0x0109)
 
 ```json
@@ -935,7 +923,7 @@ changed by checking for key presence.
 
 ### 4.3 SessionListChanged (0x0182)
 
-Sent to all connected clients when sessions are created or destroyed.
+Sent to all connected clients when the session list changes.
 
 ```json
 {
@@ -944,6 +932,12 @@ Sent to all connected clients when sessions are created or destroyed.
   "name": "my-session"
 }
 ```
+
+| `event`       | Trigger                          | Fields present                  |
+| ------------- | -------------------------------- | ------------------------------- |
+| `"created"`   | `CreateSessionRequest` succeeds  | `session_id`, `name`            |
+| `"destroyed"` | `DestroySessionRequest` succeeds | `session_id`, `name`            |
+| `"renamed"`   | `RenameSessionRequest` succeeds  | `session_id`, `name` (new name) |
 
 ### 4.4 ClientAttached (0x0183)
 

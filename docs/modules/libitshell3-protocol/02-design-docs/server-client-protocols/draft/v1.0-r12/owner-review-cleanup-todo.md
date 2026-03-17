@@ -119,15 +119,26 @@ All steps complete. Doc 01 reduced from ~1277 lines to ~878 lines.
 
 ## File 2: Doc 06 — Flow Control & Auxiliary ✅
 
-All steps complete. Doc 06 reduced from ~1046 lines to ~952 lines.
+All steps complete.
 
 - [x] 2a. ADRs written: 00023, 00030, 00031
 - [x] 2b. ADR 00024 created with §8.1 extension rationale
 - [x] 2c. CTR-06, CTR-07, CTR-08 extended with Doc 06 content
-- [x] 2d. CTR-10 written (session restore procedure)
+- [x] 2d. CTR-10 converted: session restore removal request (ADR 00036
+      supersedes ADR 00031)
 - [x] 2e. echo_nonce already covered in `99-post-v1-features.md` Section 4 — no
       changes needed
 - [x] 2f. 16 cleanup items applied (14 executed; #7 and #11 already clean)
+- [x] 2g. §11 Open Questions resolved and section deleted:
+  - ADR 00035: Clipboard size limit (10 MB, Proposed — pending spec update)
+  - ADR 00036: Snapshot/Restore deferred to post-v1 (supersedes ADR 00031)
+  - ADR 00037: Extension negotiation timing (handshake phase,
+    transport-agnostic)
+  - ADR 00038: Silence detection scope + subscription lifecycle
+  - CTR-13: Silence detection timer (per-pane countdown, PTY read path)
+  - §5.5: RendererHealth minimum interval 1000 ms added (normative)
+  - §6.2: `silence_threshold_ms` min/max [1000, 3600000] added to event_mask
+    table
 
 ---
 
@@ -353,6 +364,14 @@ All steps complete. Doc 06 reduced from ~1046 lines to ~952 lines.
 | 14 | §7 Sequence correlation + ordering | 1126-1146 | DEL-ADR-new    | ADR 00023         | Ordering guarantee             |
 | 15 | §8.1 Per-session focus decision    | 1154-1158 | DEL-ADR-new    | ADR 00019         | "Decision for v1"              |
 | 16 | §8.4 Health + resize exclusion     | 1186-1192 | DEL-daemon-CTR | CTR-07            | "Stale excluded from resize"   |
+
+### 6d. Additional changes (discovered during Doc 06 review)
+
+- [x] §1.9 DestroySessionRequest: cascade block removed → CTR-14
+- [x] §4.3 SessionListChanged: event value table added
+      (`created`/`destroyed`/`renamed`)
+- [x] ADR 00039: SessionListChanged event semantics
+- [x] CTR-14: session destroy cascade + rename broadcast flow → daemon
 
 ---
 

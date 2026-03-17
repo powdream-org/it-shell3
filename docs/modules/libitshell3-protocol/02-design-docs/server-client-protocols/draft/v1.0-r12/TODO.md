@@ -259,6 +259,7 @@ Work in progress — session split point.
 
 - [ ] Continue Doc 04 owner review (§3+ after renumbering)
 - [ ] Doc 05 owner review
-- [ ] Doc 06 owner review
+- [x] Doc 06 owner review ✅ (§11 Open Questions all resolved; ADR 00035–00038,
+      CTR-13 written)
 - [ ] Doc 03 remaining cleanup (if any)
 - [ ] Final commit and handover

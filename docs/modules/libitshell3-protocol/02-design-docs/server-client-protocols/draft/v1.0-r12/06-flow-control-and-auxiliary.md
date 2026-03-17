@@ -16,18 +16,8 @@ sequence(4), little-endian byte order).
 
 ### Conventions
 
-Same as doc 03:
-
-- Little-endian byte order for all multi-byte integers in the binary header.
-- Control messages (this document) use JSON payloads unless otherwise noted.
-- **Optional fields**: When a JSON field has no value, the field MUST be omitted
-  from the JSON object. Senders MUST NOT include fields with `null` values.
-  Receivers MUST tolerate both missing keys and `null` values as "absent"
-  (defensive parsing for forward/backward compatibility).
-- IDs are u32, server-assigned, monotonically increasing (see doc 03 ID Types).
-- Boolean fields use JSON `true`/`false`.
-- `payload_len` in the header is the payload size only (NOT including the
-  16-byte header).
+See [Doc 01](./01-protocol-overview.md) for common wire conventions (byte order,
+JSON payload rules, optional field convention, sequence number correlation).
 
 ---
 
@@ -626,7 +616,9 @@ flash, bounce dock icon, system notification, etc.).
 
 Periodic health report from the server's terminal processing pipeline. Useful
 for debugging performance issues. Now includes coalescing tier and ring buffer
-information.
+information. The minimum reporting interval is 1000 ms; the server MUST NOT send
+RendererHealth more frequently than once per 1000 ms regardless of client
+configuration.
 
 **Payload** (JSON):
 
@@ -732,17 +724,17 @@ reduces unnecessary network traffic and processing.
 
 **event_mask bits**:
 
-| Bit | Value  | Event             | Config field                                 |
-| --- | ------ | ----------------- | -------------------------------------------- |
-| 0   | 0x0001 | PaneTitleChanged  | --                                           |
-| 1   | 0x0002 | ProcessExited     | --                                           |
-| 2   | 0x0004 | Bell              | --                                           |
-| 3   | 0x0008 | RendererHealth    | `renderer_health_interval_ms` (default 5000) |
-| 4   | 0x0010 | PaneCwdChanged    | --                                           |
-| 5   | 0x0020 | ActivityDetected  | --                                           |
-| 6   | 0x0040 | SilenceDetected   | `silence_threshold_ms` (default 30000)       |
-| 7   | 0x0080 | ClipboardChanged  | --                                           |
-| 8   | 0x0100 | OutputQueueStatus | `queue_status_interval_ms` (default 1000)    |
+| Bit | Value  | Event             | Config field                                                  |
+| --- | ------ | ----------------- | ------------------------------------------------------------- |
+| 0   | 0x0001 | PaneTitleChanged  | --                                                            |
+| 1   | 0x0002 | ProcessExited     | --                                                            |
+| 2   | 0x0004 | Bell              | --                                                            |
+| 3   | 0x0008 | RendererHealth    | `renderer_health_interval_ms` (default 5000)                  |
+| 4   | 0x0010 | PaneCwdChanged    | --                                                            |
+| 5   | 0x0020 | ActivityDetected  | --                                                            |
+| 6   | 0x0040 | SilenceDetected   | `silence_threshold_ms` (default 30000, min 1000, max 3600000) |
+| 7   | 0x0080 | ClipboardChanged  | --                                                            |
+| 8   | 0x0100 | OutputQueueStatus | `queue_status_interval_ms` (default 1000)                     |
 
 ### 6.3 SubscribeAck (0x0811)
 
@@ -1004,24 +996,3 @@ If a client or server receives a message with:
 | PausePane without ContinuePane | 5s / 60s / 300s escalation | T=5s resize exclusion, T=60s/120s stale, T=300s eviction (see [Section 2.8](#28-client-health-model)) |
 | No message received (any kind) | 90 seconds                 | Send `Disconnect(TIMEOUT)`, close connection                                                          |
 | Snapshot write                 | 60 seconds                 | Respond with I/O error                                                                                |
-
----
-
-## 11. Open Questions
-
-1. **Extension negotiation timing**: Should extensions be negotiated before or
-   after authentication? Before auth risks information leakage (advertising
-   capabilities to unauthenticated clients). After auth adds latency.
-   Suggestion: after auth for SSH tunnel transport, during handshake for Unix
-   sockets.
-
-2. **RendererHealth interval**: How frequently should RendererHealth reports be
-   sent? Too frequent = noise, too infrequent = useless for debugging. The
-   subscription system allows per-client configuration, but what should the
-   minimum be? Suggestion: 1000 ms minimum.
-
-3. **Silence detection scope**: Should SilenceDetected fire only for panes with
-   recent activity (activity-then-silence pattern), or for any pane that has
-   been silent? The activity-then-silence pattern is more useful (build
-   completion notification). Suggestion: only fire after at least one byte of
-   output has been seen since the last silence notification.
