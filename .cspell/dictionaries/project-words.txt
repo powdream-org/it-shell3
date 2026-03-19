@@ -1,6 +1,13 @@
+bitflags
+codepoint
+codepoints
 ghostty
 itshell
 libghostty
 libhangul
 libitshell
+Powerline
 preedit
+Romaji
+strikethrough
+trackpad
