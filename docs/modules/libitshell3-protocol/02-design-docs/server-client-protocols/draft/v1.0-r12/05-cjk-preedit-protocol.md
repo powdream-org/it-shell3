@@ -950,34 +950,3 @@ For composition end:
 1. PreeditEnd (0x0402)       -- lifecycle/metadata
 2. FrameUpdate (0x0300)      -- cell data via ring (preedit cells removed, grid updated with committed text)
 ```
-
----
-
-## 14. Open Questions
-
-1. **~~Candidate window protocol~~** **Closed (v0.7)**: Out of scope through v1.
-   Moved to `99-post-v1-features.md` Section 3. Review note
-   `05-preedit-rendering-model` includes a v2 `candidates` schema sketch for
-   reference. Owner decision.
-
-2. **~~Client-side prediction~~** **Closed (v0.7)**: Will not discuss. Preedit
-   rendering requires server-side libghostty-vt for width computation and line
-   wrapping (`lines[]` + `segments[]` model). Moving IME to client does not
-   eliminate the server roundtrip for preedit display. Owner decision.
-
-3. **~~Preedit and mouse interaction~~** **Transferred (v0.7)**: Transferred to
-   review note `05-mouse-preedit-interaction`. MouseButton commits preedit;
-   MouseScroll does not. Owner decision.
-
-4. **~~Multiple simultaneous compositions~~** **Resolved (v0.7)**: Simultaneous
-   compositions within a session are not possible. The per-session engine (one
-   `HangulInputContext` per session) enforces the preedit exclusivity invariant
-   — at most one pane in a session can have active preedit at any time. See
-   Section 1 for the normative statement. Focus change to a different pane
-   commits the active preedit (Section 6.7).
-
-5. **~~Undo during composition~~** **Closed (v0.7)**: Not a protocol concern.
-   IME contract governs modifier key handling — all Cmd+key combinations flush
-   (commit) preedit and forward the key. Cmd+Z flushes preedit, then forwards
-   Cmd+Z to the terminal. See IME Interface Contract v0.7, Section 3.3 (Modifier
-   Flush Policy). Owner decision.
