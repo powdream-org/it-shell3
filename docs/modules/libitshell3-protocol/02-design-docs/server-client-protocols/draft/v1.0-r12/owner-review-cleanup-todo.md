@@ -153,6 +153,8 @@ All steps complete.
 - [x] 3d. IME CTRs written: behavior CTR-01 (Jamo decomposition),
       interface-contract CTR-01 (engine decomposition + preedit exclusivity)
 - [x] 3e. 15 cleanup items applied (#5 already done; #1-4, #6-15 executed)
+- [x] 3f. §10 Open Questions deleted (all 6 closed); Appendix B v0.8 comparison
+      para deleted (rationale, non-normative)
 
 ---
 

@@ -259,7 +259,8 @@ Work in progress — session split point.
 
 - [x] Continue Doc 04 owner review — complete (owner-review-cleanup-todo.md File
       3 ✅; 15 cleanup items applied, ADRs 00021/00022/00025 written, CTRs
-      extended, IME CTRs written)
+      extended, IME CTRs written; §10 Open Questions deleted; Appendix B v0.8
+      comparison para deleted)
 - [ ] Doc 05 owner review
 - [x] Doc 06 owner review ✅ (§11 Open Questions all resolved; ADR 00035–00038,
       CTR-13 written)

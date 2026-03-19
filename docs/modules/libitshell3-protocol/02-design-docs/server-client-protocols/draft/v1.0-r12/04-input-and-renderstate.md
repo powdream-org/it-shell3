@@ -1103,10 +1103,3 @@ Offset  Hex                                       Description
 clusters and underline colors are in per-row side tables (Section 3.5), adding
 cost only when present. Per-row overhead for empty side tables: 4 bytes (two u16
 zero-count headers).
-
-**Comparison with v0.8**: The v0.8 spec used a 20-byte variable-length CellData
-format with inline `extra_count`/`extra_codepoints` and per-cell
-`underline_color`. The 16-byte fixed format reduces bandwidth by 20% (30.7 KB vs
-38.4 KB for a full 80x24 I-frame) while enabling O(1) random access. The side
-table approach moves rare data (~1.1% graphemes, <0.1% underline colors) out of
-the hot path.
