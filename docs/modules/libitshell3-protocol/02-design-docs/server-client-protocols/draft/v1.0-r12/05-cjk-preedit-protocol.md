@@ -200,15 +200,13 @@ Server -> specific client. Sent in two scenarios:
 1. **Late-joining client**: When a client attaches to a pane that has an active
    composition session (e.g., a second client connects while Client A is
    mid-composition).
-2. **Stale recovery**: When a stale client recovers (ring cursor advanced to
-   latest I-frame), PreeditSync is enqueued in the direct message queue if
-   preedit is active on any pane. Per the socket write priority model (doc 06),
-   PreeditSync arrives BEFORE the I-frame, providing composition context for the
-   subsequent grid render.
+2. **Stale recovery**: When a stale client recovers, if preedit is active on any
+   pane, the server sends PreeditSync before the I-frame — providing composition
+   context before the grid render.
 
 This is a full state snapshot — self-contained, unlike PreeditUpdate which
 assumes the client has PreeditStart context. The visual preedit state is already
-in the I-frame cell data the late-joining client receives from the ring.
+in the I-frame cell data the late-joining client receives.
 
 #### JSON Payload
 

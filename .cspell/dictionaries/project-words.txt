@@ -1,8 +1,11 @@
+azerty
 bitflags
 codepoint
 codepoints
 ghostty
+ibus
 itshell
+Jamo
 libghostty
 libhangul
 libitshell

@@ -169,23 +169,27 @@ All steps complete.
 
 ### 4b. ADRs to add content to (already created)
 
-| ADR # | Content from this file                                                                                |
-| ----- | ----------------------------------------------------------------------------------------------------- |
-| 00021 | §1.1 (preedit as cell data rationale, capability decoupling), §13.1 (single-path rendering rationale) |
-| 00023 | §13.2 (message ordering, "context before content principle")                                          |
+| ADR # | Content from this file                                                                                                                             |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 00021 | §1.1 (preedit as cell data rationale, capability decoupling), §13.1 (single-path rendering rationale)                                              |
+| 00023 | §13.2 (message ordering, "context before content principle")                                                                                       |
+| 00025 | §3.3 (input_method identifier architecture — single canonical string, flows unchanged to IME constructor, registry in IME Interface Contract §3.7) |
+| 00006 | §12.1 (JSON overhead ~30 B/msg vs binary, negligible at typing speeds — well worth the debuggability gain)                                         |
 
 ### 4c. Daemon CTRs to write (first occurrence)
 
-| CTR #  | Topic                                  | Content from this file                                                                                                                                    |
-| ------ | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CTR-11 | Preedit race condition server behavior | §6.1-6.10: server-side cancel/commit procedures, hotkey detection, resize repositioning, keystroke coalescing; §10.1: error handling (log, commit, reset) |
+| CTR #  | Topic                                     | Content from this file                                                                                                                                    |
+| ------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CTR-11 | Preedit race condition server behavior    | §6.1-6.10: server-side cancel/commit procedures, hotkey detection, resize repositioning, keystroke coalescing; §10.1: error handling (log, commit, reset) |
+| CTR-15 | AmbiguousWidthConfig Terminal integration | §4.1: server passes ambiguous_width to pane's libghostty-vt Terminal for cursor movement and line wrapping calculations                                   |
 
 ### 4d. Daemon CTRs to add content to (already created)
 
-| CTR #  | Content from this file                                                                                  |
-| ------ | ------------------------------------------------------------------------------------------------------- |
-| CTR-08 | §7: preedit delivery latency, coalescing bypass                                                         |
-| CTR-12 | §3.1 (setActiveInputMethod, locking), §3.3 (per-session state), §8.2 (engine initialization on restore) |
+| CTR #  | Content from this file                                                                                                                                                      |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CTR-06 | §13.1 (ring buffer interaction — preedit frames via shared ring, Tier 0 immediate flush, preedit protocol messages via direct queue, PreeditSync priority 1 before I-frame) |
+| CTR-08 | §7: preedit delivery latency, coalescing bypass                                                                                                                             |
+| CTR-12 | §3.1 (setActiveInputMethod, locking), §3.3 (per-session state), §8.2 (engine initialization on restore)                                                                     |
 
 ### 4e. IME CTRs to add content to (already created in File 3)
 
