@@ -1019,40 +1019,6 @@ FrameUpdate use JSON payloads (ENCODING=0).
 
 ---
 
-## 10. Open Questions
-
-1. **~~Cell deduplication~~** **Closed (v0.7)**: Unnecessary. The I/P-frame
-   model already reduces bandwidth via dirty-row-only P-frames. 16 bytes/cell
-   (v0.9, down from 20 bytes in v0.7) is acceptable. Owner decision.
-
-2. **~~Image protocol~~** **Closed (v0.7)**: Moved to `99-post-v1-features.md`
-   Section 1. Out of scope for v0.x through v1. Owner decision.
-
-3. **~~Selection protocol~~** **Closed (v0.7)**: Unnecessary. Selection is
-   per-pane shared state delivered via RowData
-   `row_flags`/`selection_start`/`selection_end` in FrameUpdate. No dedicated
-   messages needed. Owner decision.
-
-4. **~~Hyperlink data~~** **Closed (v1.0-r12)**: Hyperlink encoding (per-cell
-   association and URI delivery) deferred to post-v1. The `row_flags.hyperlink`
-   bit provides row-level presence detection for rendering optimization. The
-   intended design direction is a per-row HyperlinkTable side table (matching
-   GraphemeTable/UnderlineColorTable pattern) with a per-frame hyperlink URI
-   table in the JSON metadata blob. CellData remains 16 bytes. See
-   `99-post-v1-features.md` Section 6.
-
-5. **~~FrameUpdate acknowledgment~~** **Closed (v0.7)**: Unnecessary. Ring
-   buffer with cursor stagnation detection provides implicit flow control.
-   PausePane escalation handles slow clients. SSH TCP flow control covers WAN
-   backpressure. Owner decision.
-
-6. **~~Notification coalescing~~** **Closed (v0.7)**: Unnecessary. Per-pane
-   individual FrameUpdate messages are the current design and align with the
-   per-pane ring buffer model. `writev()` makes multiple small writes nearly
-   zero overhead. Owner decision.
-
----
-
 ## Appendix A: Example FrameUpdate Hex Dump
 
 A partial update (P-frame): cursor moved to (5, 10), one row changed with 5
