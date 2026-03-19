@@ -196,37 +196,37 @@ All steps complete.
 
 ### 4f. Cleanup items
 
-| #  | Section                                       | Lines     | Action            | Target            | Description                          |
-| -- | --------------------------------------------- | --------- | ----------------- | ----------------- | ------------------------------------ |
-| 1  | §1.1 Server owns IME                          | 176-181   | DEL-ADR-exist     | ADR 00013         | "server owns native IME engine"      |
-| 2  | §1.1 Preedit as cell data rationale           | 183-186   | DEL-ADR-new       | ADR 00021         | Dual-path design rationale           |
-| 3  | §1.1 Preedit capability decoupling            | 197-203   | DEL-ADR-new       | ADR 00021         | "controls lifecycle only"            |
-| 4  | §1.1 Preedit exclusivity + HangulInputContext | 223-230   | DEL-ime-CTR       | IME-ic CTR-01     | "one HangulInputContext"             |
-| 5  | §2.3 Escape behavior rationale                | 346-350   | DEL-ADR-new       | ADR 00026         | "matches ibus-hangul"                |
-| 6  | §3.1 Server hotkey detection                  | 433-436   | DEL-daemon-CTR    | CTR-11            | "detects mode-switch hotkeys"        |
-| 7  | §3.1 Server impl (setActiveInputMethod)       | 444-452   | DEL-daemon-CTR    | CTR-12            | Internal API calls, locking          |
-| 8  | §3.3 Per-session engine state                 | 495-499   | DEL-ADR-exist     | ADR 00013         | "one IME engine per session"         |
-| 9  | §5.1 Problem statement framing                | 570-594   | REWRITE           | —                 | Keep reason values; remove framing   |
-| 10 | §6.1 Pane close — cancel behavior             | 604-616   | DEL-ADR-new + CTR | ADR 00026, CTR-11 | Decision + server procedure          |
-| 11 | §6.2 Disconnect — commit rationale            | 625       | DEL-ADR-new       | ADR 00026         | "preserve user's work"               |
-| 12 | §6.3 Resize — repositioning                   | 641-650   | DEL-daemon-CTR    | CTR-11            | "repositions internally"             |
-| 13 | §6.4 Screen switch — PTY commit ref           | 662       | DEL-covered       | Daemon docs       | "defined in daemon docs"             |
-| 14 | §6.5 Rapid keystrokes — coalescing            | 676-685   | DEL-daemon-CTR    | CTR-11            | Coalescing algorithm                 |
-| 15 | §6.7 Focus change — commit                    | 697-706   | DEL-ADR-new + CTR | ADR 00026, CTR-11 | Decision + procedure                 |
-| 16 | §6.8 Session detach — commit                  | 723       | DEL-ADR-new       | ADR 00026         | "preserve user's work"               |
-| 17 | §6.9 IME switch — hotkey note                 | 755-758   | DEL-daemon-CTR    | CTR-11            | "hotkey detection path"              |
-| 18 | §6.10 Mouse-preedit rationale                 | 791-794   | DEL-ADR-new       | ADR 00026         | "Button commits, Scroll preserves"   |
-| 19 | §7 Delivery latency (entire)                  | 798-807   | DEL-daemon-CTR    | CTR-08            | Coalescing bypass, latency           |
-| 20 | §8.2 Restore — engine init                    | 859-864   | DEL-daemon-CTR    | CTR-12            | "creates one HangulImeEngine"        |
-| 21 | §8.2 Restore — commit rationale               | 852-857   | DEL-ADR-new       | ADR 00026         | "client no longer connected"         |
-| 22 | §8.3 Resume composition (future)              | 866-879   | DEL-ADR-new       | ADR 00026         | Deferred to v2; add to 99-post-v1    |
-| 23 | §9.1 Server rendering details                 | 891-893   | REWRITE           | —                 | Keep disclaimer; remove examples     |
-| 24 | §9.2 Observer UI features                     | 920-934   | REWRITE           | —                 | Keep wire fields; remove UI guidance |
-| 25 | §10.1 Invalid composition error handling      | 940-949   | DEL-daemon-CTR    | CTR-11            | "Log, commit, reset"                 |
-| 26 | §12 Bandwidth analysis (entire)               | 1015-1044 | DEL               | —                 | Non-normative                        |
-| 27 | §13.1 Single-path rendering rationale         | 1050-1055 | DEL-ADR-new       | ADR 00021         | Architecture explanation             |
-| 28 | §13.1 Ring buffer interaction                 | 1073-1084 | DEL-daemon-CTR    | CTR-06            | Ring vs direct queue                 |
-| 29 | §13.2 Message ordering                        | 1084-1095 | DEL-ADR-new       | ADR 00023         | "context before content"             |
+| #  | Section                                       | Lines   | Action            | Target            | Description                          |
+| -- | --------------------------------------------- | ------- | ----------------- | ----------------- | ------------------------------------ |
+| 1  | §1.1 Server owns IME                          | 22-25   | DEL-ADR-exist     | ADR 00013         | "server owns native IME engine"      |
+| 2  | §1.1 Preedit as cell data rationale           | 27-30   | DEL-ADR-new       | ADR 00021         | Dual-path design rationale           |
+| 3  | §1.1 Preedit capability decoupling            | 55-57   | DEL-ADR-new       | ADR 00021         | "controls lifecycle only"            |
+| 4  | §1.1 Preedit exclusivity + HangulInputContext | 67-74   | DEL-ime-CTR       | IME-ic CTR-01     | "one HangulInputContext"             |
+| 5  | §2.3 Escape behavior rationale                | 190-194 | DEL-ADR-new       | ADR 00026         | "matches ibus-hangul"                |
+| 6  | §3.1 Server hotkey detection                  | 277-280 | DEL-daemon-CTR    | CTR-11            | "detects mode-switch hotkeys"        |
+| 7  | §3.1 Server impl (setActiveInputMethod)       | 288-296 | DEL-daemon-CTR    | CTR-12            | Internal API calls, locking          |
+| 8  | §3.3 Per-session engine state                 | 339-343 | DEL-ADR-exist     | ADR 00013         | "one IME engine per session"         |
+| 9  | §5.1 Problem statement framing                | 414-419 | REWRITE           | —                 | Keep reason values; remove framing   |
+| 10 | §6.1 Pane close — cancel behavior             | 444-460 | DEL-ADR-new + CTR | ADR 00026, CTR-11 | Decision + server procedure          |
+| 11 | §6.2 Disconnect — commit rationale            | 469     | DEL-ADR-new       | ADR 00026         | "preserve user's work"               |
+| 12 | §6.3 Resize — repositioning                   | 485-494 | DEL-daemon-CTR    | CTR-11            | "repositions internally"             |
+| 13 | §6.4 Screen switch — PTY commit ref           | 506     | DEL-covered       | Daemon docs       | "defined in daemon docs"             |
+| 14 | §6.5 Rapid keystrokes — coalescing            | 521-529 | DEL-daemon-CTR    | CTR-11            | Coalescing algorithm                 |
+| 15 | §6.7 Focus change — commit                    | 546-550 | DEL-ADR-new + CTR | ADR 00026, CTR-11 | Decision + procedure                 |
+| 16 | §6.8 Session detach — commit                  | 559-566 | DEL-ADR-new       | ADR 00026         | "preserve user's work"               |
+| 17 | §6.9 IME switch — hotkey note                 | 599-602 | DEL-daemon-CTR    | CTR-11            | "hotkey detection path"              |
+| 18 | §6.10 Mouse-preedit rationale                 | 635-638 | DEL-ADR-new       | ADR 00026         | "Button commits, Scroll preserves"   |
+| 19 | §7 Delivery latency (entire)                  | 642-652 | DEL-daemon-CTR    | CTR-08            | Coalescing bypass, latency           |
+| 20 | §8.2 Restore — engine init                    | 703-708 | DEL-daemon-CTR    | CTR-12            | "creates one HangulImeEngine"        |
+| 21 | §8.2 Restore — commit rationale               | 698-701 | DEL-ADR-new       | ADR 00026         | "client no longer connected"         |
+| 22 | §8.3 Resume composition (future)              | 710-724 | DEL-ADR-new       | ADR 00026         | Deferred to v2; add to 99-post-v1    |
+| 23 | §9.1 Server rendering details                 | 735-738 | REWRITE           | —                 | Keep disclaimer; remove examples     |
+| 24 | §9.2 Observer UI features                     | 764-778 | REWRITE           | —                 | Keep wire fields; remove UI guidance |
+| 25 | §10.1 Invalid composition error handling      | 784-793 | DEL-daemon-CTR    | CTR-11            | "Log, commit, reset"                 |
+| 26 | §12 Bandwidth analysis (entire)               | 859-889 | DEL               | —                 | Non-normative                        |
+| 27 | §13.1 Single-path rendering rationale         | 894-915 | DEL-ADR-new       | ADR 00021         | Architecture explanation             |
+| 28 | §13.1 Ring buffer interaction                 | 917-928 | DEL-daemon-CTR    | CTR-06            | Ring vs direct queue                 |
+| 29 | §13.2 Message ordering                        | 930-952 | DEL-ADR-new       | ADR 00023         | "context before content"             |
 
 ---
 
