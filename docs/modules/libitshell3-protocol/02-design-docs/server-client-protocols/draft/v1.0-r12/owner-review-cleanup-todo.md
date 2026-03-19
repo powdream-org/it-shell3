@@ -142,7 +142,19 @@ All steps complete.
 
 ---
 
-## File 3: Doc 04 — Input & RenderState
+## File 3: Doc 04 — Input & RenderState ✅
+
+All steps complete.
+
+- [x] 3a. ADRs written: 00021, 00022, 00025
+- [x] 3b. ADR 00009 extended with §3.1 per-pane delivery rationale
+- [x] 3c. CTR-06 extended with §3.1 ring buffer + I-frame scheduling; CTR-12
+      extended with §2.1 server IME processing
+- [x] 3d. IME CTRs written: behavior CTR-01 (Jamo decomposition),
+      interface-contract CTR-01 (engine decomposition + preedit exclusivity)
+- [x] 3e. 15 cleanup items applied (#5 already done; #1-4, #6-15 executed)
+
+---
 
 ### 3a. ADRs to write (first occurrence)
 
@@ -181,16 +193,16 @@ All steps complete.
 | 3  | §2.1 String identifier rationale       | 116-119   | DEL-ADR-new    | ADR 00025      | "self-documenting, no mapping table"                                       |
 | 4  | §2.1 Engine decomposition              | 121-126   | DEL-ime-CTR    | IME-ic CTR-01  | "decomposed into engine-specific types"                                    |
 | 5  | §3.1 CellData normative note (ghostty) | 304-315   | DEL-app-CTR    | app CTR-01     | ✅ Both normative + informative blocks → app CTR-01; deleted from protocol |
-| 6  | §3.1 Per-pane delivery rationale       | 317-321   | DEL-ADR-absorb | ADR 00009      | "not just focused pane"                                                    |
-| 7  | §3.1 Ring buffer / coalescing tiers    | 323-329   | DEL-daemon-CTR | CTR-06         | Server architecture                                                        |
-| 8  | §3.1 Server renderer minimum           | 363-364   | DEL-covered    | Daemon docs    | "renderer's practical minimum"                                             |
-| 9  | §3.1 PTY behavior during suppression   | 366-368   | DEL-covered    | Daemon docs    | "defined in daemon design docs"                                            |
-| 10 | §3.1 I-frame scheduling algorithm      | 1040-1047 | DEL-daemon-CTR | CTR-06         | Timer, ring buffer, interval                                               |
-| 11 | §3.2 No preedit in JSON metadata       | 498-510   | DEL-ADR-new    | ADR 00021      | Rendering path separation                                                  |
-| 12 | §7.3 Coalescing tier deferral          | 1036-1038 | DEL-covered    | Daemon docs    | "defined in daemon design docs"                                            |
-| 13 | §7.4 PoC performance measurements      | 1051-1072 | DEL            | —              | Move to PoC docs or delete                                                 |
-| 14 | §8 Compression deferral (entire)       | 1076-1092 | DEL-ADR-exist  | ADR 00014      | One-liner cross-ref                                                        |
-| 15 | Appendix C Encoding rationale          | 1256-1277 | DEL-ADR-exist  | ADR 00006      | Duplicate                                                                  |
+| 6  | §3.1 Per-pane delivery rationale       | 304-308   | DEL-ADR-absorb | ADR 00009      | "not just focused pane"                                                    |
+| 7  | §3.1 Ring buffer / coalescing tiers    | 310-316   | DEL-daemon-CTR | CTR-06         | Server architecture                                                        |
+| 8  | §3.1 Server renderer minimum           | 350-351   | DEL-covered    | Daemon docs    | "renderer's practical minimum"                                             |
+| 9  | §3.1 PTY behavior during suppression   | 353-355   | DEL-covered    | Daemon docs    | "defined in daemon design docs"                                            |
+| 10 | §7.3 I-frame scheduling algorithm      | 1027-1034 | DEL-daemon-CTR | CTR-06         | Timer, ring buffer, interval                                               |
+| 11 | §3.2 No preedit in JSON metadata       | 485-497   | DEL-ADR-new    | ADR 00021      | Rendering path separation                                                  |
+| 12 | §7.3 Coalescing tier deferral          | 1023-1025 | DEL-covered    | Daemon docs    | "defined in daemon design docs"                                            |
+| 13 | §7.4 PoC performance measurements      | 1036-1059 | DEL            | —              | Move to PoC docs or delete                                                 |
+| 14 | §8 Compression deferral (entire)       | 1063-1079 | DEL-ADR-exist  | ADR 00014      | One-liner cross-ref                                                        |
+| 15 | Appendix C Encoding rationale          | 1243-1264 | DEL-ADR-exist  | ADR 00006      | Duplicate                                                                  |
 
 ---
 

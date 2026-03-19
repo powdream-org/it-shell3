@@ -38,12 +38,6 @@ All input messages use **JSON payloads**.
 
 ### 2.1 KeyEvent (type = 0x0200)
 
-The primary input message. The client sends raw HID keycodes and modifiers. The
-server derives text through the native IME engine (libitshell3-ime) — the client
-never sends composed text for key input. The client does not track IME
-composition state; the server determines composition state internally from the
-IME engine.
-
 #### JSON Payload
 
 ```json
@@ -91,7 +85,7 @@ values:
 | `0x1E`-`0x27` | 1-0                      |                                 |
 | `0x28`        | Enter/Return             |                                 |
 | `0x29`        | Escape                   |                                 |
-| `0x2A`        | Backspace                | Critical for Jamo decomposition |
+| `0x2A`        | Backspace                |                                 |
 | `0x2B`        | Tab                      |                                 |
 | `0x2C`        | Space                    |                                 |
 | `0x4F`-`0x52` | Arrow Right/Left/Down/Up |                                 |
@@ -112,18 +106,6 @@ Input methods use string identifiers throughout the protocol (no numeric IDs):
 | `"japanese_romaji"`   | Japanese Romaji input                  | Future     |
 | `"japanese_kana"`     | Japanese Kana input                    | Future     |
 | `"chinese_pinyin"`    | Chinese Pinyin input                   | Future     |
-
-String identifiers are self-documenting on the wire, require no mapping table,
-no reserved numeric ranges, and adding new input methods is just a new string
-value with zero schema migration. The overhead of ~13 bytes per KeyEvent is
-irrelevant at typing speeds (~15/s) over a >1 GB/s Unix socket.
-
-The `input_method` string is the **canonical identifier** for input methods. It
-flows unchanged from client to server to IME engine constructor. Inside the
-engine, it is decomposed into engine-specific types (e.g., libhangul keyboard
-IDs). No code outside the engine constructor performs this decomposition. The
-canonical registry of valid `input_method` strings is defined in the IME
-Interface Contract, Section 3.7.
 
 Input methods are negotiated during handshake: the server advertises
 `supported_input_methods` in ServerHello, the client selects from them in
@@ -301,20 +283,6 @@ DirtyRows, CellData) for the performance-critical cell data path, followed by an
 optional JSON metadata blob for cursor, colors, dimensions, mouse state, and
 terminal modes.
 
-> **Normative note — FrameUpdate delivery scope**: The server sends FrameUpdate
-> messages for ALL panes in the client's attached session that have dirty state,
-> not just the focused pane. Each FrameUpdate carries a `pane_id` identifying
-> which pane's state it contains. The client receives and renders updates for
-> all visible panes.
-
-> **Normative note — Per-pane dirty tracking (I/P-frame model)**: The server
-> maintains a single dirty bitmap per pane. Frame data (I-frames and P-frames)
-> is serialized once per pane per frame interval and written to the shared
-> per-pane ring buffer. All clients viewing the same pane receive identical
-> frame data from the ring buffer. Clients at different coalescing tiers receive
-> different subsets of frames from the same sequence, but each frame's content
-> is identical regardless of which client receives it.
-
 > **Normative note — I/P-frame cumulative semantics**: P-frames (`frame_type=0`)
 > carry cumulative dirty rows since the most recent I-frame. Any P-frame is
 > independently decodable given only the current I-frame. There is no sequential
@@ -346,13 +314,7 @@ terminal modes.
 > keyframe interval — no FrameUpdate is sent for undersized panes. Pane liveness
 > is maintained through the session/pane management protocol (doc 03) — the
 > client knows the pane exists from CreatePane and is notified of termination
-> through session/pane lifecycle messages (doc 03). The server SHOULD also
-> suppress FrameUpdate when dimensions fall below its renderer's practical
-> minimum.
-
-> **Normative — PTY independence**: When the server suppresses FrameUpdate due
-> to undersized pane dimensions, only the FrameUpdate rendering pipeline is
-> suppressed. PTY behavior during suppression is defined in daemon design docs.
+> through session/pane lifecycle messages (doc 03).
 
 #### Wire Format Overview
 
@@ -481,20 +443,6 @@ only when changed). Absent optional fields are omitted, never `null` (per Issue
 local blink timer. The server does NOT send FrameUpdates for blink animation.
 The blink cadence (typically 500ms on/500ms off) is a client-local rendering
 concern. This avoids unnecessary frame traffic for a purely visual effect.
-
-**Note — No preedit section in JSON metadata**: Preedit rendering is through
-cell data in I/P-frames. The server injects preedit cells into frame cell data
-when serializing FrameUpdate. The client renders cells — it has no concept of
-"preedit" at the rendering layer. See doc 05 for the dedicated preedit lifecycle
-messages (0x0400-0x0405).
-
-**Capability interaction**: The `"preedit"` capability controls only the
-dedicated preedit messages (PreeditStart/Update/End/Sync in the 0x0400 range,
-see doc 05), which provide composition lifecycle metadata for multi-client
-coordination, observer UIs, and conflict resolution. Preedit rendering is always
-available through cell data in I/P-frames regardless of capability negotiation —
-any client that can render cells automatically renders preedit content. A client
-that only needs to render can ignore all 0x04xx messages.
 
 #### Dimensions fields
 
@@ -1020,43 +968,7 @@ WAN is latency, not bandwidth.
 ### 7.3 Event-Driven Coalescing
 
 FrameUpdates are sent only when dirty state exists. There is no fixed fps
-target. See doc 01 Section 10 for the wire-observable delivery model. Coalescing
-tier definitions, timing values, and adaptation rules are defined in daemon
-design docs.
-
-**I-frame scheduling**: I-frames (keyframes) are produced periodically (default:
-every 1 second, configurable 0.5-5 seconds via server configuration). When the
-I-frame timer fires and the pane has no changes since the last I-frame, no frame
-is written to the ring buffer — the most recent I-frame already in the ring
-provides correct state for any seeking client. When the timer fires and changes
-exist, the server sends `frame_type=1` (I-frame) containing all rows. The
-I-frame timer is independent of the coalescing tiers — it fires at a fixed
-interval regardless of PTY throughput.
-
-### 7.4 Measured Wire Overhead (PoC Baseline)
-
-The following measurements were collected from PoC 06-08 on Apple Silicon
-(ReleaseFast build, 1000 iterations after warmup). All measurements use the
-16-byte FlatCell format (see Section 3.4).
-
-| Metric                              | 80x24         | 300x80        | Notes                                                   |
-| ----------------------------------- | ------------- | ------------- | ------------------------------------------------------- |
-| Server export (`bulkExport()`)      | 22 us         | 217 us        | RenderState -> FlatCell[] serialization                 |
-| Client import (`importFlatCells()`) | 12 us         | 96 us         | FlatCell[] -> RenderState population                    |
-| **Total wire overhead**             | **34 us**     | **313 us**    | 0.2% / 1.9% of 16.6 ms frame budget (60fps)             |
-| Per-cell import cost                | ~4 ns         | ~4 ns         | Consistent across terminal sizes                        |
-| Round-trip fidelity                 | bit-identical | bit-identical | export -> import -> re-export produces identical output |
-
-> **Informative — Performance positioning**: Wire serialization/deserialization
-> is NOT the rendering bottleneck. Font shaping and GPU rendering are the
-> dominant costs in the frame pipeline. The measured wire overhead (0.2% of
-> frame budget for a standard 80x24 terminal) validates the design decision to
-> transmit semantic CellData rather than GPU-ready data.
-
-**Known gap**: Grapheme cluster cells were not tested in the PoC. Performance
-for frames with grapheme side table data is unmeasured but expected to be
-negligible (the grapheme table typically contains a handful of entries per
-frame).
+target. See doc 01 Section 10 for the wire-observable delivery model.
 
 ---
 
@@ -1069,14 +981,7 @@ In protocol version 1, compression is not implemented. Senders MUST NOT set the
 COMPRESSED flag. Receivers that encounter COMPRESSED=1 SHOULD send
 `ERR_PROTOCOL_ERROR`.
 
-Application-layer compression is deferred to v2. For remote access via SSH
-tunnel, SSH's built-in compression (`Compression yes`) provides transport-layer
-compression without protocol complexity. Neither tmux nor zellij implements
-application-layer compression.
-
-If benchmarking in v2 shows benefit beyond SSH compression, application-layer
-compression will be added with explicit exclusion of Preedit and Interactive
-tier messages to preserve latency guarantees.
+See ADR 00014 for the rationale.
 
 ---
 
@@ -1239,26 +1144,3 @@ format with inline `extra_count`/`extra_codepoints` and per-cell
 38.4 KB for a full 80x24 I-frame) while enabling O(1) random access. The side
 table approach moves rare data (~1.1% graphemes, <0.1% underline colors) out of
 the hot path.
-
-## Appendix C: Hybrid Encoding Rationale
-
-The hybrid encoding (binary CellData + JSON metadata) was chosen based on
-analysis of ghostty and iTerm2 reference implementations (see review-notes-02):
-
-| Component                          | Encoding     | Rationale                                                     |
-| ---------------------------------- | ------------ | ------------------------------------------------------------- |
-| Message header                     | Binary (16B) | O(1) dispatch, unambiguous framing                            |
-| DirtyRows + CellData               | Binary       | 70-95% of payload, 3x smaller than JSON, RLE-compatible       |
-| Cursor, Colors, Dimensions, Modes  | JSON blob    | Debuggable; human-readable field names not hex bytes          |
-| Input messages (key, mouse, focus) | JSON         | Low frequency, schema evolution, cross-language `JSONDecoder` |
-| Handshake/negotiation              | JSON         | Self-describing, version discovery                            |
-
-**What killed uniform binary**: GPU structs are 70%+ client-local data (font
-shaping, atlas coords). Zero-copy wire-to-GPU is impossible. JSON at 480 KB/s
-worst case is <0.01% CPU. The debuggability/maintainability benefit of JSON for
-non-cell-data sections outweighs the marginal bandwidth difference.
-
-**What justifies binary CellData**: ~31 KB binary vs 120 KB+ JSON per full 80x24
-frame. Fixed 16-byte cells enable O(1) random access and efficient RLE.
-Deterministic sizing enables client pre-allocation. Avoids JSON tokenization of
-2000+ cells on mobile/iPad.

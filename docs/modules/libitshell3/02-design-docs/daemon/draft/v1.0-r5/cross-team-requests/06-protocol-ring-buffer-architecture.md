@@ -51,6 +51,15 @@ field, keyframe interval) remain in the protocol spec.
    self-contained terminal state) and resumes normal incremental delivery. No
    `last_processed_seq` field is needed — the ring cursor position already
    tracks the client's state.
+7. **Per-pane dirty tracking**: Document that the server maintains a single
+   dirty bitmap per pane, that frame data is serialized once per pane per frame
+   interval into the shared ring buffer, and that all clients viewing the same
+   pane receive identical frame data (clients at different coalescing tiers
+   receive different subsets of frames, but each frame's content is identical).
+8. **I-frame scheduling algorithm**: Document the I-frame timer behavior —
+   default 1-second interval (configurable 0.5–5 seconds), no frame written when
+   no changes since last I-frame, I-frame containing all rows when changes
+   exist, and timer independence from coalescing tiers.
 
 ## Summary Table
 
@@ -62,6 +71,8 @@ field, keyframe interval) remain in the protocol spec.
 | Internal architecture | Ring buffer background     | Add         | Protocol v1.0-r12 Doc 06 §2.1 |
 | Internal architecture | Two-channel write priority | Add         | Protocol v1.0-r12 Doc 06 §2.3 |
 | Runtime policies      | ContinuePane cursor reset  | Add         | Protocol v1.0-r12 Doc 06 §2.5 |
+| Internal architecture | Per-pane dirty tracking    | Add         | Protocol v1.0-r12 Doc 04 §3.1 |
+| Internal architecture | I-frame scheduling         | Add         | Protocol v1.0-r12 Doc 04 §7.3 |
 
 ## Reference: Original Protocol Text (removed from Doc 01 §5.8)
 
@@ -133,3 +144,30 @@ The server advances the client's ring cursor to the latest I-frame. The client
 receives the I-frame (a complete self-contained terminal state) and resumes
 normal incremental delivery from that point. No `last_processed_seq` field is
 needed — the ring cursor position already tracks the client's state.
+
+## Reference: Original Protocol Text (removed from Doc 04)
+
+The following is the original text from Doc 04 that contains daemon
+implementation details. Provided as reference for the daemon team — adapt as
+needed.
+
+### From Doc 04 §3.1 — Per-Pane Dirty Tracking (I/P-Frame Model)
+
+> **Normative note — Per-pane dirty tracking (I/P-frame model)**: The server
+> maintains a single dirty bitmap per pane. Frame data (I-frames and P-frames)
+> is serialized once per pane per frame interval and written to the shared
+> per-pane ring buffer. All clients viewing the same pane receive identical
+> frame data from the ring buffer. Clients at different coalescing tiers receive
+> different subsets of frames from the same sequence, but each frame's content
+> is identical regardless of which client receives it.
+
+### From Doc 04 §7.3 — I-Frame Scheduling Algorithm
+
+**I-frame scheduling**: I-frames (keyframes) are produced periodically (default:
+every 1 second, configurable 0.5-5 seconds via server configuration). When the
+I-frame timer fires and the pane has no changes since the last I-frame, no frame
+is written to the ring buffer — the most recent I-frame already in the ring
+provides correct state for any seeking client. When the timer fires and changes
+exist, the server sends `frame_type=1` (I-frame) containing all rows. The
+I-frame timer is independent of the coalescing tiers — it fires at a fixed
+interval regardless of PTY throughput.

@@ -35,6 +35,11 @@ remain in the protocol spec.
 4. **Per-session locking**: Document that when multiple connections attach to
    the same session, they share the same per-session IME state with per-session
    locking for preedit ownership.
+5. **Server-side IME text derivation**: Document that the server derives text
+   through the native IME engine (libitshell3-ime) from raw HID keycodes and
+   modifiers — the client never sends composed text for key input. The client
+   does not track IME composition state; the server determines composition state
+   internally from the IME engine.
 
 ## Summary Table
 
@@ -43,6 +48,7 @@ remain in the protocol spec.
 | Internal architecture | Per-session IME engine        | Add         | Protocol v1.0-r12 Doc 01 §5.5 |
 | Internal architecture | Preedit exclusivity invariant | Add         | Protocol v1.0-r12 Doc 01 §5.5 |
 | Internal architecture | Per-session IME locking       | Add         | Protocol v1.0-r12 Doc 01 §5.5 |
+| Runtime policies      | Server IME text derivation    | Add         | Protocol v1.0-r12 Doc 04 §2.1 |
 
 ## Reference: Original Protocol Text (removed from Doc 01 §5.5)
 
@@ -62,3 +68,17 @@ and remains in the protocol spec.
   per-session IME state (with per-session locking for preedit ownership). At
   most one pane in a session can have active preedit at any time (preedit
   exclusivity invariant).
+
+## Reference: Original Protocol Text (removed from Doc 04 §2.1)
+
+The following is the original text from Doc 04 §2.1 (KeyEvent) that describes
+server-side IME processing — a daemon implementation detail, not a wire-protocol
+concern. Provided as reference for the daemon team — adapt as needed.
+
+### From Doc 04 §2.1 — KeyEvent: Server IME Processing
+
+The primary input message. The client sends raw HID keycodes and modifiers. The
+server derives text through the native IME engine (libitshell3-ime) — the client
+never sends composed text for key input. The client does not track IME
+composition state; the server determines composition state internally from the
+IME engine.
