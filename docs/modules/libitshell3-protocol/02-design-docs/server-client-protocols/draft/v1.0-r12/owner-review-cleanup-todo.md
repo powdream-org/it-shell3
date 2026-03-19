@@ -158,56 +158,6 @@ All steps complete.
 
 ---
 
-### 3a. ADRs to write (first occurrence)
-
-| ADR # | Topic                                     | Content from this file                                                   |
-| ----- | ----------------------------------------- | ------------------------------------------------------------------------ |
-| 00021 | Preedit single-path rendering model       | §3.2: no preedit section in JSON metadata, rendering path separation     |
-| 00022 | Server-owned scrollback (no client cache) | §5.0: request/response model, §5.1: scroll broadcast to all clients      |
-| 00025 | Input method identifier design            | §2.1: string identifier rationale ("self-documenting, no mapping table") |
-
-### 3b. ADRs to add content to (already created)
-
-| ADR # | Content from this file                                      |
-| ----- | ----------------------------------------------------------- |
-| 00009 | §3.1: per-pane delivery rationale ("not just focused pane") |
-
-### 3c. Daemon CTRs to add content to (already created)
-
-| CTR #  | Content from this file                                                     |
-| ------ | -------------------------------------------------------------------------- |
-| CTR-06 | §3.1 (ring buffer / coalescing tiers), §3.1 (I-frame scheduling algorithm) |
-| CTR-12 | §2.1 (server IME processing: "derives text through native IME engine")     |
-
-### 3d. IME CTRs to write (first occurrence)
-
-| Target                 | CTR #  | Topic                                      | Content from this file                        |
-| ---------------------- | ------ | ------------------------------------------ | --------------------------------------------- |
-| IME behavior           | CTR-01 | Preedit lifecycle details                  | §2.1: Jamo decomposition note                 |
-| IME interface-contract | CTR-01 | Engine decomposition and per-session state | §2.1: "decomposed into engine-specific types" |
-
-### 3e. Cleanup items
-
-| #  | Section                                | Lines     | Action         | Target         | Description                                                                |
-| -- | -------------------------------------- | --------- | -------------- | -------------- | -------------------------------------------------------------------------- |
-| 1  | §2.1 Server IME processing             | 41-45     | DEL-daemon-CTR | CTR-12         | "derives text through native IME engine"                                   |
-| 2  | §2.1 Jamo decomposition note           | 94        | DEL-ime-CTR    | IME-beh CTR-01 | "Critical for Jamo decomposition"                                          |
-| 3  | §2.1 String identifier rationale       | 116-119   | DEL-ADR-new    | ADR 00025      | "self-documenting, no mapping table"                                       |
-| 4  | §2.1 Engine decomposition              | 121-126   | DEL-ime-CTR    | IME-ic CTR-01  | "decomposed into engine-specific types"                                    |
-| 5  | §3.1 CellData normative note (ghostty) | 304-315   | DEL-app-CTR    | app CTR-01     | ✅ Both normative + informative blocks → app CTR-01; deleted from protocol |
-| 6  | §3.1 Per-pane delivery rationale       | 304-308   | DEL-ADR-absorb | ADR 00009      | "not just focused pane"                                                    |
-| 7  | §3.1 Ring buffer / coalescing tiers    | 310-316   | DEL-daemon-CTR | CTR-06         | Server architecture                                                        |
-| 8  | §3.1 Server renderer minimum           | 350-351   | DEL-covered    | Daemon docs    | "renderer's practical minimum"                                             |
-| 9  | §3.1 PTY behavior during suppression   | 353-355   | DEL-covered    | Daemon docs    | "defined in daemon design docs"                                            |
-| 10 | §7.3 I-frame scheduling algorithm      | 1027-1034 | DEL-daemon-CTR | CTR-06         | Timer, ring buffer, interval                                               |
-| 11 | §3.2 No preedit in JSON metadata       | 485-497   | DEL-ADR-new    | ADR 00021      | Rendering path separation                                                  |
-| 12 | §7.3 Coalescing tier deferral          | 1023-1025 | DEL-covered    | Daemon docs    | "defined in daemon design docs"                                            |
-| 13 | §7.4 PoC performance measurements      | 1036-1059 | DEL            | —              | Move to PoC docs or delete                                                 |
-| 14 | §8 Compression deferral (entire)       | 1063-1079 | DEL-ADR-exist  | ADR 00014      | One-liner cross-ref                                                        |
-| 15 | Appendix C Encoding rationale          | 1243-1264 | DEL-ADR-exist  | ADR 00006      | Duplicate                                                                  |
-
----
-
 ## File 4: Doc 05 — CJK Preedit Protocol
 
 ### 4a. ADRs to write (first occurrence)
