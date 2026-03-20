@@ -1,7 +1,7 @@
 # 00014. Application-Layer Compression Deferred
 
 - Date: 2026-03-16
-- Status: Accepted
+- Status: Superseded by ADR 00040
 
 ## Context
 
