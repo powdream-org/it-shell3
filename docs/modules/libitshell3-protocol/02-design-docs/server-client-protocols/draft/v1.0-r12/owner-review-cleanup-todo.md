@@ -195,7 +195,13 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 | 00024 | §2.1 (string arrays over bitmasks), §7.2 (set intersection), §7.3 (render requirement)                                    |
 | 00025 | §5.3 (two-axis model, string identifiers, field naming asymmetry)                                                         |
 
-### 5c. Daemon CTRs to add content to (already created)
+### 5c. Daemon CTRs to write (new)
+
+| CTR #  | Content from this file                                                                                                             |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| CTR-17 | §7.1 version selection algorithm (lines 566-575) — move `min()` logic and ERR_VERSION_MISMATCH conditions to daemon handshake docs |
+
+### 5d. Daemon CTRs to add content to (already created)
 
 | CTR #  | Content from this file                                                                |
 | ------ | ------------------------------------------------------------------------------------- |
@@ -204,7 +210,7 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 | CTR-09 | §11.1 (auth ref), §11.3 (timeout values)                                              |
 | CTR-16 | Daemon 03-lifecycle `capabilities` field example — ✅ WRITTEN (ADR 00040 consequence) |
 
-### 5d. Cleanup items
+### 5e. Cleanup items
 
 | #  | Section                            | Lines     | Action         | Target              | Description                                                                              |
 | -- | ---------------------------------- | --------- | -------------- | ------------------- | ---------------------------------------------------------------------------------------- |
@@ -220,7 +226,7 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 | 10 | §6.2 Server coalescing behavior    | 522-524   | DEL-daemon-CTR | CTR-08              | Power throttling, fps cap                                                                |
 | 11 | §6.2 Design decision (client RTT)  | 533-536   | DEL-ADR-exist  | ADR 00011           | "client is the only entity"                                                              |
 | 12 | §6.3 iOS example tier breakdown    | 551-556   | DEL-daemon-CTR | CTR-08              | Tier calculations                                                                        |
-| 13 | §7.1 Version selection algorithm   | 566-575   | REWRITE        | Daemon CTR (new)    | Replace pseudocode with wire fact (ERR_VERSION_MISMATCH); move min() algorithm to daemon |
+| 13 | §7.1 Version selection algorithm   | 566-575   | REWRITE        | CTR-17              | Replace pseudocode with wire fact (ERR_VERSION_MISMATCH); move min() algorithm to daemon |
 | 14 | §7.2 Set intersection semantics    | 586-588   | DEL-ADR-new    | ADR 00024           | "intersection of flag sets"                                                              |
 | 15 | §7.3 Render capability requirement | 596-600   | DEL-ADR-new    | ADR 00024           | "at least one mode required"                                                             |
 | 16 | §7 negotiation pseudocode block    | 620-629   | DEL-ADR-new    | ADR 00041           | Delete celldata_encoding pseudocode lines                                                |
