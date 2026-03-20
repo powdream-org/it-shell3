@@ -50,8 +50,9 @@ and will not be constrained by a v1 reservation.
 
 - Header flags byte: 4 defined bits (ENCODING, RESPONSE, ERROR, MORE_FRAGMENTS)
   at bits 0–3; bits 4–7 reserved. No phantom flags.
-- Capability table loses one unused entry; existing capabilities shift to lower
-  bit numbers.
+- The `"compression"` capability string is no longer valid and MUST NOT appear
+  in `ClientHello` or `ServerHello` capabilities arrays. Capability table loses
+  one unused entry; existing capabilities shift to lower bit numbers.
 - Protocol docs require updates across multiple files (tracked in owner-review
   cleanup-todo File 5):
   - Doc 01: §3.4 flags table, §3.5 section deleted, example updated,
