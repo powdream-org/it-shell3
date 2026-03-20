@@ -53,14 +53,6 @@ and will not be constrained by a v1 reservation.
 - The `"compression"` capability string is no longer valid and MUST NOT appear
   in `ClientHello` or `ServerHello` capabilities arrays. Capability table loses
   one unused entry; existing capabilities shift to lower bit numbers.
-- Protocol docs require updates across multiple files (tracked in owner-review
-  cleanup-todo File 5):
-  - Doc 01: §3.4 flags table, §3.5 section deleted, example updated,
-    `ERR_PROTOCOL_ERROR` description updated
-  - Doc 02: `"compression"` capability row removed; §4.1 note removed;
-    capability fallback table row removed; capability bit numbers updated
-  - Doc 04: COMPRESSED flag paragraph removed; wire dump comment updated
-  - 99-post-v1: `"COMPRESSED flag reserved"` language removed from compression
-    section
-- Daemon docs require update (CTR-16): `03-lifecycle-and-connections.md`
-  capability field description removes `"compression support"` example.
+- Future compression support, if ever needed, must be designed from scratch
+  without a v1 reservation as a starting point. A future design is unconstrained
+  and may use a different mechanism entirely.
