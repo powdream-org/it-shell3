@@ -871,8 +871,7 @@ handles this by:
    processes input in arrival order.
 3. **Preedit exclusivity**: Only one client can have active preedit per session.
    The `PreeditEnd` reason enum includes `"replaced_by_other_client"` for
-   conflict resolution (see doc 05 Section 5). Preedit ownership policy is
-   defined in daemon design docs.
+   conflict resolution (see doc 05 Section 5).
 4. **Frame updates**: All clients receive `FrameUpdate` messages for all panes
    in the attached session from the shared per-pane ring buffer, not just the
    focused pane. Each client reads from the ring at its own cursor position via

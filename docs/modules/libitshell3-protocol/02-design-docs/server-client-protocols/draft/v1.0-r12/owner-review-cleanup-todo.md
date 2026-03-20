@@ -179,10 +179,9 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 
 ### 5a. ADRs to write (first occurrence)
 
-| ADR # | Topic                            | Content from this file                                                                 |
-| ----- | -------------------------------- | -------------------------------------------------------------------------------------- |
-| 00019 | Per-session focus model (v1)     | §8.9: viewport clipping (related); main content from Doc 03 §8.1                       |
-| 00024 | Capability negotiation mechanics | §2.1 (string arrays over bitmasks), §7.2 (set intersection), §7.3 (render requirement) |
+| ADR # | Topic                        | Content from this file                                                                                            |
+| ----- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 00019 | Per-session focus model (v1) | §8.9: viewport clipping (related); main content from Doc 03 §8.1 — **write together with File 6 ADR 00019 entry** |
 
 ### 5b. ADRs to add content to (already created)
 
@@ -190,6 +189,7 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 | ----- | ------------------------------------------------------------------------------------------------------------------------- |
 | 00020 | §8.1 (single-session-per-connection), §8.6 (multi-client input ordering), §8.7 (readonly), §8.8 (exclusive/detach_others) |
 | 00023 | §8.2 (direct message queue, priority 1)                                                                                   |
+| 00024 | §2.1 (string arrays over bitmasks), §7.2 (set intersection), §7.3 (render requirement)                                    |
 | 00025 | §5.3 (two-axis model, string identifiers, field naming asymmetry)                                                         |
 
 ### 5c. Daemon CTRs to add content to (already created)
@@ -206,26 +206,26 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 | -- | ---------------------------------- | --------- | -------------- | ------------------- | ----------------------------- |
 | 1  | §2.1 String capabilities rationale | 112-115   | DEL-ADR-new    | ADR 00024           | "Instead of bitmasks"         |
 | 2  | §4.2 CELLDATA_ENCODING rationale   | 388-391   | DEL-ADR-absorb | ADR 00006           | "RLE outperforms protobuf"    |
-| 3  | §5.3 Two-axis model explanation    | 421-430   | DEL-ADR-new    | ADR 00025           | Two-axis orthogonal           |
+| 3  | §5.3 Two-axis model explanation    | 423-425   | DEL-ADR-new    | ADR 00025           | Two-axis orthogonal           |
 | 4  | §5.3 String identifier rationale   | 480-484   | DEL-ADR-new    | ADR 00025           | "self-documenting"            |
-| 5  | §5.3 Field naming asymmetry        | 468-478   | DEL-ADR-new    | ADR 00025           | layout vs layouts             |
+| 5  | §5.3 Field naming asymmetry        | 475-478   | DEL-ADR-new    | ADR 00025           | layout vs layouts             |
 | 6  | §6.2 Design decision (client RTT)  | 533-536   | DEL-ADR-exist  | ADR 00011           | "client is the only entity"   |
-| 7  | §6.2 Server coalescing behavior    | 522-531   | DEL-daemon-CTR | CTR-08              | Power throttling, fps cap     |
-| 8  | §6.3 iOS example tier breakdown    | 551-558   | DEL-daemon-CTR | CTR-08              | Tier calculations             |
-| 9  | §7.2 Set intersection semantics    | 582-588   | DEL-ADR-new    | ADR 00024           | "intersection of flag sets"   |
-| 10 | §7.3 Render capability requirement | 596-601   | DEL-ADR-new    | ADR 00024           | "at least one mode required"  |
+| 7  | §6.2 Server coalescing behavior    | 522-524   | DEL-daemon-CTR | CTR-08              | Power throttling, fps cap     |
+| 8  | §6.3 iOS example tier breakdown    | 551-556   | DEL-daemon-CTR | CTR-08              | Tier calculations             |
+| 9  | §7.2 Set intersection semantics    | 586-588   | DEL-ADR-new    | ADR 00024           | "intersection of flag sets"   |
+| 10 | §7.3 Render capability requirement | 596-600   | DEL-ADR-new    | ADR 00024           | "at least one mode required"  |
 | 11 | §8.1 Single-session-per-connection | 685-688   | DEL-ADR-new    | ADR 00020           | "at most one session"         |
 | 12 | §8.2 IME per-session rationale     | 716-721   | DEL-ADR-exist  | ADR 00013           | "IME engine is per-session"   |
 | 13 | §8.2 Direct message queue          | 732-735   | DEL-ADR-new    | ADR 00023           | "priority 1" mechanism        |
-| 14 | §8.6 Ring buffer / coalescing      | 876-879   | DEL-daemon-CTR | CTR-06              | "shared per-pane ring buffer" |
-| 15 | §8.6 Preedit exclusivity ref       | 872-875   | REWRITE        | —                   | Keep wire fact; trim          |
-| 16 | §8.6 Multi-client input ordering   | 870-871   | DEL-ADR-new    | ADR 00020           | "arrival order"               |
-| 17 | §8.7 Readonly attach mode          | 886-902   | DEL-ADR-new    | ADR 00020           | Full readonly semantics       |
-| 18 | §8.8 Exclusive attach              | 904-912   | DEL-ADR-new    | ADR 00020           | "detach_others = true"        |
-| 19 | §8.9 Resize internals ref          | 925-926   | DEL-covered    | Daemon 04-runtime   | "defined in daemon docs"      |
-| 20 | §8.9 Viewport clipping             | 921-923   | DEL-ADR-new    | ADR 00019           | Clipping vs scrolling         |
-| 21 | §11.1 Auth implementation ref      | 1000-1001 | DEL-covered    | Daemon 03-lifecycle | "defined in daemon docs"      |
-| 22 | §11.3 Handshake timeout values     | 1013-1017 | DEL-daemon-CTR | CTR-09              | Duration values               |
+| 14 | §8.6 Ring buffer / coalescing      | 875-878   | DEL-daemon-CTR | CTR-06              | "shared per-pane ring buffer" |
+| 15 | §8.6 Preedit exclusivity ref       | 872-874   | ~~REWRITE~~    | —                   | ~~Keep wire fact; trim~~ ✅   |
+| 16 | §8.6 Multi-client input ordering   | 871       | DEL-ADR-new    | ADR 00020           | "arrival order"               |
+| 17 | §8.7 Readonly attach mode          | 887-901   | DEL-ADR-new    | ADR 00020           | Full readonly semantics       |
+| 18 | §8.8 Exclusive attach              | 905-911   | DEL-ADR-new    | ADR 00020           | "detach_others = true"        |
+| 19 | §8.9 Resize internals ref          | 924-925   | DEL-covered    | Daemon 04-runtime   | "defined in daemon docs"      |
+| 20 | §8.9 Viewport clipping             | 920-922   | DEL-ADR-new    | ADR 00019           | Clipping vs scrolling         |
+| 21 | §11.1 Auth implementation ref      | 999-1000  | DEL-covered    | Daemon 03-lifecycle | "defined in daemon docs"      |
+| 22 | §11.3 Handshake timeout values     | 1012-1017 | DEL-daemon-CTR | CTR-09              | Duration values               |
 
 ---
 
