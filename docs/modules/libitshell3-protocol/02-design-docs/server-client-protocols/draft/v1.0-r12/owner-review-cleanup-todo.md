@@ -180,10 +180,11 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 
 ### 5a. ADRs to write (first occurrence)
 
-| ADR # | Topic                                            | Content from this file                                                                                            |
-| ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| 00019 | Per-session focus model (v1)                     | §8.9: viewport clipping (related); main content from Doc 03 §8.1 — **write together with File 6 ADR 00019 entry** |
-| 00040 | YAGNI compression removal (supersedes ADR 00014) | Doc 01 §3.4/§3.5; Doc 02 §2.3/§4.1/§9.9; Doc 04 §8; 99-post-v1 §7 — ✅ WRITTEN                                    |
+| ADR # | Topic                                            | Content from this file                                                                                                     |
+| ----- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| 00019 | Per-session focus model (v1)                     | §8.9: viewport clipping (related); main content from Doc 03 §8.1 — **write together with File 6 ADR 00019 entry**          |
+| 00040 | YAGNI compression removal (supersedes ADR 00014) | Doc 01 §3.4/§3.5; Doc 02 §2.3/§4.1/§9.9; Doc 04 §8; 99-post-v1 §7 — ✅ WRITTEN                                             |
+| 00041 | YAGNI: Remove `celldata_encoding` capability     | Doc 02: capability table row (346), §4.2 entire section (360-391), pseudocode block (620-629), degradation table row (957) |
 
 ### 5b. ADRs to add content to (already created)
 
@@ -208,7 +209,7 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 | #  | Section                            | Lines     | Action         | Target              | Description                                          |
 | -- | ---------------------------------- | --------- | -------------- | ------------------- | ---------------------------------------------------- |
 | 1  | §2.1 String capabilities rationale | 112-115   | DEL-ADR-new    | ADR 00024           | "Instead of bitmasks"                                |
-| 2  | §4.2 CELLDATA_ENCODING rationale   | 388-391   | DEL-ADR-absorb | ADR 00006           | "RLE outperforms protobuf"                           |
+| 2  | §4.2 CELLDATA_ENCODING rationale   | 388-391   | DEL-ADR-new    | ADR 00041           | "RLE outperforms protobuf" — part of §4.2 removal    |
 | 3  | §5.3 Two-axis model explanation    | 423-425   | DEL-ADR-new    | ADR 00025           | Two-axis orthogonal                                  |
 | 4  | §5.3 String identifier rationale   | 480-484   | DEL-ADR-new    | ADR 00025           | "self-documenting"                                   |
 | 5  | §5.3 Field naming asymmetry        | 475-478   | DEL-ADR-new    | ADR 00025           | layout vs layouts                                    |
@@ -240,6 +241,10 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 | 31 | **Doc 04** §8 Compression          | 975-981   | DEL-ADR-exist  | ADR 00040           | Delete COMPRESSED flag paragraph                     |
 | 32 | **Doc 04** §8 wire dump comment    | 1033      | DEL-ADR-exist  | ADR 00040           | Remove "no compression" annotation                   |
 | 33 | **99-post-v1** §7 reserved lang    | 271-272   | DEL-ADR-exist  | ADR 00040           | Remove "COMPRESSED flag reserved" sentence           |
+| 34 | §2.3 `celldata_encoding` cap row   | 346       | DEL-ADR-new    | ADR 00041           | Delete capability table row                          |
+| 35 | §4.2 CELLDATA_ENCODING section     | 360-391   | DEL-ADR-new    | ADR 00041           | Delete entire section (covers item 2 scope)          |
+| 36 | §7 negotiation pseudocode block    | 620-629   | DEL-ADR-new    | ADR 00041           | Delete celldata_encoding pseudocode lines            |
+| 37 | §9.9 degradation table row         | 957       | DEL-ADR-new    | ADR 00041           | Delete `celldata_encoding` degradation row           |
 
 ---
 
