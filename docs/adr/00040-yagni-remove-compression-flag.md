@@ -2,7 +2,6 @@
 
 - Date: 2026-03-20
 - Status: Accepted
-- Supersedes: ADR 00014
 
 ## Context
 
