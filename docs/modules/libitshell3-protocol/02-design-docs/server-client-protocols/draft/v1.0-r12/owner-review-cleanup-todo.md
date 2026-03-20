@@ -233,7 +233,7 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 | 17 | §8.1 Single-session-per-connection | 685-688   | DEL-ADR-new    | ADR 00020           | "at most one session"                                                                    |
 | 18 | §8.2 IME per-session rationale     | 716-721   | DEL-ADR-exist  | ADR 00013           | "IME engine is per-session"                                                              |
 | 19 | §8.2 Direct message queue          | 732-735   | DEL-ADR-new    | ADR 00023           | "priority 1" mechanism                                                                   |
-| 20 | §8.6 Multi-client input ordering   | 871       | DEL-ADR-new    | ADR 00020           | "arrival order"                                                                          |
+| 20 | §8.6 Multi-client input ordering   | 871       | DEL-ADR-exist  | ADR 00020           | "arrival order"                                                                          |
 | 21 | §8.6 Preedit exclusivity ref       | 872-874   | ~~REWRITE~~    | —                   | ~~Keep wire fact; trim~~ ✅                                                              |
 | 22 | §8.6 Ring buffer / coalescing      | 875-878   | DEL-daemon-CTR | CTR-06              | "shared per-pane ring buffer"                                                            |
 | 23 | §8.7 Readonly attach mode          | 887-901   | DEL-ADR-new    | ADR 00020           | Full readonly semantics                                                                  |
