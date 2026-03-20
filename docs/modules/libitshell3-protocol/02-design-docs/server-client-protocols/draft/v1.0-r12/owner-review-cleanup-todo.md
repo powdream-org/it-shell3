@@ -192,14 +192,14 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 | ----- | ------------------------------------------------------------------------------------------------------------------------- |
 | 00020 | §8.1 (single-session-per-connection), §8.6 (multi-client input ordering), §8.7 (readonly), §8.8 (exclusive/detach_others) |
 | 00023 | §8.2 (direct message queue, priority 1)                                                                                   |
-| 00024 | §2.1 (string arrays over bitmasks), §7.2 (set intersection), §7.3 (render requirement)                                    |
+| 00024 | §2.1 (string arrays over bitmasks)                                                                                        |
 | 00025 | §5.3 (two-axis model, string identifiers, field naming asymmetry)                                                         |
 
 ### 5c. Daemon CTRs to write (new)
 
-| CTR #  | Content from this file                                                                                                             |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| CTR-17 | §7.1 version selection algorithm (lines 566-575) — move `min()` logic and ERR_VERSION_MISMATCH conditions to daemon handshake docs |
+| CTR #  | Content from this file                                                                                                                                                                                       |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CTR-17 | §7.1–§7.3 server negotiation algorithms — `min()` version selection (566-575), capability intersection pseudocode (582-585), render caps intersection + validation (592-601) — move to daemon handshake docs |
 
 ### 5d. Daemon CTRs to add content to (already created)
 
@@ -227,9 +227,9 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 | 11 | §6.2 Design decision (client RTT)  | 533-536   | DEL-ADR-exist  | ADR 00011           | "client is the only entity"                                                              |
 | 12 | §6.3 iOS example tier breakdown    | 551-556   | DEL-daemon-CTR | CTR-08              | Tier calculations                                                                        |
 | 13 | §7.1 Version selection algorithm   | 566-575   | REWRITE        | CTR-17              | Replace pseudocode with wire fact (ERR_VERSION_MISMATCH); move min() algorithm to daemon |
-| 14 | §7.2 Set intersection semantics    | 586-588   | DEL-ADR-new    | ADR 00024           | "intersection of flag sets"                                                              |
-| 15 | §7.3 Render capability requirement | 596-600   | DEL-ADR-new    | ADR 00024           | "at least one mode required"                                                             |
-| 16 | §7 negotiation pseudocode block    | 620-629   | DEL-ADR-new    | ADR 00041           | Delete celldata_encoding pseudocode lines                                                |
+| 14 | §7.2 intersection pseudocode       | 582-585   | REWRITE        | CTR-17              | Replace pseudocode with prose; move server algorithm to daemon                           |
+| 15 | §7.3 render caps pseudocode        | 592-601   | REWRITE        | CTR-17              | Keep ERR_CAPABILITY_REQUIRED wire fact; move intersection + validation to daemon         |
+| 16 | §7.5 CELLDATA_ENCODING Negotiation | 615-630   | DEL-ADR-new    | ADR 00041           | Delete entire §7.5 section (v2+ no-op)                                                   |
 | 17 | §8.1 Single-session-per-connection | 685-688   | DEL-ADR-new    | ADR 00020           | "at most one session"                                                                    |
 | 18 | §8.2 IME per-session rationale     | 716-721   | DEL-ADR-exist  | ADR 00013           | "IME engine is per-session"                                                              |
 | 19 | §8.2 Direct message queue          | 732-735   | DEL-ADR-new    | ADR 00023           | "priority 1" mechanism                                                                   |
