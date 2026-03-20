@@ -60,19 +60,29 @@ field, keyframe interval) remain in the protocol spec.
    default 1-second interval (configurable 0.5–5 seconds), no frame written when
    no changes since last I-frame, I-frame containing all rows when changes
    exist, and timer independence from coalescing tiers.
+9. **Preedit ring buffer interaction and direct queue ordering (from Doc 05
+   §13.1)**: Document that all frames (including those containing preedit cell
+   data) go through the per-pane shared ring buffer with no separate bypass path
+   for preedit; that Coalescing Tier 0 ensures preedit-containing frames are
+   written to the ring immediately upon keystroke; that the dedicated preedit
+   protocol messages (0x0400-0x0405) are sent directly per-client via the direct
+   message queue (outside the ring buffer); and that PreeditSync is enqueued in
+   the direct message queue (priority 1) during resync/recovery, arriving BEFORE
+   the I-frame from the ring, following the "context before content" principle.
 
 ## Summary Table
 
-| Target Doc            | Section/Message            | Change Type | Source Resolution             |
-| --------------------- | -------------------------- | ----------- | ----------------------------- |
-| Internal architecture | Ring buffer design         | Add         | Protocol v1.0-r12 Doc 01 §5.8 |
-| Runtime policies      | I-frame recovery           | Add         | Protocol v1.0-r12 Doc 01 §5.8 |
-| Runtime policies      | Preedit delivery path      | Add         | Protocol v1.0-r12 Doc 01 §5.8 |
-| Internal architecture | Ring buffer background     | Add         | Protocol v1.0-r12 Doc 06 §2.1 |
-| Internal architecture | Two-channel write priority | Add         | Protocol v1.0-r12 Doc 06 §2.3 |
-| Runtime policies      | ContinuePane cursor reset  | Add         | Protocol v1.0-r12 Doc 06 §2.5 |
-| Internal architecture | Per-pane dirty tracking    | Add         | Protocol v1.0-r12 Doc 04 §3.1 |
-| Internal architecture | I-frame scheduling         | Add         | Protocol v1.0-r12 Doc 04 §7.3 |
+| Target Doc            | Section/Message                    | Change Type | Source Resolution              |
+| --------------------- | ---------------------------------- | ----------- | ------------------------------ |
+| Internal architecture | Ring buffer design                 | Add         | Protocol v1.0-r12 Doc 01 §5.8  |
+| Runtime policies      | I-frame recovery                   | Add         | Protocol v1.0-r12 Doc 01 §5.8  |
+| Runtime policies      | Preedit delivery path              | Add         | Protocol v1.0-r12 Doc 01 §5.8  |
+| Internal architecture | Ring buffer background             | Add         | Protocol v1.0-r12 Doc 06 §2.1  |
+| Internal architecture | Two-channel write priority         | Add         | Protocol v1.0-r12 Doc 06 §2.3  |
+| Runtime policies      | ContinuePane cursor reset          | Add         | Protocol v1.0-r12 Doc 06 §2.5  |
+| Internal architecture | Per-pane dirty tracking            | Add         | Protocol v1.0-r12 Doc 04 §3.1  |
+| Internal architecture | I-frame scheduling                 | Add         | Protocol v1.0-r12 Doc 04 §7.3  |
+| Runtime policies      | Preedit ring/direct queue ordering | Add         | Protocol v1.0-r12 Doc 05 §13.1 |
 
 ## Reference: Original Protocol Text (removed from Doc 01 §5.8)
 
@@ -171,3 +181,24 @@ provides correct state for any seeking client. When the timer fires and changes
 exist, the server sends `frame_type=1` (I-frame) containing all rows. The
 I-frame timer is independent of the coalescing tiers — it fires at a fixed
 interval regardless of PTY throughput.
+
+## Reference: Original Protocol Text (from Doc 05 §13.1)
+
+The following is the original text from Doc 05 §13.1 (CJK Preedit Sync and IME
+Protocol) describing ring buffer interaction with preedit. Provided as reference
+for the daemon team — adapt as needed.
+
+### From Doc 05 §13.1 — Ring Buffer Interaction
+
+**Ring buffer interaction**: All frames (including those containing preedit cell
+data) go through the per-pane shared ring buffer. There is no separate bypass
+path for preedit. Coalescing Tier 0 (Preedit tier, immediate flush at 0ms)
+ensures preedit-containing frames are written to the ring immediately upon
+keystroke. The dedicated preedit protocol messages (0x0400-0x0405) remain
+outside the ring buffer — they are sent directly per-client via the direct
+message queue. PreeditSync is enqueued in the direct message queue (priority 1)
+during resync/recovery, arriving BEFORE the I-frame from the ring. This follows
+the "context before content" principle — the client processes PreeditSync first
+(records composition metadata), then processes the I-frame (renders grid
+including preedit cells with full context). See doc 06 for the full socket write
+priority model.

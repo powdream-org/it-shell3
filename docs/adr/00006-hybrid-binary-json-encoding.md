@@ -39,3 +39,7 @@ protobuf) without v1 complexity.
 - Two parsing paths in client/server code (binary + JSON).
 - v2 can negotiate alternative encodings via capability flags without header
   changes.
+- JSON payloads add ~30 bytes per message compared to binary encoding. This is
+  negligible and well worth the debuggability gain (seeing `"text": "한"`
+  instead of hex bytes). At preedit message frequencies (~15/s at 60 WPM Korean
+  typing), the overhead is ~450 B/s.

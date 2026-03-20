@@ -261,7 +261,9 @@ Work in progress — session split point.
       3 ✅; 15 cleanup items applied, ADRs 00021/00022/00025 written, CTRs
       extended, IME CTRs written; §10 Open Questions deleted; Appendix B v0.8
       comparison para deleted)
-- [ ] Doc 05 owner review
+- [x] Doc 05 owner review ✅ (29 cleanup items + 3 gaps applied; ADRs
+      00026/00032 written, ADRs 00006/00021/00023/00025 extended; CTRs 11/15
+      written, CTRs 06/08/12 extended; ~950 → ~686 lines)
 - [x] Doc 06 owner review ✅ (§11 Open Questions all resolved; ADR 00035–00038,
       CTR-13 written)
 - [ ] Doc 03 remaining cleanup (if any)

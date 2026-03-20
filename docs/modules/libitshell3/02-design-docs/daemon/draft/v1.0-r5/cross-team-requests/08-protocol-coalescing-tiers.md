@@ -45,6 +45,13 @@ they are actually defined there.
    delivered with minimal latency. Define coalescing tier definitions,
    transition thresholds, timing values, WAN adaptation rules, power throttling
    caps, and idle suppression during resize.
+6. **Preedit delivery latency (from Doc 05 §7)**: Document that preedit state
+   changes are delivered with minimal latency; that the server prioritizes
+   preedit FrameUpdates over bulk output; that preedit frames are per-(client,
+   pane) — a pane with active composition receives immediate delivery even if
+   adjacent panes are in a lower-priority coalescing tier; and that coalescing
+   tier definitions, preedit latency targets, power throttling bypass rules, and
+   tier transition thresholds are the daemon's responsibility to define.
 
 ## Summary Table
 
@@ -55,6 +62,7 @@ they are actually defined there.
 | Runtime policies | WAN adaptation              | Add         | Protocol v1.0-r12 Doc 01 §10  |
 | Runtime policies | Power state throttling      | Add         | Protocol v1.0-r12 Doc 01 §10  |
 | Runtime policies | Coalescing background       | Add         | Protocol v1.0-r12 Doc 06 §1.1 |
+| Runtime policies | Preedit delivery latency    | Add         | Protocol v1.0-r12 Doc 05 §7   |
 
 ## Reference: Original Protocol Text (removed from Doc 01 §10)
 
@@ -101,3 +109,20 @@ delivered with minimal latency.
 Coalescing tier definitions, transition thresholds, timing values, WAN
 adaptation rules, power throttling caps, and idle suppression during resize are
 defined in daemon design docs.
+
+## Reference: Original Protocol Text (from Doc 05 §7)
+
+The following is the original text from Doc 05 §7 (CJK Preedit Sync and IME
+Protocol) describing preedit delivery latency requirements. Provided as
+reference for the daemon team — adapt as needed.
+
+### From Doc 05 §7 — Preedit Delivery Latency
+
+Preedit state changes are delivered with minimal latency. The server prioritizes
+preedit FrameUpdates over bulk output. Preedit frames are per-(client, pane) — a
+pane with active composition receives immediate delivery even if adjacent panes
+are in a lower-priority coalescing tier.
+
+Coalescing tier definitions, preedit latency targets, power throttling bypass
+rules, and tier transition thresholds are defined in daemon design docs. See doc
+01 Section 10 for the wire-observable delivery model.

@@ -45,6 +45,14 @@ The `keyboard_layout` axis (physical key mapping, e.g., `"qwerty"`, `"dvorak"`)
 is a separate, orthogonal per-session property and is not encoded in the
 `input_method` string. It is established at handshake and omitted from KeyEvent.
 
+Both `input_method` and `keyboard_layout` are stored at session level, not per
+pane. All panes in a session share the same engine state; no per-pane IME fields
+are stored in session snapshots.
+
+The client tracks one `active_input_method` per session. It is initialized from
+`AttachSessionResponse` and updated incrementally by `InputMethodAck` (0x0405)
+on every subsequent input method switch.
+
 ## Consequences
 
 - Identifiers are self-documenting on the wire — a packet capture is readable

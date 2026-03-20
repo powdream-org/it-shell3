@@ -45,3 +45,12 @@ can ignore all 0x04xx messages entirely.
   at serialization time, keeping that concern in one place.
 - Capability negotiation is cleaner: `"preedit"` capability is about lifecycle
   protocol participation, not about whether preedit text appears on screen.
+- The two mechanisms serve distinct consumers:
+
+  | Mechanism                      | Purpose                                                                               | Consumer                                    |
+  | ------------------------------ | ------------------------------------------------------------------------------------- | ------------------------------------------- |
+  | FrameUpdate cell data (0x0300) | Rendering: preedit cells included in I/P-frame cell data                              | Rendering pipeline                          |
+  | PreeditStart/Update/End        | Lifecycle/metadata: ownership, session tracking, multi-client coordination, debugging | Session manager, observers, debugging tools |
+
+- A client that does not negotiate `"preedit"` still renders preedit correctly —
+  it simply lacks the metadata for composition tracking and observer indicators.

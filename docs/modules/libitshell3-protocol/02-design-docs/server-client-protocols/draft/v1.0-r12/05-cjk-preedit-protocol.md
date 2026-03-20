@@ -19,16 +19,6 @@ composition state synchronization. The design addresses:
 
 ### 1.1 Architecture Context
 
-The server owns the native IME engine (libitshell3-ime). The client sends ONLY
-raw HID keycodes via KeyEvent (doc 04, Section 2.1). The client NEVER sends
-preedit state or composition information — the server determines all composition
-state internally from the IME engine.
-
-**Preedit is cell data, not metadata.** The server injects preedit cells into
-frame cell data when serializing FrameUpdate. The client renders cells — it has
-no concept of preedit. All preedit rendering goes through one path: cell data in
-I/P-frames via the ring buffer.
-
 ```mermaid
 flowchart TD
     A["Client A: KeyEvent(HID keycode)"] --> B["Server: IME Composition Engine"]
@@ -52,10 +42,6 @@ lifecycle/metadata only — used for multi-client coordination, composition
 tracking, and debugging. Not used for rendering. A client that only needs to
 render can ignore all 0x04xx messages.
 
-**Capability interaction**: The `"preedit"` capability controls only the
-dedicated PreeditStart/Update/End/Sync messages. Preedit rendering is always
-available through cell data in I/P-frames regardless of capability negotiation.
-
 **Readonly client observation**: Readonly clients (attached with `readonly`
 flag; see doc 02 for the flag, doc 03 Section 9 for the authoritative
 permissions table) receive ALL preedit-related S->C messages (PreeditStart,
@@ -65,13 +51,8 @@ clients MUST NOT send InputMethodSwitch (0x0404) — the server rejects this wit
 ERR_ACCESS_DENIED (see doc 04, Section 2.8).
 
 **Preedit exclusivity invariant**: At most one pane in a session can have active
-preedit at any time. This is naturally enforced by the single engine instance
-per session — the engine has one `HangulInputContext` with one jamo stack. A
-server that correctly implements the per-session engine model MUST NOT produce
-simultaneous PreeditUpdate messages for two different panes within the same
-session. Clients MAY rely on this invariant for rendering optimization: when a
-PreeditStart arrives for pane B, any active preedit on pane A within the same
-session has already been cleared via PreeditEnd.
+preedit at any time. When a PreeditStart arrives for pane B, any active preedit
+on pane A within the same session has already been cleared via PreeditEnd.
 
 ### 1.2 Message Type Range
 
@@ -139,11 +120,6 @@ I/P-frames.
 | `preedit_session_id` | u32    | Matches PreeditStart                                                                |
 | `text`               | string | UTF-8 preedit text (for multi-client coordination and debugging, NOT for rendering) |
 
-The `text` field is retained because multi-client coordination needs to know
-what is being composed (e.g., observer display of "Client A composing X"). This
-is not a DRY violation — cell data and PreeditUpdate serve different consumers
-(renderer vs. session manager/observers).
-
 ### 2.3 PreeditEnd (type = 0x0402, S->C)
 
 Sent by the server to ALL attached clients when composition ends, either by
@@ -186,12 +162,6 @@ composed "한" and pressed Space, committed_text="한".
   (T=300s). The server commits the active preedit before disconnecting the
   client, and sends PreeditEnd with this reason to remaining peer clients. See
   doc 06 health escalation timeline.
-
-**Note on Escape**: Escape causes the IME to flush (commit) the preedit text,
-then forwards the Escape key to the terminal. This matches ibus-hangul and
-fcitx5-hangul behavior. The PreeditEnd reason is `"committed"`, not
-`"cancelled"`. libitshell3 uses native IME (not OS IME), so the macOS
-NSTextInputClient convention of "Escape cancels composition" does not apply.
 
 ### 2.4 PreeditSync (type = 0x0403, S->C)
 
@@ -272,26 +242,11 @@ pane.
 3. Update the session's active input method and keyboard layout
 4. Send InputMethodAck to ALL attached clients (broadcast)
 
-**Server-side hotkey detection**: In addition to the explicit InputMethodSwitch
-message, the server detects configurable mode-switch hotkeys (e.g., Right-Alt,
-Ctrl+Space) from raw KeyEvent and handles input method switching internally.
-Both paths produce InputMethodAck (0x0405) broadcast to all attached clients.
-
 **SHOULD recommendation**: Clients SHOULD default to `commit_current=true` for
 InputMethodSwitch. The `commit_current=false` option is non-standard — no
 widely-used Korean IME framework discards composition on language switch. This
 option exists for future CJK language support where cancel-on-switch may be
 appropriate.
-
-**Server implementation**:
-
-- `commit_current=true`: Server calls `setActiveInputMethod(new_method)`. The
-  IME flushes (commits) pending composition and switches. This is the standard
-  behavior.
-- `commit_current=false`: Server calls `reset()` to discard the current
-  composition, then `setActiveInputMethod(new_method)` to switch. The server
-  MUST hold the per-session lock across both calls to ensure atomicity. The
-  PreeditEnd reason is `"cancelled"`.
 
 ### 3.2 InputMethodAck (type = 0x0405, S->C)
 
@@ -334,12 +289,6 @@ per-session input method state through two channels:
 
 ### 3.3 Per-Session Input Method State
 
-All panes in a session share the same active input method and keyboard layout.
-The server maintains one IME engine instance per session (see IME Interface
-Contract, Sections 3.5–3.7 for the per-session engine architecture). When the
-user switches input methods on any pane, the change applies to all panes in the
-session.
-
 > The new pane inherits the session's current `active_input_method`. No per-pane
 > override is supported. To change the input method, send an InputMethodSwitch
 > message (0x0404) after the pane is created.
@@ -348,25 +297,6 @@ session.
 `keyboard_layout: "qwerty"`. This is a normative requirement — servers MUST
 initialize new sessions with these defaults. New panes inherit the session's
 current values.
-
-**Input method identifiers**: The protocol uses a single canonical string
-identifier for input methods (e.g., `"direct"`, `"korean_2set"`,
-`"korean_3set_390"`). This string is the ONLY representation that crosses
-component boundaries — it flows unchanged from client to server to IME engine
-constructor. The `keyboard_layout` field (e.g., `"qwerty"`, `"azerty"`) is a
-separate, orthogonal per-session property and is NOT encoded in the
-`input_method` string. Both `input_method` and `keyboard_layout` are stored at
-session level in session snapshots (not per pane). See IME Interface Contract,
-Section 9 for the session snapshot schema.
-
-The client tracks one `active_input_method` per session, updated by
-InputMethodAck and initialized by AttachSessionResponse.
-
-The canonical registry of valid `input_method` strings and their engine-native
-mappings is defined in the IME Interface Contract, Section 3.7
-(HangulImeEngine). The protocol does not maintain a separate mapping table — the
-IME engine constructor is the sole translation point between protocol strings
-and engine-internal types.
 
 ---
 
@@ -401,19 +331,11 @@ ambiguous-width Unicode characters are measured.
 - Cyrillic letters
 - Various symbols (degree, plus-minus, multiply, divide, etc.)
 
-The server passes this configuration to libghostty-vt's Terminal, which uses it
-for cursor movement and line wrapping calculations. The client uses it for cell
-width computation during rendering.
+The client uses it for cell width computation during rendering.
 
 ---
 
 ## 5. Multi-Client Conflict Resolution
-
-### 5.1 Problem Statement
-
-When multiple clients are attached to the same pane, only one client can compose
-text at a time. Without coordination, concurrent preedit from two clients would
-corrupt the composition state.
 
 ### 5.2 Wire-Observable Conflict Resolution
 
@@ -443,13 +365,6 @@ policy are defined in daemon design docs.
 
 **Scenario**: User closes a pane while Korean composition is active.
 
-**Server behavior**:
-
-1. Cancel the active composition (do NOT commit to PTY — the PTY is being
-   closed)
-2. Send PreeditEnd with `reason="pane_closed"` to all clients
-3. Proceed with pane close sequence
-
 **Wire trace**:
 
 ```
@@ -464,7 +379,7 @@ Server -> all clients: PaneClose(pane=X)  // from session management protocol
 **Server behavior**:
 
 1. Detect disconnect (socket read returns 0 or error)
-2. Commit current preedit text to PTY (best-effort: preserve the user's work)
+2. Commit current preedit text to PTY
 3. Send PreeditEnd with `reason="client_disconnected"` to remaining clients
 4. Clear preedit ownership
 
@@ -486,45 +401,22 @@ open.
 3. Send FrameUpdate with `frame_type=1` (I-frame) — preedit cells are included
    in the cell data at the updated position
 
-Preedit cursor position and display width are server-internal. The client simply
-renders whatever cells it receives in the I-frame, which already include the
-preedit cells at the correct post-resize position. No separate PreeditUpdate
-with cursor coordinates is needed.
-
-The preedit text itself is not affected by resize — only its display position
-changes.
-
 ### 6.4 Screen Switch During Composition
 
 **Scenario**: An application switches from primary to alternate screen (e.g.,
 `vim` launches) while composition is active.
 
 **Wire behavior**: The server sends `PreeditEnd` with `reason="committed"`
-followed by `FrameUpdate` with `frame_type=1` (I-frame), `screen=alternate`. PTY
-commit details are defined in daemon design docs.
+followed by `FrameUpdate` with `frame_type=1` (I-frame), `screen=alternate`.
 
 ### 6.5 Rapid Keystroke Bursts
 
 **Scenario**: User types Korean very quickly, generating multiple KeyEvents
 before the server processes them.
 
-**Server behavior**:
-
-1. Process all pending KeyEvents in order
-2. Coalesce intermediate preedit states — only send the final PreeditUpdate for
-   the burst
-3. The server injects the final preedit text into frame cell data, and the
-   resulting cell data is written to the ring buffer as a single frame
-
-**Example**: User types ㅎ, ㅏ, ㄴ within 5ms (all arrive in one read batch):
-
-- Server processes all three through IME engine
-- Server sends ONE PreeditUpdate with text="한"
-- Server writes ONE frame to the ring buffer containing preedit cell data (한 at
-  cursor position)
-
-Intermediate states (ㅎ, 하) are not transmitted because they were superseded
-within the same frame interval.
+**Wire behavior**: When rapid keystrokes arrive within a single frame interval,
+only the final PreeditUpdate for the burst is sent. Intermediate preedit states
+are not transmitted.
 
 ### 6.6 Layout Query After Reconnection
 
@@ -542,10 +434,8 @@ additionally sends `PreeditSync` (0x0403) with the full preedit state snapshot.
 on the currently focused pane.
 
 **Wire behavior**: The server sends `PreeditEnd` with `reason="focus_changed"`
-to all clients, followed by `LayoutChanged` with the new focused pane. This is
-consistent with all other preedit-interrupting events (screen switch in S6.4,
-pane close in S6.1) — the preedit is always resolved before processing the
-interrupting action. PTY commit details are defined in daemon design docs.
+to all clients, followed by `LayoutChanged` with the new focused pane. The
+preedit is resolved before processing the interrupting action.
 
 ### 6.8 Session Detach During Composition
 
@@ -554,14 +444,10 @@ is active.
 
 **Server behavior**:
 
-1. Commit current preedit text to PTY (preserve the user's work)
+1. Commit current preedit text to PTY
 2. Send PreeditEnd with `reason="client_disconnected"` to remaining clients
 3. Clear preedit ownership
 4. Process the session detach normally
-
-The `"client_disconnected"` reason is reused here because from the remaining
-clients' perspective, the effect is identical — the composing client is no
-longer attached.
 
 ### 6.9 InputMethodSwitch During Active Preedit
 
@@ -594,11 +480,6 @@ sequenceDiagram
     S->>B: InputMethodAck(pane=1, active_input_method="direct", previous_input_method="korean_2set")
 ```
 
-**Note**: The server-side hotkey detection path (e.g., Right-Alt detected from
-KeyEvent) follows the same sequence. The `commit_current` behavior for
-hotkey-triggered switches is implementation-defined (recommended:
-`commit_current=true` as default).
-
 ### 6.10 Mouse Event During Composition
 
 **Scenario**: A mouse event arrives while Korean composition is active on the
@@ -629,24 +510,6 @@ half-composed Korean syllable) MUST be preserved.
 
 Viewport restoration after scroll is handled by the terminal's scroll-to-bottom
 default behavior — no protocol support needed.
-
-**Rationale**: MouseButton commits because it relocates the cursor, which
-changes the editing context where preedit text would be inserted. MouseScroll
-does not commit because scrolling is a viewing operation that does not affect
-the cursor position or the pane where composition is occurring.
-
----
-
-## 7. Preedit Delivery Latency
-
-Preedit state changes are delivered with minimal latency. The server prioritizes
-preedit FrameUpdates over bulk output. Preedit frames are per-(client, pane) — a
-pane with active composition receives immediate delivery even if adjacent panes
-are in a lower-priority coalescing tier.
-
-Coalescing tier definitions, preedit latency targets, power throttling bypass
-rules, and tier transition thresholds are defined in daemon design docs. See doc
-01 Section 10 for the wire-observable delivery model.
 
 ---
 
@@ -693,32 +556,6 @@ When the daemon restarts and restores a session:
 
 1. **Preedit was active**: The preedit text is committed to the PTY. The
    composition session is not resumed.
-   - **Rationale**: The client that was composing is no longer connected after a
-     daemon restart. Resuming a partial composition would be confusing — the
-     user would see a half-composed character with no way to continue it (since
-     the original client's keyboard state is lost).
-
-2. **Input method state**: The session's `input_method` and `keyboard_layout`
-   are restored at session level. The server creates one `HangulImeEngine` per
-   session with the saved `input_method`. All panes in the session share this
-   engine. No per-pane IME state is restored — panes carry no IME fields in the
-   session snapshot. When a client reconnects, it receives the session's input
-   method via `AttachSessionResponse` and LayoutChanged leaf nodes.
-
-### 8.3 Alternative: Resume Composition (Future)
-
-A future enhancement could allow composition resumption:
-
-1. Server sends PreeditSync to the reconnecting client with the saved state
-2. Client displays the preedit overlay
-3. User can continue typing to advance the composition or press Backspace to
-   decompose
-
-This requires the client to initialize its composition state from the server's
-snapshot, which is feasible for Korean (the state machine is simple) but complex
-for Japanese/Chinese (candidate lists would need to be regenerated).
-
-**Decision**: For v1, commit-on-restore. Defer resume-on-restore to v2.
 
 ---
 
@@ -735,45 +572,16 @@ underline) is determined server-side when preedit cells are injected into the
 frame. These are server-internal rendering decisions, not protocol requirements.
 The client renders whatever cells it receives.
 
-```
-During composition of "한" (2 cells wide):
-+----------------------------------------------+
-| $ echo "hello"                               |
-| hello                                        |
-| $ [한]                                       |  <- block cursor encloses composing char
-|    --                                        |  <- underline decoration
-+----------------------------------------------+
-
-After commit (cursor advances past committed char):
-+----------------------------------------------+
-| $ echo "hello"                               |
-| hello                                        |
-| $ 한|                                        |  <- bar cursor at insertion point
-|                                              |
-+----------------------------------------------+
-```
-
 ### 9.2 Preedit for Observer Clients
 
 Non-owner clients (observers) render preedit identically to the owner — they
 receive the same cell data from the ring buffer, which already includes preedit
 cells. No special rendering logic is needed.
 
-Observers additionally MAY display a composition indicator using metadata from
-PreeditStart/PreeditUpdate messages:
-
-```
-+----------------------------------------------+
-| $ [한]                                       |
-|    -- [Client A composing]                   |  <- optional indicator
-+----------------------------------------------+
-```
-
-The `client_id` field from PreeditStart provides the composing client's
-identity. Clients can compare this with their own `client_id` (received in
-ServerHello, see doc 02, Issue 9/Gap 1) to determine if they are the owner or an
-observer. The `text` field from PreeditUpdate provides the current composition
-text for display in status indicators.
+Observers MAY use metadata from PreeditStart/PreeditUpdate for composition
+indicators. The `client_id` field from PreeditStart identifies the composing
+client. The `text` field from PreeditUpdate carries the current composition
+text.
 
 ---
 
@@ -782,13 +590,8 @@ text for display in status indicators.
 ### 10.1 Invalid Composition State
 
 If the server's IME engine reaches an invalid state (should not happen with
-correctly implemented Korean algorithms):
-
-1. Log the error with full state dump
-2. Commit whatever preedit text exists to PTY
-3. Reset composition state to `null` (no active composition)
-4. Send PreeditEnd with `reason="cancelled"` to all clients
-5. Send a diagnostic notification to the composing client (optional)
+correctly implemented Korean algorithms), the server sends `PreeditEnd` with
+`reason="cancelled"` to all clients.
 
 ### 10.2 Malformed Preedit Messages
 
@@ -854,57 +657,9 @@ at preedit message frequencies (~15/s).
 
 ---
 
-## 12. Bandwidth Analysis for Preedit
-
-### 12.1 Korean Composition Bandwidth
-
-Typing Korean at ~60 WPM (words per minute), approximately 5 syllables/second.
-Each syllable requires ~3 keystrokes (consonant + vowel + tail consonant),
-generating ~3 PreeditUpdate messages.
-
-| Message                             | Size (header + JSON) | Per-second | Bandwidth      |
-| ----------------------------------- | -------------------- | ---------- | -------------- |
-| PreeditUpdate                       | ~80 B                | ~15/s      | 1.2 KB/s       |
-| PreeditEnd (commit)                 | ~90 B                | ~5/s       | 450 B/s        |
-| **Total preedit metadata overhead** |                      |            | **~1.65 KB/s** |
-
-Preedit rendering bandwidth is now part of the FrameUpdate cell data (included
-in the normal frame bandwidth, not counted separately). The dedicated preedit
-messages carry only lifecycle/metadata. JSON payloads add ~30 bytes per message
-compared to binary encoding. This is negligible and well worth the debuggability
-gain (seeing `"text": "한"` instead of hex bytes).
-
-### 12.2 Multi-Client Overhead
-
-With N clients attached, preedit metadata messages are sent to each client:
-
-- 2 clients: ~3.3 KB/s preedit metadata overhead
-- 5 clients: ~8.25 KB/s preedit metadata overhead
-- 10 clients: ~16.5 KB/s preedit metadata overhead
-
-FrameUpdate cell data (which includes preedit cells) is serialized once per pane
-and shared via the ring buffer. All well within Unix socket capacity.
-
----
-
 ## 13. Integration with FrameUpdate
 
 ### 13.1 Single-Path Rendering Model
-
-Preedit rendering is through cell data in I/P-frames. The server injects preedit
-cells into the frame cell data when serializing FrameUpdate. The client renders
-all cells uniformly — it has no concept of preedit.
-
-The dedicated preedit messages (0x0400-0x0405) serve a different purpose:
-
-| Mechanism                      | Purpose                                                                                   | Consumer                                    |
-| ------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------- |
-| FrameUpdate cell data (0x0300) | **Rendering**: Preedit cells included in I/P-frame cell data                              | Rendering pipeline                          |
-| PreeditStart/Update/End        | **Lifecycle/metadata**: Ownership, session tracking, multi-client coordination, debugging | Session manager, observers, debugging tools |
-
-A client that only needs to render can ignore all 0x04xx messages. Preedit
-rendering is always available through cell data regardless of capability
-negotiation.
 
 **Capability interaction**: The `"preedit"` capability controls only the
 dedicated PreeditStart/Update/End/Sync messages. Preedit rendering through cell
@@ -912,35 +667,16 @@ data is always available regardless of capability negotiation. A client that
 does not negotiate `"preedit"` still renders preedit correctly — it simply lacks
 the metadata for composition tracking and observer indicators.
 
-**Ring buffer interaction**: All frames (including those containing preedit cell
-data) go through the per-pane shared ring buffer. There is no separate bypass
-path for preedit. Coalescing Tier 0 (Preedit tier, immediate flush at 0ms)
-ensures preedit-containing frames are written to the ring immediately upon
-keystroke. The dedicated preedit protocol messages (0x0400-0x0405) remain
-outside the ring buffer — they are sent directly per-client via the direct
-message queue. PreeditSync is enqueued in the direct message queue (priority 1)
-during resync/recovery, arriving BEFORE the I-frame from the ring. This follows
-the "context before content" principle — the client processes PreeditSync first
-(records composition metadata), then processes the I-frame (renders grid
-including preedit cells with full context). See doc 06 for the full socket write
-priority model.
-
 ### 13.2 Message Ordering
 
-For a single composition keystroke, the server sends messages in this order:
+The server sends context messages before the corresponding FrameUpdate.
+
+For a single composition keystroke:
 
 ```
 1. PreeditUpdate (0x0401)    -- lifecycle/metadata (sent first for observers)
 2. FrameUpdate (0x0300)      -- cell data via ring (includes preedit cells + any grid changes)
 ```
-
-The PreeditUpdate is sent before FrameUpdate. The socket write priority model
-(doc 06 Section 2.3) deterministically delivers direct message queue items
-(including PreeditUpdate) before ring buffer frames (including FrameUpdate) for
-a given socket-writable event, so clients can rely on this ordering. Since
-preedit rendering is through cell data (not PreeditUpdate), the protocol is
-resilient to PreeditUpdate being delayed or dropped — the ordering guarantee is
-a convenience for observers, not a correctness requirement.
 
 For composition end:
 

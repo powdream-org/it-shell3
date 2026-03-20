@@ -158,79 +158,20 @@ All steps complete.
 
 ---
 
-## File 4: Doc 05 — CJK Preedit Protocol
+## File 4: Doc 05 — CJK Preedit Protocol ✅
 
-### 4a. ADRs to write (first occurrence)
+All steps complete. Doc 05 reduced from ~950 lines to ~686 lines.
 
-| ADR # | Topic                                    | Content from this file                                                                                                                                                                                                                                 |
-| ----- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 00026 | Preedit lifecycle on interrupting events | §6.1-6.10 (all decisions: pane close cancels, disconnect commits, focus change commits, mouse button commits/scroll preserves, IME switch commit_current, Escape commits, daemon restart commits); §8.2-8.3 (commit-on-restore, resume deferred to v2) |
-| 00032 | Preedit message simplification           | §2.2/2.4 changes-from (remove composition_state, cursor/width; retain text for multi-client coordination; remove frame_type=2)                                                                                                                         |
+- [x] 4a. ADRs written: 00026, 00032
+- [x] 4b. ADRs extended: 00021, 00023, 00025, 00006
+- [x] 4c. Daemon CTRs written: CTR-11, CTR-15
+- [x] 4d. CTRs extended: CTR-06, CTR-08, CTR-12
+- [x] 4e. IME CTRs extended: behavior CTR-01, interface-contract CTR-01 (done in
+      File 3)
+- [x] 4f. 29 cleanup items applied (+ Gap 1 §2.2, Gap 3 §3.3, Gap 4 §4.1)
 
-### 4b. ADRs to add content to (already created)
-
-| ADR # | Content from this file                                                                                                                             |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 00021 | §1.1 (preedit as cell data rationale, capability decoupling), §13.1 (single-path rendering rationale)                                              |
-| 00023 | §13.2 (message ordering, "context before content principle")                                                                                       |
-| 00025 | §3.3 (input_method identifier architecture — single canonical string, flows unchanged to IME constructor, registry in IME Interface Contract §3.7) |
-| 00006 | §12.1 (JSON overhead ~30 B/msg vs binary, negligible at typing speeds — well worth the debuggability gain)                                         |
-
-### 4c. Daemon CTRs to write (first occurrence)
-
-| CTR #  | Topic                                     | Content from this file                                                                                                                                    |
-| ------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CTR-11 | Preedit race condition server behavior    | §6.1-6.10: server-side cancel/commit procedures, hotkey detection, resize repositioning, keystroke coalescing; §10.1: error handling (log, commit, reset) |
-| CTR-15 | AmbiguousWidthConfig Terminal integration | §4.1: server passes ambiguous_width to pane's libghostty-vt Terminal for cursor movement and line wrapping calculations                                   |
-
-### 4d. Daemon CTRs to add content to (already created)
-
-| CTR #  | Content from this file                                                                                                                                                      |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CTR-06 | §13.1 (ring buffer interaction — preedit frames via shared ring, Tier 0 immediate flush, preedit protocol messages via direct queue, PreeditSync priority 1 before I-frame) |
-| CTR-08 | §7: preedit delivery latency, coalescing bypass                                                                                                                             |
-| CTR-12 | §3.1 (setActiveInputMethod, locking), §3.3 (per-session state), §8.2 (engine initialization on restore)                                                                     |
-
-### 4e. IME CTRs to add content to (already created in File 3)
-
-| Target                 | CTR #  | Content from this file                                                 |
-| ---------------------- | ------ | ---------------------------------------------------------------------- |
-| IME behavior           | CTR-01 | §2.3: Escape behavior rationale ("matches ibus-hangul, fcitx5-hangul") |
-| IME interface-contract | CTR-01 | §1.1 (HangulInputContext, jamo stack), §3.3 (per-session engine state) |
-
-### 4f. Cleanup items
-
-| #  | Section                                       | Lines   | Action            | Target            | Description                          |
-| -- | --------------------------------------------- | ------- | ----------------- | ----------------- | ------------------------------------ |
-| 1  | §1.1 Server owns IME                          | 22-25   | DEL-ADR-exist     | ADR 00013         | "server owns native IME engine"      |
-| 2  | §1.1 Preedit as cell data rationale           | 27-30   | DEL-ADR-new       | ADR 00021         | Dual-path design rationale           |
-| 3  | §1.1 Preedit capability decoupling            | 55-57   | DEL-ADR-new       | ADR 00021         | "controls lifecycle only"            |
-| 4  | §1.1 Preedit exclusivity + HangulInputContext | 67-74   | DEL-ime-CTR       | IME-ic CTR-01     | "one HangulInputContext"             |
-| 5  | §2.3 Escape behavior rationale                | 190-194 | DEL-ADR-new       | ADR 00026         | "matches ibus-hangul"                |
-| 6  | §3.1 Server hotkey detection                  | 277-280 | DEL-daemon-CTR    | CTR-11            | "detects mode-switch hotkeys"        |
-| 7  | §3.1 Server impl (setActiveInputMethod)       | 288-296 | DEL-daemon-CTR    | CTR-12            | Internal API calls, locking          |
-| 8  | §3.3 Per-session engine state                 | 339-343 | DEL-ADR-exist     | ADR 00013         | "one IME engine per session"         |
-| 9  | §5.1 Problem statement framing                | 414-419 | REWRITE           | —                 | Keep reason values; remove framing   |
-| 10 | §6.1 Pane close — cancel behavior             | 444-460 | DEL-ADR-new + CTR | ADR 00026, CTR-11 | Decision + server procedure          |
-| 11 | §6.2 Disconnect — commit rationale            | 469     | DEL-ADR-new       | ADR 00026         | "preserve user's work"               |
-| 12 | §6.3 Resize — repositioning                   | 485-494 | DEL-daemon-CTR    | CTR-11            | "repositions internally"             |
-| 13 | §6.4 Screen switch — PTY commit ref           | 506     | DEL-covered       | Daemon docs       | "defined in daemon docs"             |
-| 14 | §6.5 Rapid keystrokes — coalescing            | 521-529 | DEL-daemon-CTR    | CTR-11            | Coalescing algorithm                 |
-| 15 | §6.7 Focus change — commit                    | 546-550 | DEL-ADR-new + CTR | ADR 00026, CTR-11 | Decision + procedure                 |
-| 16 | §6.8 Session detach — commit                  | 559-566 | DEL-ADR-new       | ADR 00026         | "preserve user's work"               |
-| 17 | §6.9 IME switch — hotkey note                 | 599-602 | DEL-daemon-CTR    | CTR-11            | "hotkey detection path"              |
-| 18 | §6.10 Mouse-preedit rationale                 | 635-638 | DEL-ADR-new       | ADR 00026         | "Button commits, Scroll preserves"   |
-| 19 | §7 Delivery latency (entire)                  | 642-652 | DEL-daemon-CTR    | CTR-08            | Coalescing bypass, latency           |
-| 20 | §8.2 Restore — engine init                    | 703-708 | DEL-daemon-CTR    | CTR-12            | "creates one HangulImeEngine"        |
-| 21 | §8.2 Restore — commit rationale               | 698-701 | DEL-ADR-new       | ADR 00026         | "client no longer connected"         |
-| 22 | §8.3 Resume composition (future)              | 710-724 | DEL-ADR-new       | ADR 00026         | Deferred to v2; add to 99-post-v1    |
-| 23 | §9.1 Server rendering details                 | 735-738 | REWRITE           | —                 | Keep disclaimer; remove examples     |
-| 24 | §9.2 Observer UI features                     | 764-778 | REWRITE           | —                 | Keep wire fields; remove UI guidance |
-| 25 | §10.1 Invalid composition error handling      | 784-793 | DEL-daemon-CTR    | CTR-11            | "Log, commit, reset"                 |
-| 26 | §12 Bandwidth analysis (entire)               | 859-889 | DEL               | —                 | Non-normative                        |
-| 27 | §13.1 Single-path rendering rationale         | 894-915 | DEL-ADR-new       | ADR 00021         | Architecture explanation             |
-| 28 | §13.1 Ring buffer interaction                 | 917-928 | DEL-daemon-CTR    | CTR-06            | Ring vs direct queue                 |
-| 29 | §13.2 Message ordering                        | 930-952 | DEL-ADR-new       | ADR 00023         | "context before content"             |
+**Note**: §5 section numbering has a gap (§5.1 deleted, §5.2 remains); §12
+deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 
 ---
 
