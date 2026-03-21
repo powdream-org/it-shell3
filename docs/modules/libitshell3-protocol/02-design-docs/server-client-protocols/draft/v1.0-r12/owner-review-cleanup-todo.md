@@ -180,7 +180,7 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 
 ## File 5: Doc 02 — Handshake & Capability Negotiation ✅
 
-All steps complete.
+All steps complete. Doc 02 reduced from ~1017 lines to ~879 lines.
 
 - [x] 5a. ADRs written: 00041, 00042
 - [x] 5b. ADRs extended: 00023, 00024, 00025
@@ -188,76 +188,18 @@ All steps complete.
 - [x] 5d. CTRs extended: CTR-06, CTR-08, CTR-09
 - [x] 5e. 26 cleanup items applied
 
-### 5a. ADRs to write (first occurrence)
+**Pending — cross-doc items from ADR 00040** (target Doc 01, Doc 04,
+99-post-v1-features.md; to be applied during final ADR 00040 cross-doc pass):
 
-| ADR # | Topic                                            | Content from this file                                                                                                     |
-| ----- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| 00019 | Per-session focus model (v1)                     | §8.9: viewport clipping (related); main content from Doc 03 §8.1 — **write together with File 6 ADR 00019 entry**          |
-| 00040 | YAGNI compression removal (supersedes ADR 00014) | Doc 01 §3.4/§3.5; Doc 02 §2.3/§4.1/§9.9; Doc 04 §8; 99-post-v1 §7 — ✅ WRITTEN                                             |
-| 00041 | YAGNI: Remove `celldata_encoding` capability     | Doc 02: capability table row (346), §4.2 entire section (360-391), pseudocode block (620-629), degradation table row (957) |
-| 00042 | Per-client viewports declined                    | §8.9 lines 920-922 (Doc 02); §8.9 also in Doc 03 if referenced — breaks shared ring buffer (memory/compute/transfer)       |
-
-### 5b. ADRs to add content to (already created)
-
-| ADR # | Content from this file                                            |
-| ----- | ----------------------------------------------------------------- |
-| 00023 | §8.2 (direct message queue, priority 1)                           |
-| 00024 | §2.1 (string arrays over bitmasks)                                |
-| 00025 | §5.3 (two-axis model, string identifiers, field naming asymmetry) |
-
-### 5c. Daemon CTRs to write (new)
-
-| CTR #  | Content from this file                                                                                                                                                                                       |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CTR-17 | §7.1–§7.3 server negotiation algorithms — `min()` version selection (566-575), capability intersection pseudocode (582-585), render caps intersection + validation (592-601) — move to daemon handshake docs |
-
-### 5d. Daemon CTRs to add content to (already created)
-
-| CTR #  | Content from this file                                                                |
-| ------ | ------------------------------------------------------------------------------------- |
-| CTR-06 | §8.6 (ring buffer / coalescing tiers)                                                 |
-| CTR-08 | §6.2 (server coalescing behavior), §6.3 (iOS tier breakdown)                          |
-| CTR-09 | §11.1 (auth ref), §11.3 (timeout values)                                              |
-| CTR-16 | Daemon 03-lifecycle `capabilities` field example — ✅ WRITTEN (ADR 00040 consequence) |
-
-### 5e. Cleanup items
-
-| #  | Section                            | Lines     | Action         | Target              | Description                                                                              |
-| -- | ---------------------------------- | --------- | -------------- | ------------------- | ---------------------------------------------------------------------------------------- |
-| 1  | §2.1 String capabilities rationale | 112-115   | DEL-ADR-new    | ADR 00024           | "Instead of bitmasks"                                                                    |
-| 2  | §3.2 tab_count removal note        | 260-266   | DEL-ADR-exist  | ADR 00008           | "v0.2 change" changelog relic                                                            |
-| 3  | §2.3 "compression" row             | 334       | DEL-ADR-exist  | ADR 00040           | Delete capability row; shift bit numbers down                                            |
-| 4  | §2.3 `celldata_encoding` cap row   | 346       | DEL-ADR-new    | ADR 00041           | Delete capability table row                                                              |
-| 5  | §4.1 compression note              | 350-351   | DEL-ADR-exist  | ADR 00040           | Delete 2-line compression deferral note                                                  |
-| 6  | §4.2 CELLDATA_ENCODING section     | 360-391   | DEL-ADR-new    | ADR 00041           | Delete entire section                                                                    |
-| 7  | §5.3 Two-axis model explanation    | 423-425   | REWRITE        | ADR 00025           | Keep field names/enum values; move separation rationale to ADR                           |
-| 8  | §5.3 Field naming asymmetry        | 475-478   | DEL-ADR-new    | ADR 00025           | layout vs layouts                                                                        |
-| 9  | §5.3 String identifier rationale   | 480-484   | DEL-ADR-new    | ADR 00025           | "self-documenting"                                                                       |
-| 10 | §6.2 Server coalescing behavior    | 522-524   | DEL-daemon-CTR | CTR-08              | Power throttling, fps cap                                                                |
-| 11 | §6.2 Design decision (client RTT)  | 533-536   | DEL-ADR-exist  | ADR 00011           | "client is the only entity"                                                              |
-| 12 | §6.3 iOS example tier breakdown    | 551-556   | DEL-daemon-CTR | CTR-08              | Tier calculations                                                                        |
-| 13 | §7.1 Version selection algorithm   | 566-575   | REWRITE        | CTR-17              | Replace pseudocode with wire fact (ERR_VERSION_MISMATCH); move min() algorithm to daemon |
-| 14 | §7.2 intersection pseudocode       | 582-585   | REWRITE        | CTR-17              | Replace pseudocode with prose; move server algorithm to daemon                           |
-| 15 | §7.3 render caps pseudocode        | 592-601   | REWRITE        | CTR-17              | Keep ERR_CAPABILITY_REQUIRED wire fact; move intersection + validation to daemon         |
-| 16 | §7.5 CELLDATA_ENCODING Negotiation | 615-630   | DEL-ADR-new    | ADR 00041           | Delete entire §7.5 section (v2+ no-op)                                                   |
-| 17 | §8.2 IME per-session rationale     | 716-721   | REWRITE        | ADR 00013           | Keep field location wire facts; move per-session engine rationale to ADR                 |
-| 18 | §8.2 Direct message queue          | 732-735   | REWRITE        | ADR 00023           | Keep PreeditSync ordering rule; move "context before content" principle ref to ADR       |
-| 19 | §8.6 Preedit exclusivity ref       | 872-874   | ~~REWRITE~~    | —                   | ~~Keep wire fact; trim~~ ✅                                                              |
-| 20 | §8.6 Ring buffer / coalescing      | 875-878   | DEL-daemon-CTR | CTR-06              | "shared per-pane ring buffer"                                                            |
-| 21 | §8.9 Viewport clipping             | 920-922   | DEL-ADR-new    | ADR 00042           | "deferred to v2" → declined; per-client viewports break shared ring buffer               |
-| 22 | §8.9 Resize internals ref          | 924-925   | DEL-covered    | Daemon 04-runtime   | "defined in daemon docs"                                                                 |
-| 23 | §9.9 fallback table                | 950       | DEL-ADR-exist  | ADR 00040           | Delete "compression" fallback row                                                        |
-| 24 | §9.9 degradation table row         | 957       | DEL-ADR-new    | ADR 00041           | Delete `celldata_encoding` degradation row                                               |
-| 25 | §11.1 Auth implementation ref      | 999-1000  | DEL-covered    | Daemon 03-lifecycle | "defined in daemon docs"                                                                 |
-| 26 | §11.3 Handshake timeout values     | 1012-1017 | DEL-daemon-CTR | CTR-09              | Duration values                                                                          |
-| —  | _(cross-doc items from ADR 00040)_ | —         | —              | —                   | —                                                                                        |
-| 27 | **Doc 01** §3.4 COMPRESSED row     | 148       | DEL-ADR-exist  | ADR 00040           | Delete row; shift RESPONSE/ERROR/MORE_FRAGMENTS bits                                     |
-| 28 | **Doc 01** §3.4 flags example      | 158       | DEL-ADR-exist  | ADR 00040           | Remove "ENCODING=1 + COMPRESSED=1" example                                               |
-| 29 | **Doc 01** §3.5 Compression        | 233-237   | DEL-ADR-exist  | ADR 00040           | Delete entire §3.5 section                                                               |
-| 30 | **Doc 01** §9.3 ERR_PROTOCOL_ERROR | 766       | DEL-ADR-exist  | ADR 00040           | Remove "COMPRESSED" from error description example                                       |
-| 31 | **99-post-v1** §7 reserved lang    | 271-272   | DEL-ADR-exist  | ADR 00040           | Remove "COMPRESSED flag reserved" sentence                                               |
-| 32 | **Doc 04** §8 Compression          | 975-981   | DEL-ADR-exist  | ADR 00040           | Delete COMPRESSED flag paragraph                                                         |
-| 33 | **Doc 04** §8 wire dump comment    | 1033      | DEL-ADR-exist  | ADR 00040           | Remove "no compression" annotation                                                       |
+| #  | Section                            | Lines   | Action        | Target    | Description                                          |
+| -- | ---------------------------------- | ------- | ------------- | --------- | ---------------------------------------------------- |
+| 27 | **Doc 01** §3.4 COMPRESSED row     | 148     | DEL-ADR-exist | ADR 00040 | Delete row; shift RESPONSE/ERROR/MORE_FRAGMENTS bits |
+| 28 | **Doc 01** §3.4 flags example      | 158     | DEL-ADR-exist | ADR 00040 | Remove "ENCODING=1 + COMPRESSED=1" example           |
+| 29 | **Doc 01** §3.5 Compression        | 233-237 | DEL-ADR-exist | ADR 00040 | Delete entire §3.5 section                           |
+| 30 | **Doc 01** §9.3 ERR_PROTOCOL_ERROR | 766     | DEL-ADR-exist | ADR 00040 | Remove "COMPRESSED" from error description example   |
+| 31 | **99-post-v1** §7 reserved lang    | 271-272 | DEL-ADR-exist | ADR 00040 | Remove "COMPRESSED flag reserved" sentence           |
+| 32 | **Doc 04** §8 Compression          | 975-981 | DEL-ADR-exist | ADR 00040 | Delete COMPRESSED flag paragraph                     |
+| 33 | **Doc 04** §8 wire dump comment    | 1033    | DEL-ADR-exist | ADR 00040 | Remove "no compression" annotation                   |
 
 ---
 
