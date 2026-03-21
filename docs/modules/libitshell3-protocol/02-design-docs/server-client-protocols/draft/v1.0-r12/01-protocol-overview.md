@@ -145,18 +145,16 @@ handle everything else.
 Bit  Name            Description
 ---  ----            -----------
  0   ENCODING        Payload encoding: 0 = JSON payload, 1 = binary payload
- 1   COMPRESSED      Reserved for future use (see Section 3.5)
- 2   RESPONSE        This message is a response to a request (sequence = request's sequence)
- 3   ERROR           This message is an error response (implies RESPONSE)
- 4   MORE_FRAGMENTS  More fragments follow (for messages exceeding max fragment size)
-5-7  (reserved)      Must be 0
+ 1   RESPONSE        This message is a response to a request (sequence = request's sequence)
+ 2   ERROR           This message is an error response (implies RESPONSE)
+ 3   MORE_FRAGMENTS  More fragments follow (for messages exceeding max fragment size)
+4-7  (reserved)      Must be 0
 ```
 
 Bit numbering is LSB-first: bit 0 is the least significant bit (0x01), bit 7 is
 the most significant bit (0x80).
 
-Example: ENCODING=1 only → flags byte = `0x01`. ENCODING=1 + COMPRESSED=1 →
-flags byte = `0x03`.
+Example: ENCODING=1 only → flags byte = `0x01`.
 
 **Encoding flag semantics:**
 
@@ -230,14 +228,7 @@ never used as request/response pairs).
 
 The sequence counter wraps at `0xFFFFFFFF` back to 1 (skipping 0).
 
-### 3.5 Compression
-
-The COMPRESSED flag (bit 1) is reserved for future use. In protocol version 1,
-compression is not implemented. Senders MUST NOT set the COMPRESSED flag.
-Receivers that encounter COMPRESSED=1 SHOULD send `ERR_PROTOCOL_ERROR` (setting
-a reserved flag is a protocol violation).
-
-### 3.6 JSON Payload Conventions
+### 3.5 JSON Payload Conventions
 
 All messages with ENCODING=0 (JSON) follow these conventions:
 
@@ -248,7 +239,7 @@ All messages with ENCODING=0 (JSON) follow these conventions:
   Receivers MUST tolerate both missing keys and `null` values as "absent"
   (defensive parsing for forward/backward compatibility).
 
-### 3.7 Fragmentation
+### 3.6 Fragmentation
 
 Messages larger than 1 MiB should be fragmented:
 
@@ -755,28 +746,28 @@ The `Error` message (`0x00FF`) uses JSON encoding (ENCODING=0):
 
 ### 6.3 Core Error Codes
 
-| Code         | Name                           | Description                                                                   |
-| ------------ | ------------------------------ | ----------------------------------------------------------------------------- |
-| `0x00000001` | `ERR_BAD_MAGIC`                | Invalid magic bytes in header                                                 |
-| `0x00000002` | `ERR_UNSUPPORTED_VERSION`      | Protocol version not supported                                                |
-| `0x00000003` | `ERR_BAD_MSG_TYPE`             | Unknown message type ID                                                       |
-| `0x00000004` | `ERR_PAYLOAD_TOO_LARGE`        | Payload exceeds maximum size                                                  |
-| `0x00000005` | `ERR_INVALID_STATE`            | Message not allowed in current connection state                               |
-| `0x00000006` | `ERR_MALFORMED_PAYLOAD`        | Payload fails to parse                                                        |
-| `0x00000007` | `ERR_PROTOCOL_ERROR`           | Generic protocol violation (e.g., setting a reserved flag such as COMPRESSED) |
-| `0x00000008` | `ERR_BAD_ENCODING`             | ENCODING flag does not match expected encoding for message type               |
-| `0x00000100` | `ERR_VERSION_MISMATCH`         | No mutually supported protocol version                                        |
-| `0x00000101` | `ERR_AUTH_FAILED`              | Authentication failed (UID mismatch)                                          |
-| `0x00000102` | `ERR_CAPABILITY_REQUIRED`      | Required capability not supported by peer                                     |
-| `0x00000200` | `ERR_SESSION_NOT_FOUND`        | Referenced session does not exist                                             |
-| `0x00000201` | `ERR_SESSION_ALREADY_ATTACHED` | Client already attached to a session                                          |
-| `0x00000202` | `ERR_SESSION_LIMIT`            | Maximum number of sessions reached                                            |
-| `0x00000203` | `ERR_ACCESS_DENIED`            | Operation not permitted (e.g., readonly client sending input)                 |
-| `0x00000300` | `ERR_PANE_NOT_FOUND`           | Referenced pane does not exist                                                |
-| `0x00000301` | `ERR_PANE_EXITED`              | Pane's process has exited                                                     |
-| `0x00000302` | `ERR_SPLIT_FAILED`             | Cannot split pane (too small, etc.)                                           |
-| `0x00000600` | `ERR_RESOURCE_EXHAUSTED`       | Server resource limit reached                                                 |
-| `0x00000601` | `ERR_RATE_LIMITED`             | Too many requests                                                             |
+| Code         | Name                           | Description                                                     |
+| ------------ | ------------------------------ | --------------------------------------------------------------- |
+| `0x00000001` | `ERR_BAD_MAGIC`                | Invalid magic bytes in header                                   |
+| `0x00000002` | `ERR_UNSUPPORTED_VERSION`      | Protocol version not supported                                  |
+| `0x00000003` | `ERR_BAD_MSG_TYPE`             | Unknown message type ID                                         |
+| `0x00000004` | `ERR_PAYLOAD_TOO_LARGE`        | Payload exceeds maximum size                                    |
+| `0x00000005` | `ERR_INVALID_STATE`            | Message not allowed in current connection state                 |
+| `0x00000006` | `ERR_MALFORMED_PAYLOAD`        | Payload fails to parse                                          |
+| `0x00000007` | `ERR_PROTOCOL_ERROR`           | Generic protocol violation (e.g., setting a reserved flag)      |
+| `0x00000008` | `ERR_BAD_ENCODING`             | ENCODING flag does not match expected encoding for message type |
+| `0x00000100` | `ERR_VERSION_MISMATCH`         | No mutually supported protocol version                          |
+| `0x00000101` | `ERR_AUTH_FAILED`              | Authentication failed (UID mismatch)                            |
+| `0x00000102` | `ERR_CAPABILITY_REQUIRED`      | Required capability not supported by peer                       |
+| `0x00000200` | `ERR_SESSION_NOT_FOUND`        | Referenced session does not exist                               |
+| `0x00000201` | `ERR_SESSION_ALREADY_ATTACHED` | Client already attached to a session                            |
+| `0x00000202` | `ERR_SESSION_LIMIT`            | Maximum number of sessions reached                              |
+| `0x00000203` | `ERR_ACCESS_DENIED`            | Operation not permitted (e.g., readonly client sending input)   |
+| `0x00000300` | `ERR_PANE_NOT_FOUND`           | Referenced pane does not exist                                  |
+| `0x00000301` | `ERR_PANE_EXITED`              | Pane's process has exited                                       |
+| `0x00000302` | `ERR_SPLIT_FAILED`             | Cannot split pane (too small, etc.)                             |
+| `0x00000600` | `ERR_RESOURCE_EXHAUSTED`       | Server resource limit reached                                   |
+| `0x00000601` | `ERR_RATE_LIMITED`             | Too many requests                                               |
 
 ### 6.4 Recovery Strategies
 

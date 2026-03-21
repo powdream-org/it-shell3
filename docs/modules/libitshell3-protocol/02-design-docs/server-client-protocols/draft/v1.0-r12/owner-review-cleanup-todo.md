@@ -188,18 +188,8 @@ All steps complete. Doc 02 reduced from ~1017 lines to ~879 lines.
 - [x] 5d. CTRs extended: CTR-06, CTR-08, CTR-09
 - [x] 5e. 26 cleanup items applied
 
-**Pending — cross-doc items from ADR 00040** (target Doc 01, Doc 04,
-99-post-v1-features.md; to be applied during final ADR 00040 cross-doc pass):
-
-| #  | Section                            | Lines   | Action        | Target    | Description                                          |
-| -- | ---------------------------------- | ------- | ------------- | --------- | ---------------------------------------------------- |
-| 27 | **Doc 01** §3.4 COMPRESSED row     | 148     | DEL-ADR-exist | ADR 00040 | Delete row; shift RESPONSE/ERROR/MORE_FRAGMENTS bits |
-| 28 | **Doc 01** §3.4 flags example      | 158     | DEL-ADR-exist | ADR 00040 | Remove "ENCODING=1 + COMPRESSED=1" example           |
-| 29 | **Doc 01** §3.5 Compression        | 233-237 | DEL-ADR-exist | ADR 00040 | Delete entire §3.5 section                           |
-| 30 | **Doc 01** §9.3 ERR_PROTOCOL_ERROR | 766     | DEL-ADR-exist | ADR 00040 | Remove "COMPRESSED" from error description example   |
-| 31 | **99-post-v1** §7 reserved lang    | 271-272 | DEL-ADR-exist | ADR 00040 | Remove "COMPRESSED flag reserved" sentence           |
-| 32 | **Doc 04** §8 Compression          | 975-981 | DEL-ADR-exist | ADR 00040 | Delete COMPRESSED flag paragraph                     |
-| 33 | **Doc 04** §8 wire dump comment    | 1033    | DEL-ADR-exist | ADR 00040 | Remove "no compression" annotation                   |
+**Note**: Cross-doc items 27–33 (ADR 00040 COMPRESSED flag removal) applied to
+Doc 01, Doc 04, and 99-post-v1-features.md. ✅
 
 ---
 

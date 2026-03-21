@@ -972,22 +972,9 @@ target. See doc 01 Section 10 for the wire-observable delivery model.
 
 ---
 
-## 8. Compression
+## 8. Message Type Summary
 
-### 8.1 Reserved for Future Use
-
-The COMPRESSED flag (bit 1 of the header flags byte) is reserved for future use.
-In protocol version 1, compression is not implemented. Senders MUST NOT set the
-COMPRESSED flag. Receivers that encounter COMPRESSED=1 SHOULD send
-`ERR_PROTOCOL_ERROR`.
-
-See ADR 00014 for the rationale.
-
----
-
-## 9. Message Type Summary
-
-### 9.1 Input Messages (Client -> Server): 0x0200-0x02FF
+### 8.1 Input Messages (Client -> Server): 0x0200-0x02FF
 
 All input messages use JSON payloads (16-byte binary header + JSON body).
 
@@ -1001,7 +988,7 @@ All input messages use JSON payloads (16-byte binary header + JSON body).
 | `0x0205` | PasteData   | Clipboard paste, chunked (JSON)                   |
 | `0x0206` | FocusEvent  | Window focus gained/lost (JSON)                   |
 
-### 9.2 RenderState Messages (Server -> Client): 0x0300-0x03FF
+### 8.2 RenderState Messages (Server -> Client): 0x0300-0x03FF
 
 | Type     | Name           | Encoding               | Description                                            |
 | -------- | -------------- | ---------------------- | ------------------------------------------------------ |
@@ -1030,7 +1017,7 @@ Offset  Hex                                       Description
         -- 16-byte message header --
 0000    49 54                                     magic "IT"
 0002    01                                        version 1
-0003    01                                        flags (ENCODING=1 binary, no compression)
+0003    01                                        flags (ENCODING=1 binary)
 0004    00 03                                     type 0x0300 (FrameUpdate)
 0006    00 00                                     reserved
 0008    XX XX XX XX                               payload_len (varies)

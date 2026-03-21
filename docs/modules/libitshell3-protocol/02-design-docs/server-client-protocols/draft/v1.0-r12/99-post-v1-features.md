@@ -268,8 +268,7 @@ UnderlineColorTable formats.
 
 v1 has no application-layer compression. SSH's built-in compression
 (`Compression yes`) covers WAN scenarios. Neither tmux nor zellij compresses at
-the application protocol layer. The COMPRESSED flag (header bit 1) and
-`"compression"` capability name are reserved for potential future use.
+the application protocol layer.
 
 If benchmarking in v2 shows benefit beyond SSH compression, application-layer
 compression should be added with explicit exclusion of Preedit and Interactive
