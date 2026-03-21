@@ -12,9 +12,10 @@ IDs (compact, opaque) or string identifiers (self-documenting, extensible).
 
 Numeric IDs require a shared mapping table between client and server and any
 third-party tooling. Adding a new input method requires reserving a numeric
-range and updating the table everywhere. On a Unix socket at typing speeds (~15
-keystrokes/s), the ~13-byte overhead of a string identifier per KeyEvent is
-negligible (not a performance constraint).
+range and updating the table everywhere. String identifiers are used in every
+input message, including KeyEvent, because all input messages are JSON-encoded —
+no special encoding path is needed. The ~13-byte overhead per KeyEvent is
+irrelevant at typing speeds (~15/s) over a >1 GB/s Unix socket.
 
 The protocol also needed a clear boundary for where the string identifier is
 decomposed into engine-specific types — without this, multiple code sites would
@@ -44,25 +45,29 @@ every KeyEvent for the duration of the session.
 The `keyboard_layout` axis (physical key mapping, e.g., `"qwerty"`, `"dvorak"`)
 is a separate, orthogonal per-session property and is not encoded in the
 `input_method` string. It is established at handshake and omitted from KeyEvent.
+Keeping the two axes independent means swapping keyboard layout (e.g., from
+QWERTY to Dvorak) does not affect which composition engine is active, and vice
+versa.
+
+The keyboard layout field uses different cardinality in ClientHello vs
+ServerHello: `layout` (singular, optional) in client preferences vs `layouts`
+(plural, array) in server capabilities. This asymmetry is intentional — a client
+preference expresses one layout choice per input method; a server capability
+advertises all available options.
 
 Both `input_method` and `keyboard_layout` are stored at session level, not per
 pane. All panes in a session share the same engine state; no per-pane IME fields
-are stored in session snapshots.
-
-The client tracks one `active_input_method` per session. It is initialized from
-`AttachSessionResponse` and updated incrementally by `InputMethodAck` (0x0405)
-on every subsequent input method switch.
+are stored in session snapshots. The client tracks one `active_input_method` per
+session.
 
 ## Consequences
 
 - Identifiers are self-documenting on the wire — a packet capture is readable
   without consulting a numeric table.
 - Adding a new input method requires only a new string value in the registry; no
-  schema migration, no reserved numeric range allocation.
+  schema migration, no reserved numeric range allocation, no bit exhaustion.
 - The decomposition boundary is explicit: only the engine constructor knows how
   to map `"korean_2set"` to a libhangul keyboard constant. All other layers
   treat the string as opaque.
 - The IME Interface Contract Section 3.7 is the authoritative registry; clients,
   server, and tooling all defer to it. No local mapping tables.
-- ~13 bytes per KeyEvent overhead is irrelevant at typing speeds over a local
-  Unix socket.

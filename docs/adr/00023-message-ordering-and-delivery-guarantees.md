@@ -42,11 +42,11 @@ enabling observers to interpret cell data with correct composition context.
   write loop, no cross-message dependency tracking.
 - Direct queue messages are small and infrequent relative to frame data, so the
   priority drain does not starve frame delivery in practice.
-- For a single composition keystroke, the server sends messages in this order:
-  PreeditUpdate (0x0401) first, then FrameUpdate (0x0300). For composition end:
-  PreeditEnd (0x0402) first, then FrameUpdate. PreeditUpdate/PreeditEnd are sent
-  "first for observers" — they travel through the direct message queue, which is
-  drained before ring buffer frames on each socket-writable event.
+- The "context before content" guarantee holds across the full session
+  lifecycle, not just during live keystroke sequences. At session attach time,
+  preedit context (if any pane has active composition) is guaranteed to arrive
+  at the client before the I-frames that reflect it, because PreeditSync travels
+  through the direct message queue which is always drained first.
 - Because preedit rendering is through cell data (not PreeditUpdate), the
   ordering guarantee is a convenience for observers, not a correctness
   requirement. The protocol is resilient to PreeditUpdate being delayed or

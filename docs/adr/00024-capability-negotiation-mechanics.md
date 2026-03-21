@@ -28,6 +28,14 @@ intersection of the two arrays. Features outside the intersection are not used
 for that connection, regardless of what either side's version number might
 suggest.
 
+String arrays are used rather than bitmasks because they are self-documenting
+and debuggable — a packet capture is readable without consulting a bit-position
+table. The server maps the received strings to internal bitmask representations
+for efficient runtime checks. Unknown capability names are silently ignored,
+providing forward compatibility: a new client connecting to an older server can
+advertise capabilities the server does not recognize without breaking the
+handshake.
+
 Post-handshake, an extension negotiation mechanism (`ExtensionList` /
 `ExtensionListAck`) allows declaring and accepting optional protocol extensions
 with per-extension versioning and configuration, independent of the base

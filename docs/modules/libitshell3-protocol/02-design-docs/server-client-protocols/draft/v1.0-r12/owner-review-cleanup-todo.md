@@ -193,7 +193,6 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 
 | ADR # | Content from this file                                            |
 | ----- | ----------------------------------------------------------------- |
-| 00020 | §8.6 (multi-client input ordering)                                |
 | 00023 | §8.2 (direct message queue, priority 1)                           |
 | 00024 | §2.1 (string arrays over bitmasks)                                |
 | 00025 | §5.3 (two-axis model, string identifiers, field naming asymmetry) |

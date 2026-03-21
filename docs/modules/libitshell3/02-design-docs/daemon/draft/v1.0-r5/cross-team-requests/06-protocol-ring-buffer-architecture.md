@@ -69,27 +69,33 @@ field, keyframe interval) remain in the protocol spec.
    message queue (outside the ring buffer); and that PreeditSync is enqueued in
    the direct message queue (priority 1) during resync/recovery, arriving BEFORE
    the I-frame from the ring, following the "context before content" principle.
+10. **Multi-client ring read and coalescing tier linkage (from Doc 02 §8.6)**:
+    Document that all clients receive `FrameUpdate` messages for all panes in
+    the attached session from the shared per-pane ring buffer (not just the
+    focused pane), and that each client reads from the ring at its own cursor
+    position via per-(client, pane) coalescing tiers.
 
 ## Summary Table
 
-| Target Doc            | Section/Message                    | Change Type | Source Resolution              |
-| --------------------- | ---------------------------------- | ----------- | ------------------------------ |
-| Internal architecture | Ring buffer design                 | Add         | Protocol v1.0-r12 Doc 01 §5.8  |
-| Runtime policies      | I-frame recovery                   | Add         | Protocol v1.0-r12 Doc 01 §5.8  |
-| Runtime policies      | Preedit delivery path              | Add         | Protocol v1.0-r12 Doc 01 §5.8  |
-| Internal architecture | Ring buffer background             | Add         | Protocol v1.0-r12 Doc 06 §2.1  |
-| Internal architecture | Two-channel write priority         | Add         | Protocol v1.0-r12 Doc 06 §2.3  |
-| Runtime policies      | ContinuePane cursor reset          | Add         | Protocol v1.0-r12 Doc 06 §2.5  |
-| Internal architecture | Per-pane dirty tracking            | Add         | Protocol v1.0-r12 Doc 04 §3.1  |
-| Internal architecture | I-frame scheduling                 | Add         | Protocol v1.0-r12 Doc 04 §7.3  |
-| Runtime policies      | Preedit ring/direct queue ordering | Add         | Protocol v1.0-r12 Doc 05 §13.1 |
+| Target Doc            | Section/Message                         | Change Type | Source Resolution              |
+| --------------------- | --------------------------------------- | ----------- | ------------------------------ |
+| Internal architecture | Ring buffer design                      | Add         | Protocol v1.0-r12 Doc 01 §5.8  |
+| Runtime policies      | I-frame recovery                        | Add         | Protocol v1.0-r12 Doc 01 §5.8  |
+| Runtime policies      | Preedit delivery path                   | Add         | Protocol v1.0-r12 Doc 01 §5.8  |
+| Internal architecture | Ring buffer background                  | Add         | Protocol v1.0-r12 Doc 06 §2.1  |
+| Internal architecture | Two-channel write priority              | Add         | Protocol v1.0-r12 Doc 06 §2.3  |
+| Runtime policies      | ContinuePane cursor reset               | Add         | Protocol v1.0-r12 Doc 06 §2.5  |
+| Internal architecture | Per-pane dirty tracking                 | Add         | Protocol v1.0-r12 Doc 04 §3.1  |
+| Internal architecture | I-frame scheduling                      | Add         | Protocol v1.0-r12 Doc 04 §7.3  |
+| Runtime policies      | Preedit ring/direct queue ordering      | Add         | Protocol v1.0-r12 Doc 05 §13.1 |
+| Internal architecture | Multi-client ring read / coalescing tie | Add         | Protocol v1.0-r12 Doc 02 §8.6  |
 
-## Reference: Original Protocol Text (removed from Doc 01 §5.8)
+## Reference: Original Protocol Text
+
+### From Doc 01 §5.8 — I/P-Frame Model and Shared Ring Buffer
 
 The following is the original text as it appeared in the protocol spec before
 removal. Provided as reference for the daemon team — adapt as needed.
-
-### 5.8 I/P-Frame Model and Shared Ring Buffer
 
 The server uses an I-frame/P-frame model with periodic keyframes for
 multi-client rendering state delivery, analogous to video codec keyframes:
@@ -119,21 +125,21 @@ See doc 04 Section 4 for the `frame_type` wire format and I/P-frame semantics.
 See doc 06 Section 2 for ring buffer sizing, socket write priority, and recovery
 procedures.
 
-## Reference: Original Protocol Text (removed from Doc 06)
+### From Doc 06 — cross-reference (ring buffer architecture)
 
 The following is the original text from Doc 06 that references daemon
 implementation details. These sections remain in the protocol spec as
 forward-references to daemon design docs; the text below provides context for
 what the daemon must define.
 
-### From Doc 06 §2.1 — Background
+#### From Doc 06 §2.1 — Background
 
 When a pane produces output faster than a client can consume it, the server
 manages delivery through a shared per-pane ring buffer with per-client read
 cursors and an I/P-frame model (doc 04). Ring buffer architecture and
 implementation details are defined in daemon design docs.
 
-### From Doc 06 §2.3 — Delivery Model Overview (Two-Channel Mechanism)
+#### From Doc 06 §2.3 — Delivery Model Overview (Two-Channel Mechanism)
 
 The server maintains a shared per-pane ring buffer for frame delivery. All frame
 data (I-frames and P-frames) is written once to the ring. Per-client read
@@ -148,20 +154,20 @@ first, then writes ring buffer frames. This guarantees that context messages
 before the `FrameUpdate` that reflects the same state change — enabling
 observers to interpret cell data with correct composition context.
 
-### From Doc 06 §2.5 — ContinuePane Ring Cursor Reset
+#### From Doc 06 §2.5 — ContinuePane Ring Cursor Reset
 
 The server advances the client's ring cursor to the latest I-frame. The client
 receives the I-frame (a complete self-contained terminal state) and resumes
 normal incremental delivery from that point. No `last_processed_seq` field is
 needed — the ring cursor position already tracks the client's state.
 
-## Reference: Original Protocol Text (removed from Doc 04)
+### From Doc 04 — daemon implementation details
 
 The following is the original text from Doc 04 that contains daemon
 implementation details. Provided as reference for the daemon team — adapt as
 needed.
 
-### From Doc 04 §3.1 — Per-Pane Dirty Tracking (I/P-Frame Model)
+#### From Doc 04 §3.1 — Per-Pane Dirty Tracking (I/P-Frame Model)
 
 > **Normative note — Per-pane dirty tracking (I/P-frame model)**: The server
 > maintains a single dirty bitmap per pane. Frame data (I-frames and P-frames)
@@ -171,7 +177,7 @@ needed.
 > different subsets of frames from the same sequence, but each frame's content
 > is identical regardless of which client receives it.
 
-### From Doc 04 §7.3 — I-Frame Scheduling Algorithm
+#### From Doc 04 §7.3 — I-Frame Scheduling Algorithm
 
 **I-frame scheduling**: I-frames (keyframes) are produced periodically (default:
 every 1 second, configurable 0.5-5 seconds via server configuration). When the
@@ -182,13 +188,11 @@ exist, the server sends `frame_type=1` (I-frame) containing all rows. The
 I-frame timer is independent of the coalescing tiers — it fires at a fixed
 interval regardless of PTY throughput.
 
-## Reference: Original Protocol Text (from Doc 05 §13.1)
+### From Doc 05 §13.1 — Ring Buffer Interaction
 
 The following is the original text from Doc 05 §13.1 (CJK Preedit Sync and IME
 Protocol) describing ring buffer interaction with preedit. Provided as reference
 for the daemon team — adapt as needed.
-
-### From Doc 05 §13.1 — Ring Buffer Interaction
 
 **Ring buffer interaction**: All frames (including those containing preedit cell
 data) go through the per-pane shared ring buffer. There is no separate bypass
@@ -202,3 +206,14 @@ the "context before content" principle — the client processes PreeditSync firs
 (records composition metadata), then processes the I-frame (renders grid
 including preedit cells with full context). See doc 06 for the full socket write
 priority model.
+
+### From Doc 02 §8.6 — Frame Updates (Multi-Client Session Behavior)
+
+The following is the original text from Doc 02 §8.6 (multi-client session
+behavior) describing the per-pane ring buffer and per-(client, pane) coalescing
+tier linkage. Provided as reference for the daemon team — adapt as needed.
+
+4. **Frame updates**: All clients receive `FrameUpdate` messages for all panes
+   in the attached session from the shared per-pane ring buffer, not just the
+   focused pane. Each client reads from the ring at its own cursor position via
+   per-(client, pane) coalescing tiers.
