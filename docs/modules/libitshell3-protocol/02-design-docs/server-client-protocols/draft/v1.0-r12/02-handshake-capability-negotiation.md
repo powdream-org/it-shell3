@@ -109,11 +109,6 @@ payload is a JSON object.
 | `pixel_width`             | u16      | Pixel width of the terminal area (0 if unknown)                      |
 | `pixel_height`            | u16      | Pixel height of the terminal area (0 if unknown)                     |
 
-**Capability arrays**: Instead of bitmasks, JSON payloads use arrays of string
-names for self-documentation and debuggability. The server maps these to
-internal bitmask representations. Unknown capability names are ignored (forward
-compatibility).
-
 **Input method objects**: Each entry in `preferred_input_methods` is an object
 with a required `method` field and an optional `layout` field (omitted =
 `"qwerty"` default, per the JSON optional field convention). See Section 5.3 for
@@ -257,14 +252,6 @@ client to display available sessions for attachment.
 | `created_at`       | u64    | Creation timestamp (milliseconds since Unix epoch) |
 | `last_activity`    | u64    | Last activity timestamp                            |
 
-**v0.2 change**: Removed `tab_count` field. There is no Tab as a protocol entity
-in libitshell3. Each Session has one layout tree (a binary split tree of panes).
-The client UI presents Sessions as tabs -- "new tab" creates a Session, "close
-tab" destroys a Session, "switch tab" is a client-local display switch, "rename
-tab" renames a Session. Tab functionality is fully preserved in the UI; only the
-intermediate Tab object between Session and Pane is removed from the wire
-protocol.
-
 ### 3.3 Coalescing Configuration
 
 The `coalescing_config` object in ServerHello informs the client of the server's
@@ -329,66 +316,28 @@ Server responding with one existing session, assigning client_id 3:
 The `capabilities` array in `ClientHello` and `negotiated_caps` array in
 `ServerHello` use the following names:
 
-| Name                  | Internal Bit | Description                                                                                              |
-| --------------------- | ------------ | -------------------------------------------------------------------------------------------------------- |
-| `"compression"`       | 0            | Reserved for future use in v1. When present in negotiated capabilities, has no effect on v1 wire format. |
-| `"clipboard_sync"`    | 1            | Supports bidirectional clipboard synchronization                                                         |
-| `"mouse"`             | 2            | Supports mouse event forwarding                                                                          |
-| `"selection"`         | 3            | Supports text selection synchronization                                                                  |
-| `"search"`            | 4            | Supports scrollback search                                                                               |
-| `"fd_passing"`        | 5            | Supports file descriptor passing (Unix socket only)                                                      |
-| `"agent_detection"`   | 6            | Supports AI agent input mode detection and profiles                                                      |
-| `"flow_control"`      | 7            | Supports pause/resume flow control messages                                                              |
-| `"pixel_dimensions"`  | 8            | Client provides pixel dimensions for cell size calculation                                               |
-| `"sixel"`             | 9            | Supports Sixel graphics passthrough                                                                      |
-| `"kitty_graphics"`    | 10           | Supports Kitty graphics protocol passthrough                                                             |
-| `"notifications"`     | 11           | Supports OSC notification forwarding                                                                     |
-| `"celldata_encoding"` | 12           | Supports negotiation of alternative CellData encodings (see Section 4.2)                                 |
+| Name                 | Internal Bit | Description                                                |
+| -------------------- | ------------ | ---------------------------------------------------------- |
+| `"clipboard_sync"`   | 0            | Supports bidirectional clipboard synchronization           |
+| `"mouse"`            | 1            | Supports mouse event forwarding                            |
+| `"selection"`        | 2            | Supports text selection synchronization                    |
+| `"search"`           | 3            | Supports scrollback search                                 |
+| `"fd_passing"`       | 4            | Supports file descriptor passing (Unix socket only)        |
+| `"agent_detection"`  | 5            | Supports AI agent input mode detection and profiles        |
+| `"flow_control"`     | 6            | Supports pause/resume flow control messages                |
+| `"pixel_dimensions"` | 7            | Client provides pixel dimensions for cell size calculation |
+| `"sixel"`            | 8            | Supports Sixel graphics passthrough                        |
+| `"kitty_graphics"`   | 9            | Supports Kitty graphics protocol passthrough               |
+| `"notifications"`    | 10           | Supports OSC notification forwarding                       |
 
 ### 4.1 Capability Notes
 
-- `"compression"` is reserved for future use in v1. Application-layer
-  compression is deferred to v2. SSH compression covers WAN scenarios. See doc
-  01 Section 3.5.
 - `"fd_passing"` is only valid for direct `AF_UNIX` transport (not available
   over SSH tunnels). The server ignores this flag when FD passing is not
   possible.
 - `"agent_detection"`: When negotiated, the server sends process-detection
   notifications when an AI agent is detected in a pane's foreground process, and
   the client can activate agent-specific input profiles.
-
-### 4.2 CELLDATA_ENCODING Capability
-
-The `"celldata_encoding"` capability flag enables negotiation of alternative
-CellData binary encodings in future protocol versions.
-
-**v1 behavior**: CellData always uses raw binary encoding (fixed-size cell
-structs with optional RLE). The `"celldata_encoding"` flag is declared but has
-no effect on v1 wire format.
-
-**Future v2+ behavior**: When both sides declare `"celldata_encoding"`, the
-`ClientHello` may include a `celldata_encodings` array listing supported
-encodings in preference order:
-
-```json
-{
-  "celldata_encodings": ["raw_binary", "flatbuffers", "protobuf"]
-}
-```
-
-The server selects the best mutually supported encoding and reports it in
-`ServerHello`:
-
-```json
-{
-  "celldata_encoding": "raw_binary"
-}
-```
-
-**Rationale**: Raw binary with RLE outperforms protobuf for cell data today
-(blank 80-col row: 22B RLE vs 400B protobuf). However, the ecosystem evolves —
-FlatBuffers or other formats may prove valuable as the protocol matures. The
-capability flag reserves this negotiation path without adding v1 complexity.
 
 ---
 
@@ -420,8 +369,8 @@ capability flag reserves this negotiation path without adding v1 complexity.
 
 ### 5.3 Input Method Negotiation
 
-Input method support uses a two-axis model separating the **input method**
-(composition engine) from the **keyboard layout** (physical key mapping):
+Input method support uses a two-axis model with two orthogonal per-session
+properties:
 
 - `input_method` (string): `"direct"`, `"korean_2set"`, `"korean_3set_390"`,
   `"korean_3set_final"`, future: `"japanese_romaji"`, `"chinese_pinyin"`
@@ -472,17 +421,6 @@ use abbreviated names (`method`, `layout`/`layouts`) rather than the full
 protocol names (`input_method`, `keyboard_layout`). The parent key already
 provides context — `preferred_input_methods[].input_method` would be redundant.
 
-The `layout` (singular, optional) vs `layouts` (plural, array) asymmetry is
-intentional: a client preference is a single choice; a server capability is a
-set. See doc 01 Section 7 for the `active_` prefix convention used in runtime
-messages.
-
-String identifiers are used everywhere (including KeyEvent) because all input
-messages are JSON-encoded. A string adds ~13 bytes per KeyEvent, which is
-irrelevant at typing speeds (~15/s) over a >1 GB/s Unix socket. Benefits:
-self-documenting on the wire, no mapping table, no reserved numeric ranges,
-adding new languages is just a new string value with zero schema migration.
-
 **Default for new panes:** `input_method: "direct"`,
 `keyboard_layout: "qwerty"`. Normative.
 
@@ -519,9 +457,6 @@ This section describes the handshake-context semantics of the message:
 - **When to send**: After receiving `ServerHello`, before or after
   `AttachSessionRequest`. Re-send whenever display, power, or transport
   conditions change at runtime.
-- **Power-aware throttling**: The server adjusts coalescing tier intervals based
-  on `power_state` (doc 06 Section 1.2 power-aware throttling table). Preedit is
-  always immediate regardless of power state.
 - **Transport adaptation**: The `transport_type`, `estimated_rtt_ms`, and
   `bandwidth_hint` fields inform coalescing adjustments for remote clients (doc
   06 Section 1.2).
@@ -529,11 +464,6 @@ This section describes the handshake-context semantics of the message:
   reporting the effective fps cap. If the server receives
   `display_refresh_hz = 120` (ProMotion), it adjusts the Active tier interval to
   8ms for that client.
-
-**Design decision:** The client is the only entity that knows the true transport
-latency. With SSH tunneling, the daemon sees only a local Unix socket connection
-— heartbeat RTT measures ~0ms regardless of actual network latency. The client
-self-reports transport conditions via this message.
 
 ### 6.3 Example: iOS Client on Battery over SSH
 
@@ -548,57 +478,32 @@ self-reports transport conditions via this message.
 }
 ```
 
-The server receives this and caps FrameUpdate delivery:
-
-- Active tier: 50ms interval (20fps, capped by battery power state;
-  `preferred_max_fps=30` is overridden by battery cap of 20fps)
-- Bulk tier: 100ms interval (10fps, power-throttled)
-- Preedit tier: Unchanged (immediate, always bypasses throttling)
-- WAN adjustment: Further reduces Active/Bulk if not already limited by power
-  caps
-
 ---
 
 ## 7. Negotiation Algorithm
 
 ### 7.1 Protocol Version
 
-The server selects the negotiated protocol version as:
-
-```
-negotiated_version = min(server_max_version, client.protocol_version_max)
-
-if negotiated_version < client.protocol_version_min:
-    -> send Error(ERR_VERSION_MISMATCH), disconnect
-if negotiated_version < server_min_version:
-    -> send Error(ERR_VERSION_MISMATCH), disconnect
-```
-
-In v1, both `protocol_version_min` and `protocol_version_max` are `1`. This
-field exists for future version negotiation.
+If no compatible version exists between client and server, the server sends
+`Error(ERR_VERSION_MISMATCH)` and disconnects. In v1, both
+`protocol_version_min` and `protocol_version_max` are `1`. This field exists for
+future version negotiation. The version selection algorithm is defined in daemon
+design docs.
 
 ### 7.2 General Capabilities
 
-```
-negotiated_caps = intersection(client.capabilities, server.capabilities)
-```
-
-Each capability is independently negotiated as the intersection of client and
-server flag sets. A capability is active only if both sides support it. Unknown
-capability names are ignored (forward compatibility).
+Capabilities are negotiated as the intersection of client and server flag sets.
+A capability is active only if both sides support it. Unknown capability names
+are ignored (forward compatibility). The intersection algorithm is defined in
+daemon design docs.
 
 ### 7.3 Render Capabilities
 
-```
-negotiated_render_caps = intersection(client.render_capabilities, server.render_capabilities)
-```
-
-The server validates that at least one rendering mode is supported:
-
-```
-if "cell_data" not in negotiated_render_caps and "vt_fallback" not in negotiated_render_caps:
-    -> send Error(ERR_CAPABILITY_REQUIRED, detail="No common rendering mode"), disconnect
-```
+Render capabilities are negotiated as the intersection of client and server
+render capability sets. If no common rendering mode exists (neither
+`"cell_data"` nor `"vt_fallback"` in the negotiated set), the server sends
+`Error(ERR_CAPABILITY_REQUIRED, detail="No common rendering mode")` and
+disconnects.
 
 ### 7.4 Input Method Negotiation
 
@@ -612,24 +517,7 @@ The effective input method set is the intersection of client preferences and
 server support. If a client requests an unsupported method via
 `InputMethodSwitch`, the server responds with `IMEError` (0x04FF).
 
-### 7.5 CELLDATA_ENCODING Negotiation (v2+)
-
-In v1, this is a no-op. For future reference:
-
-```
-if "celldata_encoding" in negotiated_caps:
-    # Both sides support alternative encodings
-    if client.celldata_encodings is present:
-        selected = first item in client.celldata_encodings that server also supports
-        if selected is None:
-            selected = "raw_binary"  # always supported
-    else:
-        selected = "raw_binary"
-    # Report in ServerHello
-    server_hello.celldata_encoding = selected
-```
-
-### 7.6 Negotiation Summary
+### 7.5 Negotiation Summary
 
 ```mermaid
 sequenceDiagram
@@ -714,11 +602,8 @@ must first detach (`DetachSessionRequest`).
 | `resize_policy`          | string | Server's active resize policy: `"latest"` or `"smallest"` (informational, not negotiated) |
 
 **Session-level IME fields**: The `active_input_method` and
-`active_keyboard_layout` fields are at session level because the IME engine is
-per-session — all panes in the session share the same engine. The per-pane
-`pane_input_methods` array from v0.6 is replaced by these two session-level
-fields. Leaf nodes in the subsequent `LayoutChanged` notification carry the same
-values for self-containedness.
+`active_keyboard_layout` fields are session-level. Leaf nodes in the subsequent
+`LayoutChanged` notification carry the same values for self-containedness.
 
 **`resize_policy`**: Reports the server's active resize policy for the session.
 This is informational — the client cannot negotiate or change it. See doc 01
@@ -730,9 +615,8 @@ On success, the server follows the response with:
    `active_input_method` and `active_keyboard_layout` in leaf nodes — all
    identical, reflecting the session's shared engine).
 2. If the session has active preedit on any pane, a `PreeditSync` is sent (via
-   the direct message queue, priority 1). Per the "context before content"
-   principle (doc 06 Section 2.3), composition metadata arrives BEFORE the
-   I-frame containing preedit cells.
+   the direct message queue, priority 1), arriving BEFORE the I-frame containing
+   preedit cells.
 3. A full I-frame (`frame_type=1`) for each visible pane from the shared ring
    buffer.
 4. A `ClientAttached` notification to all other clients attached to the session.
@@ -872,11 +756,7 @@ handles this by:
 3. **Preedit exclusivity**: Only one client can have active preedit per session.
    The `PreeditEnd` reason enum includes `"replaced_by_other_client"` for
    conflict resolution (see doc 05 Section 5).
-4. **Frame updates**: All clients receive `FrameUpdate` messages for all panes
-   in the attached session from the shared per-pane ring buffer, not just the
-   focused pane. Each client reads from the ring at its own cursor position via
-   per-(client, pane) coalescing tiers.
-5. **Client join/leave/health notifications**: When a client attaches, detaches,
+4. **Client join/leave/health notifications**: When a client attaches, detaches,
    or transitions health state, other clients attached to the same session
    receive `ClientAttached` (0x0183), `ClientDetached` (0x0184), or
    `ClientHealthChanged` (0x0185) notifications carrying `session_id`,
@@ -919,10 +799,6 @@ and `LayoutChanged` notifications.
 
 **Viewport clipping**: Under `latest` policy, clients with smaller dimensions
 than the effective size MUST clip to their own viewport (top-left origin).
-Per-client viewports (scroll to see clipped areas) are deferred to v2.
-
-Resize algorithm internals (policy selection, debounce, stale client exclusion,
-re-inclusion hysteresis) are defined in daemon design docs.
 
 ---
 
@@ -945,16 +821,14 @@ This matrix shows behavior when capabilities differ between client and server:
 
 ### 9.2 General Capability Fallback
 
-| Capability            | When Not Negotiated                                                                                |
-| --------------------- | -------------------------------------------------------------------------------------------------- |
-| `"compression"`       | No effect in v1 (compression is deferred to v2). All payloads sent uncompressed.                   |
-| `"clipboard_sync"`    | No clipboard synchronization. Client clipboard is local only.                                      |
-| `"mouse"`             | Mouse events not forwarded. Terminal applications that need mouse input will not work correctly.   |
-| `"selection"`         | No selection sync across clients. Each client manages selection locally.                           |
-| `"search"`            | Scrollback search not available. Client can still scroll.                                          |
-| `"fd_passing"`        | No file descriptor passing. All data goes through the protocol.                                    |
-| `"flow_control"`      | Server drops frames when client is slow instead of pausing. May cause visible frame skipping.      |
-| `"celldata_encoding"` | v1: no effect (raw binary always used). v2+: no alternative encoding negotiation; raw binary used. |
+| Capability         | When Not Negotiated                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `"clipboard_sync"` | No clipboard synchronization. Client clipboard is local only.                                    |
+| `"mouse"`          | Mouse events not forwarded. Terminal applications that need mouse input will not work correctly. |
+| `"selection"`      | No selection sync across clients. Each client manages selection locally.                         |
+| `"search"`         | Scrollback search not available. Client can still scroll.                                        |
+| `"fd_passing"`     | No file descriptor passing. All data goes through the protocol.                                  |
+| `"flow_control"`   | Server drops frames when client is slow instead of pausing. May cause visible frame skipping.    |
 
 ---
 
@@ -996,9 +870,6 @@ connections from the same UID as the daemon process are accepted. No additional
 authentication is needed for Unix socket transport because the OS kernel
 guarantees the peer identity.
 
-Authentication implementation details (syscall selection, socket file
-permissions, directory permissions) are defined in daemon design docs.
-
 ### 11.2 SSH Tunnel Authentication
 
 For remote access, authentication is handled entirely by SSH. When a client
@@ -1006,12 +877,3 @@ connects through an SSH tunnel, `getpeereid()` returns sshd's UID. The daemon
 accepts this because SSH has already authenticated the user at the transport
 layer. The trust chain is: SSH authentication → sshd process → Unix socket →
 daemon. See doc 01 Section 12.2 for details.
-
-### 11.3 Handshake Timeouts
-
-| Timeout                                                                          | Duration   | Action                                  |
-| -------------------------------------------------------------------------------- | ---------- | --------------------------------------- |
-| Transport connection                                                             | 5 seconds  | Close socket, report connection failure |
-| `ClientHello` -> `ServerHello`                                                   | 5 seconds  | Send `Error(ERR_INVALID_STATE)`, close  |
-| `READY` -> `AttachSessionRequest`/`CreateSessionRequest`/`AttachOrCreateRequest` | 60 seconds | Send `Disconnect(TIMEOUT)`, close       |
-| Heartbeat response                                                               | 90 seconds | Send `Disconnect(TIMEOUT)`, close       |

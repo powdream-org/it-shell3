@@ -178,7 +178,15 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 
 ---
 
-## File 5: Doc 02 — Handshake & Capability Negotiation
+## File 5: Doc 02 — Handshake & Capability Negotiation ✅
+
+All steps complete.
+
+- [x] 5a. ADRs written: 00041, 00042
+- [x] 5b. ADRs extended: 00023, 00024, 00025
+- [x] 5c. Daemon CTR written: CTR-17
+- [x] 5d. CTRs extended: CTR-06, CTR-08, CTR-09
+- [x] 5e. 26 cleanup items applied
 
 ### 5a. ADRs to write (first occurrence)
 
