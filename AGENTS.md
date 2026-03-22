@@ -227,8 +227,8 @@ matrix. See the `libitshell3` daemon design docs for details. See the
   document index.
 - [**Team Collaboration**](docs/work-styles/02-team-collaboration.md) — Team
   structure, roles, communication rules, consensus policy, lessons learned.
-- [**Design Workflow**](docs/work-styles/03-design-workflow.md) — **Defines how
-  you operate.** Revision cycle (discussion → resolution → writing →
-  verification) and Review cycle (owner review → review notes → handover).
+- [**Design Workflow**](docs/work-styles/03-design-workflow/) — Rationale and
+  reference for the revision/review cycles. **Execution is driven by the
+  `design-doc-revision` skill** (`.claude/skills/design-doc-revision/`).
 - [**PoC Workflow**](docs/work-styles/04-poc-workflow.md) — When, why, and how
   to run Proof-of-Concept experiments.

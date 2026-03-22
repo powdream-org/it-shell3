@@ -19,7 +19,8 @@ the file.
 
 Review notes are created ONLY during the Review Cycle, when the owner explicitly
 instructs the team leader to write one. See
-[Design Workflow](../../../work-styles/03-design-workflow.md) Section 4.2.
+[Design Workflow — Review Cycle](../../../work-styles/03-design-workflow/02-review-cycle.md)
+Section 4.2.
 
 Agent team discussions during the Revision Cycle do NOT produce review-notes
 files. The team discusses, reaches consensus, and produces

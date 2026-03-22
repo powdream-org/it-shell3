@@ -32,8 +32,8 @@ Read these before doing anything else:
 
 1. `docs/conventions/artifacts/documents/03-handover.md` — format, exclusion
    rules, post-handover procedure. This is the authoritative guide.
-2. `docs/work-styles/03-design-workflow.md` §4.3 — when and where handover is
-   written.
+2. `docs/work-styles/03-design-workflow/02-review-cycle.md` §4.3 — when and
+   where handover is written.
 3. `docs/insights/design-principles.md` — existing P/A/L entries. Without
    knowing what already exists, you cannot judge whether this cycle's insights
    are new or reinforce existing principles. The post-handover update step

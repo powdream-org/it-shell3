@@ -132,4 +132,4 @@ handover — no spec documents or other process artifacts.
 ---
 
 For the workflow that produces these artifacts, see
-[Design Workflow](../../../work-styles/03-design-workflow.md).
+[Design Workflow](../../../work-styles/03-design-workflow/).
