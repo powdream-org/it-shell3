@@ -2,27 +2,45 @@
 
 ## Location and Naming
 
-Cross-team requests are placed according to the target team's current state:
+Cross-team requests are placed according to the target team's current state.
+**Always check the target topic's directory first** to determine which case
+applies.
 
-**If the target team has an active draft** (`draft/vX.Y-rN/` exists and is in
+**Case A — target team has an active draft** (`draft/vX.Y-rN/` exists and is in
 progress):
 
 ```
 {target-team}/draft/vX.Y-rN/cross-team-requests/{NN}-{source-team}-{topic}.md
 ```
 
-**If the target team is idle** (stable `vX.Y/` declared, no new draft started
+**Case B — target topic has no prior drafts** (brand-new topic):
+
+Create a seed round `r0` containing only the CTR and a handover. No spec
+documents or other process artifacts are created in `r0`.
+
+```
+{target-team}/draft/v1.0-r0/cross-team-requests/{NN}-{source-team}-{topic}.md
+{target-team}/draft/v1.0-r0/handover/handover-to-r1.md
+```
+
+The `r1` team leader consumes the seed round during Requirements Intake (step
+3.1), just as they would consume any other handover and CTR.
+
+**Case C — target team is idle** (stable `vX.Y/` declared, no new draft started
 yet):
 
 ```
 {target-team}/inbox/cross-team-requests/{NN}-{source-team}-{topic}-from-v{X.Y}.md
 ```
 
-The `-from-v{X.Y}` suffix encodes the source team's version that produced the
-request, so the target team can identify the origin by filename alone (without
-opening the file). The `{X.Y}` is the source team's minor version (e.g.,
-`v0.7`); the round number is omitted as it is not meaningful to the receiving
-team.
+> **⚠️ `inbox/` is ONLY for Case C.** If the target has an active draft (Case A)
+> or the topic is new (Case B), do NOT use `inbox/`.
+
+The `-from-v{X.Y}` suffix (Case C only) encodes the source team's version that
+produced the request, so the target team can identify the origin by filename
+alone (without opening the file). The `{X.Y}` is the source team's minor version
+(e.g., `v0.7`); the round number is omitted as it is not meaningful to the
+receiving team.
 
 The `inbox/` directory is unversioned. The target team's leader consumes all
 `inbox/cross-team-requests/` files during the next Requirements Intake (step
