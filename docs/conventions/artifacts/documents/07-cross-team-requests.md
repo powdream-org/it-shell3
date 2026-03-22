@@ -1,6 +1,29 @@
 # Cross-Team Requests
 
-## Location and Naming
+## Overview
+
+During the Revision Cycle (step 3.4), when a team's design decisions require
+changes in another team's documents. The resolution document (step 3.3)
+identifies which changes affect other teams; the core member writes the
+cross-team request during document writing.
+
+- Cross-team requests are NOT review notes. Review notes are created by the
+  owner during the Review Cycle. Cross-team requests are created by a team
+  during the Revision Cycle.
+- Cross-team requests are driven by design resolutions. The source team's
+  resolution document identifies the cross-team impact; the request provides
+  actionable instructions for the target team.
+
+The target team's leader discovers cross-team requests when starting a Revision
+Cycle (step 3.1 Requirements Intake). They are listed as an input source
+alongside review notes, handover documents, and PoC findings.
+
+Cross-team requests do NOT appear in the source team's handover document.
+However, the **target team's** handover MUST mention incoming cross-team
+requests so the next revision's team leader discovers them during requirements
+intake.
+
+## Placement Rules
 
 Cross-team requests are placed according to the target team's current state.
 **Always check the target topic's directory first** to determine which case
@@ -36,6 +59,8 @@ yet):
 > **⚠️ `inbox/` is ONLY for Case C.** If the target has an active draft (Case A)
 > or the topic is new (Case B), do NOT use `inbox/`.
 
+## Naming Convention
+
 The `-from-v{X.Y}` suffix (Case C only) encodes the source team's version that
 produced the request, so the target team can identify the origin by filename
 alone (without opening the file). The `{X.Y}` is the source team's minor version
@@ -54,13 +79,6 @@ context).
 | `{source-team}` | The team that produced the request (e.g., `ime`, `protocol`).                               |
 | `{topic}`       | Short kebab-case slug describing the change (e.g., `per-session-engine`, `keyframe-model`). |
 | `{X.Y}`         | Source team's minor version that produced the request (inbox only).                         |
-
-## When Created
-
-During the Revision Cycle (step 3.4), when a team's design decisions require
-changes in another team's documents. The resolution document (step 3.3)
-identifies which changes affect other teams; the core member writes the
-cross-team request during document writing.
 
 ## File Format
 
@@ -100,23 +118,3 @@ source resolution.}
 | ---------- | --------------- | ----------- | ----------------- |
 | ...        | ...             | ...         | ...               |
 ```
-
-## Discovery
-
-The target team's leader discovers cross-team requests when starting a Revision
-Cycle (step 3.1 Requirements Intake). They are listed as an input source
-alongside review notes, handover documents, and PoC findings.
-
-Cross-team requests do NOT appear in the source team's handover document.
-However, the **target team's** handover MUST mention incoming cross-team
-requests so the next revision's team leader discovers them during requirements
-intake.
-
-## Relationship to Other Artifacts
-
-- Cross-team requests are NOT review notes. Review notes are created by the
-  owner during the Review Cycle. Cross-team requests are created by a team
-  during the Revision Cycle.
-- Cross-team requests are driven by design resolutions. The source team's
-  resolution document identifies the cross-team impact; the request provides
-  actionable instructions for the target team.
