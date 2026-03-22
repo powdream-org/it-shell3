@@ -82,27 +82,27 @@ if from different source locations.>
 
 ## New ADR Index (00019-00033)
 
-| ADR #     | Topic                                                                            |
-| --------- | -------------------------------------------------------------------------------- |
-| 00019     | Per-session focus model (v1)                                                     |
-| 00020     | Session attachment model (single-per-connection, readonly, exclusive)            |
-| 00021     | Preedit single-path rendering model                                              |
-| 00022     | Server-owned scrollback (no client cache)                                        |
-| 00023     | Message ordering and delivery guarantees (context before content)                |
-| 00024     | Capability negotiation mechanics (string arrays, set intersection)               |
-| 00025     | Input method identifier design (two-axis, string IDs, two-channel state)         |
-| 00026     | Preedit lifecycle on interrupting events                                         |
-| 00027     | Pane lifecycle (auto-close, auto-unzoom, remain-on-exit deferred)                |
-| 00028     | Two-layer error handling model                                                   |
-| 00029     | Notification subscription model (always-sent vs opt-in)                          |
-| 00030     | Adaptive coalescing and flow control                                             |
-| 00031     | Session persistence model (hybrid memory + JSON snapshots)                       |
-| 00032     | Preedit message simplification (field removals, frame_type=2)                    |
-| ~~00033~~ | ~~Protocol wire conventions~~ — **EXCLUDED**: content stays in protocol overview |
-| 00034     | Per-connection handshake (no lightweight reconnect optimization in v1)           |
-| 00040     | YAGNI — Remove compression header flag and capability (supersedes ADR 00014)     |
-| 00041     | YAGNI — Remove `celldata_encoding` capability                                    |
-| 00042     | Per-client viewports declined — breaks shared ring buffer optimization           |
+| ADR #     | Topic                                                                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 00019     | Per-session focus model (v1)                                                                                                                                  |
+| 00020     | Session attachment model (single-per-connection, readonly, exclusive)                                                                                         |
+| 00021     | Preedit single-path rendering model                                                                                                                           |
+| 00022     | Server-owned scrollback (no client cache)                                                                                                                     |
+| 00023     | Message ordering and delivery guarantees (context before content)                                                                                             |
+| 00024     | Capability negotiation mechanics (string arrays, set intersection)                                                                                            |
+| 00025     | Input method identifier design (two-axis, string IDs, two-channel state)                                                                                      |
+| 00026     | Preedit lifecycle on interrupting events                                                                                                                      |
+| ~~00027~~ | ~~Pane lifecycle~~ — **CANCELLED**: remain-on-exit already in 99-post-v1-features.md; auto-unzoom/auto-close are wire spec (kept in Doc 03)                   |
+| ~~00028~~ | ~~Two-layer error handling model~~ — **CANCELLED**: ERR_* paragraphs are duplicates of §1.5 and §9.2; error layer rule is wire spec (no rationale to extract) |
+| ~~00029~~ | ~~Notification subscription model~~ — **CANCELLED**: §4 text is wire spec only; no design reasoning to extract                                                |
+| 00030     | Adaptive coalescing and flow control                                                                                                                          |
+| 00031     | Session persistence model (hybrid memory + JSON snapshots)                                                                                                    |
+| 00032     | Preedit message simplification (field removals, frame_type=2)                                                                                                 |
+| ~~00033~~ | ~~Protocol wire conventions~~ — **EXCLUDED**: content stays in protocol overview                                                                              |
+| 00034     | Per-connection handshake (no lightweight reconnect optimization in v1)                                                                                        |
+| 00040     | YAGNI — Remove compression header flag and capability (supersedes ADR 00014)                                                                                  |
+| 00041     | YAGNI — Remove `celldata_encoding` capability                                                                                                                 |
+| 00042     | Per-client viewports declined — breaks shared ring buffer optimization                                                                                        |
 
 ---
 
@@ -195,48 +195,71 @@ Doc 01, Doc 04, and 99-post-v1-features.md. ✅
 
 ## File 6: Doc 03 — Session & Pane Management
 
+> **Pre-execution review completed (2026-03-22).** Original plan was too
+> aggressive — most planned DEL actions targeted wire-observable content. Kept
+> in Doc 03 (no action): §1.6, §2.1, §2.3 auto-unzoom, §2.8, §5.2 policy table,
+> §7 ordering. CTR-07 extension and ADR 00023/00025 extensions cancelled. ADR
+> 00019 moved from 6b to 6a (does not yet exist).
+>
+> **Additional finding (2026-03-22):** §8 Multi-Client Behavior (§8.1–§8.4)
+> deleted entirely — all content is either duplicate of individual message
+> definitions or covered by Doc 06 §2.8. §9 Readonly Client Permissions becomes
+> the new §8, requiring 5 cross-reference fixes (3 inner-doc + 1 Doc 05 + 1
+> daemon CTR-20).
+
 ### 6a. ADRs to write (first occurrence)
 
-| ADR # | Topic                           | Content from this file                                                              |
-| ----- | ------------------------------- | ----------------------------------------------------------------------------------- |
-| 00027 | Pane lifecycle                  | §2.3 (auto-unzoom + preedit constraint), §2.5 (auto-close, remain-on-exit deferred) |
-| 00028 | Two-layer error handling model  | §6: status codes vs Error message split                                             |
-| 00029 | Notification subscription model | §4: always-sent session-scope notifications                                         |
+| ADR # | Topic                        | Content from this file                                     |
+| ----- | ---------------------------- | ---------------------------------------------------------- |
+| 00019 | Per-session focus model (v1) | §8.1: "Decision for v1" sentence only; wire behavior stays |
 
 ### 6b. ADRs to add content to (already created)
 
-| ADR # | Content from this file                                                          |
-| ----- | ------------------------------------------------------------------------------- |
-| 00019 | §8.1: "Decision for v1: Per-session focus (like tmux)"                          |
-| 00023 | §1.6 ("context before content" principle), §7 (sequence correlation + ordering) |
-| 00025 | §2.1/2.3 (IME inheritance), §3.1 (two-channel IME state model)                  |
+None.
 
-### 6c. Daemon CTRs to add content to (already created)
+### 6c. Daemon CTRs
 
-| CTR #  | Content from this file                 |
-| ------ | -------------------------------------- |
-| CTR-07 | §8.4 (health state + resize exclusion) |
+**CTR-18 (new)**: Request sequence diagram for pane process exit cascade. Daemon
+already has text description (internal architecture doc) and pseudocode
+(lifecycle doc) but no sequence diagram, and SessionListChanged on session
+auto-destroy is not explicitly mentioned. CTR-18 should request:
+
+1. Sequence diagram: SIGCHLD → `PaneMetadataChanged` (`is_running: false`) →
+   `LayoutChanged` → [if last pane] `SessionListChanged` (`event: "destroyed"`)
+2. Add explicit `SessionListChanged` step to the existing SIGCHLD handler
+   pseudocode in the lifecycle doc
+
+**CTR-19 (new)**: Request pane navigation algorithm documentation in daemon doc.
+Protocol doc §2.10 contains geometric detail (layout tree traversal,
+center-based nearest pane selection) that belongs in daemon docs. CTR-19 should
+request:
+
+1. Text description of the navigation algorithm (geometric position calculation
+   from layout tree, nearest pane in requested direction from focused pane
+   center)
+2. Flowchart or sequence diagram illustrating the algorithm — text alone is
+   insufficient; a visual is required for implementors
+
+**CTR-20 (new)**: Notify daemon team of Doc 03 §9 renumbering to §8. Daemon
+`03-lifecycle-and-connections.md` line 583 references
+`protocol doc 03 Section 9` — must be updated to `Section 8` after §8
+Multi-Client Behavior is deleted.
 
 ### 6d. Cleanup items
 
-| #  | Section                            | Lines     | Action         | Target            | Description                    |
-| -- | ---------------------------------- | --------- | -------------- | ----------------- | ------------------------------ |
-| 1  | §1.6 "context before content"      | 222-225   | DEL-ADR-new    | ADR 00023         | Principle reference            |
-| 2  | §2.1 IME inheritance normative     | 445-447   | DEL-ADR-new    | ADR 00025         | "inherits active_input_method" |
-| 3  | §2.3 IME inheritance (duplicate)   | 488-490   | DEL-ADR-new    | ADR 00025         | Same, in SplitPane             |
-| 4  | §2.3 Auto-unzoom + preedit         | 492-495   | DEL-ADR-new    | ADR 00027         | "MUST unzoom"                  |
-| 5  | §2.5 Auto-close + cascade          | 524-530   | DEL-ADR-new    | ADR 00027         | Remain-on-exit deferred        |
-| 6  | §2.8 Preedit flush-to-PTY          | 580-583   | DEL-covered    | Daemon 04-runtime | "defined in daemon"            |
-| 7  | §2.10 Navigation algorithm         | 606-609   | DEL-covered    | —                 | Delete; keep one-liner         |
-| 8  | §3.1 Per-session engine invariant  | 780-784   | REWRITE        | —                 | Keep invariant only            |
-| 9  | §3.1 Two-channel IME state model   | 786-806   | DEL-ADR-new    | ADR 00025         | Architecture explanation       |
-| 10 | §4 Always-sent notifications       | 875-882   | DEL-ADR-new    | ADR 00029         | "no subscription required"     |
-| 11 | §5.2 Resize policy rationale       | 1054-1059 | DEL-ADR-exist  | ADR 00012         | "See ADR 00012"                |
-| 12 | §5.2 Resize algorithm internals    | 1071-1072 | DEL-covered    | Daemon 04-runtime | "debounce, stale exclusion"    |
-| 13 | §6 Two-layer error model           | 1105-1112 | DEL-ADR-new    | ADR 00028         | Status codes vs Error          |
-| 14 | §7 Sequence correlation + ordering | 1126-1146 | DEL-ADR-new    | ADR 00023         | Ordering guarantee             |
-| 15 | §8.1 Per-session focus decision    | 1154-1158 | DEL-ADR-new    | ADR 00019         | "Decision for v1"              |
-| 16 | §8.4 Health + resize exclusion     | 1186-1192 | DEL-daemon-CTR | CTR-07            | "Stale excluded from resize"   |
+| #  | Section                          | Action  | Target    | Note                                                                                                                                                       |
+| -- | -------------------------------- | ------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1  | §2.3 IME inheritance (duplicate) | DEL     | —         | Exact duplicate of §2.1 rule; no cross-ref needed                                                                                                          |
+| 2  | §2.5 Auto-close + cascade        | REWRITE | CTR-18    | Delete entire §2.5; add trigger semantics to §4.2 PaneMetadataChanged and §4.3 SessionListChanged with loose daemon doc cross-ref                          |
+| 3  | §2.10 Navigation algorithm       | SPLIT   | CTR-19    | Keep wrap behavior; delete geometric detail (→ CTR-19 for daemon doc with flowchart)                                                                       |
+| 4  | §3.1 Two-channel IME state model | REWRITE | —         | Remove "two-channel model" framing sentence only; wire behavior + client MUST rules stay                                                                   |
+| 5  | §5.2 Resize algorithm internals  | DEL     | —         | One cross-ref sentence; daemon §2.4/§2.5 confirmed                                                                                                         |
+| 6  | §6 Two-layer error model         | DEL     | —         | Two ERR_* paragraphs are duplicates: ERR_ACCESS_DENIED already in §9.2; ERR_SESSION_ALREADY_ATTACHED already in §1.5; error layer rule is wire spec (keep) |
+| 7  | §8.1 Per-session focus decision  | DEL     | ADR 00019 | §8.1 전체 삭제; "Decision for v1" rationale + consequences → ADR 00019; bullets are duplicates of §2.8/§2.9/§4.2                                           |
+| 8  | §8.2 Layout Mutations            | DEL     | —         | Fully covered by §4.1 (LayoutChanged delivery rule) and §2.x individual message definitions                                                                |
+| 9  | §8.3 Input Method State          | DEL     | —         | Fully covered by §1.6 (AttachSessionResponse), §3.1 (LayoutChanged leaf nodes), Doc 05 §3.2 (InputMethodAck broadcast)                                     |
+| 10 | §8.4 Client Health               | DEL     | —         | Fully covered by Doc 06 §2.8 (health model, ClientHealthChanged, resize exclusion, frame delivery table)                                                   |
+| 11 | §9→§8 renumbering + cross-refs   | FIX     | CTR-20    | After §8 deletion: update "Section 9" → "Section 8" at Doc 03 lines 208/1089/1109, Doc 05 line 46, handover-to-r13.md line 43; daemon fix via CTR-20       |
 
 ### 6e. Additional changes (discovered during Doc 06 review)
 
