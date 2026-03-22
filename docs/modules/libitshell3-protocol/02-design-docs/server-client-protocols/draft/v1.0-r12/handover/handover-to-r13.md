@@ -1,14 +1,14 @@
 # Handover: Server-Client Protocols v1.0-r12 to v1.0-r13
 
-- **Date**: 2026-03-16
+- **Date**: 2026-03-22
 - **Author**: owner
 
 ---
 
 ## Insights and New Perspectives
 
-The v1.0-r12 owner review revealed that the protocol spec docs had accumulated
-significant content that does not belong in wire protocol specifications:
+The v1.0-r12 owner review (completed 2026-03-22) cleaned all 6 protocol docs.
+The cleanup revealed several recurring patterns worth naming:
 
 - **Design rationale** (why a decision was made) was embedded inline instead of
   living in ADRs. The "Design Decisions Needing Validation" tables in Doc 01 and
@@ -25,10 +25,17 @@ significant content that does not belong in wire protocol specifications:
   that are always supported and never negotiable. The server always has native
   IME, always supports preedit, always handles jamo decomposition. Removing
   these simplified Doc 02 substantially.
+- **Summary/aggregation sections** that restate what individual message
+  definitions already say create divergence risk. Doc 03 §8 (Multi-Client
+  Behavior) was a pure restatement of per-message behavior visible in each
+  message's own section. It had already drifted from the originals. The entire
+  section was deleted; individual message definitions remain the authoritative
+  record.
 
 A critical gap was discovered: daemon docs say "mouse events bypass IME
 entirely" but the protocol had a normative rule that MouseButton commits
-preedit. This contradiction is tracked in daemon CTR-04.
+preedit. This contradiction is tracked in daemon CTR-04 (daemon team's
+responsibility to resolve).
 
 ## Design Philosophy
 
@@ -40,38 +47,55 @@ writing a compatible client without access to our server source) need this
 information?" If no, it doesn't belong here.
 
 **Single source of truth for each concept.** Readonly permissions live in Doc 03
-§8 only. Header format lives in Doc 01 §3.1 only. JSON conventions live in Doc
-01 §3.6 only. Other docs cross-reference, never duplicate.
+§8 (Readonly Client Permissions) only. Header format lives in Doc 01 §3.1 only.
+JSON conventions live in Doc 01 §3.6 only. Other docs cross-reference, never
+duplicate.
 
 **ADRs are the permanent record of design decisions.** Spec docs should not
 contain "Rationale" blocks or "Design Decisions Needing Validation" tables. If a
 decision is significant, write an ADR. If it's not significant, it doesn't need
 a rationale paragraph.
 
+**Individual message definitions are authoritative; do not add summary
+sections.** A "multi-client behavior" or "error handling overview" section that
+aggregates behavior across messages will drift from the originals. Delete it
+when found; add cross-references to individual definitions instead.
+
 ## Owner Priorities
 
-- Continue the cleanup for Doc 04 (from current §3 onward), Doc 05, and Doc 06
-- Apply the same lens: remove daemon internals, remove duplication, move
-  rationale to ADRs
-- Doc 05 likely has substantial overlap with IME contract docs — verify before
-  removing
-- The mouse-preedit gap (CTR-04) must be resolved in the daemon docs
+The r12 owner review cleanup is fully complete (all 6 docs, ~125 items). The
+main open items for r13:
+
+- **Section renumbering pass**: Doc 01 had §8 and §11 deleted — sections now
+  number 1–7, 9, 10, 12. Doc 05 has a §5.1 deletion gap (§5.2 remains alone) and
+  a §12 deletion gap (§11→§13). Apply sequential renumbering with a cross-doc
+  grep for stale references before committing.
+- **Deferred protocol items**: S4-02 (AttachOrCreateRequest merge, ADR 00003)
+  and S4-03 (ClipboardWrite encoding symmetry, ADR 00004) were deferred from
+  Round 4 verification. Pick up when ready.
+- **ADR numbering discipline**: When ADRs are cancelled, fill gaps from higher-
+  numbered ADRs (as done for 00027-00029). Do not leave numbered gaps.
 
 ## New Conventions and Procedures
 
-- **AGENTS.md**: Design Document Metadata convention added — only `Date` and
-  `Scope` are allowed in spec doc headers. No Status, Version, Author, Depends
-  on, or Changes from.
-- **Version naming**: `v1.0-rN` format everywhere (not `v0.N`). Memory saved.
+Established in r12 owner review cleanup:
+
+- **AGENTS.md**: Design Document Metadata convention — only `Date` and `Scope`
+  are allowed in spec doc headers. No Status, Version, Author, Depends on, or
+  Changes from.
+- **Version naming**: `v1.0-rN` format everywhere (not `v0.N`).
 - **Metadata bullet format**: `- **Key**: value` instead of `**Key**: value` to
   survive deno fmt.
+- **Notification-only CTRs**: A CTR that only notifies a target team of a
+  section renumbering (no protocol text was removed) requires no "Reference:
+  Original Protocol Text" section. Established by CTR-20 (consistent with CTR-10
+  precedent).
+- **ADR gap filling**: When ADRs are cancelled, renumber later ADRs to fill the
+  gaps. Update all cross-references in the same commit.
 
 ## Pre-Discussion Research Tasks
 
-1. **Doc 05 overlap audit**: Before reviewing Doc 05, check how much content
-   duplicates the IME interface contract docs. The preedit lifecycle,
-   composition rules, and PreeditEnd reasons may already be authoritatively
-   defined in IME docs.
-2. **Doc 06 daemon overlap**: Check which parts of Doc 06 (flow control,
-   coalescing, health escalation) are duplicated in daemon design docs after the
-   v0.11 extraction. Some content may have been missed during that extraction.
+1. **Section renumbering audit**: Before r13 editing begins, grep all 6 docs
+   plus ADRs, CTRs, and insights files for section references (e.g., `§8`,
+   `§11`, `§5.1`) that will be affected by the Doc 01 and Doc 05 renumbering.
+   Map old numbers to new numbers before touching any file.
