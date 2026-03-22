@@ -43,7 +43,7 @@ tracking, and debugging. Not used for rendering. A client that only needs to
 render can ignore all 0x04xx messages.
 
 **Readonly client observation**: Readonly clients (attached with `readonly`
-flag; see doc 02 for the flag, doc 03 Section 9 for the authoritative
+flag; see doc 02 for the flag, doc 03 Section 8 for the authoritative
 permissions table) receive ALL preedit-related S->C messages (PreeditStart,
 PreeditUpdate, PreeditEnd, PreeditSync, InputMethodAck) as observers. They
 render preedit from cell data identically to read-write clients. Readonly

@@ -270,5 +270,7 @@ Work in progress — session split point.
       written, ADRs 00023/00024/00025 extended; CTR-17 written, CTRs 06/08/09
       extended; ADR anti-pattern guide added to convention doc; ~1017 → ~879
       lines)
-- [ ] Doc 03 remaining cleanup (if any)
+- [x] Doc 03 owner review ✅ (11 cleanup items applied; ADR 00019 written;
+      CTR-18/19/20 written; §8 Multi-Client Behavior deleted entirely; §9→§8
+      renumbered; ADRs 00027/00028/00029 renumbered from 00040/00041/00042)
 - [ ] Final commit and handover

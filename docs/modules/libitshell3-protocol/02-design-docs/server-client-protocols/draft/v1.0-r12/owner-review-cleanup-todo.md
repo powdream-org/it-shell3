@@ -193,7 +193,7 @@ Doc 01, Doc 04, and 99-post-v1-features.md. ✅
 
 ---
 
-## File 6: Doc 03 — Session & Pane Management
+## File 6: Doc 03 — Session & Pane Management ✅
 
 > **Pre-execution review completed (2026-03-22).** Original plan was too
 > aggressive — most planned DEL actions targeted wire-observable content. Kept
@@ -207,59 +207,13 @@ Doc 01, Doc 04, and 99-post-v1-features.md. ✅
 > the new §8, requiring 5 cross-reference fixes (3 inner-doc + 1 Doc 05 + 1
 > daemon CTR-20).
 
-### 6a. ADRs to write (first occurrence)
+All steps complete.
 
-| ADR # | Topic                        | Content from this file                                     |
-| ----- | ---------------------------- | ---------------------------------------------------------- |
-| 00019 | Per-session focus model (v1) | §8.1: "Decision for v1" sentence only; wire behavior stays |
-
-### 6b. ADRs to add content to (already created)
-
-None.
-
-### 6c. Daemon CTRs
-
-**CTR-18 (new)**: Request sequence diagram for pane process exit cascade. Daemon
-already has text description (internal architecture doc) and pseudocode
-(lifecycle doc) but no sequence diagram, and SessionListChanged on session
-auto-destroy is not explicitly mentioned. CTR-18 should request:
-
-1. Sequence diagram: SIGCHLD → `PaneMetadataChanged` (`is_running: false`) →
-   `LayoutChanged` → [if last pane] `SessionListChanged` (`event: "destroyed"`)
-2. Add explicit `SessionListChanged` step to the existing SIGCHLD handler
-   pseudocode in the lifecycle doc
-
-**CTR-19 (new)**: Request pane navigation algorithm documentation in daemon doc.
-Protocol doc §2.10 contains geometric detail (layout tree traversal,
-center-based nearest pane selection) that belongs in daemon docs. CTR-19 should
-request:
-
-1. Text description of the navigation algorithm (geometric position calculation
-   from layout tree, nearest pane in requested direction from focused pane
-   center)
-2. Flowchart or sequence diagram illustrating the algorithm — text alone is
-   insufficient; a visual is required for implementors
-
-**CTR-20 (new)**: Notify daemon team of Doc 03 §9 renumbering to §8. Daemon
-`03-lifecycle-and-connections.md` line 583 references
-`protocol doc 03 Section 9` — must be updated to `Section 8` after §8
-Multi-Client Behavior is deleted.
-
-### 6d. Cleanup items
-
-| #  | Section                          | Action  | Target    | Note                                                                                                                                                       |
-| -- | -------------------------------- | ------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1  | §2.3 IME inheritance (duplicate) | DEL     | —         | Exact duplicate of §2.1 rule; no cross-ref needed                                                                                                          |
-| 2  | §2.5 Auto-close + cascade        | REWRITE | CTR-18    | Delete entire §2.5; add trigger semantics to §4.2 PaneMetadataChanged and §4.3 SessionListChanged with loose daemon doc cross-ref                          |
-| 3  | §2.10 Navigation algorithm       | SPLIT   | CTR-19    | Keep wrap behavior; delete geometric detail (→ CTR-19 for daemon doc with flowchart)                                                                       |
-| 4  | §3.1 Two-channel IME state model | REWRITE | —         | Remove "two-channel model" framing sentence only; wire behavior + client MUST rules stay                                                                   |
-| 5  | §5.2 Resize algorithm internals  | DEL     | —         | One cross-ref sentence; daemon §2.4/§2.5 confirmed                                                                                                         |
-| 6  | §6 Two-layer error model         | DEL     | —         | Two ERR_* paragraphs are duplicates: ERR_ACCESS_DENIED already in §9.2; ERR_SESSION_ALREADY_ATTACHED already in §1.5; error layer rule is wire spec (keep) |
-| 7  | §8.1 Per-session focus decision  | DEL     | ADR 00019 | §8.1 전체 삭제; "Decision for v1" rationale + consequences → ADR 00019; bullets are duplicates of §2.8/§2.9/§4.2                                           |
-| 8  | §8.2 Layout Mutations            | DEL     | —         | Fully covered by §4.1 (LayoutChanged delivery rule) and §2.x individual message definitions                                                                |
-| 9  | §8.3 Input Method State          | DEL     | —         | Fully covered by §1.6 (AttachSessionResponse), §3.1 (LayoutChanged leaf nodes), Doc 05 §3.2 (InputMethodAck broadcast)                                     |
-| 10 | §8.4 Client Health               | DEL     | —         | Fully covered by Doc 06 §2.8 (health model, ClientHealthChanged, resize exclusion, frame delivery table)                                                   |
-| 11 | §9→§8 renumbering + cross-refs   | FIX     | CTR-20    | After §8 deletion: update "Section 9" → "Section 8" at Doc 03 lines 208/1089/1109, Doc 05 line 46, handover-to-r13.md line 43; daemon fix via CTR-20       |
+- [x] 6a. ADR written: 00019 (per-session focus model)
+- [x] 6c. Daemon CTRs written: CTR-18 (pane exit cascade diagram), CTR-19
+      (navigation algorithm), CTR-20 (§9→§8 cross-ref fix notification)
+- [x] 6d. 11 cleanup items applied; §4.1 dangling "two-channel model" cross-ref
+      also fixed
 
 ### 6e. Additional changes (discovered during Doc 06 review)
 

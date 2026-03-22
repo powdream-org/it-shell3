@@ -205,7 +205,7 @@ matches tmux behavior.
 | `session_id`    | u32     | Session to attach to                                                        |
 | `cols`          | number  | Client terminal columns                                                     |
 | `rows`          | number  | Client terminal rows                                                        |
-| `readonly`      | boolean | true = read-only attachment (observer mode). See Section 9 for permissions. |
+| `readonly`      | boolean | true = read-only attachment (observer mode). See Section 8 for permissions. |
 | `detach_others` | boolean | true = force-detach all other clients from this session                     |
 
 **`detach_others` behavior**: When `detach_others` is true and other clients are
@@ -473,10 +473,6 @@ The `ratio` describes the proportion of space given to the **first** child (the
 child containing the original pane in a right/down split, or the new pane in a
 left/up split).
 
-> **Normative**: The new pane inherits the session's current
-> `active_input_method`. No per-pane override is supported. To change the input
-> method, send an InputMethodSwitch message (0x0404) after the pane is created.
-
 > **Normative**: If the session has a zoomed pane, the server MUST unzoom
 > (restore the original layout) before performing the split. The resulting
 > `LayoutChanged` will have `zoomed_pane_present=false`. Active preedit MUST NOT
@@ -506,16 +502,6 @@ On failure, the response contains only `status` and `error`:
   "error": "PANE_LIMIT_EXCEEDED"
 }
 ```
-
-### 2.5 Auto-Close on Process Exit
-
-> **Normative**: When a pane's process exits, the server MUST automatically
-> close the pane. The server sends `PaneMetadataChanged` with
-> `is_running: false`, followed by the same sequence as ClosePaneRequest (layout
-> reflow, `LayoutChanged` notification). If the auto-closed pane was the last
-> pane in the session, the session is auto-destroyed (`side_effect=1`).
-> Remain-on-exit is deferred to post-v1 (see `99-post-v1-features.md` Section
-> 2).
 
 ### 2.6 ClosePaneRequest (0x0144)
 
@@ -591,10 +577,8 @@ pane.
 }
 ```
 
-**Navigation algorithm**: The server computes the geometric position of each
-pane from the session's layout tree, then finds the nearest pane in the
-requested direction from the center of the currently focused pane. If no pane
-exists in that direction, the focus wraps around (configurable).
+If no pane exists in the requested direction, the focus wraps around
+(configurable).
 
 **Preedit interaction**: Same rule as FocusPaneRequest — if the current pane has
 active preedit, flush before navigating. See Section 2.8.
@@ -771,10 +755,6 @@ depth-first structure. Each node is either a **leaf** (pane) or a **split**
 > interpret per-leaf differences as intentional per-pane overrides — they
 > represent a server bug if they occur.
 
-**Input method state** in leaf nodes provides authoritative initial/refresh
-state for input methods. This is one channel of the two-channel input method
-state model:
-
 1. **LayoutChanged** (this message): Full layout tree with per-leaf
    `active_input_method` + `active_keyboard_layout`. Fires on structural changes
    (split, close, resize, zoom, swap) and on attach. Provides authoritative
@@ -897,8 +877,8 @@ layout.
 > (0x0405, doc 05), which is broadcast to all attached clients. LayoutChanged
 > includes per-pane `active_input_method` and `active_keyboard_layout` in leaf
 > nodes to provide authoritative state on structural changes and attach. All
-> leaf values are identical (per-session engine). See Section 3 for the
-> two-channel model.
+> leaf values are identical (per-session engine). See Section 3 for the leaf
+> node format and client state maintenance rules.
 
 ### 4.2 PaneMetadataChanged (0x0181)
 
@@ -921,6 +901,11 @@ integration CWD reporting, foreground process changes, and process exit.
 Only changed fields are included in the JSON object. Clients detect which fields
 changed by checking for key presence.
 
+When a pane's process exits, the server sends `PaneMetadataChanged` with
+`is_running: false`, then proceeds with the same auto-close sequence as
+`ClosePaneRequest`. The full cascade sequence (layout reflow, signal handling,
+remain-on-exit deferral) is defined in daemon design docs.
+
 ### 4.3 SessionListChanged (0x0182)
 
 Sent to all connected clients when the session list changes.
@@ -938,6 +923,9 @@ Sent to all connected clients when the session list changes.
 | `"created"`   | `CreateSessionRequest` succeeds  | `session_id`, `name`            |
 | `"destroyed"` | `DestroySessionRequest` succeeds | `session_id`, `name`            |
 | `"renamed"`   | `RenameSessionRequest` succeeds  | `session_id`, `name` (new name) |
+
+When pane auto-close destroys the last pane in a session, the server sends
+`SessionListChanged` with `event: "destroyed"`.
 
 ### 4.4 ClientAttached (0x0183)
 
@@ -1062,9 +1050,6 @@ design rationale.
 > region corresponding to its own dimensions. Content beyond the client's
 > viewport boundary is clipped.
 
-Resize algorithm internals (`latest_client_id` tracking, stale client exclusion,
-debounce, client detach resize) are defined in daemon design docs.
-
 ### 5.3 WindowResizeAck (0x0191)
 
 ```json
@@ -1086,7 +1071,7 @@ Status codes used across all response messages:
 | 2    | `ALREADY_EXISTS`      | Name collision or duplicate operation                |
 | 3    | `TOO_SMALL`           | Cannot split -- pane below minimum size              |
 | 4    | `PROCESSES_RUNNING`   | Cannot destroy -- processes still active             |
-| 5    | `ACCESS_DENIED`       | Permission denied for this operation (see Section 9) |
+| 5    | `ACCESS_DENIED`       | Permission denied for this operation (see Section 8) |
 | 6    | `INVALID_ARGUMENT`    | Invalid field value                                  |
 | 7    | `INTERNAL_ERROR`      | Unexpected server error                              |
 | 8    | `PANE_LIMIT_EXCEEDED` | Cannot create pane — session pane limit reached      |
@@ -1104,16 +1089,6 @@ than TOO_SMALL).
 > cannot produce a typed response (unknown message type, malformed payload,
 > state violations). For expected failures, the server SHOULD send the typed
 > response with an appropriate status code, NOT a formal Error message.
-
-**ERR_ACCESS_DENIED (0x00000203)**: Returned when a readonly client attempts a
-prohibited operation. See Section 9 for the full permissions table. The server
-sends the typed response (e.g., FocusPaneResponse) with `status: 5`, not a
-formal Error message.
-
-**ERR_SESSION_ALREADY_ATTACHED (0x00000201)**: A client connection is attached
-to at most one session at a time. Sending AttachSessionRequest or
-AttachOrCreateRequest while already attached returns `status: 3` in
-AttachSessionResponse. The client must first detach via DetachSessionRequest.
 
 ---
 
@@ -1141,58 +1116,12 @@ request N.
 
 ---
 
-## 8. Multi-Client Behavior
-
-Multiple clients can be attached to the same session simultaneously.
-
-### 8.1 Focus Model
-
-**Decision for v1**: Per-session focus (like tmux). All clients share the same
-active pane. This simplifies the protocol and matches the multiplexer mental
-model. Per-client focus can be added later as an opt-in capability.
-
-- FocusPane and NavigatePane change the session's active pane, affecting all
-  attached clients.
-- All attached clients receive a LayoutChanged notification when focus changes.
-- **Preedit interaction**: Focus changes flush active preedit before processing.
-  See Section 2.8.
-
-### 8.2 Layout Mutations
-
-- SplitPane, ClosePane, ResizePane, etc., affect the shared layout.
-- All attached clients receive the resulting LayoutChanged notification.
-
-### 8.3 Input Method State
-
-Input method state is communicated per-session through the following wire fields
-and messages:
-
-- `AttachSessionResponse` includes `active_input_method` and
-  `active_keyboard_layout` fields.
-- `LayoutChanged` leaf nodes include `active_input_method` and
-  `active_keyboard_layout` (all panes in a session share the same values).
-- Input method changes are broadcast to all attached clients via
-  `InputMethodAck` (0x0405, doc 05).
-
-Per-session IME engine lifecycle (creation, activation, deactivation, detach
-preservation, session restore) is defined in daemon design docs.
-
-### 8.4 Client Health
-
-The protocol defines two health states orthogonal to connection lifecycle:
-`healthy` and `stale`. Health transitions are communicated via
-`ClientHealthChanged` (0x0185). Stale clients are excluded from resize
-calculation and stop receiving frames (ring cursor stagnant). See doc 06 Section
-2 for the health escalation timeline, stale triggers, and recovery procedures.
-
----
-
-## 9. Readonly Client Permissions
+## 8. Readonly Client Permissions
 
 When a client attaches with `readonly: true`, it operates in observer mode. The
 server enforces the following permissions:
 
-### 9.1 Permitted Messages (readonly MAY send)
+### 8.1 Permitted Messages (readonly MAY send)
 
 | Category              | Messages                                                                               |
 | --------------------- | -------------------------------------------------------------------------------------- |
@@ -1201,7 +1130,7 @@ server enforces the following permissions:
 | Connection management | Heartbeat, Disconnect, DetachSessionRequest, ClientDisplayInfo, Subscribe, Unsubscribe |
 | Search                | SearchRequest, SearchCancel                                                            |
 
-### 9.2 Prohibited Messages (readonly MUST NOT send)
+### 8.2 Prohibited Messages (readonly MUST NOT send)
 
 | Category              | Messages                                                                                                                                                                  |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1216,7 +1145,7 @@ server enforces the following permissions:
 When a readonly client sends a prohibited message, the server responds with
 `ERR_ACCESS_DENIED` (status code 5, error code `0x00000203`).
 
-### 9.3 Readonly Receives
+### 8.3 Readonly Receives
 
 Readonly clients receive ALL server-to-client messages, including:
 

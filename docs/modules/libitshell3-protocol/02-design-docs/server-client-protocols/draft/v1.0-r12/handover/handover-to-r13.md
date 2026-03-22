@@ -40,7 +40,7 @@ writing a compatible client without access to our server source) need this
 information?" If no, it doesn't belong here.
 
 **Single source of truth for each concept.** Readonly permissions live in Doc 03
-§9 only. Header format lives in Doc 01 §3.1 only. JSON conventions live in Doc
+§8 only. Header format lives in Doc 01 §3.1 only. JSON conventions live in Doc
 01 §3.6 only. Other docs cross-reference, never duplicate.
 
 **ADRs are the permanent record of design decisions.** Spec docs should not
