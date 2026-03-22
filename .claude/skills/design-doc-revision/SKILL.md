@@ -1,7 +1,7 @@
 ---
 name: design-doc-revision
 description: Kick off or resume a design document revision cycle for one or more modules
-argument-hint: <daemon|protocol|ime-contract> [daemon|protocol|ime-contract] ...
+argument-hint: "<target> [target] ..."
 disable-model-invocation: true
 ---
 
@@ -9,18 +9,51 @@ disable-model-invocation: true
 
 Targets: **$ARGUMENTS**
 
-Validate each argument is one of: `daemon`, `protocol`, `ime-contract`. If
-invalid, show valid options and stop.
+## Target Resolution
 
-## Target Registry
+Targets are resolved by **filesystem discovery**, not a hardcoded list.
 
-| Target         | Team Directory                  | Doc Base Path                                                               |
-| -------------- | ------------------------------- | --------------------------------------------------------------------------- |
-| `daemon`       | `.claude/agents/daemon-team/`   | `docs/modules/libitshell3/02-design-docs/daemon/`                           |
-| `protocol`     | `.claude/agents/protocol-team/` | `docs/modules/libitshell3-protocol/02-design-docs/server-client-protocols/` |
-| `ime-contract` | `.claude/agents/ime-team/`      | `docs/modules/libitshell3-ime/02-design-docs/interface-contract/`           |
+### Step 1: Discover all topics
 
-Verification agents: `.claude/agents/verification/`
+```bash
+find docs/modules -path "*/02-design-docs/*/draft" -type d | sort
+```
+
+This produces paths like
+`docs/modules/libitshell3-ime/02-design-docs/behavior/draft`. The **topic name**
+is the directory immediately before `draft/` (e.g., `behavior`, `daemon`,
+`interface-contract`, `server-client-protocols`).
+
+### Step 2: Match arguments to topics
+
+For each argument, fuzzy-match against discovered topic names:
+
+- `daemon` → `daemon`
+- `protocol` → `server-client-protocols`
+- `ime-contract` → `interface-contract`
+- `ime-behavior` or `behavior` → `behavior`
+
+If no match or ambiguous, show all discovered topics and ask the user to
+clarify.
+
+### Step 3: Resolve team directory
+
+| Topic pattern                                | Team Directory                  |
+| -------------------------------------------- | ------------------------------- |
+| Under `libitshell3/02-design-docs/`          | `.claude/agents/daemon-team/`   |
+| Under `libitshell3-protocol/02-design-docs/` | `.claude/agents/protocol-team/` |
+| Under `libitshell3-ime/02-design-docs/`      | `.claude/agents/ime-team/`      |
+
+Use `ls -la` on the team directory to discover members (symlinks!).
+
+Verification agents (all targets): `.claude/agents/verification/`
+
+### Adding new topics
+
+When a new `draft/` directory appears under any module's `02-design-docs/`, it
+is automatically discoverable. The only manual update needed is adding a team
+directory mapping if a new module is created (not a new topic within an existing
+module).
 
 ## Entry Point — ALWAYS Start Here
 

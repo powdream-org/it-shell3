@@ -10,7 +10,8 @@
 
 ### 1a. Discover state for each target
 
-For each target in the Target Registry:
+For each resolved target (doc base path + team directory from SKILL.md Target
+Resolution):
 
 1. `ls -la` the team directory to discover all members (including symlinks).
 2. List version dirs under `<doc base path>/draft/`. Latest = highest `vX.Y-rN`.
