@@ -1,4 +1,4 @@
-# 00040. YAGNI — Remove Compression Header Flag and Capability
+# 00027. YAGNI — Remove Compression Header Flag and Capability
 
 - Date: 2026-03-20
 - Status: Accepted

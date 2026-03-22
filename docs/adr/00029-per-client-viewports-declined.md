@@ -1,4 +1,4 @@
-# 00042. Per-Client Viewports Declined — Breaks Shared Ring Buffer Optimization
+# 00029. Per-Client Viewports Declined — Breaks Shared Ring Buffer Optimization
 
 - Date: 2026-03-21
 - Status: Accepted

@@ -266,7 +266,7 @@ Work in progress — session split point.
       written, CTRs 06/08/12 extended; ~950 → ~686 lines)
 - [x] Doc 06 owner review ✅ (§11 Open Questions all resolved; ADR 00035–00038,
       CTR-13 written)
-- [x] Doc 02 owner review ✅ (26 cleanup items applied; ADRs 00041/00042
+- [x] Doc 02 owner review ✅ (26 cleanup items applied; ADRs 00028/00029
       written, ADRs 00023/00024/00025 extended; CTR-17 written, CTRs 06/08/09
       extended; ADR anti-pattern guide added to convention doc; ~1017 → ~879
       lines)

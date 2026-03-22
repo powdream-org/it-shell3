@@ -1,4 +1,4 @@
-# 00041. YAGNI — Remove `celldata_encoding` Capability
+# 00028. YAGNI — Remove `celldata_encoding` Capability
 
 - Date: 2026-03-21
 - Status: Accepted

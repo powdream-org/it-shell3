@@ -100,9 +100,9 @@ if from different source locations.>
 | 00032     | Preedit message simplification (field removals, frame_type=2)                                                                                                 |
 | ~~00033~~ | ~~Protocol wire conventions~~ — **EXCLUDED**: content stays in protocol overview                                                                              |
 | 00034     | Per-connection handshake (no lightweight reconnect optimization in v1)                                                                                        |
-| 00040     | YAGNI — Remove compression header flag and capability (supersedes ADR 00014)                                                                                  |
-| 00041     | YAGNI — Remove `celldata_encoding` capability                                                                                                                 |
-| 00042     | Per-client viewports declined — breaks shared ring buffer optimization                                                                                        |
+| 00027     | YAGNI — Remove compression header flag and capability (supersedes ADR 00014)                                                                                  |
+| 00028     | YAGNI — Remove `celldata_encoding` capability                                                                                                                 |
+| 00029     | Per-client viewports declined — breaks shared ring buffer optimization                                                                                        |
 
 ---
 
@@ -182,13 +182,13 @@ deleted (§11 → §13 gap). Both deferred to final cross-doc renumbering pass.
 
 All steps complete. Doc 02 reduced from ~1017 lines to ~879 lines.
 
-- [x] 5a. ADRs written: 00041, 00042
+- [x] 5a. ADRs written: 00028, 00029
 - [x] 5b. ADRs extended: 00023, 00024, 00025
 - [x] 5c. Daemon CTR written: CTR-17
 - [x] 5d. CTRs extended: CTR-06, CTR-08, CTR-09
 - [x] 5e. 26 cleanup items applied
 
-**Note**: Cross-doc items 27–33 (ADR 00040 COMPRESSED flag removal) applied to
+**Note**: Cross-doc items 27–33 (ADR 00027 COMPRESSED flag removal) applied to
 Doc 01, Doc 04, and 99-post-v1-features.md. ✅
 
 ---
