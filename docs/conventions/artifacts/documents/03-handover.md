@@ -63,6 +63,30 @@ to investigate, which reference codebases to consult, and what questions the
 research should answer.}
 ```
 
+## Pre-Writing: Artifact Inventory
+
+Before writing the handover, scan the draft directory for all artifacts that
+could inform it. Other teams may have filed cross-team requests, review notes
+may have accumulated, or verification records may exist — and conversation
+context alone will not surface files created outside the current session.
+
+```bash
+find draft/vX.Y-rN/ -type f -name '*.md' | sort
+```
+
+At minimum, check for:
+
+| Directory              | What to look for                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| `cross-team-requests/` | CTRs filed by other teams — mandatory inputs for the next revision; must be listed in the handover |
+| `review-notes/`        | Owner review notes written during this cycle                                                       |
+| `verification/`        | `round-{N}-issues.md` files from verification rounds                                               |
+| `design-resolutions/`  | Resolution documents from the revision cycle                                                       |
+
+Read or at least list titles of any files not already encountered in the
+conversation. A missed CTR means the next revision team starts without knowing
+work has been requested of them.
+
 ## Post-Handover: Update Design Principles
 
 After writing the handover, review its §2 (Insights) and §3 (Design Philosophy)
