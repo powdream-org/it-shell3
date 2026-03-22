@@ -1,6 +1,7 @@
 # Handover: IME Interface Contract v1.0-r9 to v1.0-r10
 
-**Date**: 2026-03-15 **Author**: team leader
+- **Date**: 2026-03-22 (updated; originally 2026-03-15)
+- **Author**: team leader
 
 ---
 
@@ -61,13 +62,30 @@ ADR tooling is under evaluation; see ADR research notes from this session.
 
 ## Owner Priorities
 
-No open review notes. No pending CTRs.
+- **Incoming CTR from protocol team must be applied in r10.** The protocol team
+  filed `cross-team-requests/01-protocol-engine-decomposition.md` (from protocol
+  v1.0-r12) with two required changes:
+  1. **Engine constructor — decomposition responsibility**: Document in
+     `03-engine-interface.md` that the engine constructor is the sole location
+     where `input_method` string is decomposed into engine-specific types. The
+     string flows unchanged from client → server → engine constructor. No code
+     outside the constructor examines or transforms it.
+  2. **Per-session engine — preedit exclusivity invariant**: Document that at
+     most one pane in a session can have active preedit at any time (single
+     `HangulInputContext` with one jamo stack per engine instance).
 
-The appendix pruning removed historical changelog entries that referenced
-features subsequently removed (composition_state, LanguageId, ghostty
-integration detail). If future contributors need that history, it is recoverable
-from git log.
+- The appendix pruning removed historical changelog entries that referenced
+  features subsequently removed (composition_state, LanguageId, ghostty
+  integration detail). If future contributors need that history, it is
+  recoverable from git log.
+
+- **Stale external cross-references**: Resolution 4 of
+  `design-resolutions/01-v09-changes.md` catalogues all external documents
+  (protocol, daemon) that reference old section numbers. The protocol and daemon
+  teams should fix these in their next revision cycles. This is informational
+  for r10, not actionable by the interface-contract team.
 
 ## Pre-Discussion Research Tasks
 
-None required — no known issues entering v1.0-r10.
+None beyond the CTR. The CTR content is self-contained with reference text from
+the removed protocol sections — no additional research needed.
