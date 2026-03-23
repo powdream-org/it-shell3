@@ -12,7 +12,7 @@
 
 ## Current State
 
-- **Step**: 7 (Commit & Report)
+- **Step**: 8 (Retrospective)
 - **Verification Round**: 3 (owner declared clean)
 - **Active Team**: (none)
 - **Team Directory**: (none)
@@ -32,6 +32,7 @@
       dismissed (R3-SEM-1)
 - [x] Step 6: Fix Round Decision — fix round (sweep applied)
 - [x] Step 6: Owner declared clean
-- [ ] Step 7: Commit & Report
-- [ ] Step 7: Commit & Report
+- [x] Step 7: Commit & Report
+- [x] Owner Review — 1 review note (flowchart), 3 ADRs (00040–00042), doc 10+11
+      migrated to source, isPrintablePosition bug fixed
 - [ ] Step 8: Retrospective

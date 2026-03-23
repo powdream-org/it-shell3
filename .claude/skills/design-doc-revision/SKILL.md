@@ -87,7 +87,16 @@ step's file** — do not pre-read future steps.
 | 5    | `steps/05-verification.md`        | Phase 1 + Phase 2, verdicts collected                          | All issues have verdict                     |
 | 6    | `steps/06-fix-round.md`           | Record issues, decide: fix round or clean                      | Fix → Step 4; Clean → Step 7                |
 | 7    | `steps/07-commit-and-report.md`   | Commit, report to owner, STOP                                  | Commit done, owner notified                 |
-| 8    | `steps/08-retrospective.md`       | Review cycle, propose skill improvements                       | Improvements applied or none needed         |
+| 8    | `steps/08-owner-review.md`        | Owner reviews docs, team leader supports                       | Owner signals review completion             |
+| 9    | `steps/09-retrospective.md`       | Review cycle, propose skill improvements                       | Improvements applied or none needed         |
+
+## Continuous Improvement Log
+
+When the team leader encounters a procedural problem, improper facilitation, or
+skill gap at ANY point during the cycle, immediately append it to
+`draft/vX.Y-rN/retrospective/skill-improvement-proposals.md`. Create the file
+and directory if they don't exist. Do not wait for the retrospective step — log
+issues as they occur.
 
 ## Rationale & Reference
 

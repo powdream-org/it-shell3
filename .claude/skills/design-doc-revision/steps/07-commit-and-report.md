@@ -35,10 +35,10 @@ the Review Cycle on their own.
 
 Update TODO.md:
 
-- `Current State` → `Step: 8 (Retrospective)`
+- `Current State` → `Step: 8 (Owner Review)`
 - `Active Team` → (none)
 - Mark `Step 7` as `[x]`
 
 ## Next
 
-Read `steps/08-retrospective.md`.
+Read `steps/08-owner-review.md`.

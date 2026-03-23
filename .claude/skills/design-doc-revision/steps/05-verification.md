@@ -43,6 +43,10 @@ Provide:
 - **Cascade analysis instruction:** "For each issue, include an `impact_chain`
   listing all other documents/sections that would need coordinated changes if
   this issue is fixed."
+- **Pre-existing issue flagging:** "For each issue, check whether it existed in
+  the previous version (`draft/vX.Y-r<prev>/`). Flag pre-existing issues
+  explicitly. Pre-existing issues MAY be deferred at owner discretion without
+  counting toward the round threshold."
 
 Collect both agents' issue lists. **Disband Phase 1 agents immediately.**
 

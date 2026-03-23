@@ -1,4 +1,4 @@
-# Step 8: Retrospective & Skill Update
+# Step 9: Retrospective & Skill Update
 
 ## Anti-Patterns
 
@@ -14,7 +14,7 @@ and future cycles benefit from past experience.
 
 ## Action
 
-### 8a. Review the cycle
+### 9a. Review the cycle
 
 Read TODO.md's Progress section end-to-end. For each step, answer:
 
@@ -30,9 +30,15 @@ Read TODO.md's Progress section end-to-end. For each step, answer:
 5. **Did I micromanage?** (e.g., gave specific edit instructions instead of
    goals, proxied messages instead of letting agents talk directly)
 
-### 8b. Propose improvements
+### 9b. Review and finalize accumulated proposals
 
-For each problem identified in 8a:
+Review and finalize accumulated proposals from
+`retrospective/skill-improvement-proposals.md`. Proposals have been accumulated
+throughout the cycle. This step reviews them, adds any final observations, and
+presents the consolidated list to the owner.
+
+For each problem identified in 9a that is not already captured in the proposals
+file, add it now:
 
 - Draft a specific edit to the relevant step file:
   - Add a new anti-pattern if one was discovered
@@ -40,14 +46,14 @@ For each problem identified in 8a:
   - Add a missing instruction if a step was unclear
   - Remove unnecessary steps if they wasted tokens
 
-### 8c. Owner review
+### 9c. Owner review
 
 Present proposed changes to the owner:
 
 - List each proposed edit with: which file, what change, why
 - **Wait for owner approval.** Do not edit skill files without approval.
 
-### 8d. Apply approved changes
+### 9d. Apply approved changes
 
 If owner approves:
 
@@ -67,7 +73,7 @@ If owner has no changes or declines: no action needed.
 
 Update TODO.md:
 
-- Mark `Step 8` as `[x]`
+- Mark `Step 9` as `[x]`
 - `Current State` → `Complete`
 
 ## End

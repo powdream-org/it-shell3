@@ -7,6 +7,9 @@
   quality issues that waste verification rounds.
 - Do NOT micromanage ("change line 43 from X to Y"). State the goal, let the
   agent figure out the approach.
+- Do NOT reuse agent names across steps without checking for stale shutdown
+  requests. A respawned agent with the same name may process a shutdown request
+  from a previous step, causing premature termination.
 
 ## Action
 
