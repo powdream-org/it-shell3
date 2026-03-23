@@ -164,12 +164,12 @@ internally dispatches to the appropriate logic based on its current mode.
 
 The engine is deliberately isolated from the surrounding pipeline:
 
-- **No Phase 0 knowledge**: The engine does not know about language toggle keys,
-  app-level shortcuts, or CapsLock handling. These are consumed before the key
-  reaches `processKey()`.
-- **No Phase 2 knowledge**: The engine does not know about PTY writes, ghostty
-  key encoding, or preedit overlay rendering. It produces `ImeResult`; the
-  daemon decides how to consume it.
+- **No shortcut interception knowledge**: The engine does not know about
+  language toggle keys, app-level shortcuts, or CapsLock handling. These are
+  consumed before the key reaches `processKey()`.
+- **No rendering/PTY knowledge**: The engine does not know about PTY writes,
+  ghostty key encoding, or preedit overlay rendering. It produces `ImeResult`;
+  the daemon decides how to consume it.
 - **No pane/session awareness**: The engine is pane-agnostic. Per-pane locking,
   focus change flushing, and session lifecycle are daemon responsibilities.
 

@@ -12,7 +12,7 @@ This document catalogs every `ImeResult` field combination that `processKey()`
 can produce. The matrix serves as the authoritative reference for:
 
 - IME engine implementors validating their output
-- Daemon integration (Phase 2) testing all consumption paths
+- Daemon integration testing all consumption paths
 - Protocol/client teams understanding what `ImeResult` patterns to expect
 
 All four `ImeResult` fields are orthogonal — any combination is valid.
@@ -137,7 +137,7 @@ direct mode — they are forwarded without producing committed text, and
 
 Input method switch via `setActiveInputMethod()` flushes atomically if
 composition is active. `forward_key` is always null — the toggle key was
-consumed by Phase 0.
+consumed by the daemon's shortcut interception layer before reaching the engine.
 
 ---
 

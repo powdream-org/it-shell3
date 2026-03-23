@@ -78,9 +78,9 @@ ensuring composition is flushed before the modifier is passed downstream.
 ### 3.2 Scope Boundary
 
 > **Note**: The order in which the daemon consumes `ImeResult` fields (PTY
-> writes, preedit cache updates, key forwarding) is a Phase 2 concern and out of
-> scope for this document. See the daemon architecture docs for Phase 2
-> consumption details.
+> writes, preedit cache updates, key forwarding) is a daemon-level concern and
+> out of scope for this document. See the daemon design docs for consumption
+> details.
 
 ## 4. Verification Against Reference Implementations
 
