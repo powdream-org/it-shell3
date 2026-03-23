@@ -60,14 +60,17 @@ return (self.hid_keycode >= 0x04 and self.hid_keycode <= 0x27) or
 
 Fix existing test at `types.zig:142-149` (Enter assertion should be `false`).
 
-### Tertiary: Retire or slim down doc 10
+### Tertiary: Retire doc 10 entirely
 
-After migration, `10-hangul-engine-internals.md` should either be:
+After migration, `10-hangul-engine-internals.md` should be retired:
 
-- **Retired entirely** — replaced by a one-liner pointing to the source code, or
-- **Slimmed to design rationale only** — keep §2.1 "Why the engine owns the
-  mapping" and §3.1 "Buffer sizing rationale" as prose that doesn't fit in doc
-  comments. Everything else deleted.
+- Implementation details → source doc comments in `hangul_engine.zig`
+- Design rationale §2.1 (engine-owned mapping) → ADR-00042 (already created)
+- Design rationale §3.1 (buffer sizing) → doc comment on buffer fields (too
+  trivial for an ADR)
+- Dirty tracking rationale → ADR-00041 (already created)
+
+No slimmed-down doc 10 needed — all content has a better home.
 
 ## Owner Decision
 

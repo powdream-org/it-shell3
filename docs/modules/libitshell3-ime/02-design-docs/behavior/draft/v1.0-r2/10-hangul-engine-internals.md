@@ -140,14 +140,9 @@ fn libhangulKeyboardId(input_method: []const u8) ?[]const u8 {
 v1 ships `"direct"` + `"korean_2set"` only. The full table is documented to
 establish the naming convention for all libhangul keyboards.
 
-**Why the engine owns the mapping (not the server):**
-
-- The engine is the only consumer of libhangul keyboard IDs -- it calls
-  `hangul_ic_new()` and `hangul_ic_select_keyboard()`.
-- A cross-component mapping table (previously in protocol doc 05 Section 4.3)
-  produced the `"korean_3set_390" -> "3f"` bug (should be `"39"`). Moving the
-  mapping into the engine eliminates this bug class.
-- The mapping is a trivial static table, unit-testable in isolation.
+See
+[ADR-00042 (Engine-Owned Keyboard ID Mapping)](../../../../../../adr/00042-engine-owned-keyboard-id-mapping.md)
+for the rationale behind engine-owned mapping.
 
 ---
 
