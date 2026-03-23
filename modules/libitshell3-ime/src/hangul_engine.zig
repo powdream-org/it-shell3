@@ -21,20 +21,56 @@ const HID_ARROW_LEFT: u8 = 0x50;
 const HID_ARROW_DOWN: u8 = 0x51;
 const HID_ARROW_UP: u8 = 0x52;
 
+/// Concrete IME engine wrapping libhangul for Korean composition + direct mode
+/// passthrough. Implements the `ImeEngine` vtable interface.
+///
+/// All internal buffers are fixed-size and stack-allocated -- zero heap allocation
+/// per keystroke. `ImeResult` slices point into these buffers and are valid until
+/// the next call to `processKey()`, `flush()`, `reset()`, `deactivate()`, or
+/// `setActiveInputMethod()` on the same instance. Callers must copy if they need
+/// to retain text across calls.
 pub const HangulImeEngine = struct {
+    /// Pointer to the libhangul input context. Created via `hangul_ic_new()`.
+    /// Owns all jamo composition state internally.
     hic: *c.HangulInputContext,
+    /// Canonical protocol string (e.g., `"korean_2set"`, `"direct"`).
+    /// Single source of truth for the current input method. This is the only
+    /// engine-internal field needed to reconstruct the engine on session restore.
     active_input_method: []const u8,
+    /// Cached dispatch tag derived from `active_input_method`. Avoids string
+    /// comparison on every `processKey()` call.
     engine_mode: EngineMode,
 
+    /// Fixed-size buffer for committed UTF-8 text in `ImeResult`.
+    /// 256 bytes: vastly oversized for safety -- a single Korean syllable is
+    /// 3 bytes UTF-8, and the longest commit from one keystroke is ~6 bytes.
     committed_buf: [256]u8 = @splat(0),
+    /// Fixed-size buffer for preedit UTF-8 text in `ImeResult`.
+    /// 64 bytes: vastly oversized -- a composing syllable is always one character
+    /// (3 bytes UTF-8).
     preedit_buf: [64]u8 = @splat(0),
+    /// Valid byte count in `committed_buf`.
     committed_len: usize = 0,
+    /// Valid byte count in `preedit_buf`.
     preedit_len: usize = 0,
 
+    /// Previous preedit byte length for dirty tracking. Uses length-only comparison
+    /// with "non-null to non-null always changed" shortcut -- libhangul never leaves
+    /// preedit unchanged after consuming a key, so content comparison is unnecessary.
+    /// See ADR-00041 (length-only preedit dirty tracking).
     prev_preedit_len: usize = 0,
 
+    /// Engine-internal mode for hot-path dispatch. NOT part of the public API.
+    /// - `direct`: HID-to-ASCII passthrough, no libhangul involvement.
+    /// - `composing`: Keys fed to `hangul_ic_process()` for jamo composition.
     const EngineMode = enum { direct, composing };
 
+    /// Create a new `HangulImeEngine` for the given input method string.
+    /// No allocator is needed -- all buffers are fixed-size.
+    ///
+    /// For session persistence: the server saves `active_input_method` and creates
+    /// a new engine with the saved string on restore. Composition state is never
+    /// persisted -- the engine always starts with empty composition.
     pub fn init(input_method: []const u8) !HangulImeEngine {
         const mode = deriveMode(input_method);
         const keyboard_id: [*c]const u8 = if (libhangulKeyboardId(input_method)) |id| id.ptr else "2";
@@ -73,6 +109,12 @@ pub const HangulImeEngine = struct {
     // processKey — the core method
     // -----------------------------------------------------------------------
 
+    /// Core key processing. Dispatches to direct or composing mode based on
+    /// `engine_mode`. Release events are ignored (empty result). In composing
+    /// mode, handles `hangul_ic_process()` return-false (key rejected) by
+    /// flushing remaining composition and forwarding the key. See
+    /// `11-hangul-ic-process-handling.md` in the behavior docs for the full
+    /// return-false algorithm.
     fn processKeyImpl(ptr: *anyopaque, key: KeyEvent) ImeResult {
         const self: *HangulImeEngine = @ptrCast(@alignCast(ptr));
 
@@ -140,6 +182,15 @@ pub const HangulImeEngine = struct {
         return self.flushAndForward(key);
     }
 
+    /// Handle Backspace during Korean composition. Calls `hangul_ic_backspace()`
+    /// directly -- no pre-check with `hangul_ic_is_empty()` needed.
+    ///
+    /// - Returns `true`: a jamo was popped (jongseong first, then jungseong, then
+    ///   choseong). The updated preedit is read and returned. Double-tail consonants
+    ///   (e.g., ㅂㅅ) are stored as two jongseong entries, so Backspace removes them
+    ///   individually.
+    /// - Returns `false`: composition was empty. Backspace is forwarded to the
+    ///   terminal.
     fn handleBackspace(self: *HangulImeEngine, key: KeyEvent) ImeResult {
         const consumed = c.hangul_ic_backspace(self.hic);
         if (consumed) {
@@ -171,6 +222,25 @@ pub const HangulImeEngine = struct {
         return result;
     }
 
+    /// Feed an ASCII character to `hangul_ic_process()` for jamo composition.
+    ///
+    /// **Critical**: commit and preedit buffers are ALWAYS read from libhangul
+    /// regardless of the return value. `hangul_ic_process()` may update internal
+    /// buffers even when returning `false` (e.g., a syllable break triggered
+    /// before rejecting the character).
+    ///
+    /// Algorithm:
+    /// 1. Call `hangul_ic_process(hic, ascii)`.
+    /// 2. Always read `hangul_ic_get_commit_string()` and
+    ///    `hangul_ic_get_preedit_string()`.
+    /// 3. If returned `false` (key rejected -- punctuation, numbers, etc.):
+    ///    a. Flush any remaining composition via `hangul_ic_flush()`.
+    ///    b. Forward the rejected key to the terminal.
+    ///
+    /// Edge cases:
+    /// - Return-false with empty composition: nothing to flush, key forwarded.
+    /// - Return-false with syllable break: committed text from the break is
+    ///   captured in step 2, remaining preedit flushed in 3a, key forwarded in 3b.
     fn feedLibhangul(self: *HangulImeEngine, key: KeyEvent, ascii: u8) ImeResult {
         const consumed = c.hangul_ic_process(self.hic, @intCast(ascii));
 
@@ -313,6 +383,13 @@ pub const HangulImeEngine = struct {
         return self.active_input_method;
     }
 
+    /// Switch to a different input method. Internal steps:
+    /// 1. Validate against the canonical registry; return `UnsupportedInputMethod` if unknown.
+    /// 2. Same method as current: no-op (no flush, returns empty `ImeResult`).
+    /// 3. Different method: flush pending composition via `hangul_ic_flush()`,
+    ///    update `active_input_method`, `engine_mode`, and libhangul keyboard.
+    ///    `hangul_ic_flush()` alone is sufficient -- it clears all jamo fields
+    ///    internally, so no separate `hangul_ic_reset()` is needed.
     fn setActiveInputMethodImpl(ptr: *anyopaque, method: []const u8) error{UnsupportedInputMethod}!ImeResult {
         const self: *HangulImeEngine = @ptrCast(@alignCast(ptr));
 
@@ -370,6 +447,11 @@ pub const HangulImeEngine = struct {
     }
 
     const KbMapping = struct { canonical: []const u8, libhangul_id: []const u8 };
+    /// Canonical input method string to libhangul keyboard ID mapping.
+    /// This table is the ONLY place where protocol strings meet engine-native IDs.
+    /// v1 ships `"direct"` + `"korean_2set"` only; the full table establishes
+    /// the naming convention for all libhangul keyboards.
+    /// See ADR-00042 (engine-owned keyboard ID mapping) for rationale.
     const keyboard_map = [_]KbMapping{
         .{ .canonical = "korean_2set", .libhangul_id = "2" },
         .{ .canonical = "korean_2set_old", .libhangul_id = "2y" },
@@ -382,6 +464,8 @@ pub const HangulImeEngine = struct {
         .{ .canonical = "korean_ahnmatae", .libhangul_id = "ahn" },
     };
 
+    /// Map canonical input method string to libhangul keyboard ID.
+    /// Returns null for `"direct"` or unrecognized strings.
     pub fn libhangulKeyboardId(input_method: []const u8) ?[]const u8 {
         for (&keyboard_map) |*entry| {
             if (std.mem.eql(u8, input_method, entry.canonical)) return entry.libhangul_id;

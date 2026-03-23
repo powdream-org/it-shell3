@@ -47,7 +47,8 @@ pub const KeyEvent = struct {
     /// Returns true if this is a printable key position (letters, digits, punctuation).
     /// Based on HID usage codes for the US ANSI keyboard.
     pub fn isPrintablePosition(self: KeyEvent) bool {
-        return (self.hid_keycode >= 0x04 and self.hid_keycode <= 0x38);
+        return (self.hid_keycode >= 0x04 and self.hid_keycode <= 0x27) or
+            (self.hid_keycode >= 0x2D and self.hid_keycode <= 0x38);
     }
 };
 
@@ -139,14 +140,14 @@ test "KeyEvent: isPrintablePosition" {
     };
     try std.testing.expect(slash_key.isPrintablePosition());
 
-    // Enter = 0x28 — inside printable range (digits/symbols area)
+    // Enter = 0x28 — NOT printable (gap keycode, excluded from split range)
     const enter_key = KeyEvent{
         .hid_keycode = 0x28,
         .modifiers = .{},
         .shift = false,
         .action = .press,
     };
-    try std.testing.expect(enter_key.isPrintablePosition());
+    try std.testing.expect(!enter_key.isPrintablePosition());
 
     // Arrow = 0x4F — NOT printable
     const arrow_key = KeyEvent{
@@ -180,9 +181,6 @@ test "KeyEvent: isPrintablePosition excludes gap keycodes 0x28-0x2C (spec v1.0-r
     // Per interface contract v1.0-r10 §02-types.md, isPrintablePosition() must use
     // a SPLIT range: 0x04–0x27 (letters+digits) OR 0x2D–0x38 (punctuation).
     // Keycodes 0x28–0x2C (Enter, Escape, Backspace, Tab, Space) must return false.
-    //
-    // BUG: Current implementation uses continuous range 0x04–0x38, incorrectly
-    // returning true for these control keys.
 
     const gap_keys = [_]struct { code: u8, name: []const u8 }{
         .{ .code = 0x28, .name = "Enter" },
