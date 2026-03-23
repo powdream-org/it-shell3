@@ -155,12 +155,11 @@ The following truth table summarizes which field combinations are valid:
 |      null      |     null     |  non-null   |      false      | Non-composing key with no active composition                    |
 |    non-null    |     null     |  non-null   |      true       | Flush + forward (modifier, arrow, Enter, etc.)                  |
 
-Two combinations never occur in practice:
+`preedit_text` and `forward_key` are mutually exclusive:
 
-| committed_text | preedit_text | forward_key | preedit_changed | Why not                                                                 |
-| :------------: | :----------: | :---------: | :-------------: | ----------------------------------------------------------------------- |
-|      null      |   non-null   |  non-null   |        —        | A forwarded key during composition always triggers flush first          |
-|    non-null    |   non-null   |  non-null   |        —        | Syllable break does not forward a key; flush does not start new preedit |
+| committed_text | preedit_text | forward_key | preedit_changed | Why not                                                                                                                |
+| :------------: | :----------: | :---------: | :-------------: | ---------------------------------------------------------------------------------------------------------------------- |
+|       —        |   non-null   |  non-null   |        —        | A forwarded key always triggers flush first (clearing preedit)<br/>A consumed key that updates preedit is never forwarded |
 
 ---
 
