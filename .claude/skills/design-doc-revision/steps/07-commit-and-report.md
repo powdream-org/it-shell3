@@ -4,6 +4,9 @@
 
 - Do NOT commit review notes or handover in the same commit as spec docs.
 - Do NOT skip to the retrospective — Step 8 (Owner Review) comes next.
+- Do NOT commit without reading the staged diff. If agents wrote the changes,
+  read the modified files and check for stale content or missed coordinated
+  updates before committing.
 
 ## Action
 

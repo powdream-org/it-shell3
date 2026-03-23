@@ -4,6 +4,9 @@
 
 - Do NOT edit skill files without owner approval.
 - Do NOT skip this step — it is how the harness loop improves over time.
+- Do NOT commit skill file changes without reading the staged diff. Agent-
+  written edits may contain stale content or miss coordinated updates across
+  step files.
 
 ## Purpose
 
