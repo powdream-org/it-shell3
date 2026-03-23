@@ -176,6 +176,42 @@ test "KeyEvent: isPrintablePosition" {
     try std.testing.expect(!above_key.isPrintablePosition());
 }
 
+test "KeyEvent: isPrintablePosition excludes gap keycodes 0x28-0x2C (spec v1.0-r10)" {
+    // Per interface contract v1.0-r10 §02-types.md, isPrintablePosition() must use
+    // a SPLIT range: 0x04–0x27 (letters+digits) OR 0x2D–0x38 (punctuation).
+    // Keycodes 0x28–0x2C (Enter, Escape, Backspace, Tab, Space) must return false.
+    //
+    // BUG: Current implementation uses continuous range 0x04–0x38, incorrectly
+    // returning true for these control keys.
+
+    const gap_keys = [_]struct { code: u8, name: []const u8 }{
+        .{ .code = 0x28, .name = "Enter" },
+        .{ .code = 0x29, .name = "Escape" },
+        .{ .code = 0x2A, .name = "Backspace" },
+        .{ .code = 0x2B, .name = "Tab" },
+        .{ .code = 0x2C, .name = "Space" },
+    };
+
+    for (gap_keys) |gk| {
+        const key = KeyEvent{
+            .hid_keycode = gk.code,
+            .modifiers = .{},
+            .shift = false,
+            .action = .press,
+        };
+        // Spec requires false for all gap keycodes
+        try std.testing.expectEqual(false, key.isPrintablePosition());
+    }
+
+    // Boundary: 0x27 (digit '0') must be printable (last in first range)
+    const digit0 = KeyEvent{ .hid_keycode = 0x27, .modifiers = .{}, .shift = false, .action = .press };
+    try std.testing.expect(digit0.isPrintablePosition());
+
+    // Boundary: 0x2D (hyphen '-') must be printable (first in second range)
+    const hyphen = KeyEvent{ .hid_keycode = 0x2D, .modifiers = .{}, .shift = false, .action = .press };
+    try std.testing.expect(hyphen.isPrintablePosition());
+}
+
 test "KeyEvent: HID_KEYCODE_MAX" {
     try std.testing.expectEqual(@as(u8, 0xE7), KeyEvent.HID_KEYCODE_MAX);
 }

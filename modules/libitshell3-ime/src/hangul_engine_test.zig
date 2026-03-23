@@ -1103,6 +1103,40 @@ test "N3: preedit_changed_false_no_change" {
     try expectPreeditChanged(r, false);
 }
 
+test "N4: preedit_changed_true_same_byte_length" {
+    // Validates that preedit_changed is true when preedit content changes but
+    // UTF-8 byte length stays the same. This is the scenario from Mismatch #1:
+    //   ㄱ (U+3131, UTF-8: E3 84 B1, 3 bytes) -> 가 (U+AC00, UTF-8: EA B0 80, 3 bytes)
+    //
+    // The implementation uses prev_preedit_len (length-only tracking) but with a
+    // "non-null -> non-null always means content changed" rule in feedLibhangul.
+    // This is correct because libhangul's hangul_ic_process never consumes a key
+    // without changing the preedit: every consumed keystroke advances composition
+    // state (adds choseong/jungseong/jongseong or triggers a syllable break),
+    // which always produces a different Unicode codepoint.
+    //
+    // Therefore, no prev_preedit_buf content comparison is needed.
+    var eng = try createKoreanEngine();
+    defer eng.deinit();
+    const ime = eng.engine();
+
+    // Step 1: 'r' -> preedit ㄱ (3 bytes UTF-8)
+    const r1 = ime.processKey(press(HID.r));
+    try expectPreedit(r1, "\xe3\x84\xb1"); // ㄱ
+    try expectPreeditChanged(r1, true); // null -> non-null
+    try testing.expectEqual(@as(usize, 3), r1.preedit_text.?.len);
+
+    // Step 2: 'k' -> preedit 가 (also 3 bytes UTF-8, but different content)
+    const r2 = ime.processKey(press(HID.k));
+    try expectPreedit(r2, "\xea\xb0\x80"); // 가
+    try expectPreeditChanged(r2, true); // non-null -> non-null (content changed)
+    try testing.expectEqual(@as(usize, 3), r2.preedit_text.?.len);
+
+    // Both are 3 bytes, but preedit_changed is correctly true because the
+    // implementation treats all non-null -> non-null transitions as changed.
+    // A length-only comparison without this rule would incorrectly return false.
+}
+
 // ============================================================
 // O. Release events (1 test)
 // ============================================================
