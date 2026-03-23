@@ -95,10 +95,3 @@ matches the flush policy defined above.
 `HangulState::keyEvent()` calls `flush()` on modifier detection. The committed
 text is sent to the client, then the key event is forwarded. This also matches
 the flush policy.
-
-### 4.3 Historical Correction
-
-The earlier `interface-design.md` (Section 1.4) specified RESET (discard) for
-Ctrl/Alt/Super modifiers. That was incorrect — it claimed to match ibus-hangul,
-but ibus-hangul actually flushes (commits). This behavior document and the
-interface contract correct that error.
