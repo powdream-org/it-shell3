@@ -35,10 +35,8 @@ Korean is the first supported composition language.
 
 ### 2.1 Design Principle: Flush, Never Discard
 
-The engine always **commits** the in-progress composition before forwarding the
-interrupting key. It never resets (discards) the preedit. This preserves the
-user's typed text in all cases — the user sees their partial input committed to
-the terminal, followed by the effect of the modifier/special key.
+See ADR-00040 (Modifier Flush Policy: Flush Not Reset) for the full decision
+record, rationale, and reference implementation evidence.
 
 ### 2.2 Shift Exception
 
