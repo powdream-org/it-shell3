@@ -53,5 +53,10 @@
 
 ## Phase 5: Commit & Report
 
-- [ ] Commit daemon v1.0-r5 documents
-- [ ] Report to owner
+- [x] Commit daemon v1.0-r5 documents (`e7fb13b`)
+- [x] Handover written (`adf6bad`)
+- [x] Report to owner
+
+---
+
+**DONE** — Cycle complete. See `handover/handover-to-r6.md` for v1.0-r6 inputs.
