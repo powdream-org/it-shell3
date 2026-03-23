@@ -12,7 +12,7 @@
 
 ## Current State
 
-- **Step**: 8 (Retrospective)
+- **Step**: Complete
 - **Verification Round**: 3 (owner declared clean)
 - **Active Team**: (none)
 - **Team Directory**: (none)
@@ -35,4 +35,4 @@
 - [x] Step 7: Commit & Report
 - [x] Owner Review — 1 review note (flowchart), 3 ADRs (00040–00042), doc 10+11
       migrated to source, isPrintablePosition bug fixed
-- [ ] Step 8: Retrospective
+- [x] Step 9: Retrospective — 6 skill improvements applied
