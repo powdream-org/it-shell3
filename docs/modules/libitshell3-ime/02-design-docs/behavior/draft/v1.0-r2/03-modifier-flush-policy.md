@@ -35,8 +35,9 @@ Korean is the first supported composition language.
 
 ### 2.1 Design Principle: Flush, Never Discard
 
-See ADR-00040 (Modifier Flush Policy: Flush Not Reset) for the full decision
-record, rationale, and reference implementation evidence.
+See
+[ADR-00040 (Modifier Flush Policy: Flush Not Reset)](../../../../../../adr/00040-modifier-flush-not-reset.md)
+for the full decision record, rationale, and reference implementation evidence.
 
 ### 2.2 Shift Exception
 
