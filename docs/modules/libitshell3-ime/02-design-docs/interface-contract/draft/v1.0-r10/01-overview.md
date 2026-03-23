@@ -1,5 +1,9 @@
 # IME Interface Contract — Overview
 
+- **Date**: 2026-03-23
+- **Scope**: Overview, design principles, responsibility matrix, and document
+  index for the IME interface contract
+
 ## Document Index
 
 | Document                           | Contents                                                                                               |

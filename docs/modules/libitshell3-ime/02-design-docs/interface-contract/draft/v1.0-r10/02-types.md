@@ -1,5 +1,9 @@
 # IME Interface Contract — Types
 
+- **Date**: 2026-03-23
+- **Scope**: KeyEvent, ImeResult, modifier flush policy, and input method
+  identifier type definitions
+
 ## 1. KeyEvent (Input to IME)
 
 ```zig

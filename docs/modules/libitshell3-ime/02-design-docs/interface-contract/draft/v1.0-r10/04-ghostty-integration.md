@@ -1,5 +1,9 @@
 # IME Interface Contract — ghostty Integration (Reference)
 
+- **Date**: 2026-03-23
+- **Scope**: Reference pointer to ghostty integration in daemon design docs,
+  memory ownership, and buffer lifetime rules
+
 ## 1. ghostty Integration
 
 ghostty integration — how `ImeResult` is consumed by the daemon to drive the key

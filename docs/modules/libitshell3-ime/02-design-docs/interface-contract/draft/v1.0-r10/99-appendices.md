@@ -1,5 +1,9 @@
 # IME Interface Contract — Appendices
 
+- **Date**: 2026-03-23
+- **Scope**: v1 scope definition, changelog, and open questions for the IME
+  interface contract
+
 ## Appendix A: v1 Scope
 
 For Phase 1.5 (native IME), implement only:

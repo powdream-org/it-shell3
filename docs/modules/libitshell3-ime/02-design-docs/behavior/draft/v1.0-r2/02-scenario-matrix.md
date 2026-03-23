@@ -1,9 +1,8 @@
 # ImeResult Scenario Matrix
 
-> **Scope**: Language-agnostic framework with Korean composition as reference
-> examples **Version**: v1.0-r1 **Date**: 2026-03-14 **Extracted from**:
-> interface-contract/draft/v1.0-r8/02-types.md §3.2 — content moved to this
-> document; §3.2 will cross-reference back here after CTR-02 is applied
+- **Date**: 2026-03-23
+- **Scope**: Language-agnostic framework cataloging every valid ImeResult field
+  combination that processKey() can produce
 
 ---
 

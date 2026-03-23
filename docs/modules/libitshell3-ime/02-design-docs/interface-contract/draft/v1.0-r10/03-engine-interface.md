@@ -1,5 +1,9 @@
 # IME Interface Contract — Engine Interface
 
+- **Date**: 2026-03-23
+- **Scope**: ImeEngine vtable definition, setActiveInputMethod behavior, and
+  MockImeEngine for testing
+
 ## 1. ImeEngine (Interface for Dependency Injection)
 
 ```zig

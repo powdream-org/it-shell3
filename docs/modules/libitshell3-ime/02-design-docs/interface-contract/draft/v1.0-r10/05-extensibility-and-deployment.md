@@ -1,5 +1,9 @@
 # IME Interface Contract — Extensibility and Deployment
 
+- **Date**: 2026-03-23
+- **Scope**: Future extensibility for candidate-based engines and LGPL
+  deployment strategy for libhangul
+
 ## 1. Future Extensibility
 
 ### Candidate Support (Japanese/Chinese)

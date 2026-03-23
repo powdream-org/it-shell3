@@ -1,8 +1,8 @@
 # hangul_ic_process() Return-False Handling
 
-**Status**: Draft v1.0-r1 **Date**: 2026-03-14 **Scope**: Algorithm for handling
-`hangul_ic_process()` returning `false` (key rejected by libhangul), including
-correct call sequence for commit/preedit string extraction.
+- **Date**: 2026-03-23
+- **Scope**: Algorithm for handling hangul_ic_process() returning false,
+  including correct call sequence for commit/preedit string extraction
 
 > This document describes **implementation behavior** of the `HangulImeEngine`
 > when libhangul rejects a key. For the caller-facing API contract, see

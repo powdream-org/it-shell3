@@ -1,37 +1,37 @@
 # Modifier Flush Policy
 
-**Version**: v1.0-r1
-**Date**: 2026-03-14
-**Scope**: Language-agnostic flush policy for modifier keys and special keys during active composition
+- **Date**: 2026-03-23
+- **Scope**: Language-agnostic flush policy for modifier keys and special keys
+  during active composition
 
 ---
 
 ## 1. Overview
 
 When the IME engine has an active preedit (composition in progress) and a
-modifier+key combination or special key arrives, the engine **flushes (commits)**
-the in-progress composition, then forwards the key to the terminal. The preedit
-is never silently discarded.
+modifier+key combination or special key arrives, the engine **flushes
+(commits)** the in-progress composition, then forwards the key to the terminal.
+The preedit is never silently discarded.
 
-This policy is language-agnostic — it applies to all composition engines (Korean,
-Japanese, Chinese, etc.), not just Hangul. The verification section uses Korean
-(ibus-hangul, fcitx5-hangul) as reference implementations because Korean is the
-first supported composition language.
+This policy is language-agnostic — it applies to all composition engines
+(Korean, Japanese, Chinese, etc.), not just Hangul. The verification section
+uses Korean (ibus-hangul, fcitx5-hangul) as reference implementations because
+Korean is the first supported composition language.
 
 ## 2. Flush Policy Table
 
-| Key Type | Preedit Action | Rationale |
-|---|---|---|
-| Ctrl+key | **Flush** (commit preedit) | Preserve user's typed text before command execution |
-| Alt+key | **Flush** (commit preedit) | Same as Ctrl |
-| Super/Cmd+key | **Flush** (commit preedit) | Same as Ctrl |
-| Enter | **Flush** (commit preedit) | User intends to submit what they typed |
-| Tab | **Flush** (commit preedit) | User is moving forward (tab completion) |
-| Escape | **Flush** (commit preedit) | Commit what user typed, then forward Escape |
-| Arrow keys | **Flush** (commit preedit) | User is navigating — commit what they have |
-| Space | **Flush** (commit preedit) | Word separator — commit syllable, then insert space |
-| Shift+key | **No flush** (jamo selection) | Shift selects jamo variants (e.g., ㄱ→ㄲ in Korean), not a composition-breaking modifier |
-| Backspace | **IME handles** | Language-specific undo (e.g., `hangul_ic_backspace()` undoes last jamo); if composition is empty, forward to terminal |
+| Key Type      | Preedit Action                | Rationale                                                                                                             |
+| ------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Ctrl+key      | **Flush** (commit preedit)    | Preserve user's typed text before command execution                                                                   |
+| Alt+key       | **Flush** (commit preedit)    | Same as Ctrl                                                                                                          |
+| Super/Cmd+key | **Flush** (commit preedit)    | Same as Ctrl                                                                                                          |
+| Enter         | **Flush** (commit preedit)    | User intends to submit what they typed                                                                                |
+| Tab           | **Flush** (commit preedit)    | User is moving forward (tab completion)                                                                               |
+| Escape        | **Flush** (commit preedit)    | Commit what user typed, then forward Escape                                                                           |
+| Arrow keys    | **Flush** (commit preedit)    | User is navigating — commit what they have                                                                            |
+| Space         | **Flush** (commit preedit)    | Word separator — commit syllable, then insert space                                                                   |
+| Shift+key     | **No flush** (jamo selection) | Shift selects jamo variants (e.g., ㄱ→ㄲ in Korean), not a composition-breaking modifier                              |
+| Backspace     | **IME handles**               | Language-specific undo (e.g., `hangul_ic_backspace()` undoes last jamo); if composition is empty, forward to terminal |
 
 ### 2.1 Design Principle: Flush, Never Discard
 
@@ -51,8 +51,8 @@ composition engine for processing.
 
 Backspace is handled by the composition engine's language-specific undo logic,
 not by the flush policy. For Korean, `hangul_ic_backspace()` removes the last
-jamo from the current syllable. If the composition is already empty (no preedit),
-the backspace is forwarded to the terminal as a normal key.
+jamo from the current syllable. If the composition is already empty (no
+preedit), the backspace is forwarded to the terminal as a normal key.
 
 ## 3. ImeResult Construction
 
