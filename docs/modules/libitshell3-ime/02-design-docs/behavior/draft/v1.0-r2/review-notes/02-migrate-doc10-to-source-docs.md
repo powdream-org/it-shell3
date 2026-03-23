@@ -65,12 +65,7 @@ Fix existing test at `types.zig:142-149` (Enter assertion should be `false`).
 After migration, `10-hangul-engine-internals.md` should be retired:
 
 - Implementation details → source doc comments in `hangul_engine.zig`
-- Design rationale §2.1 (engine-owned mapping) → ADR-00042 (already created)
-- Design rationale §3.1 (buffer sizing) → doc comment on buffer fields (too
-  trivial for an ADR)
-- Dirty tracking rationale → ADR-00041 (already created)
-
-No slimmed-down doc 10 needed — all content has a better home.
+- Design rationale → ADRs (00041, 00042) and doc comments
 
 ## Owner Decision
 
