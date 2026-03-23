@@ -10,9 +10,12 @@
 
 `processKey(KeyEvent) → ImeResult` is the engine's core entry point. It receives
 a key event and produces an `ImeResult` containing any committed text, updated
-preedit, and/or a key to forward to the terminal. The engine is a pure
-composition state machine — it has no knowledge of what happens before (Phase 0:
-shortcut interception) or after (Phase 2: ghostty integration / PTY writes).
+preedit, and/or a key to forward to the terminal. The daemon routes key events
+through a three-phase pipeline (Phase 0 → 1 → 2); this engine operates in
+Phase 1. For the full pipeline definition, see `02-integration-boundaries.md` in
+the daemon design docs. The engine is a pure composition state machine — it has
+no knowledge of what happens in Phase 0 (shortcut interception) or Phase 2
+(ghostty integration / PTY writes).
 
 ## 2. Decision Tree
 
