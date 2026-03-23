@@ -101,3 +101,20 @@ TODO shows 3 full verification rounds.
 target. If one target is clean, it can proceed to commit independently while the
 other continues fix rounds. Alternatively, accept that joint cycles share round
 counts and document this as expected behavior.
+
+---
+
+## 7. Team Leader Must Review Agent Output Before Committing
+
+**Problem**: The team leader committed skill improvement changes written by a
+sub-agent without reviewing them first. The changes contained stale content in
+Step 7 (anti-patterns and a paragraph about "Review Cycle" that were obsoleted
+by the new Step 8). The error was caught by the owner.
+
+**Evidence**: After committing the skill-updater's changes, the owner asked
+"Have you reviewed the changes?" — the answer was no. Reading the files revealed
+Step 7 still had stale text that should have been cleaned up.
+
+**Proposed fix**: Add to SKILL.md or a general team-leader rule: "Always review
+agent-written changes before committing. Read the modified files, check for
+stale content, and verify consistency with other steps."
