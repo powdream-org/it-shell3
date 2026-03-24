@@ -2,7 +2,6 @@
 name: design-doc-revision
 description: Kick off or resume a design document revision cycle for one or more modules
 argument-hint: "<target> [target] ..."
-disable-model-invocation: true
 ---
 
 # Design Document Revision Cycle
