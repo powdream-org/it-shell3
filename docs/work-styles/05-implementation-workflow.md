@@ -13,6 +13,11 @@ definitions, and communication rules, see
 produces the specs being implemented, see
 [Design Workflow](./03-design-workflow/).
 
+**Executable playbook:** The step-by-step instructions for running an
+implementation cycle live in the `implementation` skill
+(`.claude/skills/implementation/`). This document provides rationale and
+reference — the skill provides execution guidance.
+
 **Key principles:**
 
 - The design spec is **authoritative**. If the implementation reveals a spec gap
@@ -36,16 +41,26 @@ stateDiagram-v2
     ImplCycle --> OwnerReview : commit
     OwnerReview --> ImplCycle : owner requests changes
     OwnerReview --> Complete : owner accepts
+    Complete --> ImplCycle : spec updated / bug found / feature request
 ```
 
 ### States
 
-| State                    | Description                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------- |
-| **No Code**              | Design spec is stable. No implementation exists yet.                            |
-| **Implementation Cycle** | The team produces source code, tests, and coverage reports. Ends with a commit. |
-| **Owner Review**         | The owner evaluates the committed code. May request changes or accept.          |
-| **Complete**             | Owner has accepted the implementation.                                          |
+| State                    | Description                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| **No Code**              | Design spec is stable. No implementation exists yet.                                        |
+| **Implementation Cycle** | The team produces or modifies source code, tests, and coverage reports. Ends with a commit. |
+| **Owner Review**         | The owner evaluates the committed code. May request changes or accept.                      |
+| **Complete**             | Owner has accepted the implementation. May re-enter ImplCycle when specs evolve.            |
+
+### Entry Paths
+
+| Entry                      | From        | Trigger                              | Step 1 Behavior                                            |
+| -------------------------- | ----------- | ------------------------------------ | ---------------------------------------------------------- |
+| **Greenfield**             | No Code     | First implementation of a target     | Full cycle: scaffold, implement, review                    |
+| **Spec update**            | Complete    | Design spec revised to new version   | Identify delta from previous spec; skip scaffold if builds |
+| **Bug fix**                | Complete    | Bug found in accepted implementation | Scope to specific fix; skip scaffold                       |
+| **Owner-requested change** | OwnerReview | Owner requests changes during review | Resume from Step 3 with change list                        |
 
 ---
 
@@ -55,207 +70,43 @@ stateDiagram-v2
 
 ```mermaid
 graph TD
-    A["3.1 Requirements Intake"] --> B["3.2 Scaffold &<br/>Build Verification"]
-    B --> C["3.3 Implementation Phase<br/>(parallel work)"]
-    C --> D["3.4 Spec Compliance Review"]
-    D -- "issues found" --> E["3.5 Fix Cycle"]
+    A["Requirements Intake"] --> B["Scaffold &<br/>Build Verification"]
+    B --> C["Implementation Phase<br/>(parallel work)"]
+    C --> D["Spec Compliance Review"]
+    D -- "issues found" --> E["Fix Cycle"]
     E --> D
-    D -- "clean" --> F["3.6 Coverage Audit"]
+    D -- "clean" --> F["Coverage Audit"]
     F -- "gaps found" --> G["Add tests"]
     G --> F
-    F -- "targets met" --> H["3.7 Over-Engineering<br/>Review"]
+    F -- "targets met" --> H["Over-Engineering<br/>Review"]
     H -- "findings" --> I["Fix findings"]
     I -- "code changed" --> D
-    H -- "clean" --> J["3.8 Commit & Report"]
+    H -- "clean" --> J["Commit & Report"]
 ```
 
-**Regression loop:** When over-engineering fixes (3.7) change code, the cycle
-returns to 3.4 (not 3.8) to re-verify spec compliance and coverage. Commit is
-only reached when a single pass through 3.4 → 3.6 → 3.7 completes with all three
-clean.
+### Regression Loop
 
-### 3.1 Requirements Intake
+When over-engineering fixes change code, the cycle returns to Spec Compliance
+Review (not Commit) to re-verify correctness and coverage. Commit is only
+reached when a single pass through Compliance → Coverage → Over-Engineering
+completes with all three clean.
 
-The team leader receives the implementation assignment from the owner.
+**Why this matters:** Over-engineering fixes remove or simplify code. Removing
+code can break spec compliance or reduce coverage. Re-running the full
+verification chain after any code change ensures nothing slips through.
 
-**Inputs:**
+### Phase Summaries
 
-| Input                        | Source                                                                      |
-| ---------------------------- | --------------------------------------------------------------------------- |
-| Design spec (stable version) | The authoritative spec documents to implement                               |
-| Implementation plan          | `.claude/plan/` — directory structure, file list, test matrix, build system |
-| PoC code (if any)            | Reference implementations from `poc/`                                       |
-| Owner constraints            | Performance targets, coverage requirements, tooling preferences             |
-
-**Outputs:**
-
-| Output            | Location                                            |
-| ----------------- | --------------------------------------------------- |
-| `TODO.md`         | Implementation tracking (phases, tasks, checkboxes) |
-| Agent definitions | `.claude/agents/<impl-team>/`                       |
-
-**Actions:**
-
-1. Team leader creates agent definitions for the implementation team (see
-   Section 4).
-2. Team leader creates `TODO.md` tracking all implementation phases.
-3. Team leader spawns ALL team members listed in the agent directory.
-
-### 3.2 Scaffold & Build Verification
-
-The team leader sets up the project skeleton and verifies the build system works
-before implementation begins. This is the **first gate** — no implementation
-work starts until the scaffold compiles.
-
-**Steps:**
-
-1. Create the module directory structure (directories, `build.zig`,
-   `build.zig.zon`, config files).
-2. Compile vendored C dependencies (if any) to verify the build chain works.
-3. Create a minimal source file (e.g., `root.zig` with a trivial test) to verify
-   `zig build test` runs.
-4. Only after `zig build test` passes does the team leader signal "scaffold
-   ready."
-
-**Why this gate matters:** Build system issues discovered mid-implementation
-waste significant effort. Verifying the build chain works before any substantial
-code is written catches toolchain, path, and dependency problems early.
-
-### 3.3 Implementation Phase
-
-The team writes source code and tests in parallel after the scaffold gate
-passes.
-
-**Roles during this phase:**
-
-| Role            | Responsibilities                                                                                                                    |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Implementer** | Writes all source files with inline unit tests (`test` blocks). Follows the spec exactly — no design deviations.                    |
-| **QA Reviewer** | Writes integration tests from the scenario matrix. Reviews completed files against the spec for correctness. Runs coverage tooling. |
-
-**Rules:**
-
-- The implementer writes code **and** inline unit tests for each file. Unit
-  tests verify internal functions and edge cases that are not part of the
-  integration matrix.
-- The QA reviewer writes integration tests from the predefined scenario matrix.
-  Integration tests verify end-to-end behavior as described in the spec.
-- Both roles work in parallel once the scaffold is ready. The QA reviewer does
-  not need to wait for all files — they can test completed files as they become
-  available.
-- Communication follows the same peer-to-peer rules as all team activities (see
-  [Team Collaboration](./02-team-collaboration.md) Section 5).
-
-### 3.4 Spec Compliance Review
-
-The QA reviewer reads all source code against the design spec and verifies
-correctness.
-
-**What is checked:**
-
-- Every spec requirement has corresponding code
-- Types, field names, and method signatures match the spec exactly
-- Error handling matches spec-defined behavior
-- Edge cases described in the spec are handled
-- No undocumented behavior or implicit assumptions
-
-**Output:** A list of issues (spec violations, missing behavior, incorrect
-handling). If no issues: clean pass.
-
-### 3.5 Fix Cycle
-
-The implementer fixes issues found in 3.4. The QA reviewer re-validates each
-fix. This repeats until a clean pass is achieved.
-
-**Rules:**
-
-- The QA reviewer reports issues to the implementer directly (peer-to-peer).
-- The implementer fixes and notifies the QA reviewer.
-- The QA reviewer re-checks the specific fix AND verifies no regressions.
-- No limit on rounds — continue until clean.
-
-### 3.6 Coverage Audit
-
-The QA reviewer measures test coverage and identifies gaps.
-
-**Coverage targets:**
-
-| Metric            | Target |
-| ----------------- | ------ |
-| Line coverage     | ≥ 95%  |
-| Branch coverage   | ≥ 90%  |
-| Function coverage | 100%   |
-
-**Process:**
-
-1. Run coverage tooling (e.g., kcov) on the test binary.
-2. Identify uncovered lines, branches, and functions.
-3. For each gap: add a test that exercises the uncovered path, OR justify why
-   coverage is impossible (e.g., unreachable safety assertions).
-4. Repeat until targets are met.
-
-**Coverage exceptions:** Some code paths may be intentionally untestable (e.g.,
-`unreachable` branches for type safety, platform-specific code not exercisable
-in CI). These must be explicitly documented with rationale.
-
-### 3.7 Over-Engineering Review
-
-A dedicated reviewer (typically the principal architect) evaluates all code for
-scope creep and unnecessary complexity.
-
-**What is checked:**
-
-| Check                     | Description                                                          |
-| ------------------------- | -------------------------------------------------------------------- |
-| **Spec scope**            | No types, fields, methods, or features beyond what the spec requires |
-| **KISS**                  | Simplest possible implementation for each requirement                |
-| **YAGNI**                 | No code for hypothetical future requirements                         |
-| **Dead code**             | No unused functions, types, or imports                               |
-| **Premature abstraction** | No helpers or utilities for one-time operations                      |
-| **Buffer sizing**         | All buffer sizes justified by spec or empirical measurement          |
-| **Build system**          | No unnecessary build steps, targets, or dependencies                 |
-
-**Process:**
-
-1. The over-engineering reviewer reads ALL source files against the spec.
-2. Reports findings with specific file:line references.
-3. The implementer fixes findings.
-4. The reviewer re-validates the fixes.
-5. If **any code was changed** during this step, return to **3.4** — the
-   over-engineering fixes may have broken spec compliance or reduced coverage. A
-   full 3.4 → 3.6 → 3.7 pass must complete clean before proceeding to 3.8.
-6. If clean (no findings on this pass): proceed to 3.8.
-
-**Why the regression loop matters:** Over-engineering fixes remove or simplify
-code. Removing code can break spec compliance (a required behavior was in the
-removed code) or reduce coverage (tests that covered the removed code now fail
-or leave new code uncovered). Re-running the full verification chain after any
-code change ensures nothing slips through.
-
-**Why this review is mandatory:** Implementation agents tend to add
-"improvements" beyond the spec — extra error handling, unnecessary abstractions,
-configurable parameters, defensive code for impossible scenarios. This review
-catches scope creep before it accumulates.
-
-### 3.8 Commit & Report
-
-The team leader finalizes and reports.
-
-**Gate conditions (ALL must be true):**
-
-- [ ] All tests pass (`zig build test`)
-- [ ] Library builds without warnings (`zig build`)
-- [ ] Coverage targets met (line ≥ 95%, branch ≥ 90%, function = 100%) — or
-      module-level exemption granted (see §6.2)
-- [ ] Over-engineering review clean (no open findings)
-- [ ] Spec compliance review clean (no open issues)
-
-**Steps:**
-
-1. Team leader disbands the implementation team.
-2. Team leader commits the code.
-3. Team leader reports to the owner: what was implemented, test count, coverage
-   numbers, any spec gaps discovered.
+| Phase                       | Purpose                                                                             | Key Gate                                       |
+| --------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **Requirements Intake**     | Identify spec, plan, PoC inputs; set up tracking                                    | Owner approves, TODO.md created                |
+| **Scaffold & Build**        | Create module skeleton; verify build chain works                                    | `zig build test` passes on minimal skeleton    |
+| **Implementation**          | Write source code + unit tests (implementer) and integration tests (QA) in parallel | Both roles report complete                     |
+| **Spec Compliance Review**  | QA reads all code against spec, checking types/signatures/behavior                  | Clean pass or issue list                       |
+| **Fix Cycle**               | Implementer fixes issues; QA re-validates; repeat until clean                       | All issues resolved                            |
+| **Coverage Audit**          | Measure instrumented coverage; fill gaps                                            | Targets met or exemption granted               |
+| **Over-Engineering Review** | Principal architect checks for scope creep and unnecessary complexity               | Clean pass (code changed → back to Compliance) |
+| **Commit & Report**         | Commit code; report to owner                                                        | All gates green                                |
 
 ---
 
@@ -297,15 +148,6 @@ implementation and spec compliance review are complete). This is intentional:
   abstractions are justified
 - Early activation creates churn (implementing → reviewing → re-implementing →
   re-reviewing)
-
-### 4.4 Agent Definitions
-
-Agent definitions live in `.claude/agents/<impl-team>/`. Each implementation
-project gets its own team directory. The team leader creates these before
-spawning agents.
-
-Agent files follow the same format as design teams (see
-[Team Collaboration](./02-team-collaboration.md) Section 3).
 
 ---
 
@@ -394,14 +236,14 @@ mocking the entire OS" qualifies.
 
 ## 7. Artifacts
 
-| Artifact            | Created During | Created By                | Location                                       | Lifecycle                                                  |
-| ------------------- | -------------- | ------------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
-| Implementation plan | Before 3.1     | Team leader               | `.claude/plan/<name>.md`                       | Deleted after owner accepts (Section 2: Complete state)    |
-| Agent definitions   | 3.1            | Team leader               | `.claude/agents/<impl-team>/`                  | Kept for future implementation cycles on the same module   |
-| TODO.md             | 3.1            | Team leader               | Module directory or `.claude/plan/`            | Deleted with the implementation plan                       |
-| Source code + tests | 3.3            | Implementer + QA Reviewer | `modules/<name>/src/`                          | Permanent                                                  |
-| Coverage report     | 3.6            | QA Reviewer               | `modules/<name>/coverage-report/` (gitignored) | Regenerated on demand; not committed                       |
-| Spec gap notes      | 3.3-3.5        | Team leader               | In TODO.md                                     | Deleted with TODO.md; gaps feed into design revision cycle |
+| Artifact            | Created By                | Location                                 | Lifecycle                                             |
+| ------------------- | ------------------------- | ---------------------------------------- | ----------------------------------------------------- |
+| Implementation plan | Team leader               | `.claude/plan/<name>.md`                 | Deleted after owner accepts                           |
+| Agent definitions   | Team leader               | `.claude/agents/impl-team/`              | Reused across implementation cycles                   |
+| TODO.md             | Team leader               | `<target>/TODO.md`                       | Deleted after owner accepts                           |
+| Source code + tests | Implementer + QA Reviewer | `<target>/src/`                          | Permanent                                             |
+| Coverage report     | QA Reviewer               | `<target>/coverage-report/` (gitignored) | Regenerated on demand; not committed                  |
+| Spec gap notes      | Team leader               | In TODO.md                               | Feed into design revision cycle; deleted with TODO.md |
 
 ---
 
