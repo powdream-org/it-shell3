@@ -325,7 +325,7 @@ session level, shared by all panes:
 
 - `active_input_method`: The current input method identifier (e.g., `"direct"`,
   `"korean_2set"`). Default for new sessions: `"direct"`.
-- `keyboard_layout`: The physical keyboard layout (e.g., `"qwerty"`,
+- `active_keyboard_layout`: The physical keyboard layout (e.g., `"qwerty"`,
   `"azerty"`). Default for new sessions: `"qwerty"`. Orthogonal to
   `input_method`.
 - `ime_engine`: The single `ImeEngine` instance for this session.
@@ -705,7 +705,7 @@ sequenceDiagram
         end
         S->>P: terminal.mousePress()
     else MouseScroll / MouseMove
-        S->>P: write(pty_fd, mouse escape sequence)
+        S->>P: terminal.mouseScroll() / terminal.mousePos()
     end
 ```
 

@@ -610,8 +610,9 @@ All attached clients can send input. There is no primary/secondary distinction:
 
 - **KeyEvent**: Routed to the `attached_session`'s focused pane. Processed
   through Phase 0->1->2 key routing (doc02 §4.2).
-- **MouseEvent**: Encoded as mouse escape sequence and written to the focused
-  pane's PTY, if mouse reporting is enabled in the terminal's DEC mode state.
+- **MouseEvent**: Forwarded to the focused pane's Terminal via ghostty mouse
+  APIs (mouseButton, mouseScroll, mousePos), if mouse reporting is enabled in
+  the terminal's DEC mode state.
 - **Last writer wins**: If two clients send KeyEvents to the same pane
   simultaneously, the events are processed in the order they arrive at the event
   loop. The single-threaded model (doc01 §2) provides total ordering.

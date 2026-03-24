@@ -40,8 +40,8 @@
 
 ## Current State
 
-- **Step**: 5 (Verification Round 3)
-- **Verification Round**: 3
+- **Step**: 8 (Owner Review)
+- **Verification Round**: 3 (clean)
 - **Active Team**: (none)
 - **Team Directory**: (none)
 
@@ -55,7 +55,8 @@
 - [x] Step 6: Fix Round Decision — fix round (Round 1, auto)
 - [x] Step 5: Verification (Round 2) — 8 confirmed, 2 dismissed, 1 merged
 - [x] Step 6: Fix Round Decision — fix round (Round 2, auto)
-- [ ] Step 5: Verification (Round 3)
-- [ ] Step 6: Fix Round Decision
-- [ ] Step 7: Commit & Report
-- [ ] Step 8: Retrospective
+- [x] Step 5: Verification (Round 3) — 2 found, sweep-fixed, owner declared
+      clean
+- [x] Step 7: Commit & Report
+- [ ] Step 8: Owner Review
+- [ ] Step 9: Retrospective

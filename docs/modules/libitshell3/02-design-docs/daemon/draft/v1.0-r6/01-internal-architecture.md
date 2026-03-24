@@ -1069,7 +1069,7 @@ sequenceDiagram
     Note right of C: MouseScroll / MouseMove
     C->>S: MouseScroll or MouseMove (Unix socket)
     Note over S: EVFILT_READ on conn.fd<br/>Check terminal DEC mouse mode<br/>(no preedit check)
-    S->>P: terminal.mouse*(event)
+    S->>P: terminal.mouseScroll() / terminal.mousePos()
 ```
 
 ---
