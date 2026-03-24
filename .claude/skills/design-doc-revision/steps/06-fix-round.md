@@ -23,7 +23,12 @@ Format follows the verification issues convention. Include:
 - **Dismissed Issues Summary** (mandatory): all dismissed issues with dismiss
   reasons — this section is passed to Phase 1 agents in subsequent rounds
 
-### 6a.1. Same-class sweep (MANDATORY for cross-doc issues)
+### 6b. Pre-fix analysis
+
+Before spawning fix writers, perform the following analyses. Include all results
+in the fix writers' input.
+
+#### 6b.1. Same-class sweep (MANDATORY for cross-doc issues)
 
 If a confirmed issue belongs to a class that could repeat across other files
 (e.g., stale cross-module links, stale section references, incorrect metadata
@@ -37,19 +42,28 @@ make independent judgment calls. Every cross-doc confirmed issue MUST trigger a
 sweep to identify all related locations, which then become a single issue
 cluster assigned to one writer (see Step 4, §4b).
 
-### 6a.2. Cascade analysis
+#### 6b.2. Cross-document cascade analysis
 
-Before spawning fix writers, spawn a cascade analysis agent (opus) to assess
-each confirmed issue's fix impact across all documents. The cascade report
-identifies:
+Spawn a cascade analysis agent (opus) to assess each confirmed issue's fix
+impact across all documents. The cascade report identifies:
 
 - Other documents/sections that need coordinated changes
 - Risk level (none / low / medium / high) per fix
 - Whether fixes can safely be applied in parallel
 
-Include the cascade report in the fix writers' input.
+#### 6b.3. Intra-procedure ordering check
 
-### 6b. Decide next step
+**MANDATORY when a fix changes step ordering or adds conditional branches.** For
+each fix that defers, reorders, or conditionally skips a step within a
+procedure:
+
+1. List all resources/state consumed by the deferred/moved step (fd, engine
+   state, session fields, etc.)
+2. Check whether any intervening step between the old and new position
+   invalidates, closes, or frees those resources.
+3. If yes, flag as a cascade risk and include in the fix writer's instructions.
+
+### 6c. Decide next step
 
 | Condition              | Action                                                                                                                         |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |

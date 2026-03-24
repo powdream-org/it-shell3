@@ -10,12 +10,8 @@
 - Do NOT leave Phase 1 or Phase 2 agents alive after they report. Disband
   immediately.
 - (Round 2+) Do NOT spawn Phase 1 agents without the Dismissed Issues Registry.
-- Do NOT present contested issues to the owner as one-line summaries. For each
-  contested issue, show the **actual document text** (quoted, with line numbers)
-  and **both reviewers' reasoning** (confirm argument and dismiss argument with
-  specific evidence). Only then ask the owner for a binding decision. The
-  one-line summary table is fine for confirmed/dismissed issues (no owner action
-  needed).
+- Do NOT batch multiple contested issues in a single message — present one at a
+  time (see §5d mandatory checklist).
 
 ## Action
 
@@ -92,8 +88,19 @@ For each issue:
 
 - Both `confirm` → **confirmed** (true alarm)
 - Both `dismiss` → **dismissed**
-- One each → **contested** → report to owner with both reasons, request binding
-  decision
+- One each → **contested** → MUST present to owner **one at a time**, with ALL
+  of the following before requesting a binding decision:
+  1. **File path** (full relative path from project root)
+  2. **Actual document text** (quoted, with line numbers)
+  3. **Confirm reviewer's reasoning** with specific evidence
+  4. **Dismiss reviewer's reasoning** with specific evidence
+  5. **Concrete breakdown** (RECOMMENDED): A step-by-step example (timeline,
+     message sequence, or code trace) that makes the issue self-evident.
+     Especially valuable for ordering rules, state machines, or terminology with
+     different meanings in different contexts. Only THEN ask for the owner's
+     binding decision on THIS issue. Proceed to the next contested issue only
+     after the owner responds. **NEVER batch multiple contested issues in a
+     single message.** **NEVER present contested issues as one-line summaries.**
 
 ### 5e. Cascaded re-raise monitoring (Round 3+)
 

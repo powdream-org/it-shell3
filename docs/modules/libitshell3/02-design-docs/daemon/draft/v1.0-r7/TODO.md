@@ -16,7 +16,7 @@
 
 ## Current State
 
-- **Step**: 8 (Owner Review)
+- **Step**: 9 (Complete)
 - **Verification Round**: 4
 - **Active Team**: (none)
 - **Team Directory**: (none)
@@ -42,5 +42,5 @@
 - [x] Step 5: Verification (Round 4, Phase 1 only) — 3 minor, owner
       fixed+declared CLEAN
 - [x] Step 7: Commit & Report
-- [ ] Step 8: Owner Review
-- [ ] Step 9: Retrospective
+- [x] Step 8: Owner Review — skipped (owner deferred to focus on r8)
+- [x] Step 9: Retrospective — 5 SIPs logged during cycle

@@ -14,7 +14,9 @@
    followed correctly, but verify).
 2. **ADR candidates**: Review the resolution document for `[ADR-CANDIDATE]`
    tags. For each confirmed candidate, run `/adr` to create the ADR before
-   committing.
+   committing. **Status: Accepted** — these decisions have passed team
+   consensus, resolution verification, and spec integration. Do NOT use the
+   `/adr` skill's default "Proposed" status.
 3. `git add` all files in the draft version directory.
 4. Commit with a descriptive message following commit conventions.
 5. Report to the owner:

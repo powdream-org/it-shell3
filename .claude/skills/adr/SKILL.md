@@ -87,7 +87,11 @@ Use the Edit tool to replace the placeholders in the copied file:
 - `NNNNN` → zero-padded number
 - `Title` → drafted title
 - `YYYY-MM-DD` → today's date
-- `Proposed` → keep as `Proposed` (default for new ADRs)
+- `Proposed` → determine the correct status:
+  - **Proposed**: Decision is under active discussion, not yet confirmed
+  - **Accepted**: Decision has been agreed upon, integrated into specs, and/or
+    verified (e.g., ADRs created during a design-doc-revision commit step)
+  - When unsure, default to `Proposed`
 - Empty `## Context`, `## Decision`, `## Consequences` sections → drafted
   content
 
