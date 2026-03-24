@@ -95,21 +95,82 @@ ordering check) → 6c (decide).
 
 ## Pre-Discussion Research Tasks
 
-**For r8 restructuring** (owner's stated plan: split arch/behavior docs + begin
-implementation):
+### r8 Scope (owner-declared, carried from r6 handover)
 
-1. **Audit doc boundaries**: Which sections in the current 4 docs are
-   "architecture" (data structures, module layout, API surface) vs. "behavior"
-   (procedures, state machines, ordering rules)? A preliminary split proposal
-   before discussion would accelerate consensus.
+r8 is a major structural shift: **split daemon docs into two topics and begin
+implementation**. First stated in the r6→r7 handover (§Owner Priorities item 2),
+confirmed by owner during r7 ("r8 is reserved for the big shift"). The r7 cycle
+completed all deferred CTRs; r8 starts from a clean baseline.
+
+**Two new doc topics:**
+
+- **`daemon-architecture/`** — Module decomposition, state tree, type
+  definitions, integration boundaries, transport design. Covers the "what" —
+  structural decisions that are stable once agreed.
+- **`daemon-behavior/`** — Policies, lifecycles, state machines, event handling,
+  startup/shutdown. Covers "how it should behave" — behavioral specifications
+  that constrain implementation.
+
+The exact section-to-topic mapping from the r6 handover is a starting point
+only. r7 added new sections and restructured existing ones. The r8 team must
+audit and reassign sections during discussion.
+
+**Implementation transition:** Implementation details (pseudocode, step-by-step
+procedures) move to source code in this round — code becomes the source of truth
+for "how." Architecture docs retain structural design; behavior docs retain
+behavioral specifications and constraints. Docs describe intent and invariants;
+code implements them.
+
+This is NOT a content revision — it is a reorganization + implementation
+kickoff. The restructuring warrants its own revision cycle.
+
+### Inputs for r8
+
+1. **r7 spec docs** (v1.0-r7, committed): 4 verified daemon design docs
+   - `01-internal-architecture.md` — State tree, Pane/Session structs, split
+     tree, pane navigation, focus change pseudocode
+   - `02-integration-boundaries.md` — ghostty API, libhangul, PTY, kqueue
+   - `03-lifecycle-and-connections.md` — Startup/shutdown, SIGCHLD two-phase,
+     pane destroy cascade, session destroy cascade, client lifecycle
+   - `04-runtime-policies.md` — Resize, coalescing, preedit ownership, IME
+     procedures, silence timer, health/stale model
+2. **Section mapping** (from r6 handover): The owner provided preliminary
+   section assignments for the two-topic split (see above). These are starting
+   points, not final — the r8 team should validate and adjust during discussion.
+3. **Secondary findings from Round 4** (unfixed, carry forward):
+   - doc01 §5.2 Mermaid diagram omits `session_id` increment in focus-change
+     note (consistency verifier secondary finding)
+   - doc04 §8.4 `commit_current=true` branch missing `owner` clear and
+     `session_id` increment (semantic verifier secondary finding)
+4. **ADR 00045–00047**: Three new ADRs from r7 (two-phase SIGCHLD, edge
+   adjacency navigation, non-configurable wrap-around). Implementation should
+   reference these.
+
+### Research before discussion
+
+1. **Audit and assign sections**: Read all 4 r7 spec docs and classify each
+   section as architecture (structural design) or behavior (procedures, state
+   machines, ordering rules). Produce a concrete split proposal for the two new
+   doc topics. The r6 handover's preliminary mapping is a starting point but may
+   be outdated after r7 changes.
 
 2. **Implementation readiness assessment**: Which sections are detailed enough
    to implement directly? Which need more specificity (e.g., exact error codes,
    buffer sizes, timeout values)?
 
-3. **Secondary findings from Round 4**: Two items flagged by verifiers but not
-   fixed (out of scope for r7):
-   - doc01 §5.2 Mermaid diagram omits `session_id` increment in focus-change
-     note (consistency verifier secondary finding)
-   - doc04 §8.4 `commit_current=true` branch missing `owner` clear and
-     `session_id` increment (semantic verifier secondary finding)
+3. **Code structure proposal**: How does the two-topic doc split map to Zig
+   source layout? (e.g., `server/` for architecture types, `server/handlers/`
+   for behavior procedures?)
+
+4. **ghostty API gap analysis**: The daemon depends on ghostty APIs (Terminal,
+   RenderState, bulkExport/importFlatCells, vtStream, etc.) that may not all be
+   exported from `vendors/ghostty` yet. Audit which APIs the daemon design docs
+   reference, check which are already exported in libghostty's public C API, and
+   identify any that need new exports or wrappers. This work happens in
+   `vendors/ghostty` and may require upstream coordination. Start from:
+   - `docs/insights/ghostty-api-extensions.md` — API extensions from PoC 06–08
+     (render_export.zig, bulkExport, importFlatCells, preedit overlay). Includes
+     known gaps table and patch file references.
+   - PoC 06 (RenderState extraction), PoC 07 (bulk export benchmark), PoC 08
+     (re-injection + GPU rendering verification) — validated the export/import
+     pipeline end-to-end.

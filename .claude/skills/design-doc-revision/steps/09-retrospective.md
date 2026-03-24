@@ -77,8 +77,8 @@ If owner has no changes or declines: no action needed.
 Update TODO.md:
 
 - Mark `Step 9` as `[x]`
-- `Current State` → `Complete`
+- `Current State` → `Step: 10 (Handover)`
 
-## End
+## Next
 
-The revision cycle is fully complete. No further action.
+Read `steps/10-handover.md`.
