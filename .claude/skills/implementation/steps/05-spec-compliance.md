@@ -1,4 +1,4 @@
-# Step 4: Spec Compliance Review
+# Step 5: Spec Compliance Review
 
 ## Anti-Patterns
 
@@ -12,7 +12,7 @@
 
 ## Action
 
-### 4a. Instruct the QA reviewer
+### 5a. Instruct the QA reviewer
 
 Send to QA reviewer:
 
@@ -32,12 +32,12 @@ Report either:
 (b) A numbered issue list with file:line references and spec section citations
 ```
 
-### 4b. Collect results
+### 5b. Collect results
 
 Wait for the QA reviewer to report.
 
-- **If clean pass** → Proceed to Step 6 (Coverage Audit).
-- **If issues found** → Proceed to Step 5 (Fix Cycle).
+- **If clean pass** → Proceed to Step 7 (Coverage Audit).
+- **If issues found** → Proceed to Step 6 (Fix Cycle).
 
 ## Gate
 
@@ -48,11 +48,11 @@ Wait for the QA reviewer to report.
 
 Update TODO.md:
 
-- If clean: **Step**: 6 (Coverage Audit), mark Step 4 as `[x]`
-- If issues: **Step**: 5 (Fix Cycle), mark Step 4 as `[x]`
+- If clean: **Step**: 7 (Coverage Audit), mark Step 5 as `[x]`
+- If issues: **Step**: 6 (Fix Cycle), mark Step 5 as `[x]`
 - **Review Round**: increment by 1
 
 ## Next
 
-- If clean → Read `steps/06-coverage-audit.md`.
-- If issues found → Read `steps/05-fix-cycle.md`.
+- If clean → Read `steps/07-coverage-audit.md`.
+- If issues found → Read `steps/06-fix-cycle.md`.

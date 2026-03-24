@@ -1,4 +1,4 @@
-# Step 10: Retrospective & Cleanup
+# Step 11: Retrospective & Cleanup
 
 ## Anti-Patterns
 
@@ -12,7 +12,7 @@
 
 ## Action
 
-### 10a. Review the cycle
+### 11a. Review the cycle
 
 Read TODO.md's Progress section end-to-end. Answer these questions:
 
@@ -28,7 +28,7 @@ Read TODO.md's Progress section end-to-end. Answer these questions:
    bottlenecking or micromanaging?
 6. **What worked well** — Approaches that should be preserved or reinforced.
 
-### 10b. Update implementation-learnings.md
+### 11b. Update implementation-learnings.md
 
 For any new toolchain or testing lessons discovered during this cycle, update
 `docs/insights/implementation-learnings.md`:
@@ -39,7 +39,7 @@ For any new toolchain or testing lessons discovered during this cycle, update
   description
 - Do NOT duplicate existing entries — check first
 
-### 10c. Propose skill improvements
+### 11c. Propose skill improvements
 
 For process issues discovered during this cycle:
 
@@ -49,7 +49,7 @@ For process issues discovered during this cycle:
 - Wait for owner approval before editing any skill files
 - If approved: apply the change and commit with reason
 
-### 10d. Cleanup
+### 11d. Cleanup
 
 After retrospective is complete:
 
@@ -69,7 +69,7 @@ EOF
 
 ## Gate
 
-- [ ] Cycle reviewed (10a)
+- [ ] Cycle reviewed (11a)
 - [ ] `implementation-learnings.md` updated (or confirmed no new lessons)
 - [ ] Skill improvements proposed and applied (or confirmed none needed)
 - [ ] TODO.md and plan deleted, cleanup committed

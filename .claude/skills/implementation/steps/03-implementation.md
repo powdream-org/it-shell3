@@ -16,6 +16,10 @@
   buffers that may be read before full initialization. (Lesson Z3)
 - **Don't let the QA reviewer wait for all files.** They can test completed
   files as they become available.
+- **Don't let agents invent behavior for spec gaps.** When a spec gap is
+  discovered, the implementer must STOP work on that area, report the gap to the
+  team leader, and wait for an owner decision. Implementing a guess violates the
+  spec-to-code contract (see `05-implementation-workflow.md` §5).
 
 ## Action
 
@@ -94,8 +98,8 @@ proceed until all pass.
 
 ### 3f. Keep team alive
 
-Do NOT disband the team. The implementer and QA reviewer continue into Steps 4–7
-(the verification chain). They are disbanded in Step 8.
+Do NOT disband the team. The implementer and QA reviewer continue into Steps 4–8
+(simplify + verification chain). They are disbanded in Step 9.
 
 ## Gate
 
@@ -111,11 +115,11 @@ Do NOT disband the team. The implementer and QA reviewer continue into Steps 4�
 
 Update TODO.md:
 
-- **Step**: 4 (Spec Compliance Review)
+- **Step**: 4 (Code Simplify)
 - **Active Team**: impl-team
 - **Team Directory**: `.claude/agents/impl-team/`
 - Mark Step 3 as `[x]`
 
 ## Next
 
-Read `steps/04-spec-compliance.md`.
+Read `steps/04-simplify.md`.

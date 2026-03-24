@@ -1,4 +1,4 @@
-# Step 7: Over-Engineering Review
+# Step 8: Over-Engineering Review
 
 ## Anti-Patterns
 
@@ -8,11 +8,17 @@
 - **Don't let the reviewer rewrite code.** They report findings — the
   implementer fixes. The reviewer re-validates.
 - **Don't skip the regression loop.** If ANY code changes during this step,
-  control returns to Step 4, not Step 8. No exceptions.
+  control returns to Step 5, not Step 9. No exceptions.
 
 ## Action
 
-### 7a. Spawn the over-engineering reviewer
+### 8a. Check context budget
+
+If context window ≤ 25%, ask the owner to `/compact` before spawning the
+over-engineering reviewer. This step may trigger a regression loop back to Step
+5, which further accumulates context.
+
+### 8b. Spawn the over-engineering reviewer
 
 The principal architect has been dormant until now. Activate them:
 
@@ -38,12 +44,12 @@ For each finding, report:
 If no findings: report "Clean pass."
 ```
 
-### 7b. Process findings
+### 8c. Process findings
 
-- **If clean pass** → Proceed to Step 8.
+- **If clean pass** → Proceed to Step 9.
 - **If findings exist** → Send to the implementer for fixing.
 
-### 7c. Fix findings (if any)
+### 8d. Fix findings (if any)
 
 Send findings to the implementer:
 
@@ -57,45 +63,47 @@ Findings:
 
 After the implementer fixes, the over-engineering reviewer re-validates.
 
-### 7d. Check for code changes
+### 8e. Check for code changes
 
 **Critical decision point:**
 
-- If any code was changed during this step → **return to Step 4**. The full
+- If any code was changed during this step → **return to Step 5**. The full
   verification chain (Compliance → Coverage → Over-Engineering) must pass clean
   in a single run before commit.
-- If no code was changed (clean pass on first review) → proceed to Step 8.
+- If no code was changed (clean pass on first review) → proceed to Step 9.
 
 **Why:** Over-engineering fixes remove or simplify code. This can break spec
 compliance or reduce coverage. Only a clean end-to-end pass guarantees
 everything still holds.
 
-### 7e. Verify tests pass (if code changed)
+### 8f. Verify tests pass (if code changed)
 
-Before returning to Step 4:
+Before returning to Step 5:
 
 ```bash
 (cd <target> && zig build test)
+(cd <target> && zig build test -Doptimize=ReleaseSafe)
 ```
 
-If tests fail, the implementer fixes before proceeding to Step 4.
+Both Debug and ReleaseSafe must pass. If tests fail, the implementer fixes
+before proceeding to Step 5.
 
 ## Gate
 
 - [ ] Over-engineering reviewer has completed the review
 - [ ] If findings: implementer has fixed them, reviewer has re-validated
-- [ ] If code changed: tests still pass
+- [ ] If code changed: tests pass in Debug and ReleaseSafe
 
 ## State Update
 
 - If clean (no code changes):
-  - **Step**: 8 (Commit & Report)
-  - Mark Step 7 as `[x]`
+  - **Step**: 9 (Commit & Report)
+  - Mark Step 8 as `[x]`
 - If code changed:
-  - **Step**: 4 (Spec Compliance Review) — regression loop
-  - Note in TODO.md: "Returning to Step 4 after over-engineering fixes"
+  - **Step**: 5 (Spec Compliance Review) — regression loop
+  - Note in TODO.md: "Returning to Step 5 after over-engineering fixes"
 
 ## Next
 
-- If clean → Read `steps/08-commit-and-report.md`.
-- If code changed → Read `steps/04-spec-compliance.md`.
+- If clean → Read `steps/09-commit-and-report.md`.
+- If code changed → Read `steps/05-spec-compliance.md`.

@@ -1,4 +1,4 @@
-# Step 9: Owner Review
+# Step 10: Owner Review
 
 ## Anti-Patterns
 
@@ -11,7 +11,7 @@
 
 ## Action
 
-### 9a. Support the owner's review
+### 10a. Support the owner's review
 
 The owner reviews the committed code. During this time, the team leader:
 
@@ -24,13 +24,13 @@ The owner reviews the committed code. During this time, the team leader:
 - **Creates ADRs** if the owner identifies undocumented decisions (use the
   `/adr` skill)
 
-### 9b. Owner decision
+### 10b. Owner decision
 
 The owner signals one of:
 
 | Signal                   | Action                                                                                 |
 | ------------------------ | -------------------------------------------------------------------------------------- |
-| **Accepts**              | Proceed to 9c (cleanup)                                                                |
+| **Accepts**              | Proceed to Step 11 (Retrospective)                                                     |
 | **Requests changes**     | Log the changes, return to Step 3 with a new implementation cycle                      |
 | **Identifies spec gaps** | Report for design revision cycle; implementation waits or proceeds per owner direction |
 
@@ -42,14 +42,14 @@ The owner signals one of:
 ## State Update
 
 - If accepted:
-  - **Step**: 10 (Retrospective & Cleanup)
-  - Mark Step 9 as `[x]`
+  - **Step**: 11 (Retrospective & Cleanup)
+  - Mark Step 10 as `[x]`
 - If changes requested:
   - **Step**: 3 (Implementation Phase)
-  - Reset Step marks 3–8 to `[ ]`
+  - Reset Step marks 3–9 to `[ ]`
   - Increment review round
 
 ## Next
 
-- If accepted → Read `steps/10-retrospective.md`.
+- If accepted → Read `steps/11-retrospective.md`.
 - If changes requested → Read `steps/03-implementation.md`.

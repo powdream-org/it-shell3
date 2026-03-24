@@ -127,13 +127,14 @@ Create `<target>/TODO.md` with this exact format:
 - [ ] Step 1: Requirements Intake
 - [ ] Step 2: Scaffold & Build Verification
 - [ ] Step 3: Implementation Phase
-- [ ] Step 4: Spec Compliance Review
-- [ ] Step 5: Fix Cycle
-- [ ] Step 6: Coverage Audit
-- [ ] Step 7: Over-Engineering Review
-- [ ] Step 8: Commit & Report
-- [ ] Step 9: Owner Review
-- [ ] Step 10: Retrospective & Cleanup
+- [ ] Step 4: Code Simplify
+- [ ] Step 5: Spec Compliance Review
+- [ ] Step 6: Fix Cycle
+- [ ] Step 7: Coverage Audit
+- [ ] Step 8: Over-Engineering Review
+- [ ] Step 9: Commit & Report
+- [ ] Step 10: Owner Review
+- [ ] Step 11: Retrospective & Cleanup
 ```
 
 ### 1g. Present to owner

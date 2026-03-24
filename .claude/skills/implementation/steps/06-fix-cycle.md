@@ -1,4 +1,4 @@
-# Step 5: Fix Cycle
+# Step 6: Fix Cycle
 
 ## Anti-Patterns
 
@@ -14,7 +14,13 @@
 
 ## Action
 
-### 5a. Hand issues to the implementer
+### 6a. Check context budget
+
+If context window ≤ 25%, ask the owner to `/compact` before continuing. Fix
+cycles accumulate context with each iteration — especially if multiple rounds of
+5 → 6 → 5 have occurred.
+
+### 6b. Hand issues to the implementer
 
 Send the QA reviewer's issue list to the implementer:
 
@@ -27,7 +33,7 @@ Issues:
 <paste numbered issue list>
 ```
 
-### 5b. Monitor fix-and-verify loop
+### 6c. Monitor fix-and-verify loop
 
 The implementer and QA reviewer work peer-to-peer:
 
@@ -38,34 +44,43 @@ The implementer and QA reviewer work peer-to-peer:
 You (team leader) monitor but do NOT intervene unless:
 
 - An issue reveals a spec gap → log in TODO.md, report to owner
-- The agents are stuck in a loop → investigate and unblock
+- The agents are stuck in a loop (same issue reopened 3+ times) → escalate to
+  owner for decision
 - The owner needs to make a decision
 
-### 5c. Verify all tests pass
+**Round limit:** The 5 → 6 → 5 loop runs automatically for up to **3 rounds**.
+If Step 5 still finds issues after Round 3, STOP and escalate to the owner. The
+owner decides: (a) continue with another round, (b) accept remaining issues as
+known limitations, or (c) trigger a spec revision.
+
+Track the current round in TODO.md's `Review Round` field.
+
+### 6c. Verify all tests pass
 
 Once all issues are resolved:
 
 ```bash
 (cd <target> && zig build test)
+(cd <target> && zig build test -Doptimize=ReleaseSafe)
 ```
 
-All tests must pass before proceeding.
+Both Debug and ReleaseSafe must pass before proceeding.
 
 ## Gate
 
-- [ ] All issues from Step 4 are resolved and verified by QA reviewer
-- [ ] `zig build test` passes
+- [ ] All issues from Step 5 are resolved and verified by QA reviewer
+- [ ] `zig build test` passes in Debug and ReleaseSafe
 - [ ] No new unauthorized extensions introduced during fixes
 
 ## State Update
 
 Update TODO.md:
 
-- **Step**: 4 (Spec Compliance Review) — yes, back to Step 4 for re-review
-- Mark Step 5 as `[x]` (but it may be revisited)
+- **Step**: 5 (Spec Compliance Review) — yes, back to Step 5 for re-review
+- Mark Step 6 as `[x]` (but it may be revisited)
 
 ## Next
 
-Read `steps/04-spec-compliance.md` — the QA reviewer does another full review to
-catch any issues introduced by the fixes. This loop (4 → 5 → 4) continues until
-Step 4 produces a clean pass.
+Read `steps/05-spec-compliance.md` — the QA reviewer does another full review to
+catch any issues introduced by the fixes. This loop (5 → 6 → 5) continues until
+Step 5 produces a clean pass.

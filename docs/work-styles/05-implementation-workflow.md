@@ -72,12 +72,14 @@ stateDiagram-v2
 graph TD
     A["Requirements Intake"] --> B["Scaffold &<br/>Build Verification"]
     B --> C["Implementation Phase<br/>(parallel work)"]
-    C --> D["Spec Compliance Review"]
+    C --> S["Code Simplify"]
+    S --> D["Spec Compliance Review"]
     D -- "issues found" --> E["Fix Cycle"]
     E --> D
     D -- "clean" --> F["Coverage Audit"]
     F -- "gaps found" --> G["Add tests"]
     G --> F
+    F -- "spec violation<br/>discovered" --> D
     F -- "targets met" --> H["Over-Engineering<br/>Review"]
     H -- "findings" --> I["Fix findings"]
     I -- "code changed" --> D
@@ -102,6 +104,7 @@ verification chain after any code change ensures nothing slips through.
 | **Requirements Intake**     | Identify spec, plan, PoC inputs; set up tracking                                    | Owner approves, TODO.md created                |
 | **Scaffold & Build**        | Create module skeleton; verify build chain works                                    | `zig build test` passes on minimal skeleton    |
 | **Implementation**          | Write source code + unit tests (implementer) and integration tests (QA) in parallel | Both roles report complete                     |
+| **Code Simplify**           | Run `/simplify` (reuse, quality, efficiency) then verify tests pass                 | Fixes applied, tests pass in Debug+ReleaseSafe |
 | **Spec Compliance Review**  | QA reads all code against spec, checking types/signatures/behavior                  | Clean pass or issue list                       |
 | **Fix Cycle**               | Implementer fixes issues; QA re-validates; repeat until clean                       | All issues resolved                            |
 | **Coverage Audit**          | Measure instrumented coverage; fill gaps                                            | Targets met or exemption granted               |

@@ -1,4 +1,4 @@
-# Step 6: Coverage Audit
+# Step 7: Coverage Audit
 
 ## Anti-Patterns
 
@@ -72,15 +72,22 @@ Record coverage numbers (or scenario count) in TODO.md for the final report.
 - [ ] Targets met: line ≥ 95%, branch ≥ 90%, function = 100% — OR scenario
       matrix 100% covered
 - [ ] Exceptions documented with rationale
-- [ ] `zig build test` still passes
+- [ ] `zig build test` passes in Debug and ReleaseSafe
+- [ ] If new tests revealed spec violations → returned to Step 5
 
 ## State Update
 
 Update TODO.md:
 
-- **Step**: 7 (Over-Engineering Review)
-- Mark Step 6 as `[x]`
+- If spec violations discovered during test writing:
+  - **Step**: 5 (Spec Compliance Review) — regression path
+  - Note in TODO.md: "Returning to Step 5 — coverage tests revealed spec
+    violation"
+- Otherwise:
+  - **Step**: 8 (Over-Engineering Review)
+  - Mark Step 7 as `[x]`
 
 ## Next
 
-Read `steps/07-over-engineering-review.md`.
+- If spec violation discovered → Read `steps/05-spec-compliance.md`.
+- Otherwise → Read `steps/08-over-engineering-review.md`.

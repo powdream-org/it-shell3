@@ -1,4 +1,4 @@
-# Step 8: Commit & Report
+# Step 9: Commit & Report
 
 ## Anti-Patterns
 
@@ -8,14 +8,14 @@
   Agent-written code may contain surprises — the team leader is the last
   checkpoint before the owner sees it. (Lesson from IME v0.7 cycle)
 - **Don't commit the TODO.md.** It's a process artifact, not a deliverable. It
-  stays in the module directory for the owner review (Step 9) and is deleted
+  stays in the module directory for the owner review (Step 10) and is deleted
   after the owner accepts.
 - **Don't commit coverage reports.** They are gitignored and regenerated on
   demand.
 
 ## Action
 
-### 8a. Final gate verification
+### 9a. Final gate verification
 
 ALL of these must be true:
 
@@ -31,7 +31,7 @@ ALL of these must be true:
 
 If any gate fails, return to the appropriate step.
 
-### 8b. Disband the implementation team
+### 9b. Disband the implementation team
 
 Send shutdown to all team members (implementer, QA reviewer, over-engineering
 reviewer). Wait for confirmation.
@@ -41,7 +41,7 @@ Update TODO.md:
 - **Active Team**: (none)
 - **Team Directory**: (none)
 
-### 8c. Review staged diff
+### 9c. Review staged diff
 
 Stage all source files and tests (NOT TODO.md, NOT coverage reports):
 
@@ -62,7 +62,7 @@ Scan for:
 - Debug prints or TODO comments left in code
 - Files that shouldn't be committed (coverage reports, temporary files)
 
-### 8d. Commit
+### 9d. Commit
 
 Commit with a descriptive message following the project's commit convention (see
 `docs/conventions/commit-messages.md`):
@@ -76,7 +76,7 @@ EOF
 )"
 ```
 
-### 8e. Report to owner
+### 9e. Report to owner
 
 Present to the owner:
 
@@ -88,19 +88,19 @@ Present to the owner:
 
 ## Gate
 
-- [ ] All final gates verified (8a)
-- [ ] Team disbanded (8b)
-- [ ] Diff reviewed (8c)
-- [ ] Code committed (8d)
-- [ ] Owner notified (8e)
+- [ ] All final gates verified (9a)
+- [ ] Team disbanded (9b)
+- [ ] Diff reviewed (9c)
+- [ ] Code committed (9d)
+- [ ] Owner notified (9e)
 
 ## State Update
 
 Update TODO.md:
 
-- **Step**: 9 (Owner Review)
-- Mark Step 8 as `[x]`
+- **Step**: 10 (Owner Review)
+- Mark Step 9 as `[x]`
 
 ## Next
 
-Read `steps/09-owner-review.md`.
+Read `steps/10-owner-review.md`.
