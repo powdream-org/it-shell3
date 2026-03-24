@@ -32,7 +32,7 @@
       6/6 confirmed after fix cycle, all agents shut down
 - [x] Step 4: Assignment & Writing — 6 writers, 3 arch + 3 behavior + 5
       impl-constraints, all complete, old baselines removed
-- [ ] Step 4b: Owner Review — ADRs 00048-00051, doc cleanups (removed duplicated
+- [x] Step 4b: Owner Review — ADRs 00048-00051, doc cleanups (removed duplicated
       rationale, impl-level detail to impl-constraints, ADR refs)
 - [ ] Step 5: Verification (Round 1)
 - [ ] Step 6: Fix Round Decision
