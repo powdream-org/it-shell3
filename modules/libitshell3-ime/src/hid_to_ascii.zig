@@ -23,6 +23,7 @@ const Entry = struct {
 
 /// Lookup table indexed by (hid_keycode - 0x04).
 /// HID 0x04..0x38 = 53 entries.
+// zig fmt: off
 const table = [53]Entry{
     // 0x04–0x1D: Letters a–z / A–Z
     .{ .unshifted = 'a', .shifted = 'A' }, // 0x04
@@ -89,6 +90,7 @@ const table = [53]Entry{
     .{ .unshifted = '.', .shifted = '>' },  // 0x37
     .{ .unshifted = '/', .shifted = '?' },  // 0x38
 };
+// zig fmt: on
 
 // ---------------------------------------------------------------------------
 // Unit tests
