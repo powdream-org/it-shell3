@@ -55,7 +55,7 @@ exits, the daemon uses a two-phase handling model: reap and mark the process in
 the SIGCHLD handler, then drain remaining PTY output before destroying the pane.
 This ensures the user sees the child's final output before the pane disappears.
 See the daemon behavior docs for the authoritative specification, including the
-dual-flag model (`pane_exited` + `pty_eof`), event processing priority, and the
+dual-flag model (`PANE_EXITED` + `PTY_EOF`), event processing priority, and the
 complete `executePaneDestroyCascade()` procedure.
 
 When a pane is explicitly closed via `ClosePaneRequest`, the daemon sends SIGHUP
@@ -246,12 +246,12 @@ findPaneInDirection(tree_nodes, total_cols, total_rows, focused, direction):
     //   This eliminates diagonally offset panes with no visual adjacency.
     candidates = filter by perpendicular overlap
 
-    // Step 4: Nearest selection with MRU tie-break
+    // Step 4: Nearest selection with deterministic tie-break
     //   Select the candidate with the shortest edge distance (distance
     //   between focused edge and candidate's adjacent edge).
-    //   Tie-break: prefer the most recently focused pane (MRU).
+    //   Tie-break: lowest pane slot index (deterministic, no extra state).
     if candidates is not empty:
-        return nearest candidate (MRU on tie)
+        return nearest candidate (lowest slot index on tie)
 
     // Step 5: Wrap-around
     //   No candidate in the target direction — search the opposite direction
@@ -346,7 +346,7 @@ sequenceDiagram
     Note over S: EVFILT_TIMER (coalescing)
     S->>G: RenderState.update()
     S->>G: bulkExport()
-    G-->>S: ExportResult (FlatCell[])
+    G-->>S: ExportResult (CellData[])
     S->>G: overlayPreedit(session.current_preedit)
     Note over S: serialize FrameUpdate<br/>to ring buffer
 
@@ -399,6 +399,16 @@ sequenceDiagram
     Note over S: EVFILT_READ on conn.fd<br/>Check terminal DEC mouse mode<br/>(no preedit check)
     S->>P: mouse_encode.encode(event, coords,<br/>terminal.flags.mouse_format)
 ```
+
+> **Preedit-ending paths and `preedit.session_id`**: All paths that end a
+> preedit composition increment `preedit.session_id`. This includes:
+> intra-session focus change (`handleIntraSessionFocusChange`), mouse button
+> click (§3.2 above), pane close, session destroy (explicit
+> `DestroySessionRequest` only — the last-pane auto-destroy path frees the
+> session, so no increment occurs), client disconnect, and input
+> method switch with `commit_current=true`. The `session_id` increment is a
+> universal invariant across all preedit-ending paths — not specific to any
+> single trigger.
 
 ---
 
@@ -460,7 +470,7 @@ tier):
 
 | Component                                         | Size    |
 | ------------------------------------------------- | ------- |
-| I-frame (120x40, 16-byte FlatCells)               | ~77 KB  |
+| I-frame (120x40, 16-byte CellData entries)        | ~77 KB  |
 | P-frame (typical 5 dirty rows)                    | ~10 KB  |
 | 1 second of Active tier (60 P-frames + 1 I-frame) | ~677 KB |
 
@@ -478,7 +488,7 @@ ContinuePane) always finds one.
 ### 4.2 Per-Pane Dirty Tracking
 
 The server maintains a single dirty bitmap per pane (the `dirty_mask` field on
-`SessionEntry`, see Section 1.3). Frame data (I-frames and P-frames) is
+`SessionEntry`, see Section 1.2). Frame data (I-frames and P-frames) is
 serialized once per pane per frame interval and written to the shared per-pane
 ring buffer. All clients viewing the same pane receive identical frame data from
 the ring buffer.

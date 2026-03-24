@@ -869,6 +869,7 @@ after `Listener.accept()`.
 stateDiagram-v2
     [*] --> HANDSHAKING : accept()
     HANDSHAKING --> READY : success
+    HANDSHAKING --> [*] : invalid / timeout
     READY --> OPERATING : AttachSessionRequest
     OPERATING --> OPERATING : AttachSessionRequest (different session)
     OPERATING --> READY : DetachSessionRequest

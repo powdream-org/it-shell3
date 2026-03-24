@@ -19,6 +19,14 @@ This rule is universal and applies to every current and future
 request/notification pair. It guarantees that the requesting client learns the
 outcome of its own action before any peer client learns about the side effects.
 
+**Exemption — PreeditEnd**: PreeditEnd is an IME composition-resolution preamble,
+not a notification under this rule's scope. When a client request requires
+resolving active preedit (e.g., DestroySessionRequest, NavigatePaneRequest with
+active composition), PreeditEnd precedes the response as an IME cleanup step.
+This is consistent with the three-phase model: Phase 1 (IME cleanup via
+PreeditEnd) → Phase 2 (response to requester) → Phase 3 (notifications to
+peers).
+
 **Known instances:**
 
 | Request               | Response               | Notification(s)    |
@@ -149,17 +157,20 @@ Wire messages to attached clients, in order:
 1. FrameUpdate (final frame for dying pane) [if dirty]
 2. PaneMetadataChanged(is_running=false, exit_status=N)
 3. ProcessExited(exit_status=N) [if subscribed]
-4. PreeditEnd(reason="pane_closed") [if focused pane with active composition]
 
 **Conditional suffix — non-last pane:**
 
+4a. PreeditEnd(reason="pane_closed") [if focused pane with active composition]
 5a. LayoutChanged(new_focus=X, tree=updated)
 
 **Conditional suffix — last pane (session auto-destroy):**
 
+4b. PreeditEnd(reason="session_destroyed") [if focused pane with active
+composition]
 5b. SessionListChanged(event="destroyed", session_id=N) — broadcast to ALL
-connected clients 6b. DetachSessionResponse(reason="session_destroyed") — to
-each attached client other than the auto-destroy path (no requester exists)
+connected clients
+6b. DetachSessionResponse(reason="session_destroyed") — to each attached client
+(no requester exists in the auto-destroy path)
 
 ### 3.3 Invariants
 
@@ -247,12 +258,13 @@ The last-pane SIGCHLD path (Section 3.5) and the explicit DestroySessionRequest
 path (this section) share the same resource cleanup but differ in notification
 ordering:
 
-| Aspect                   | Pane exit (last pane, SIGCHLD)        | DestroySessionRequest           |
-| ------------------------ | ------------------------------------- | ------------------------------- |
-| Requester                | None                                  | Client that sent the request    |
-| Response message         | None                                  | DestroySessionResponse          |
-| SessionListChanged order | First (no response to send before it) | After DestroySessionResponse    |
-| ClientDetached           | Not sent (no requester to notify)     | Sent to requester for each peer |
+| Aspect                   | Pane exit (last pane, SIGCHLD)                    | DestroySessionRequest           |
+| ------------------------ | ------------------------------------------------- | ------------------------------- |
+| Requester                | None                                              | Client that sent the request    |
+| Response message         | None                                              | DestroySessionResponse          |
+| SessionListChanged order | First (no response to send before it)             | After DestroySessionResponse    |
+| DetachSessionResponse    | Sent to each attached client (no requester exists) | Sent to each non-requester client |
+| ClientDetached           | Not sent (no requester to notify)                 | Sent to requester for each peer |
 
 ---
 
@@ -483,7 +495,7 @@ active.
 
 1. PreeditEnd(reason="committed", preedit_session_id=N) — to all attached
    clients
-2. InputMethodAck(input_method=new_method) — to all attached clients
+2. InputMethodAck(active_input_method=new_method) — to all attached clients
 
 #### commit_current=false Path
 
@@ -498,7 +510,7 @@ active.
 
 1. PreeditEnd(reason="cancelled", preedit_session_id=N) — to all attached
    clients
-2. InputMethodAck(input_method=new_method) — to all attached clients
+2. InputMethodAck(active_input_method=new_method) — to all attached clients
 
 ### 8.5 Mouse Click During Composition
 
@@ -513,6 +525,8 @@ terminal.
 | - | ---------------------------------------------------------- | -------------------------------------------------------------- |
 | 1 | Committed text written to PTY BEFORE mouse event forwarded | Terminal shows committed text before processing mouse action   |
 | 2 | PreeditEnd sent to clients BEFORE mouse-triggered output   | Clients see preedit end before any mouse-induced frame changes |
+| 3 | preedit.owner cleared AFTER PreeditEnd                     | Owner field reflects active state at time of PreeditEnd        |
+| 4 | preedit.session_id incremented AFTER PreeditEnd            | PreeditEnd carries the old session_id                          |
 
 **Observable effects:**
 
@@ -630,4 +644,5 @@ priority order:
 | 4        | EVFILT_WRITE  | Drain outbound data to clients                    |
 
 The concrete 5-tier input processing priority table (within EVFILT_READ client
-message handling) is defined in the architecture docs.
+message handling) is defined in the daemon behavior docs
+(`03-policies-and-procedures.md` Section 6).

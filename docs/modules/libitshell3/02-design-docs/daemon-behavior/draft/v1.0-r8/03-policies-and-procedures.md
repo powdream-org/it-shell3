@@ -422,8 +422,8 @@ KeyEvent):
 
 **Observable effects** (wire messages to all attached clients, in order):
 
-1. PreeditEnd(reason="replaced_by_other_client", session_id=N)
-2. PreeditStart(owner=Client_B, session_id=N+1)
+1. PreeditEnd(reason="replaced_by_other_client", preedit_session_id=N)
+2. PreeditStart(owner=client_B, preedit_session_id=N+1)
 
 ### 7.3 Owner Disconnect
 
@@ -467,7 +467,8 @@ cancelled) before processing the interrupting action.
 **Observable effects**:
 
 1. PreeditEnd(reason="focus_changed")
-2. LayoutChanged(new_focus=...)
+2. NavigatePaneResponse — to requester
+3. LayoutChanged(new_focus=...)
 
 ### 8.2 Alternate Screen Switch
 
@@ -557,7 +558,7 @@ active.
 **Observable effects**:
 
 1. PreeditEnd(reason="committed")
-2. InputMethodAck(new_method=...)
+2. InputMethodAck(active_input_method=new_method)
 
 **Case: commit_current=false**:
 
@@ -571,7 +572,7 @@ active.
 **Observable effects**:
 
 1. PreeditEnd(reason="cancelled")
-2. InputMethodAck(new_method=...)
+2. InputMethodAck(active_input_method=new_method)
 
 ### 8.7 Concurrent Preedit and Resize
 
@@ -586,13 +587,15 @@ Preedit is re-overlaid at export time using the updated cursor position.
 
 ### 8.8 Mouse Click During Composition
 
-**Trigger**: MouseButton event received while composition is active.
+**Trigger**: MouseButton event received while composition is active and mouse
+reporting is enabled in the terminal.
 
 **Ordering constraints**:
 
-| # | Constraint                                                | Verification                       |
-| - | --------------------------------------------------------- | ---------------------------------- |
-| 1 | Preedit commit to PTY MUST precede mouse event forwarding | Text preserved before mouse action |
+| # | Constraint                                                        | Verification                       |
+| - | ----------------------------------------------------------------- | ---------------------------------- |
+| 1 | Preedit commit to PTY MUST precede mouse event forwarding         | Text preserved before mouse action |
+| 2 | Owner clear and preedit_session_id increment MUST occur with PreeditEnd | No stale ownership after commit    |
 
 **Observable effects**:
 
@@ -801,6 +804,7 @@ coalescing tiers.
 | OPERATING     | AttachSessionRequest (different session) | OPERATING     | Detach current, attach new, reinitialize ring cursors                    |
 | OPERATING     | KeyEvent / MouseEvent                    | OPERATING     | Route to attached session's focused pane                                 |
 | OPERATING     | WindowResize                             | OPERATING     | Update display_info, recalculate pane dimensions                         |
+| OPERATING     | DestroySessionRequest (own session)      | READY         | Session destroyed, client detached                                       |
 | OPERATING     | Client disconnect                        | [closed]      | Clean up ClientState                                                     |
 | OPERATING     | Disconnect (reason: server_shutdown)     | DISCONNECTING | Begin drain sequence                                                     |
 | DISCONNECTING | All pending messages sent                | [closed]      | conn.close(), free ClientState                                           |

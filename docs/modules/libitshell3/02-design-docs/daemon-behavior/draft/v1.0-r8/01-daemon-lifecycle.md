@@ -21,11 +21,12 @@ None — this is the entry point. The process has just started.
 
 | # | Constraint                                                                    | Verification                                                                                           |
 | - | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 1 | Stale socket probe MUST complete BEFORE socket bind                           | Connect to socket path; if `ECONNREFUSED`, socket file is unlinked before bind attempt                 |
-| 2 | Socket bind MUST succeed BEFORE event loop entry                              | No `EVFILT_READ` on `listen_fd` fires before bind+listen completes                                     |
-| 3 | ghostty config MUST be loaded BEFORE first Terminal creation                  | No `Terminal.init()` call occurs without a valid config object                                         |
-| 4 | Default session (PTY fork + Terminal) MUST be created BEFORE event loop entry | First client connecting after event loop start receives a session list containing at least one session |
-| 5 | Event loop entry is the LAST startup step                                     | No client messages are processed before all initialization completes                                   |
+| 1 | Inherited fd check MUST complete BEFORE stale socket probe                    | `launch_activate_socket()` (or platform equivalent) is called first; if it returns an fd, step 2 is skipped |
+| 2 | Stale socket probe MUST complete BEFORE socket bind (skipped if inherited fd) | Connect to socket path; if `ECONNREFUSED`, socket file is unlinked before bind attempt                 |
+| 3 | Socket bind MUST succeed BEFORE event loop entry                              | No `EVFILT_READ` on `listen_fd` fires before bind+listen completes                                     |
+| 4 | ghostty config MUST be loaded BEFORE first Terminal creation                  | No `Terminal.init()` call occurs without a valid config object                                         |
+| 5 | Default session (PTY fork + Terminal) MUST be created BEFORE event loop entry | First client connecting after event loop start receives a session list containing at least one session |
+| 6 | Event loop entry is the LAST startup step                                     | No client messages are processed before all initialization completes                                   |
 
 ### Observable Effects
 
@@ -46,6 +47,7 @@ On startup failure:
 
 | Step               | Failure                                      | Observable Effect                                                               |
 | ------------------ | -------------------------------------------- | ------------------------------------------------------------------------------- |
+| Inherited fd check | `launch_activate_socket()` error             | Falls through to normal stale socket probe + bind path                          |
 | Stale socket probe | Connection succeeds (daemon already running) | New daemon exits with informational message; existing daemon unaffected         |
 | kqueue creation    | `kqueue()` fails                             | Daemon exits non-zero; no socket file created                                   |
 | Socket bind        | `bind()` fails after stale cleanup           | Daemon exits non-zero; no socket listening                                      |
@@ -83,8 +85,9 @@ On startup failure:
 - **Foreground mode**: `--foreground` skips LaunchAgent registration. The
   startup sequence is otherwise identical. Required for SSH fork+exec mode.
 - **LaunchAgent socket activation**: When launched by launchd with `Sockets`
-  configuration, the daemon inherits a pre-bound listen fd. The socket bind step
-  detects the inherited fd and skips `Listener.init()`. See Section 3.
+  configuration, the daemon inherits a pre-bound listen fd. The inherited fd
+  check (constraint #1) detects this and skips both the stale socket probe and
+  `Listener.init()`. See Section 5.
 
 ---
 
@@ -95,7 +98,8 @@ On startup failure:
 One of:
 
 1. **Signal**: SIGTERM, SIGINT, or SIGHUP received via `EVFILT_SIGNAL`
-2. **Last session close**: The last remaining session's last pane exits
+2. **No sessions remain**: The last remaining session is destroyed (whether by
+   pane-exit auto-destroy or explicit `DestroySessionRequest`)
 3. **Explicit command**: Client sends a shutdown request (reserved for future —
    not in v1)
 
@@ -268,10 +272,10 @@ macOS client needs to start or manage the daemon via launchd.
 
 When launched by launchd with `Sockets` configuration:
 
-| # | Constraint                                                                                         | Verification                                                                  |
-| - | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1 | Daemon MUST detect inherited fd via `launch_activate_socket()` BEFORE attempting `Listener.init()` | No duplicate bind attempt when launchd provides the socket                    |
-| 2 | Inherited fd MUST be registered with kqueue like a self-created fd                                 | Events on the inherited fd are dispatched identically to self-created sockets |
+| # | Constraint                                                                                                        | Verification                                                                  |
+| - | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 1 | Daemon MUST detect inherited fd via `launch_activate_socket()` BEFORE stale socket probe (Section 1, constraint #1) | Inherited fd detection skips both stale socket probe and `Listener.init()`    |
+| 2 | Inherited fd MUST be registered with kqueue like a self-created fd                                                | Events on the inherited fd are dispatched identically to self-created sockets |
 
 ### Observable Effects
 
@@ -279,7 +283,7 @@ When launched by launchd with `Sockets` configuration:
 
 1. launchd creates socket, binds, and listens on behalf of daemon
 2. Daemon inherits the pre-bound fd
-3. Daemon skips `Listener.init()`, wraps inherited fd
+3. Daemon skips stale socket probe and `Listener.init()`, wraps inherited fd
 4. Clients connecting during daemon startup are queued by launchd (no
    `ECONNREFUSED`)
 

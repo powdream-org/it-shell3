@@ -55,7 +55,7 @@ ghostty's internal Zig APIs.
 | Terminal lifecycle   | `Terminal.init(alloc, .{.cols, .rows})`          | Create headless Terminal instance                            |
 | VT stream processing | `terminal.vtStream(bytes)`                       | Feed PTY output into terminal                                |
 | RenderState snapshot | `RenderState.update(alloc, &terminal)`           | Capture terminal state for export                            |
-| Cell data export     | `bulkExport(alloc, &render_state, &terminal)`    | Produce FlatCell[] for wire transfer                         |
+| Cell data export     | `bulkExport(alloc, &render_state, &terminal)`    | Produce CellData[] for wire transfer                         |
 | Key encoding         | `key_encode.encode(writer, event, opts)`         | Encode key events for PTY (stateless, pure function)         |
 | Terminal mode query  | `Options.fromTerminal(&terminal)`                | Read DEC modes, Kitty flags                                  |
 | Preedit injection    | `overlayPreedit(export_result, preedit, cursor)` | Overlay preedit cells post-export (~20 lines in vendor fork) |
