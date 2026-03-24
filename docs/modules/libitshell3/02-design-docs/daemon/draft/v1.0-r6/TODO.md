@@ -40,7 +40,7 @@
 
 ## Current State
 
-- **Step**: 8 (Owner Review)
+- **Step**: Complete
 - **Verification Round**: 3 (clean)
 - **Active Team**: (none)
 - **Team Directory**: (none)
@@ -58,5 +58,5 @@
 - [x] Step 5: Verification (Round 3) — 2 found, sweep-fixed, owner declared
       clean
 - [x] Step 7: Commit & Report
-- [ ] Step 8: Owner Review
-- [ ] Step 9: Retrospective
+- [x] Step 8: Owner Review — clean, no issues
+- [x] Step 9: Retrospective — 4 skill improvements applied (c41785b)
