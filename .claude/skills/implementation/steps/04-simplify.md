@@ -53,6 +53,10 @@ If any code was changed:
 
 All must pass before proceeding.
 
+**Note:** Simplify changes are tentative until Step 5 validates spec compliance.
+If Step 5 rejects a simplify change (it introduced a spec violation), the
+implementer reverts it.
+
 ## Gate
 
 - [ ] `/simplify` skill completed (all three agents reported)

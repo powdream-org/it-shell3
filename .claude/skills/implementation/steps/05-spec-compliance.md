@@ -25,6 +25,7 @@ Check:
 - Edge cases described in the spec are handled
 - No undocumented behavior or implicit assumptions
 - No unauthorized extensions (extra fields, methods, parameters)
+- No dead code (unused functions, types, imports, or variables)
 - Memory ownership rules followed (buffer lifetimes, pointer validity)
 
 Report either:

@@ -77,7 +77,11 @@ Both Debug and ReleaseSafe must pass before proceeding.
 Update TODO.md:
 
 - **Step**: 5 (Spec Compliance Review) — yes, back to Step 5 for re-review
-- Mark Step 6 as `[x]` (but it may be revisited)
+- Mark Step 6 as `[x]` in the current round's progress
+- Increment `Fix Iteration` in Fix Cycle State
+- Update `Active Issues` to reflect resolved/remaining issues
+- If starting a new verification round after Step 8 regression, append a new
+  `## Progress — Round N` section (do NOT reset previous marks)
 
 ## Next
 

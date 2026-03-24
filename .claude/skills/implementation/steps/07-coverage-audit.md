@@ -14,16 +14,21 @@
 
 ## Action
 
-### 6a. Determine coverage approach
+### 7a. Determine coverage approach
+
+**Always re-measure.** Never trust previous coverage numbers — code changes
+between passes invalidate them. Even if returning from a regression loop, run
+coverage measurement fresh.
 
 Read TODO.md's `Coverage exemption` field:
 
 - **No exemption** → Use instrumented coverage (kcov/llvm-cov)
 - **Exemption granted** → Use scenario-matrix audit
 
-### 6b. Instrumented coverage (default path)
+### 7b. Instrumented coverage (default path)
 
-Instruct the QA reviewer:
+Instruct the QA reviewer (the QA reviewer owns all coverage gap-closing tests —
+the implementer does not write gap tests):
 
 ```
 Run instrumented coverage on <target>:
@@ -42,17 +47,18 @@ back to scenario-matrix — the team leader must request an owner exemption.
 
 If kcov fails and the owner grants an exemption, update TODO.md's
 `Coverage
-exemption` field and fall through to 6c.
+exemption` field and fall through to 7c.
 
-### 6c. Scenario-matrix audit (exempted modules only)
+### 7c. Scenario-matrix audit (exempted modules only)
 
 Instruct the QA reviewer:
 
 ```
 Perform a scenario-matrix coverage audit:
 
-1. List every spec-defined scenario (from the spec's scenario matrix or
-   integration test categories in the plan)
+1. Use the test matrix from the implementation plan (verified in Step 1).
+   If the plan has no test matrix, STOP and report to the team leader —
+   the plan is incomplete.
 2. For each scenario, verify a named test exists that exercises that code path
 3. Report: total scenarios, covered scenarios, any gaps
 4. For gaps: add a named test for each uncovered scenario
@@ -61,7 +67,7 @@ Perform a scenario-matrix coverage audit:
 The test name must clearly identify which scenario it covers.
 ```
 
-### 6d. Collect coverage results
+### 7d. Collect coverage results
 
 Record coverage numbers (or scenario count) in TODO.md for the final report.
 

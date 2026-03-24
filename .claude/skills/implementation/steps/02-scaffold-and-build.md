@@ -25,10 +25,11 @@ Read TODO.md's `Cycle Type` field:
   source code and a build system. Verify the existing build still works:
 
   ```bash
-  ((cd <target> && zig build) test)
+  (cd <target> && zig build test)
+  (cd <target> && zig build test -Doptimize=ReleaseSafe)
   ```
 
-  - If it passes → scaffold gate is already satisfied. Skip to Step 3.
+  - If both pass → scaffold gate is already satisfied. Skip to Step 3.
   - If it fails → diagnose and fix before proceeding (the existing code is
     broken, which is a separate problem from the new work).
 

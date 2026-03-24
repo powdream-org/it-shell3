@@ -46,7 +46,12 @@ The owner signals one of:
   - Mark Step 10 as `[x]`
 - If changes requested:
   - **Step**: 3 (Implementation Phase)
-  - Reset Step marks 3–9 to `[ ]`
+  - Append a new `## Progress — Round N` section to TODO.md (do NOT reset
+    previous round's marks — they are the audit trail)
+  - **Carry forward**: Spec Gap Log, Coverage exemption, Plan path, Spec
+    version(s), owner's change requests
+  - **Reset in new round**: Active Team, Team Directory, Fix Iteration, Active
+    Issues
   - Increment review round
 
 ## Next

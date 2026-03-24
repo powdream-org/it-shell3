@@ -122,7 +122,12 @@ Create `<target>/TODO.md` with this exact format:
 
 (empty — gaps discovered during implementation are logged here)
 
-## Progress
+## Fix Cycle State
+
+- **Fix Iteration**: 0
+- **Active Issues**: (none)
+
+## Progress — Round 1
 
 - [ ] Step 1: Requirements Intake
 - [ ] Step 2: Scaffold & Build Verification

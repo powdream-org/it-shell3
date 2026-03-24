@@ -25,6 +25,8 @@ The principal architect has been dormant until now. Activate them:
 ```
 Review all source files in <target>/src/ for over-engineering.
 The design spec is at: <spec paths>.
+Current coverage: <line%>, <branch%>, <function%> (from Step 7).
+Note: removing code may drop coverage below targets, triggering a re-audit.
 
 Check for:
 - Types, fields, methods, or features beyond what the spec requires
