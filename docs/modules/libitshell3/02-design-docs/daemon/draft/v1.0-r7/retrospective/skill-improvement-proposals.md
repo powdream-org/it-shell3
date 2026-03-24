@@ -143,3 +143,46 @@ or conditionally skips a step within a procedure:
    invalidates, closes, or frees those resources.
 3. If yes, flag as a cascade risk and include in the fix writer's instructions.
 ```
+
+---
+
+## SIP-05: ADR skill defaults to "Proposed" even for accepted decisions
+
+**Step**: 7 (Commit & Report), ADR creation
+
+**What happened**: The `/adr` skill instruction says "keep as `Proposed`
+(default for new ADRs)." The team leader followed this mechanically and created
+3 ADRs with `Status: Proposed` for decisions that were unanimously agreed (6/6),
+integrated into spec docs, and verified across 4 rounds — clearly `Accepted`.
+The owner caught the error and asked to fix it. The team leader corrected the
+status but made the **same mistake on all 3 ADRs** instead of reasoning about
+the status once and applying it consistently.
+
+**Root cause**: The `/adr` skill has no guidance for determining the correct
+status. It always defaults to `Proposed` regardless of context. When ADRs are
+created during Step 7 of a design-doc-revision cycle, the decisions are already
+accepted — they've passed discussion, resolution, and verification.
+
+**Proposed fix**: Add status determination logic to the `/adr` skill:
+
+```
+## Step 4: Draft the Full ADR
+
+...
+
+**Status determination:**
+- If the decision is under active discussion → `Proposed`
+- If the decision has been agreed upon, integrated into specs, and/or
+  verified → `Accepted`
+- When creating ADRs as part of a design-doc-revision commit step (Step 7),
+  the decisions are always `Accepted` — they passed team consensus,
+  resolution verification, and spec integration.
+```
+
+Also add to `steps/07-commit-and-report.md`:
+
+```
+2. **ADR candidates**: ... For each confirmed candidate, run `/adr` with
+   status **Accepted** (these decisions have passed consensus and
+   verification).
+```
