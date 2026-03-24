@@ -197,6 +197,20 @@ matrix. See the `libitshell3` daemon design docs for details. See the
 `libitshell3-protocol` server-client-protocols docs for details.
 ```
 
+## CRITICAL: Never Change the Working Directory
+
+**NEVER use `cd` to change the current directory from the project root.** Almost
+all operations can be performed by passing the correct path to commands and
+tools. Changing directories causes confusion and errors in subsequent
+operations.
+
+In the rare cases where changing directory is absolutely unavoidable, use a
+subshell so the directory change does not persist:
+
+```bash
+(cd other-dir; command;)
+```
+
 ## Work Styles
 
 > **⚠️ MANDATORY: You(main agent, team leader) MUST read and strictly follow all
