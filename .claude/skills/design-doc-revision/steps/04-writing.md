@@ -27,6 +27,19 @@ assigns which agent writes which document/section. No negotiation phase.
 ended with the leader making a unilateral pick anyway. Direct assignment saves
 tokens without loss of quality.
 
+**Fix rounds (Round 2+):** Group assignments by **issue cluster**, not by doc.
+One writer per cluster, even if the cluster spans multiple docs. A cluster is a
+set of issues that share a topic or where fixing one affects the others (e.g.,
+all mouse diagram issues across doc01/doc02, all lock language removals across
+doc02/doc04). This prevents parallel writers from making independent judgment
+calls that diverge on the same topic.
+
+**File conflict scheduling:** When two clusters touch the same file, they MUST
+run sequentially (not in parallel). The team leader builds a dependency graph:
+clusters that share no files run in parallel; clusters that share files are
+ordered by dependency or severity (higher-severity cluster first). Signal "begin
+writing" per batch, not globally.
+
 ### 4c. Spawn assigned writers only
 
 Spawn only the agents that have writing assignments (opus). Pass each agent:

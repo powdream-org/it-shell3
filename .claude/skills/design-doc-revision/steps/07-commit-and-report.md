@@ -12,14 +12,17 @@
 
 1. Disband any remaining agents (there should be none if previous steps were
    followed correctly, but verify).
-2. `git add` all files in the draft version directory.
-3. Commit with a descriptive message following commit conventions.
-4. Report to the owner:
+2. **ADR candidates**: Review the resolution document for `[ADR-CANDIDATE]`
+   tags. For each confirmed candidate, run `/adr` to create the ADR before
+   committing.
+3. `git add` all files in the draft version directory.
+4. Commit with a descriptive message following commit conventions.
+5. Report to the owner:
    - What was produced (which spec docs, which version)
    - Summary of key decisions from the resolution
    - Verification result (clean after N rounds, or owner-declared
      clean/deferred)
-5. **Document production is complete.** Proceed to Step 8 (Owner Review).
+6. **Document production is complete.** Proceed to Step 8 (Owner Review).
 
 ## Gate
 

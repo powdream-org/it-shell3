@@ -10,6 +10,12 @@
 - Do NOT leave Phase 1 or Phase 2 agents alive after they report. Disband
   immediately.
 - (Round 2+) Do NOT spawn Phase 1 agents without the Dismissed Issues Registry.
+- Do NOT present contested issues to the owner as one-line summaries. For each
+  contested issue, show the **actual document text** (quoted, with line numbers)
+  and **both reviewers' reasoning** (confirm argument and dismiss argument with
+  specific evidence). Only then ask the owner for a binding decision. The
+  one-line summary table is fine for confirmed/dismissed issues (no owner action
+  needed).
 
 ## Action
 
@@ -49,6 +55,22 @@ Provide:
   counting toward the round threshold."
 
 Collect both agents' issue lists. **Disband Phase 1 agents immediately.**
+
+### 5b.1. Fast-path resolution doc issues
+
+After collecting Phase 1 issues, separate **resolution doc issues** (errors in
+`design-resolutions-*.md`) from **spec doc issues** (errors in numbered spec
+files `[0-9]+-*.md`).
+
+- **Resolution doc issues**: Report to the owner immediately with a "fix now or
+  dismiss?" prompt. The team leader applies the owner's decision on the spot —
+  no Phase 2 review needed. Record as "resolution doc fix — fast-pathed" in the
+  issues file's Dismissed section.
+- **Spec doc issues**: Continue to Phase 2 as normal.
+
+**Why**: Resolution docs are process artifacts, not shipped specs. Routing them
+through the full Phase 2 confirm/dismiss cycle wastes tokens and clutters the
+fix round with non-spec fixes.
 
 ### 5c. Phase 2 — Double-Check
 

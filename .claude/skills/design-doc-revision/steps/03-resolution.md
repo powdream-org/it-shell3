@@ -12,7 +12,9 @@
 
 1. **One representative** (a core member) writes `design-resolutions-{topic}.md`
    in `draft/vX.Y-rN/design-resolutions/`. Format follows the design resolutions
-   convention.
+   convention. The writer MUST tag architectural decisions with
+   `[ADR-CANDIDATE]` when the decision changes a data structure, selects between
+   named alternatives, or establishes a permanent constraint.
 2. If changes affect another team's documents, the resolution MUST note which
    team and what changes. These become cross-team requests in Step 4.
 3. **All team members verify the resolution WITH MEMORY INTACT.** Each member

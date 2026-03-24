@@ -23,13 +23,19 @@ Format follows the verification issues convention. Include:
 - **Dismissed Issues Summary** (mandatory): all dismissed issues with dismiss
   reasons — this section is passed to Phase 1 agents in subsequent rounds
 
-### 6a.1. Same-class sweep
+### 6a.1. Same-class sweep (MANDATORY for cross-doc issues)
 
 If a confirmed issue belongs to a class that could repeat across other files
 (e.g., stale cross-module links, stale section references, incorrect metadata
-format), spawn a sweep agent to check ALL files for the same class before the
-next verification round. This prevents whack-a-mole discovery across multiple
-rounds.
+format, API naming in diagrams), spawn a sweep agent to check ALL files for the
+same class before spawning fix writers. This prevents whack-a-mole discovery
+across multiple rounds.
+
+**Do NOT skip this for "simple" fixes.** Even an apparently trivial cross-doc
+fix (e.g., renaming an API call in a diagram) can diverge when parallel writers
+make independent judgment calls. Every cross-doc confirmed issue MUST trigger a
+sweep to identify all related locations, which then become a single issue
+cluster assigned to one writer (see Step 4, §4b).
 
 ### 6a.2. Cascade analysis
 
