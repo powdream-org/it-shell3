@@ -1,0 +1,1 @@
+../../../../daemon-architecture/draft/v1.0-r8/design-resolutions/design-resolutions-r8.md
