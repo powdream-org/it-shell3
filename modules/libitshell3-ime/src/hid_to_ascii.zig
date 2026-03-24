@@ -76,18 +76,18 @@ const table = [53]Entry{
     .{ .unshifted = ' ', .shifted = ' ' }, // 0x2C
 
     // 0x2D–0x38: Punctuation / symbols
-    .{ .unshifted = '-', .shifted = '_' }, // 0x2D
-    .{ .unshifted = '=', .shifted = '+' }, // 0x2E
-    .{ .unshifted = '[', .shifted = '{' }, // 0x2F
-    .{ .unshifted = ']', .shifted = '}' }, // 0x30
+    .{ .unshifted = '-', .shifted = '_' },  // 0x2D
+    .{ .unshifted = '=', .shifted = '+' },  // 0x2E
+    .{ .unshifted = '[', .shifted = '{' },  // 0x2F
+    .{ .unshifted = ']', .shifted = '}' },  // 0x30
     .{ .unshifted = '\\', .shifted = '|' }, // 0x31
-    .{ .unshifted = 0, .shifted = 0 }, // 0x32 Non-US # (not on US ANSI)
-    .{ .unshifted = ';', .shifted = ':' }, // 0x33
+    .{ .unshifted = 0, .shifted = 0 },      // 0x32 Non-US # (not on US ANSI)
+    .{ .unshifted = ';', .shifted = ':' },  // 0x33
     .{ .unshifted = '\'', .shifted = '"' }, // 0x34
-    .{ .unshifted = '`', .shifted = '~' }, // 0x35
-    .{ .unshifted = ',', .shifted = '<' }, // 0x36
-    .{ .unshifted = '.', .shifted = '>' }, // 0x37
-    .{ .unshifted = '/', .shifted = '?' }, // 0x38
+    .{ .unshifted = '`', .shifted = '~' },  // 0x35
+    .{ .unshifted = ',', .shifted = '<' },  // 0x36
+    .{ .unshifted = '.', .shifted = '>' },  // 0x37
+    .{ .unshifted = '/', .shifted = '?' },  // 0x38
 };
 
 // ---------------------------------------------------------------------------
