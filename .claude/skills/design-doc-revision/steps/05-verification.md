@@ -52,7 +52,7 @@ Provide:
 
 Collect both agents' issue lists. **Disband Phase 1 agents immediately.**
 
-### 5b.1. Fast-path resolution doc issues
+### 5c. Fast-path resolution doc issues
 
 After collecting Phase 1 issues, separate **resolution doc issues** (errors in
 `design-resolutions-*.md`) from **spec doc issues** (errors in numbered spec
@@ -68,7 +68,7 @@ files `[0-9]+-*.md`).
 through the full Phase 2 confirm/dismiss cycle wastes tokens and clutters the
 fix round with non-spec fixes.
 
-### 5c. Phase 2 — Double-Check
+### 5d. Phase 2 — Double-Check
 
 Spawn **both** Phase 2 agents from `.claude/agents/verification/phase2/`:
 
@@ -82,7 +82,7 @@ Provide:
 
 Collect both agents' verdicts. **Disband Phase 2 agents immediately.**
 
-### 5d. Apply outcome rules
+### 5e. Apply outcome rules
 
 For each issue:
 
@@ -97,12 +97,15 @@ For each issue:
   5. **Concrete breakdown** (RECOMMENDED): A step-by-step example (timeline,
      message sequence, or code trace) that makes the issue self-evident.
      Especially valuable for ordering rules, state machines, or terminology with
-     different meanings in different contexts. Only THEN ask for the owner's
-     binding decision on THIS issue. Proceed to the next contested issue only
-     after the owner responds. **NEVER batch multiple contested issues in a
-     single message.** **NEVER present contested issues as one-line summaries.**
+     different meanings in different contexts.
 
-### 5e. Cascaded re-raise monitoring (Round 3+)
+  Only THEN ask for the owner's binding decision on THIS issue. Proceed to the
+  next contested issue only after the owner responds.
+
+  **NEVER batch multiple contested issues in a single message.** **NEVER present
+  contested issues as one-line summaries.**
+
+### 5f. Cascaded re-raise monitoring (Round 3+)
 
 Check whether newly raised issues are:
 
