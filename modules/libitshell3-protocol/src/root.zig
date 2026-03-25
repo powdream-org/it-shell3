@@ -9,6 +9,7 @@ pub const pane = @import("pane.zig");
 pub const input = @import("input.zig");
 pub const preedit = @import("preedit.zig");
 pub const auxiliary = @import("auxiliary.zig");
+pub const cell = @import("cell.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
