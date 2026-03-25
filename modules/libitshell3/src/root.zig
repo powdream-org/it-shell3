@@ -11,9 +11,13 @@ pub const navigation = @import("core/navigation.zig");
 pub const os_interfaces = @import("os/interfaces.zig");
 pub const os_pty = @import("os/pty.zig");
 pub const os_socket = @import("os/socket.zig");
+pub const os_signals = @import("os/signals.zig");
+pub const os_kqueue = @import("os/kqueue.zig");
 pub const testing_helpers = @import("testing/helpers.zig");
 pub const mock_os = @import("testing/mock_os.zig");
 pub const listener = @import("server/listener.zig");
+pub const signal_handler = @import("server/signal_handler.zig");
+pub const handlers_signal = @import("server/handlers/signal.zig");
 
 test {
     std.testing.refAllDecls(@This());

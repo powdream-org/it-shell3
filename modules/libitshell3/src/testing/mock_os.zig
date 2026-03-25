@@ -224,3 +224,228 @@ test "mock socket: probeExisting returns configured result" {
         try std.testing.expectEqual(expected, socket_ops.probeExisting("/tmp/test.sock"));
     }
 }
+
+// ── MockSignalOps ─────────────────────────────────────────────────────────────
+
+threadlocal var global_mock_signal: ?*MockSignalOps = null;
+
+/// Mock signal operations for deterministic unit testing.
+pub const MockSignalOps = struct {
+    block_error: ?interfaces.SignalOps.SignalError = null,
+    register_error: ?interfaces.SignalOps.SignalError = null,
+    /// Slice of WaitResults to return from waitChild(), in order.
+    /// After the slice is exhausted, waitChild() returns null.
+    wait_results: []const interfaces.SignalOps.WaitResult = &.{},
+    wait_index: usize = 0,
+    block_called: bool = false,
+    register_called: bool = false,
+
+    pub fn ops(self: *MockSignalOps) interfaces.SignalOps {
+        global_mock_signal = self;
+        return .{
+            .blockSignals = mockBlockSignals,
+            .registerSignals = mockRegisterSignals,
+            .waitChild = mockWaitChild,
+        };
+    }
+
+    fn mockBlockSignals() interfaces.SignalOps.SignalError!void {
+        const self = global_mock_signal orelse unreachable;
+        self.block_called = true;
+        if (self.block_error) |err| return err;
+    }
+
+    fn mockRegisterSignals(_: *anyopaque, _: *const interfaces.EventLoopOps) interfaces.SignalOps.SignalError!void {
+        const self = global_mock_signal orelse unreachable;
+        self.register_called = true;
+        if (self.register_error) |err| return err;
+    }
+
+    fn mockWaitChild() ?interfaces.SignalOps.WaitResult {
+        const self = global_mock_signal orelse unreachable;
+        if (self.wait_index >= self.wait_results.len) return null;
+        const result = self.wait_results[self.wait_index];
+        self.wait_index += 1;
+        return result;
+    }
+};
+
+test "mock signal: blockSignals sets called flag" {
+    var mock = MockSignalOps{};
+    const signal_ops = mock.ops();
+    try signal_ops.blockSignals();
+    try std.testing.expect(mock.block_called);
+}
+
+test "mock signal: blockSignals returns configured error" {
+    var mock = MockSignalOps{ .block_error = error.SignalSetupFailed };
+    const signal_ops = mock.ops();
+    const result = signal_ops.blockSignals();
+    try std.testing.expectError(error.SignalSetupFailed, result);
+}
+
+test "mock signal: waitChild returns results in order then null" {
+    const results = [_]interfaces.SignalOps.WaitResult{
+        .{ .pid = 100, .exit_status = 0 },
+        .{ .pid = 200, .exit_status = 1 },
+    };
+    var mock = MockSignalOps{ .wait_results = &results };
+    const signal_ops = mock.ops();
+
+    const r1 = signal_ops.waitChild();
+    try std.testing.expect(r1 != null);
+    try std.testing.expectEqual(@as(std.posix.pid_t, 100), r1.?.pid);
+
+    const r2 = signal_ops.waitChild();
+    try std.testing.expect(r2 != null);
+    try std.testing.expectEqual(@as(std.posix.pid_t, 200), r2.?.pid);
+
+    const r3 = signal_ops.waitChild();
+    try std.testing.expect(r3 == null);
+}
+
+test "mock signal: waitChild returns null when no results" {
+    var mock = MockSignalOps{};
+    const signal_ops = mock.ops();
+    try std.testing.expect(signal_ops.waitChild() == null);
+}
+
+// ── MockEventLoopOps ──────────────────────────────────────────────────────────
+
+threadlocal var global_mock_event_loop: ?*MockEventLoopOps = null;
+
+pub const MockRegistration = struct {
+    fd: std.posix.fd_t,
+    filter: enum { read, write },
+    udata: usize,
+};
+
+/// Mock event loop operations for deterministic unit testing.
+pub const MockEventLoopOps = struct {
+    /// Configurable events to return from wait().
+    events_to_return: []const interfaces.EventLoopOps.Event = &.{},
+    events_index: usize = 0,
+    wait_error: ?interfaces.EventLoopOps.WaitError = null,
+    register_error: ?interfaces.EventLoopOps.RegisterError = null,
+
+    /// Tracks registered file descriptors.
+    registered: [64]?MockRegistration = [_]?MockRegistration{null} ** 64,
+    registered_count: usize = 0,
+    unregister_count: usize = 0,
+
+    pub fn ops(self: *MockEventLoopOps) interfaces.EventLoopOps {
+        global_mock_event_loop = self;
+        return .{
+            .registerRead = mockRegisterRead,
+            .registerWrite = mockRegisterWrite,
+            .unregister = mockUnregister,
+            .wait = mockWait,
+        };
+    }
+
+    fn mockRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, udata: usize) interfaces.EventLoopOps.RegisterError!void {
+        _ = ctx;
+        const self = global_mock_event_loop orelse unreachable;
+        if (self.register_error) |err| return err;
+        if (self.registered_count < self.registered.len) {
+            self.registered[self.registered_count] = .{ .fd = fd, .filter = .read, .udata = udata };
+            self.registered_count += 1;
+        }
+    }
+
+    fn mockRegisterWrite(ctx: *anyopaque, fd: std.posix.fd_t, udata: usize) interfaces.EventLoopOps.RegisterError!void {
+        _ = ctx;
+        const self = global_mock_event_loop orelse unreachable;
+        if (self.register_error) |err| return err;
+        if (self.registered_count < self.registered.len) {
+            self.registered[self.registered_count] = .{ .fd = fd, .filter = .write, .udata = udata };
+            self.registered_count += 1;
+        }
+    }
+
+    fn mockUnregister(ctx: *anyopaque, _: std.posix.fd_t) void {
+        _ = ctx;
+        const self = global_mock_event_loop orelse unreachable;
+        self.unregister_count += 1;
+    }
+
+    fn mockWait(ctx: *anyopaque, events: []interfaces.EventLoopOps.Event, _: ?u32) interfaces.EventLoopOps.WaitError!usize {
+        _ = ctx;
+        const self = global_mock_event_loop orelse unreachable;
+        if (self.wait_error) |err| return err;
+        if (self.events_index >= self.events_to_return.len) return 0;
+        const n = @min(events.len, self.events_to_return.len - self.events_index);
+        for (0..n) |i| {
+            events[i] = self.events_to_return[self.events_index + i];
+        }
+        self.events_index += n;
+        return n;
+    }
+};
+
+test "mock event loop: registerRead tracks fd" {
+    var mock = MockEventLoopOps{};
+    const event_ops = mock.ops();
+
+    var dummy: u8 = 0;
+    const ctx: *anyopaque = &dummy;
+
+    try event_ops.registerRead(ctx, 5, 42);
+    try std.testing.expectEqual(@as(usize, 1), mock.registered_count);
+    try std.testing.expectEqual(@as(std.posix.fd_t, 5), mock.registered[0].?.fd);
+    try std.testing.expectEqual(@as(usize, 42), mock.registered[0].?.udata);
+}
+
+test "mock event loop: registerWrite tracks fd" {
+    var mock = MockEventLoopOps{};
+    const event_ops = mock.ops();
+
+    var dummy: u8 = 0;
+    const ctx: *anyopaque = &dummy;
+
+    try event_ops.registerWrite(ctx, 7, 99);
+    try std.testing.expectEqual(@as(usize, 1), mock.registered_count);
+    try std.testing.expectEqual(MockRegistration{ .fd = 7, .filter = .write, .udata = 99 }, mock.registered[0].?);
+}
+
+test "mock event loop: unregister increments counter" {
+    var mock = MockEventLoopOps{};
+    const event_ops = mock.ops();
+
+    var dummy: u8 = 0;
+    const ctx: *anyopaque = &dummy;
+
+    event_ops.unregister(ctx, 5);
+    event_ops.unregister(ctx, 6);
+    try std.testing.expectEqual(@as(usize, 2), mock.unregister_count);
+}
+
+test "mock event loop: wait returns configured events" {
+    const evts = [_]interfaces.EventLoopOps.Event{
+        .{ .fd = 3, .filter = .read, .udata = 10 },
+        .{ .fd = 4, .filter = .write, .udata = 20 },
+    };
+    var mock = MockEventLoopOps{ .events_to_return = &evts };
+    const event_ops = mock.ops();
+
+    var dummy: u8 = 0;
+    const ctx: *anyopaque = &dummy;
+
+    var out: [4]interfaces.EventLoopOps.Event = undefined;
+    const n = try event_ops.wait(ctx, &out, null);
+    try std.testing.expectEqual(@as(usize, 2), n);
+    try std.testing.expectEqual(@as(std.posix.fd_t, 3), out[0].fd);
+    try std.testing.expectEqual(@as(std.posix.fd_t, 4), out[1].fd);
+}
+
+test "mock event loop: wait returns 0 when no events" {
+    var mock = MockEventLoopOps{};
+    const event_ops = mock.ops();
+
+    var dummy: u8 = 0;
+    const ctx: *anyopaque = &dummy;
+
+    var out: [4]interfaces.EventLoopOps.Event = undefined;
+    const n = try event_ops.wait(ctx, &out, null);
+    try std.testing.expectEqual(@as(usize, 0), n);
+}
