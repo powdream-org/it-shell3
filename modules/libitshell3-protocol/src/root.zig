@@ -13,6 +13,8 @@ pub const cell = @import("cell.zig");
 pub const frame_update = @import("frame_update.zig");
 pub const reader = @import("reader.zig");
 pub const writer = @import("writer.zig");
+pub const socket_path = @import("socket_path.zig");
+pub const transport = @import("transport.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
