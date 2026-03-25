@@ -17,7 +17,13 @@ pub const socket_path = @import("socket_path.zig");
 pub const transport = @import("transport.zig");
 pub const connection = @import("connection.zig");
 pub const auth = @import("auth.zig");
+pub const handshake_io = @import("handshake_io.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
+}
+
+// Integration tests
+test {
+    _ = @import("integration_test.zig");
 }
