@@ -1,0 +1,9 @@
+.{
+    .name = .libitshell3,
+    .version = "0.1.0",
+    .fingerprint = 0xa6f44f08c74bdf4e,
+    .paths = .{""},
+    .dependencies = .{
+        .ghostty = .{ .path = "../../vendors/ghostty" },
+    },
+}

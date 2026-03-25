@@ -4,6 +4,14 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // --- ghostty dependency (vendored) ---
+    const ghostty_dep = b.dependency("ghostty", .{
+        .target = target,
+        .optimize = optimize,
+        .@"emit-lib-vt" = true,
+    });
+    const ghostty_vt = ghostty_dep.module("ghostty-vt");
+
     // --- libitshell3 static library ---
     const lib = b.addLibrary(.{
         .name = "itshell3",
@@ -12,6 +20,9 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
+            .imports = &.{
+                .{ .name = "ghostty", .module = ghostty_vt },
+            },
         }),
     });
     b.installArtifact(lib);
@@ -23,6 +34,9 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
+            .imports = &.{
+                .{ .name = "ghostty", .module = ghostty_vt },
+            },
         }),
     });
 

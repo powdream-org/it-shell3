@@ -3,9 +3,11 @@ const interfaces = @import("../../os/interfaces.zig");
 const pane_mod = @import("../../core/pane.zig");
 const client_mod = @import("../client.zig");
 const types = @import("../../core/types.zig");
+const terminal_mod = @import("../../ghostty/terminal.zig");
 
-/// Handle PTY read event: read output from PTY and mark EOF when done.
-/// For now this is a raw passthrough stub — Plan 2 replaces with RenderState.
+/// Handle PTY read event: drain all available PTY output, feed to ghostty
+/// terminal, and mark EOF when done. Reads in a loop until EAGAIN/0 to
+/// avoid requiring one event-loop round-trip per read.
 pub fn handlePtyRead(
     pty_ops: *const interfaces.PtyOps,
     pane: *pane_mod.Pane,
@@ -13,17 +15,30 @@ pub fn handlePtyRead(
     _: types.SessionId,
 ) void {
     var buf: [4096]u8 = undefined;
-    const n = pty_ops.read(pane.pty_fd, &buf) catch {
-        // Read error — treat as EOF
-        pane.markPtyEof();
-        return;
-    };
-    if (n == 0) {
-        pane.markPtyEof();
-        return;
+
+    while (true) {
+        const n = pty_ops.read(pane.pty_fd, &buf) catch {
+            // Read error — treat as EOF
+            pane.markPtyEof();
+            return;
+        };
+        if (n == 0) {
+            pane.markPtyEof();
+            return;
+        }
+
+        // Feed PTY output through the persistent VT stream.
+        // The stream holds parser state for split escape sequences.
+        if (pane.vt_stream) |stream_ptr| {
+            // SAFETY: vt_stream is always *ReadonlyStream, set by server/
+            // during pane creation via terminal_mod.createVtStream().
+            const stream: *terminal_mod.ReadonlyStream = @ptrCast(@alignCast(stream_ptr));
+            terminal_mod.feedStream(stream, buf[0..n]);
+        }
+
+        // Partial read means no more data available right now
+        if (n < buf.len) break;
     }
-    // Data read successfully. For now: discard (no client write yet — needs protocol).
-    // Plan 2 will feed this into the ghostty VT parser and produce RenderState.
 }
 
 // --- Tests ---

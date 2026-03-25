@@ -7,9 +7,11 @@ pub const Pane = struct {
     pty_fd: std.posix.fd_t,
     child_pid: std.posix.pid_t,
 
-    // ghostty pointers — opaque, null until Plan 2 fills these
+    // ghostty pointers — opaque, null until server/ initializes these.
+    // server/ casts to real types (*Terminal, *RenderState, *ReadonlyStream).
     terminal: ?*anyopaque = null,
     render_state: ?*anyopaque = null,
+    vt_stream: ?*anyopaque = null,
 
     // Dimensions
     cols: u16,
