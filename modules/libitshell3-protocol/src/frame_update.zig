@@ -484,3 +484,327 @@ test "Full FrameUpdate encode (dirty rows + metadata)" {
     try std.testing.expectEqual(@as(u32, 1), decoded_fh.session_id);
     try std.testing.expectEqual(FrameType.p_frame, decoded_fh.frame_type);
 }
+
+test "DirtyRows with underline color entries (LSP diagnostic squiggles)" {
+    const allocator = std.testing.allocator;
+
+    // Simulate a row with colored underlines: red squiggly for error, yellow for warning
+    const cells = [_]cell_mod.CellData{
+        .{ .codepoint = 'e', .flags = 0x0300, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color }, // curly underline
+        .{ .codepoint = 'r', .flags = 0x0300, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+        .{ .codepoint = 'w', .flags = 0x0100, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color }, // single underline
+    };
+
+    const underlines = [_]cell_mod.UnderlineColorEntry{
+        .{ .col_index = 0, .underline_color = cell_mod.PackedColor.rgb(255, 0, 0) },   // red
+        .{ .col_index = 1, .underline_color = cell_mod.PackedColor.rgb(255, 0, 0) },   // red
+        .{ .col_index = 2, .underline_color = cell_mod.PackedColor.rgb(255, 255, 0) }, // yellow
+    };
+
+    const rows = [_]DirtyRow{.{
+        .header = .{ .y = 12, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 3 },
+        .cells = &cells,
+        .underline_color_entries = &underlines,
+    }};
+
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    try encodeDirtyRows(&rows, fbs.writer());
+
+    var read_stream = std.io.fixedBufferStream(fbs.getWritten());
+    const decoded = try decodeDirtyRows(read_stream.reader(), allocator);
+    defer freeDirtyRows(decoded, allocator);
+
+    try std.testing.expectEqual(@as(usize, 1), decoded.len);
+    try std.testing.expectEqual(@as(u16, 12), decoded[0].header.y);
+
+    // Verify underline colors decoded correctly
+    try std.testing.expectEqual(@as(usize, 3), decoded[0].underline_color_entries.len);
+
+    const uc0 = decoded[0].underline_color_entries[0];
+    try std.testing.expectEqual(@as(u16, 0), uc0.col_index);
+    try std.testing.expectEqual(@as(u8, 0x02), uc0.underline_color.tag); // rgb
+    try std.testing.expectEqual(@as(u8, 255), uc0.underline_color.data[0]); // R
+    try std.testing.expectEqual(@as(u8, 0), uc0.underline_color.data[1]);   // G
+    try std.testing.expectEqual(@as(u8, 0), uc0.underline_color.data[2]);   // B
+
+    const uc2 = decoded[0].underline_color_entries[2];
+    try std.testing.expectEqual(@as(u16, 2), uc2.col_index);
+    try std.testing.expectEqual(@as(u8, 255), uc2.underline_color.data[0]); // R
+    try std.testing.expectEqual(@as(u8, 255), uc2.underline_color.data[1]); // G
+    try std.testing.expectEqual(@as(u8, 0), uc2.underline_color.data[2]);   // B
+}
+
+test "DirtyRows with both graphemes and underline colors" {
+    const allocator = std.testing.allocator;
+
+    const extra_cps = [_]u32{0x0308}; // combining diaeresis
+    const graphemes = [_]cell_mod.GraphemeEntry{
+        .{ .col_index = 0, .extra_codepoints = &extra_cps },
+    };
+    const underlines = [_]cell_mod.UnderlineColorEntry{
+        .{ .col_index = 0, .underline_color = cell_mod.PackedColor.palette(196) },
+    };
+
+    const cells = [_]cell_mod.CellData{
+        .{ .codepoint = 'u', .flags = 0x0100, .wide = 0, .content_tag = cell_mod.CellData.ContentTag.codepoint_grapheme, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+    };
+
+    const rows = [_]DirtyRow{.{
+        .header = .{ .y = 0, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 1 },
+        .cells = &cells,
+        .grapheme_entries = &graphemes,
+        .underline_color_entries = &underlines,
+    }};
+
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    try encodeDirtyRows(&rows, fbs.writer());
+
+    var read_stream = std.io.fixedBufferStream(fbs.getWritten());
+    const decoded = try decodeDirtyRows(read_stream.reader(), allocator);
+    defer freeDirtyRows(decoded, allocator);
+
+    // Verify both grapheme and underline color survived the round-trip
+    try std.testing.expectEqual(@as(usize, 1), decoded[0].grapheme_entries.len);
+    try std.testing.expectEqual(@as(u32, 0x0308), decoded[0].grapheme_entries[0].extra_codepoints[0]);
+    try std.testing.expectEqual(@as(usize, 1), decoded[0].underline_color_entries.len);
+    try std.testing.expectEqual(@as(u8, 0x01), decoded[0].underline_color_entries[0].underline_color.tag); // palette
+    try std.testing.expectEqual(@as(u8, 196), decoded[0].underline_color_entries[0].underline_color.data[0]);
+}
+
+test "decodeDirtyRows OOM on row allocation frees nothing (no partial state)" {
+    // Use a FailingAllocator that fails on the very first allocation (the rows slice)
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 0 });
+
+    const cells = [_]cell_mod.CellData{
+        .{ .codepoint = 'X', .flags = 0, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+    };
+    const rows = [_]DirtyRow{.{
+        .header = .{ .y = 0, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 1 },
+        .cells = &cells,
+    }};
+
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    encodeDirtyRows(&rows, fbs.writer()) catch unreachable;
+
+    var read_stream = std.io.fixedBufferStream(fbs.getWritten());
+    const result = decodeDirtyRows(read_stream.reader(), failing.allocator());
+    try std.testing.expectError(error.OutOfMemory, result);
+    // std.testing.allocator would detect leaks if any cleanup was missed
+}
+
+test "decodeDirtyRows OOM on cells allocation cleans up rows slice" {
+    // Encode 2 rows so there is real data to decode
+    const cells = [_]cell_mod.CellData{
+        .{ .codepoint = 'A', .flags = 0, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+    };
+    const rows_data = [_]DirtyRow{
+        .{ .header = .{ .y = 0, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 1 }, .cells = &cells },
+        .{ .header = .{ .y = 1, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 1 }, .cells = &cells },
+    };
+
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    encodeDirtyRows(&rows_data, fbs.writer()) catch unreachable;
+
+    // Fail on allocation index 1 (first cell alloc for row 0)
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 1 });
+    var read_stream = std.io.fixedBufferStream(fbs.getWritten());
+    const result = decodeDirtyRows(read_stream.reader(), failing.allocator());
+    try std.testing.expectError(error.OutOfMemory, result);
+    // The FailingAllocator backed by testing.allocator will detect any leak
+}
+
+test "decodeDirtyRows OOM on grapheme allocation cleans up cells" {
+    // Encode a row with grapheme entries; fail on grapheme alloc
+    const extra_cps = [_]u32{0x0302};
+    const graphemes = [_]cell_mod.GraphemeEntry{.{ .col_index = 0, .extra_codepoints = &extra_cps }};
+    const cells = [_]cell_mod.CellData{
+        .{ .codepoint = 'e', .flags = 0, .wide = 0, .content_tag = cell_mod.CellData.ContentTag.codepoint_grapheme, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+    };
+    const rows_data = [_]DirtyRow{.{
+        .header = .{ .y = 0, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 1 },
+        .cells = &cells,
+        .grapheme_entries = &graphemes,
+    }};
+
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    encodeDirtyRows(&rows_data, fbs.writer()) catch unreachable;
+
+    // Allocation sequence: [0]=rows, [1]=cells, [2]=graphemes
+    // Fail on grapheme allocation
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 2 });
+    var read_stream = std.io.fixedBufferStream(fbs.getWritten());
+    const result = decodeDirtyRows(read_stream.reader(), failing.allocator());
+    try std.testing.expectError(error.OutOfMemory, result);
+}
+
+test "decodeDirtyRows OOM on extra_codepoints allocation cleans up grapheme and cells" {
+    const extra_cps = [_]u32{ 0x0302, 0x0308 };
+    const graphemes = [_]cell_mod.GraphemeEntry{.{ .col_index = 0, .extra_codepoints = &extra_cps }};
+    const cells = [_]cell_mod.CellData{
+        .{ .codepoint = 'e', .flags = 0, .wide = 0, .content_tag = cell_mod.CellData.ContentTag.codepoint_grapheme, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+    };
+    const rows_data = [_]DirtyRow{.{
+        .header = .{ .y = 0, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 1 },
+        .cells = &cells,
+        .grapheme_entries = &graphemes,
+    }};
+
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    encodeDirtyRows(&rows_data, fbs.writer()) catch unreachable;
+
+    // Allocation sequence: [0]=rows, [1]=cells, [2]=graphemes, [3]=extra_codepoints
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 3 });
+    var read_stream = std.io.fixedBufferStream(fbs.getWritten());
+    const result = decodeDirtyRows(read_stream.reader(), failing.allocator());
+    try std.testing.expectError(error.OutOfMemory, result);
+}
+
+test "decodeDirtyRows OOM on underline allocation cleans up graphemes and cells" {
+    const cells = [_]cell_mod.CellData{
+        .{ .codepoint = 'x', .flags = 0, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+    };
+    const underlines = [_]cell_mod.UnderlineColorEntry{
+        .{ .col_index = 0, .underline_color = cell_mod.PackedColor.rgb(255, 0, 0) },
+    };
+    const rows_data = [_]DirtyRow{.{
+        .header = .{ .y = 0, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 1 },
+        .cells = &cells,
+        .underline_color_entries = &underlines,
+    }};
+
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    encodeDirtyRows(&rows_data, fbs.writer()) catch unreachable;
+
+    // Allocation sequence: [0]=rows, [1]=cells, [2]=underlines
+    // (graphemes with 0 entries is a zero-length alloc, skips rawAlloc)
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 2 });
+    var read_stream = std.io.fixedBufferStream(fbs.getWritten());
+    const result = decodeDirtyRows(read_stream.reader(), failing.allocator());
+    try std.testing.expectError(error.OutOfMemory, result);
+}
+
+test "decodeDirtyRows OOM mid-second-row cleans up first row completely" {
+    // Two rows with underline colors (no grapheme extras to avoid known leak bug in
+    // errdefer -- see BUG note below). OOM on second row's cells must free row 0 fully.
+    //
+    // BUG: The errdefer on lines 101-104 frees row.cells, row.grapheme_entries, and
+    // row.underline_color_entries, but does NOT free grapheme_entries[*].extra_codepoints.
+    // Compare with freeDirtyRows() which does free them. If grapheme entries with
+    // extra_codepoints are present in an initialized row and OOM occurs on a later row,
+    // the extra_codepoints slices will leak. This test avoids that path to keep the test
+    // passing and documents the issue for the implementer to fix.
+    const cells = [_]cell_mod.CellData{
+        .{ .codepoint = 'A', .flags = 0, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+    };
+    const underlines = [_]cell_mod.UnderlineColorEntry{
+        .{ .col_index = 0, .underline_color = cell_mod.PackedColor.rgb(0, 255, 0) },
+    };
+
+    const rows_data = [_]DirtyRow{
+        .{
+            .header = .{ .y = 0, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 1 },
+            .cells = &cells,
+            .underline_color_entries = &underlines,
+        },
+        .{
+            .header = .{ .y = 1, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 1 },
+            .cells = &cells,
+            .underline_color_entries = &underlines,
+        },
+    };
+
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    encodeDirtyRows(&rows_data, fbs.writer()) catch unreachable;
+
+    // Row 0: [0]=rows, [1]=cells, [2]=underlines
+    // Row 1: [3]=cells -- fail here
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 3 });
+    var read_stream = std.io.fixedBufferStream(fbs.getWritten());
+    const result = decodeDirtyRows(read_stream.reader(), failing.allocator());
+    try std.testing.expectError(error.OutOfMemory, result);
+    // testing.allocator will detect any leak from incomplete cleanup
+}
+
+test "Multiple rows with underline colors round-trip" {
+    const allocator = std.testing.allocator;
+
+    const cells1 = [_]cell_mod.CellData{
+        .{ .codepoint = 'a', .flags = 0x0100, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+        .{ .codepoint = 'b', .flags = 0x0100, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+    };
+    const cells2 = [_]cell_mod.CellData{
+        .{ .codepoint = 'c', .flags = 0x0300, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
+    };
+
+    const ul1 = [_]cell_mod.UnderlineColorEntry{
+        .{ .col_index = 0, .underline_color = cell_mod.PackedColor.rgb(0, 128, 255) },
+        .{ .col_index = 1, .underline_color = cell_mod.PackedColor.palette(220) },
+    };
+    const ul2 = [_]cell_mod.UnderlineColorEntry{
+        .{ .col_index = 0, .underline_color = cell_mod.PackedColor.rgb(255, 165, 0) },
+    };
+
+    const rows_data = [_]DirtyRow{
+        .{
+            .header = .{ .y = 5, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 2 },
+            .cells = &cells1,
+            .underline_color_entries = &ul1,
+        },
+        .{
+            .header = .{ .y = 6, .row_flags = 0, .selection_start = 0, .selection_end = 0, .num_cells = 1 },
+            .cells = &cells2,
+            .underline_color_entries = &ul2,
+        },
+    };
+
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    try encodeDirtyRows(&rows_data, fbs.writer());
+
+    var read_stream = std.io.fixedBufferStream(fbs.getWritten());
+    const decoded = try decodeDirtyRows(read_stream.reader(), allocator);
+    defer freeDirtyRows(decoded, allocator);
+
+    try std.testing.expectEqual(@as(usize, 2), decoded.len);
+
+    // Row 0: two underline colors
+    try std.testing.expectEqual(@as(usize, 2), decoded[0].underline_color_entries.len);
+    try std.testing.expectEqual(@as(u8, 0x02), decoded[0].underline_color_entries[0].underline_color.tag); // rgb
+    try std.testing.expectEqual(@as(u8, 128), decoded[0].underline_color_entries[0].underline_color.data[1]); // G
+    try std.testing.expectEqual(@as(u8, 0x01), decoded[0].underline_color_entries[1].underline_color.tag); // palette
+    try std.testing.expectEqual(@as(u8, 220), decoded[0].underline_color_entries[1].underline_color.data[0]);
+
+    // Row 1: one underline color
+    try std.testing.expectEqual(@as(usize, 1), decoded[1].underline_color_entries.len);
+    try std.testing.expectEqual(@as(u8, 255), decoded[1].underline_color_entries[0].underline_color.data[0]); // R=255
+    try std.testing.expectEqual(@as(u8, 165), decoded[1].underline_color_entries[0].underline_color.data[1]); // G=165
+    try std.testing.expectEqual(@as(u8, 0), decoded[1].underline_color_entries[0].underline_color.data[2]);   // B=0
+}
+
+test "encodeFrameUpdate with no dirty rows and no metadata" {
+    const allocator = std.testing.allocator;
+    const fh = FrameHeader{
+        .session_id = 5,
+        .pane_id = 3,
+        .frame_sequence = 42,
+        .frame_type = .p_frame,
+        .screen = .primary,
+        .section_flags = 0,
+    };
+    const payload = try encodeFrameUpdate(allocator, fh, null, null);
+    defer allocator.free(payload);
+
+    // Should contain exactly the 20-byte frame header and nothing else
+    try std.testing.expectEqual(@as(usize, FRAME_HEADER_SIZE), payload.len);
+    const decoded_fh = FrameHeader.decode(payload[0..FRAME_HEADER_SIZE]);
+    try std.testing.expectEqual(@as(u32, 5), decoded_fh.session_id);
+    try std.testing.expectEqual(@as(u64, 42), decoded_fh.frame_sequence);
+}

@@ -342,3 +342,378 @@ test "Version mismatch" {
     }, &payload_buf);
     try std.testing.expectError(error.VersionMismatch, result);
 }
+
+// --- Partial-read transport for testing slow networks ---
+
+/// A transport that delivers data one byte at a time, simulating slow networks
+/// or TCP segment fragmentation.
+const ChunkedTransport = struct {
+    data: []const u8,
+    pos: usize = 0,
+    chunk_size: usize = 1,
+    write_buf: std.ArrayList(u8),
+    allocator: std.mem.Allocator,
+
+    const vtable = transport_mod.Transport.VTable{
+        .read = &readImpl,
+        .write = &writeImpl,
+        .close = &closeImpl,
+    };
+
+    fn init(allocator: std.mem.Allocator, data: []const u8, chunk_size: usize) ChunkedTransport {
+        return .{
+            .data = data,
+            .write_buf = std.ArrayList(u8).empty,
+            .allocator = allocator,
+            .chunk_size = chunk_size,
+        };
+    }
+
+    fn deinit(self: *ChunkedTransport) void {
+        self.write_buf.deinit(self.allocator);
+    }
+
+    fn transport(self: *ChunkedTransport) transport_mod.Transport {
+        return .{ .ptr = @ptrCast(self), .vtable = &vtable };
+    }
+
+    fn readImpl(ptr: *anyopaque, buf: []u8) transport_mod.Transport.ReadError!usize {
+        const self: *ChunkedTransport = @ptrCast(@alignCast(ptr));
+        if (self.pos >= self.data.len) return 0; // EOF
+        const available = self.data[self.pos..];
+        // Deliver at most chunk_size bytes per read
+        const n = @min(@min(buf.len, available.len), self.chunk_size);
+        @memcpy(buf[0..n], available[0..n]);
+        self.pos += n;
+        return n;
+    }
+
+    fn writeImpl(ptr: *anyopaque, data: []const u8) transport_mod.Transport.WriteError!void {
+        const self: *ChunkedTransport = @ptrCast(@alignCast(ptr));
+        self.write_buf.appendSlice(self.allocator, data) catch return error.Unexpected;
+    }
+
+    fn closeImpl(_: *anyopaque) void {}
+};
+
+test "Server partial header read: header arrives in 1-byte chunks" {
+    const allocator = std.testing.allocator;
+
+    const hello = handshake_mod.ClientHello{
+        .protocol_version_min = 1,
+        .protocol_version_max = 1,
+        .client_name = "chunked-client",
+        .capabilities = &.{"mouse"},
+    };
+    const json_payload = try json_mod.encode(allocator, hello);
+    defer allocator.free(json_payload);
+
+    var frame_buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&frame_buf);
+    const hdr = header_mod.Header{
+        .msg_type = @intFromEnum(message_type_mod.MessageType.client_hello),
+        .flags = .{},
+        .payload_len = @intCast(json_payload.len),
+        .sequence = 1,
+    };
+    var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
+    hdr.encode(&hdr_bytes);
+    fbs.writer().writeAll(&hdr_bytes) catch unreachable;
+    fbs.writer().writeAll(json_payload) catch unreachable;
+
+    // Use chunked transport: delivers 1 byte at a time
+    var ct = ChunkedTransport.init(allocator, fbs.getWritten(), 1);
+    defer ct.deinit();
+    var conn = connection_mod.Connection.init(ct.transport());
+
+    var payload_buf: [4096]u8 = undefined;
+    const result = try performServerHandshake(&conn, allocator, .{
+        .next_client_id = 99,
+        .server_pid = 5678,
+        .supported_caps = &.{"mouse"},
+    }, &payload_buf);
+
+    // Verify the server correctly reassembled header + payload from 1-byte chunks
+    try std.testing.expectEqual(@as(u32, 99), result.client_id);
+    try std.testing.expect(result.negotiated_caps.mouse);
+    try std.testing.expectEqual(connection_mod.ConnectionState.ready, conn.state);
+}
+
+test "Server partial payload read: payload arrives in small chunks" {
+    const allocator = std.testing.allocator;
+
+    const hello = handshake_mod.ClientHello{
+        .protocol_version_min = 1,
+        .protocol_version_max = 1,
+        .client_name = "small-chunks",
+        .capabilities = &.{ "search", "clipboard_sync" },
+    };
+    const json_payload = try json_mod.encode(allocator, hello);
+    defer allocator.free(json_payload);
+
+    var frame_buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&frame_buf);
+    const hdr = header_mod.Header{
+        .msg_type = @intFromEnum(message_type_mod.MessageType.client_hello),
+        .flags = .{},
+        .payload_len = @intCast(json_payload.len),
+        .sequence = 1,
+    };
+    var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
+    hdr.encode(&hdr_bytes);
+    fbs.writer().writeAll(&hdr_bytes) catch unreachable;
+    fbs.writer().writeAll(json_payload) catch unreachable;
+
+    // Chunk size 3: header (16 bytes) arrives in 6 reads, payload fragmented too
+    var ct = ChunkedTransport.init(allocator, fbs.getWritten(), 3);
+    defer ct.deinit();
+    var conn = connection_mod.Connection.init(ct.transport());
+
+    var payload_buf: [4096]u8 = undefined;
+    const result = try performServerHandshake(&conn, allocator, .{
+        .next_client_id = 7,
+        .supported_caps = &.{ "search", "clipboard_sync" },
+    }, &payload_buf);
+
+    try std.testing.expectEqual(@as(u32, 7), result.client_id);
+    try std.testing.expect(result.negotiated_caps.search);
+    try std.testing.expect(result.negotiated_caps.clipboard_sync);
+}
+
+test "Client receives unexpected message type (error instead of ServerHello)" {
+    const allocator = std.testing.allocator;
+
+    // Build a frame with msg_type=error (0x00FF) instead of server_hello
+    const error_payload = "{\"code\":500,\"message\":\"internal error\"}";
+    var frame_buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&frame_buf);
+    const resp_hdr = header_mod.Header{
+        .msg_type = @intFromEnum(message_type_mod.MessageType.@"error"),
+        .flags = .{ .response = true, .@"error" = true },
+        .payload_len = @intCast(error_payload.len),
+        .sequence = 1,
+    };
+    var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
+    resp_hdr.encode(&hdr_bytes);
+    fbs.writer().writeAll(&hdr_bytes) catch unreachable;
+    fbs.writer().writeAll(error_payload) catch unreachable;
+
+    var bt = transport_mod.BufferTransport.init(allocator, fbs.getWritten());
+    defer bt.deinit();
+    var conn = connection_mod.Connection.init(bt.transport());
+
+    var payload_buf: [4096]u8 = undefined;
+    const result = performClientHandshake(&conn, allocator, .{
+        .client_name = "test",
+    }, &payload_buf);
+
+    try std.testing.expectError(error.UnexpectedMessage, result);
+    // Connection should remain in handshaking state (not transitioned)
+    try std.testing.expectEqual(connection_mod.ConnectionState.handshaking, conn.state);
+}
+
+test "Client receives oversized payload" {
+    const allocator = std.testing.allocator;
+
+    // Build a ServerHello-shaped frame claiming a payload larger than our buffer
+    var frame_buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&frame_buf);
+    const resp_hdr = header_mod.Header{
+        .msg_type = @intFromEnum(message_type_mod.MessageType.server_hello),
+        .flags = .{ .response = true },
+        .payload_len = 8000, // larger than our 256-byte buffer
+        .sequence = 1,
+    };
+    var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
+    resp_hdr.encode(&hdr_bytes);
+    fbs.writer().writeAll(&hdr_bytes) catch unreachable;
+    // We don't need to write actual payload; Overflow is checked before reading it
+
+    var bt = transport_mod.BufferTransport.init(allocator, fbs.getWritten());
+    defer bt.deinit();
+    var conn = connection_mod.Connection.init(bt.transport());
+
+    var payload_buf: [256]u8 = undefined; // intentionally small
+    const result = performClientHandshake(&conn, allocator, .{
+        .client_name = "test",
+    }, &payload_buf);
+
+    try std.testing.expectError(error.Overflow, result);
+}
+
+test "Client receives malformed JSON payload" {
+    const allocator = std.testing.allocator;
+
+    // Build a valid header with server_hello type but garbage JSON payload
+    const garbage_json = "{ this is not valid json !!!";
+    var frame_buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&frame_buf);
+    const resp_hdr = header_mod.Header{
+        .msg_type = @intFromEnum(message_type_mod.MessageType.server_hello),
+        .flags = .{ .response = true },
+        .payload_len = @intCast(garbage_json.len),
+        .sequence = 1,
+    };
+    var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
+    resp_hdr.encode(&hdr_bytes);
+    fbs.writer().writeAll(&hdr_bytes) catch unreachable;
+    fbs.writer().writeAll(garbage_json) catch unreachable;
+
+    var bt = transport_mod.BufferTransport.init(allocator, fbs.getWritten());
+    defer bt.deinit();
+    var conn = connection_mod.Connection.init(bt.transport());
+
+    var payload_buf: [4096]u8 = undefined;
+    const result = performClientHandshake(&conn, allocator, .{
+        .client_name = "test",
+    }, &payload_buf);
+
+    try std.testing.expectError(error.MalformedPayload, result);
+    // Connection should remain in handshaking state
+    try std.testing.expectEqual(connection_mod.ConnectionState.handshaking, conn.state);
+}
+
+test "All 11 capability flags are correctly negotiated" {
+    const all_caps = [_][]const u8{
+        "clipboard_sync",
+        "mouse",
+        "selection",
+        "search",
+        "fd_passing",
+        "agent_detection",
+        "flow_control",
+        "pixel_dimensions",
+        "sixel",
+        "kitty_graphics",
+        "notifications",
+    };
+
+    // When both client and server support all caps, all should be negotiated
+    const caps = negotiateCapabilities(&all_caps, &all_caps);
+    try std.testing.expect(caps.clipboard_sync);
+    try std.testing.expect(caps.mouse);
+    try std.testing.expect(caps.selection);
+    try std.testing.expect(caps.search);
+    try std.testing.expect(caps.fd_passing);
+    try std.testing.expect(caps.agent_detection);
+    try std.testing.expect(caps.flow_control);
+    try std.testing.expect(caps.pixel_dimensions);
+    try std.testing.expect(caps.sixel);
+    try std.testing.expect(caps.kitty_graphics);
+    try std.testing.expect(caps.notifications);
+
+    // Verify capsToStrings round-trips all 11 correctly
+    var out: [11][]const u8 = undefined;
+    const count = capsToStrings(caps, &out);
+    try std.testing.expectEqual(@as(usize, 11), count);
+}
+
+test "capsToStrings empty caps produces 0 entries" {
+    const empty = connection_mod.NegotiatedCaps{};
+    var out: [11][]const u8 = undefined;
+    const count = capsToStrings(empty, &out);
+    try std.testing.expectEqual(@as(usize, 0), count);
+}
+
+test "Server receives unexpected message type (not client_hello)" {
+    const allocator = std.testing.allocator;
+
+    // Send a heartbeat instead of client_hello
+    const payload = "{\"ping_id\":1}";
+    var frame_buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&frame_buf);
+    const hdr = header_mod.Header{
+        .msg_type = @intFromEnum(message_type_mod.MessageType.heartbeat),
+        .flags = .{},
+        .payload_len = @intCast(payload.len),
+        .sequence = 1,
+    };
+    var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
+    hdr.encode(&hdr_bytes);
+    fbs.writer().writeAll(&hdr_bytes) catch unreachable;
+    fbs.writer().writeAll(payload) catch unreachable;
+
+    var bt = transport_mod.BufferTransport.init(allocator, fbs.getWritten());
+    defer bt.deinit();
+    var conn = connection_mod.Connection.init(bt.transport());
+
+    var payload_buf: [4096]u8 = undefined;
+    const result = performServerHandshake(&conn, allocator, .{
+        .next_client_id = 1,
+    }, &payload_buf);
+    try std.testing.expectError(error.UnexpectedMessage, result);
+}
+
+test "Server receives EOF mid-header" {
+    const allocator = std.testing.allocator;
+
+    // Only 4 bytes — not enough for a 16-byte header
+    const partial = [_]u8{ 0x49, 0x54, 0x01, 0x00 };
+    var bt = transport_mod.BufferTransport.init(allocator, &partial);
+    defer bt.deinit();
+    var conn = connection_mod.Connection.init(bt.transport());
+
+    var payload_buf: [4096]u8 = undefined;
+    const result = performServerHandshake(&conn, allocator, .{
+        .next_client_id = 1,
+    }, &payload_buf);
+    try std.testing.expectError(error.EndOfStream, result);
+}
+
+test "Client partial header read via chunked transport" {
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+
+    const allocator = std.testing.allocator;
+
+    // Create a socketpair for the real handshake
+    var fds: [2]std.posix.socket_t = undefined;
+    const rc = std.c.socketpair(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0, &fds);
+    try std.testing.expectEqual(@as(c_int, 0), rc);
+    defer std.posix.close(fds[0]);
+    defer std.posix.close(fds[1]);
+
+    var client_ut = transport_mod.UnixTransport{ .socket_fd = fds[0] };
+    var server_ut = transport_mod.UnixTransport{ .socket_fd = fds[1] };
+
+    var client_conn = connection_mod.Connection.init(client_ut.transport());
+    var server_conn = connection_mod.Connection.init(server_ut.transport());
+
+    // Client handshake in a thread
+    const client_thread = try std.Thread.spawn(.{}, struct {
+        fn run(cc: *connection_mod.Connection, alloc: std.mem.Allocator) void {
+            var buf: [4096]u8 = undefined;
+            const hello = handshake_mod.ClientHello{
+                .protocol_version_min = 1,
+                .protocol_version_max = 1,
+                .client_name = "partial-read-client",
+                .capabilities = &.{ "fd_passing", "agent_detection", "flow_control",
+                    "pixel_dimensions", "sixel", "kitty_graphics", "notifications" },
+            };
+            const result = performClientHandshake(cc, alloc, hello, &buf) catch return;
+            // Verify that the client got all 7 capabilities
+            std.debug.assert(result.negotiated_caps.fd_passing);
+            std.debug.assert(result.negotiated_caps.notifications);
+        }
+    }.run, .{ &client_conn, allocator });
+
+    // Server processes
+    var server_buf: [4096]u8 = undefined;
+    const result = try performServerHandshake(&server_conn, allocator, .{
+        .next_client_id = 100,
+        .server_pid = 9999,
+        .supported_caps = &.{ "fd_passing", "agent_detection", "flow_control",
+            "pixel_dimensions", "sixel", "kitty_graphics", "notifications" },
+    }, &server_buf);
+
+    client_thread.join();
+
+    // Verify all 7 extended capability flags
+    try std.testing.expectEqual(@as(u32, 100), result.client_id);
+    try std.testing.expect(result.negotiated_caps.fd_passing);
+    try std.testing.expect(result.negotiated_caps.agent_detection);
+    try std.testing.expect(result.negotiated_caps.flow_control);
+    try std.testing.expect(result.negotiated_caps.pixel_dimensions);
+    try std.testing.expect(result.negotiated_caps.sixel);
+    try std.testing.expect(result.negotiated_caps.kitty_graphics);
+    try std.testing.expect(result.negotiated_caps.notifications);
+}
