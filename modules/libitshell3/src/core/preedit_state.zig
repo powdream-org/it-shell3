@@ -1,0 +1,52 @@
+const std = @import("std");
+const types = @import("types.zig");
+
+pub const ClientId = types.ClientId;
+
+pub const PreeditState = struct {
+    owner: ?ClientId, // Which client owns the current composition, or null
+    session_id: u32, // Monotonically increasing sequence counter
+
+    pub fn init() PreeditState {
+        return .{ .owner = null, .session_id = 0 };
+    }
+
+    pub fn clear(self: *PreeditState) void {
+        self.owner = null;
+    }
+
+    pub fn incrementSessionId(self: *PreeditState) void {
+        self.session_id += 1;
+    }
+};
+
+test "init returns null owner and session_id 0" {
+    const ps = PreeditState.init();
+    try std.testing.expectEqual(@as(?ClientId, null), ps.owner);
+    try std.testing.expectEqual(@as(u32, 0), ps.session_id);
+}
+
+test "clear sets owner to null but preserves session_id" {
+    var ps = PreeditState.init();
+    ps.owner = 42;
+    ps.session_id = 7;
+    ps.clear();
+    try std.testing.expectEqual(@as(?ClientId, null), ps.owner);
+    try std.testing.expectEqual(@as(u32, 7), ps.session_id);
+}
+
+test "incrementSessionId increments by 1" {
+    var ps = PreeditState.init();
+    try std.testing.expectEqual(@as(u32, 0), ps.session_id);
+    ps.incrementSessionId();
+    try std.testing.expectEqual(@as(u32, 1), ps.session_id);
+    ps.incrementSessionId();
+    try std.testing.expectEqual(@as(u32, 2), ps.session_id);
+}
+
+test "can set owner and verify it" {
+    var ps = PreeditState.init();
+    const client: ClientId = 123;
+    ps.owner = client;
+    try std.testing.expectEqual(@as(?ClientId, 123), ps.owner);
+}
