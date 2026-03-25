@@ -1,0 +1,18 @@
+FROM kcov/kcov
+
+RUN apt-get update && apt-get install -y curl git xz-utils && rm -rf /var/lib/apt/lists/*
+
+# Install mise
+RUN curl https://mise.run | sh
+ENV PATH="/root/.local/bin:${PATH}"
+
+WORKDIR /workspace
+
+# Pre-install tools from a copied mise.toml (layer cached)
+COPY mise.toml .
+RUN mise trust && mise install && rm mise.toml
+
+# Activate mise so zig/deno are in PATH for all subsequent commands
+RUN echo 'eval "$(mise activate bash)"' >> /root/.bashrc
+ENV BASH_ENV="/root/.bashrc"
+SHELL ["bash", "-c"]

@@ -1,3 +1,99 @@
 [tools]
 deno = "2.7.5"
 zig = "0.15.2"
+
+[tasks."test:macos"]
+description = "Run all module tests on macOS (Debug)"
+run = """
+#!/usr/bin/env bash
+set -e
+for dir in modules/libitshell3-protocol modules/libitshell3; do
+  echo "=== $(basename $dir): Debug ==="
+  (cd $dir && zig build test --summary all)
+done
+"""
+
+[tasks."test:macos:release-safe"]
+description = "Run all module tests on macOS (ReleaseSafe)"
+run = """
+#!/usr/bin/env bash
+set -e
+for dir in modules/libitshell3-protocol modules/libitshell3; do
+  echo "=== $(basename $dir): ReleaseSafe ==="
+  (cd $dir && zig build test -Doptimize=ReleaseSafe --summary all)
+done
+"""
+
+[tasks."build:docker:zig-kcov"]
+description = "Build the zig-kcov Docker image (kcov + mise + zig)"
+run = "docker build -t zig-kcov -f Dockerfile.kcov ."
+
+[tasks."test:linux"]
+description = "Run all module tests in Linux Docker container (Debug)"
+run = """
+#!/usr/bin/env bash
+set -e
+docker run --rm --security-opt seccomp=unconfined \
+  -v "$(pwd):/workspace" -w /workspace zig-kcov bash -c '
+  for dir in modules/libitshell3-protocol modules/libitshell3; do
+    echo "=== $(basename $dir): Debug ==="
+    (cd $dir && zig build test --summary all)
+  done
+'
+"""
+
+[tasks."test:linux:release-safe"]
+description = "Run all module tests in Linux Docker container (ReleaseSafe)"
+run = """
+#!/usr/bin/env bash
+set -e
+docker run --rm --security-opt seccomp=unconfined \
+  -v "$(pwd):/workspace" -w /workspace zig-kcov bash -c '
+  for dir in modules/libitshell3-protocol modules/libitshell3; do
+    echo "=== $(basename $dir): ReleaseSafe ==="
+    (cd $dir && zig build test -Doptimize=ReleaseSafe --summary all)
+  done
+'
+"""
+
+[tasks."test:coverage"]
+description = "Measure code coverage via kcov in Linux Docker container"
+run = """
+#!/usr/bin/env bash
+set -e
+docker run --rm --security-opt seccomp=unconfined \
+  -v "$(pwd):/workspace" -w /workspace zig-kcov bash -c '
+  COVERAGE_DIR=coverage
+  rm -rf $COVERAGE_DIR && mkdir -p $COVERAGE_DIR
+
+  for MODULE_DIR in modules/libitshell3-protocol modules/libitshell3; do
+    MODULE=$(basename $MODULE_DIR)
+    echo "=== $MODULE: building tests ==="
+    (cd $MODULE_DIR && zig build test --summary none)
+    TEST_BIN=$(find $MODULE_DIR/.zig-cache/o -name test -type f -newer $MODULE_DIR/build.zig | head -1)
+    if [ -z "$TEST_BIN" ]; then echo "ERROR: no test binary for $MODULE"; continue; fi
+    echo "=== $MODULE: running kcov ==="
+    kcov --include-path=$MODULE_DIR/src/ $COVERAGE_DIR/$MODULE "$TEST_BIN"
+    echo "=== $MODULE: done ==="
+  done
+
+  kcov --merge $COVERAGE_DIR/merged $COVERAGE_DIR/libitshell3-protocol $COVERAGE_DIR/libitshell3 2>/dev/null || true
+
+  echo
+  echo "=== Coverage Summary ==="
+  deno eval '"'"'
+    for (const name of ["libitshell3-protocol", "libitshell3", "merged"]) {
+      for (const sub of ["test/coverage.json", "coverage.json"]) {
+        try {
+          const d = JSON.parse(Deno.readTextFileSync(`coverage/${name}/${sub}`));
+          console.log(`${name.padEnd(25)} ${d.percent_covered.padStart(6)}%  (${d.covered_lines}/${d.total_lines} lines)`);
+          break;
+        } catch { continue; }
+      }
+    }
+  '"'"'
+
+  echo
+  echo "HTML report: coverage/merged/index.html"
+'
+"""

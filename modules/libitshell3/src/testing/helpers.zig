@@ -113,7 +113,11 @@ test "integration: daemon lifecycle with mocks" {
 const c_pty = @cImport({
     @cInclude("sys/ioctl.h");
     @cInclude("unistd.h");
-    @cInclude("util.h"); // macOS openpty
+    if (builtin.os.tag == .macos) {
+        @cInclude("util.h"); // macOS openpty
+    } else {
+        @cInclude("pty.h"); // Linux openpty
+    }
     @cInclude("sys/wait.h");
     @cInclude("poll.h");
 });

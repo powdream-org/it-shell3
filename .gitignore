@@ -27,3 +27,4 @@ poc/**/.zig-cache/
 
 # invoke-agent
 /.invoke-agent
+coverage/
