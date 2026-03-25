@@ -5,10 +5,12 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     // --- ghostty dependency (vendored) ---
+    const ghostty_simd = b.option(bool, "ghostty-simd", "Enable ghostty SIMD (disable for kcov)") orelse true;
     const ghostty_dep = b.dependency("ghostty", .{
         .target = target,
         .optimize = optimize,
         .@"version-string" = "1.3.1",
+        .simd = ghostty_simd,
     });
     const ghostty_vt = ghostty_dep.module("ghostty-vt");
 
