@@ -76,9 +76,7 @@ pub const SessionManager = struct {
 
     /// Reset to initial state. Use between tests or for daemon restart.
     pub fn reset(self: *SessionManager) void {
-        self.sessions = [_]?SessionEntry{null} ** MAX_SESSIONS;
-        self.next_session_id = 1;
-        self.next_pane_id = 1;
+        self.* = SessionManager.init();
     }
 
     pub fn allocPaneId(self: *SessionManager) PaneId {

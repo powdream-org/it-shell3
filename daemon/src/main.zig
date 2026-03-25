@@ -57,12 +57,7 @@ pub fn main() !void {
         std.process.exit(1);
     };
 
-    // --- 2. Block signals (must happen before any FDs are created) ---
-    // Signal blocking is now handled inside EventLoop.run() via signal_ops.
-    // The binary delegates signal setup entirely to the library's SignalOps
-    // interface as described in ADR 00048.
-
-    // --- 3 & 4. Init listener (probes for stale socket, binds, listens) ---
+    // --- 2. Init listener (probes for stale socket, binds, listens) ---
     var listener = Listener.init(sock_path, &real_socket_ops) catch |err| switch (err) {
         error.DaemonAlreadyRunning => {
             std.debug.print(
@@ -75,8 +70,7 @@ pub fn main() !void {
     };
     defer listener.deinit();
 
-    // --- 5. Init session manager + create default session ---
-    // sm is declared at file scope to keep ~4.5 MB off main()'s stack.
+    // --- 3. Init session manager + create default session ---
     const session_id = sm.createSession("default") catch |err| switch (err) {
         error.MaxSessionsReached => {
             std.debug.print("error: could not create default session\n", .{});
@@ -85,9 +79,9 @@ pub fn main() !void {
     };
     const session_entry = sm.getSession(session_id).?;
 
-    // --- 6. Init kqueue ---
+    // --- 4. Init kqueue ---
     var kq = KqueueContext.init() catch |err| switch (err) {
-        error.KqueueError => {
+        error.EventLoopError => {
             std.debug.print("error: failed to create kqueue\n", .{});
             std.process.exit(1);
         },
@@ -95,7 +89,7 @@ pub fn main() !void {
     defer kq.deinit();
     const event_ops = kq.eventLoopOps();
 
-    // --- 7. Init event loop ---
+    // --- 5. Init event loop ---
     var event_loop = EventLoop.init(
         &event_ops,
         @ptrCast(&kq),
@@ -105,7 +99,7 @@ pub fn main() !void {
         &sm,
     );
 
-    // --- 8. Create initial pane (fork PTY) ---
+    // --- 6. Create initial pane (fork PTY) ---
     const fork_result = real_pty_ops.forkPty(80, 24) catch |err| switch (err) {
         error.ForkFailed, error.PtyOpenFailed, error.ExecFailed => {
             std.debug.print("error: failed to fork initial PTY: {}\n", .{err});
@@ -126,9 +120,9 @@ pub fn main() !void {
         // TODO: daemonize (fork+setsid) when running as LaunchAgent (Phase 1+)
     }
 
-    // --- 9. Run event loop (blocks until SIGTERM/SIGINT/SIGHUP) ---
+    // --- 7. Run event loop (blocks until SIGTERM/SIGINT/SIGHUP) ---
     try event_loop.run();
 
-    // --- 10. Cleanup ---
+    // --- 8. Cleanup ---
     // listener.deinit() and kq.deinit() are called via defer above.
 }

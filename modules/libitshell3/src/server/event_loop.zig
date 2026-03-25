@@ -64,7 +64,7 @@ pub const EventLoop = struct {
         };
     }
 
-    pub const RunError = error{KqueueError} || interfaces.SignalOps.SignalError;
+    pub const RunError = error{EventLoopError} || interfaces.SignalOps.SignalError;
 
     /// Main event loop. Blocks until shutdown_requested is set.
     pub fn run(self: *EventLoop) RunError!void {

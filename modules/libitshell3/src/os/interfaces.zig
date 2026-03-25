@@ -32,8 +32,8 @@ pub const EventLoopOps = struct {
     /// Wait for events. Returns number of events ready.
     wait: *const fn (ctx: *anyopaque, events: []Event, timeout_ms: ?u32) WaitError!usize,
 
-    pub const RegisterError = error{KqueueError};
-    pub const WaitError = error{KqueueError};
+    pub const RegisterError = error{EventLoopError};
+    pub const WaitError = error{EventLoopError};
 
     pub const Event = struct {
         fd: std.posix.fd_t,
