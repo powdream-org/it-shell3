@@ -25,8 +25,8 @@ Read TODO.md's `Cycle Type` field:
   source code and a build system. Verify the existing build still works:
 
   ```bash
-  (cd <target> && zig build test)
-  (cd <target> && zig build test -Doptimize=ReleaseSafe)
+  mise run test:macos
+  mise run test:macos:release-safe
   ```
 
   - If both pass → scaffold gate is already satisfied. Skip to Step 3.
@@ -57,7 +57,7 @@ Run in sequence:
 
 1. `(cd <target> && zig build)` — must compile without errors
 2. If vendored C: verify the C compilation step succeeds
-3. `zig build test` — must pass the trivial test in `root.zig`
+3. `mise run test:macos` — must pass the trivial test in `root.zig`
 
 If any step fails, diagnose and fix before proceeding. Common issues:
 
@@ -67,14 +67,14 @@ If any step fails, diagnose and fix before proceeding. Common issues:
 
 ### 2d. Signal scaffold ready
 
-Once `zig build test` passes, the scaffold gate is satisfied.
+Once `mise run test:macos` passes, the scaffold gate is satisfied.
 
 ## Gate
 
 - [ ] Directory structure created per plan
 - [ ] `zig build` compiles without errors
 - [ ] Vendored C compiles (if applicable) with `.ReleaseSafe`
-- [ ] `zig build test` passes
+- [ ] `mise run test:macos` passes
 - [ ] No production logic written yet
 
 ## State Update

@@ -85,8 +85,8 @@ Wait for both agents to report completion. During this time:
 Once both report complete:
 
 ```bash
-(cd <target> && zig build test)
-(cd <target> && zig build test -Doptimize=ReleaseSafe)
+mise run test:macos
+mise run test:macos:release-safe
 (cd <target> && zig fmt --check src/)
 ```
 
@@ -105,9 +105,8 @@ Do NOT disband the team. The implementer and QA reviewer continue into Steps 4â€
 
 - [ ] Implementer reports all source files complete with inline unit tests
 - [ ] QA reviewer reports all integration tests complete
-- [ ] `zig build test` passes in Debug mode (all unit + integration tests)
-- [ ] `zig build test -Doptimize=ReleaseSafe` passes (optimization-sensitive
-      bugs)
+- [ ] `mise run test:macos` passes (all unit + integration tests)
+- [ ] `mise run test:macos:release-safe` passes (optimization-sensitive bugs)
 - [ ] `zig fmt --check src/` passes (no formatting issues)
 - [ ] Spec gaps (if any) logged in TODO.md
 

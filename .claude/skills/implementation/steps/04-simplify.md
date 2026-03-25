@@ -46,8 +46,8 @@ Rules for applying fixes:
 If any code was changed:
 
 ```bash
-(cd <target> && zig build test)
-(cd <target> && zig build test -Doptimize=ReleaseSafe)
+mise run test:macos
+mise run test:macos:release-safe
 (cd <target> && zig fmt --check src/)
 ```
 

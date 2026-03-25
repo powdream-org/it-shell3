@@ -19,9 +19,8 @@
 
 ALL of these must be true:
 
-- [ ] All tests pass in Debug (`(cd <target> && zig build test)`)
-- [ ] All tests pass in ReleaseSafe
-      (`(cd <target> && zig build test -Doptimize=ReleaseSafe)`)
+- [ ] All tests pass in Debug (`mise run test:macos`)
+- [ ] All tests pass in ReleaseSafe (`mise run test:macos:release-safe`)
 - [ ] Code formatted (`(cd <target> && zig fmt --check src/)`)
 - [ ] Library builds without warnings (`zig build` with no diagnostics)
 - [ ] Coverage targets met (line ≥ 95%, branch ≥ 90%, function = 100%) — or

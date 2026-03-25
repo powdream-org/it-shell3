@@ -83,8 +83,8 @@ everything still holds.
 Before returning to Step 5:
 
 ```bash
-(cd <target> && zig build test)
-(cd <target> && zig build test -Doptimize=ReleaseSafe)
+mise run test:macos
+mise run test:macos:release-safe
 ```
 
 Both Debug and ReleaseSafe must pass. If tests fail, the implementer fixes

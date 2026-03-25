@@ -60,8 +60,8 @@ Track the current round in TODO.md's `Review Round` field.
 Once all issues are resolved:
 
 ```bash
-(cd <target> && zig build test)
-(cd <target> && zig build test -Doptimize=ReleaseSafe)
+mise run test:macos
+mise run test:macos:release-safe
 ```
 
 Both Debug and ReleaseSafe must pass before proceeding.
@@ -69,7 +69,7 @@ Both Debug and ReleaseSafe must pass before proceeding.
 ## Gate
 
 - [ ] All issues from Step 5 are resolved and verified by QA reviewer
-- [ ] `zig build test` passes in Debug and ReleaseSafe
+- [ ] `mise run test:macos` and `mise run test:macos:release-safe` pass
 - [ ] No new unauthorized extensions introduced during fixes
 
 ## State Update

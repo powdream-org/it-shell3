@@ -33,7 +33,7 @@ the implementer does not write gap tests):
 ```
 Run instrumented coverage on <target>:
 
-1. Build the test binary: (cd <target> && zig build test --summary none)
+1. Build the test binary: mise run test:macos (or zig build test --summary none for kcov binary)
 2. Run with kcov: kcov --include-path=src/ coverage-report/ ./zig-out/bin/test
 3. Report coverage numbers: line %, branch %, function %
 4. If targets not met (line ≥95%, branch ≥90%, function 100%):
@@ -78,7 +78,7 @@ Record coverage numbers (or scenario count) in TODO.md for the final report.
 - [ ] Targets met: line ≥ 95%, branch ≥ 90%, function = 100% — OR scenario
       matrix 100% covered
 - [ ] Exceptions documented with rationale
-- [ ] `zig build test` passes in Debug and ReleaseSafe
+- [ ] `mise run test:macos` and `mise run test:macos:release-safe` pass
 - [ ] If new tests revealed spec violations → returned to Step 5
 
 ## State Update
