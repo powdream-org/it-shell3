@@ -18,7 +18,11 @@ pub const mock_os = @import("testing/mock_os.zig");
 pub const listener = @import("server/listener.zig");
 pub const signal_handler = @import("server/signal_handler.zig");
 pub const handlers_signal = @import("server/handlers/signal.zig");
+pub const handlers_pty_read = @import("server/handlers/pty_read.zig");
+pub const handlers_client_accept = @import("server/handlers/client_accept.zig");
+pub const handlers_client_read = @import("server/handlers/client_read.zig");
 pub const client = @import("server/client.zig");
+pub const event_loop = @import("server/event_loop.zig");
 
 test {
     std.testing.refAllDecls(@This());
