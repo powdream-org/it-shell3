@@ -81,14 +81,17 @@ pub fn performServerHandshake(
     // 3. Negotiate capabilities (intersection)
     const caps = negotiateCapabilities(client_hello.capabilities, server_config.supported_caps);
 
-    // 4. Send ServerHello
+    // 4. Send ServerHello with negotiated (intersection) caps
+    var cap_strings: [11][]const u8 = undefined;
+    const cap_count = capsToStrings(caps, &cap_strings);
+
     const server_hello = handshake_mod.ServerHello{
         .protocol_version = server_config.protocol_version,
         .server_name = server_config.server_name,
         .server_version = server_config.server_version,
         .server_pid = server_config.server_pid,
         .client_id = server_config.next_client_id,
-        .negotiated_caps = server_config.supported_caps,
+        .negotiated_caps = cap_strings[0..cap_count],
         .supported_input_methods = server_config.supported_input_methods,
     };
 
@@ -213,6 +216,23 @@ fn negotiateCapabilities(
         }
     }
     return result;
+}
+
+/// Convert NegotiatedCaps back to a string array for the ServerHello payload.
+fn capsToStrings(caps: connection_mod.NegotiatedCaps, out: *[11][]const u8) usize {
+    var i: usize = 0;
+    if (caps.clipboard_sync) { out[i] = "clipboard_sync"; i += 1; }
+    if (caps.mouse) { out[i] = "mouse"; i += 1; }
+    if (caps.selection) { out[i] = "selection"; i += 1; }
+    if (caps.search) { out[i] = "search"; i += 1; }
+    if (caps.fd_passing) { out[i] = "fd_passing"; i += 1; }
+    if (caps.agent_detection) { out[i] = "agent_detection"; i += 1; }
+    if (caps.flow_control) { out[i] = "flow_control"; i += 1; }
+    if (caps.pixel_dimensions) { out[i] = "pixel_dimensions"; i += 1; }
+    if (caps.sixel) { out[i] = "sixel"; i += 1; }
+    if (caps.kitty_graphics) { out[i] = "kitty_graphics"; i += 1; }
+    if (caps.notifications) { out[i] = "notifications"; i += 1; }
+    return i;
 }
 
 // --- Tests ---

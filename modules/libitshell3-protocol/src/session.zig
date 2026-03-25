@@ -27,7 +27,7 @@ pub const SessionInfo = struct {
     name: []const u8,
     created_at: u64 = 0,
     pane_count: u16 = 1,
-    attached_clients: u16 = 0,
+    attached_clients: u8 = 0,
 };
 
 /// ListSessionsResponse (0x0103, S->C)

@@ -1,7 +1,23 @@
 const std = @import("std");
 const json_mod = @import("json.zig");
 
-// ---- Flow Control ----
+// ---- Flow Control (0x0500-0x05FF) ----
+
+/// ClientDisplayInfo (0x0505, C->S)
+pub const ClientDisplayInfo = struct {
+    display_refresh_hz: u32 = 60,
+    power_state: []const u8 = "ac",
+    preferred_max_fps: u32 = 0,
+    transport_type: []const u8 = "local",
+    estimated_rtt_ms: u16 = 0,
+    bandwidth_hint: []const u8 = "local",
+};
+
+/// ClientDisplayInfoAck (0x0506, S->C)
+pub const ClientDisplayInfoAck = struct {
+    status: u32 = 0,
+    effective_max_fps: u32 = 60,
+};
 
 /// PausePane (0x0500, S->C)
 pub const PausePane = struct {
@@ -33,7 +49,7 @@ pub const FlowControlConfigAck = struct {
     effective_eviction_ms: u32 = 300000,
 };
 
-/// OutputQueueStatus pane entry
+/// Per-pane queue status entry
 pub const PaneQueueStatus = struct {
     pane_id: u32,
     ring_lag_bytes: u64 = 0,
@@ -46,23 +62,7 @@ pub const OutputQueueStatus = struct {
     panes: []const PaneQueueStatus = &.{},
 };
 
-/// ClientDisplayInfo (0x0505, C->S)
-pub const ClientDisplayInfo = struct {
-    display_refresh_hz: u32 = 60,
-    power_state: []const u8 = "ac",
-    preferred_max_fps: u32 = 0,
-    transport_type: []const u8 = "local",
-    estimated_rtt_ms: u16 = 0,
-    bandwidth_hint: []const u8 = "local",
-};
-
-/// ClientDisplayInfoAck (0x0506, S->C)
-pub const ClientDisplayInfoAck = struct {
-    status: u32 = 0,
-    effective_max_fps: u32 = 60,
-};
-
-// ---- Clipboard ----
+// ---- Clipboard (0x0600-0x06FF) ----
 
 /// ClipboardWrite (0x0600, S->C)
 pub const ClipboardWrite = struct {
@@ -89,7 +89,7 @@ pub const ClipboardReadResponse = struct {
 /// ClipboardChanged (0x0603, S->C)
 pub const ClipboardChanged = struct {
     clipboard_type: []const u8 = "system",
-    data: []const u8,
+    data: []const u8 = "",
 };
 
 /// ClipboardWriteFromClient (0x0604, C->S)
@@ -98,13 +98,13 @@ pub const ClipboardWriteFromClient = struct {
     data: []const u8,
 };
 
-// ---- Persistence ----
+// ---- Persistence (0x0700-0x07FF) ----
 
 /// SnapshotRequest (0x0700, C->S)
 pub const SnapshotRequest = struct {
     session_id: u32 = 0,
     include_scrollback: bool = true,
-    max_scrollback_lines: u32 = 0,
+    max_scrollback_lines: u32 = 4000,
 };
 
 /// SnapshotResponse (0x0701, S->C)
@@ -113,7 +113,7 @@ pub const SnapshotResponse = struct {
     path: []const u8 = "",
     snapshot_size: u64 = 0,
     timestamp: u64 = 0,
-    @"error": []const u8 = "",
+    @"error": ?[]const u8 = null,
 };
 
 /// RestoreSessionRequest (0x0702, C->S)
@@ -128,13 +128,13 @@ pub const RestoreSessionResponse = struct {
     status: u32 = 0,
     session_id: u32 = 0,
     pane_count: u32 = 0,
-    @"error": []const u8 = "",
+    @"error": ?[]const u8 = null,
 };
 
-/// SnapshotListRequest (0x0704, C->S) — empty object
+/// SnapshotListRequest (0x0704, C->S)
 pub const SnapshotListRequest = struct {};
 
-/// SnapshotInfo entry
+/// Snapshot info entry
 pub const SnapshotInfo = struct {
     path: []const u8,
     name: []const u8 = "",
@@ -162,7 +162,7 @@ pub const SnapshotAutoSaveConfigAck = struct {
     effective_interval_ms: u32 = 8000,
 };
 
-// ---- Notifications (opt-in via Subscribe) ----
+// ---- Opt-in Notifications (0x0800-0x08FF) ----
 
 /// PaneTitleChanged (0x0800, S->C)
 pub const PaneTitleChanged = struct {
@@ -192,7 +192,7 @@ pub const RendererHealth = struct {
     pty_bytes_read: u64 = 0,
     ring_usage_bytes: u64 = 0,
     ring_usage_percent: u32 = 0,
-    coalescing_tier: []const u8 = "active",
+    coalescing_tier: []const u8 = "idle",
 };
 
 /// PaneCwdChanged (0x0804, S->C)
@@ -213,10 +213,10 @@ pub const SilenceDetected = struct {
     silence_duration_ms: u32 = 0,
 };
 
-// ---- Subscriptions ----
+// ---- Subscriptions (0x0810-0x081F) ----
 
-/// SubscribeConfig — optional per-event config
-pub const SubscribeConfig = struct {
+/// Subscription config
+pub const SubscriptionConfig = struct {
     renderer_health_interval_ms: ?u32 = null,
     silence_threshold_ms: ?u32 = null,
     queue_status_interval_ms: ?u32 = null,
@@ -226,7 +226,7 @@ pub const SubscribeConfig = struct {
 pub const Subscribe = struct {
     pane_id: u32 = 0,
     event_mask: u32 = 0,
-    config: ?SubscribeConfig = null,
+    config: ?SubscriptionConfig = null,
 };
 
 /// SubscribeAck (0x0811, S->C)
@@ -247,21 +247,35 @@ pub const UnsubscribeAck = struct {
     active_mask: u32 = 0,
 };
 
-// ---- Extensions ----
+/// Event mask bit constants
+pub const EventMask = struct {
+    pub const pane_title_changed: u32 = 0x0001;
+    pub const process_exited: u32 = 0x0002;
+    pub const bell: u32 = 0x0004;
+    pub const renderer_health: u32 = 0x0008;
+    pub const pane_cwd_changed: u32 = 0x0010;
+    pub const activity_detected: u32 = 0x0020;
+    pub const silence_detected: u32 = 0x0040;
+    pub const clipboard_changed: u32 = 0x0080;
+    pub const output_queue_status: u32 = 0x0100;
+};
 
-/// ExtensionInfo entry
-pub const ExtensionInfo = struct {
+// ---- Extensions (0x0A00-0x0AFF) ----
+
+/// Extension declaration entry
+pub const ExtensionEntry = struct {
     ext_id: u32,
-    version: []const u8,
-    name: []const u8,
+    version: []const u8 = "1.0",
+    name: []const u8 = "",
+    config: ?std.json.Value = null,
 };
 
 /// ExtensionList (0x0A00, bidirectional)
 pub const ExtensionList = struct {
-    extensions: []const ExtensionInfo = &.{},
+    extensions: []const ExtensionEntry = &.{},
 };
 
-/// ExtensionResult entry
+/// Extension result entry
 pub const ExtensionResult = struct {
     ext_id: u32,
     status: u32 = 0,
@@ -277,68 +291,121 @@ pub const ExtensionListAck = struct {
 pub const ExtensionMessage = struct {
     ext_id: u32,
     ext_msg_type: u32,
+    payload: ?std.json.Value = null,
 };
 
-// ---- Tests ----
-
-test "FlowControlConfig JSON round-trip" {
-    const allocator = std.testing.allocator;
-    const original = FlowControlConfig{ .max_queue_age_ms = 5000, .auto_continue = true };
-    const j = try json_mod.encode(allocator, original);
-    defer allocator.free(j);
-    const parsed = try json_mod.decode(FlowControlConfig, allocator, j);
-    defer parsed.deinit();
-    try std.testing.expectEqual(@as(u32, 5000), parsed.value.max_queue_age_ms);
-    try std.testing.expect(parsed.value.auto_continue);
-}
+// --- Tests ---
 
 test "ClientDisplayInfo JSON round-trip" {
     const allocator = std.testing.allocator;
-    const original = ClientDisplayInfo{ .display_refresh_hz = 120, .power_state = "battery", .transport_type = "local" };
+    const original = ClientDisplayInfo{
+        .display_refresh_hz = 120,
+        .power_state = "battery",
+        .transport_type = "ssh_tunnel",
+        .estimated_rtt_ms = 50,
+        .bandwidth_hint = "wan",
+    };
     const j = try json_mod.encode(allocator, original);
     defer allocator.free(j);
     const parsed = try json_mod.decode(ClientDisplayInfo, allocator, j);
     defer parsed.deinit();
     try std.testing.expectEqual(@as(u32, 120), parsed.value.display_refresh_hz);
     try std.testing.expectEqualStrings("battery", parsed.value.power_state);
+    try std.testing.expectEqualStrings("ssh_tunnel", parsed.value.transport_type);
+}
+
+test "FlowControlConfig JSON round-trip" {
+    const allocator = std.testing.allocator;
+    const original = FlowControlConfig{
+        .max_queue_age_ms = 10000,
+        .auto_continue = false,
+        .stale_timeout_ms = 120000,
+    };
+    const j = try json_mod.encode(allocator, original);
+    defer allocator.free(j);
+    const parsed = try json_mod.decode(FlowControlConfig, allocator, j);
+    defer parsed.deinit();
+    try std.testing.expectEqual(@as(u32, 10000), parsed.value.max_queue_age_ms);
+    try std.testing.expect(!parsed.value.auto_continue);
 }
 
 test "ClipboardWrite JSON round-trip" {
     const allocator = std.testing.allocator;
-    const original = ClipboardWrite{ .pane_id = 1, .data = "hello" };
+    const original = ClipboardWrite{
+        .pane_id = 1,
+        .clipboard_type = "selection",
+        .data = "copied text",
+        .encoding = "utf8",
+    };
     const j = try json_mod.encode(allocator, original);
     defer allocator.free(j);
     const parsed = try json_mod.decode(ClipboardWrite, allocator, j);
     defer parsed.deinit();
-    try std.testing.expectEqualStrings("hello", parsed.value.data);
+    try std.testing.expectEqualStrings("copied text", parsed.value.data);
+    try std.testing.expectEqualStrings("selection", parsed.value.clipboard_type);
+}
+
+test "Subscribe JSON round-trip with config" {
+    const allocator = std.testing.allocator;
+    const original = Subscribe{
+        .pane_id = 0,
+        .event_mask = EventMask.bell | EventMask.process_exited | EventMask.silence_detected,
+        .config = .{ .silence_threshold_ms = 15000 },
+    };
+    const j = try json_mod.encode(allocator, original);
+    defer allocator.free(j);
+    const parsed = try json_mod.decode(Subscribe, allocator, j);
+    defer parsed.deinit();
+    try std.testing.expectEqual(EventMask.bell | EventMask.process_exited | EventMask.silence_detected, parsed.value.event_mask);
+    try std.testing.expect(parsed.value.config != null);
+    try std.testing.expectEqual(@as(?u32, 15000), parsed.value.config.?.silence_threshold_ms);
 }
 
 test "SnapshotRequest JSON round-trip" {
     const allocator = std.testing.allocator;
-    const original = SnapshotRequest{ .session_id = 1, .include_scrollback = true, .max_scrollback_lines = 4000 };
+    const original = SnapshotRequest{ .session_id = 1, .include_scrollback = false };
     const j = try json_mod.encode(allocator, original);
     defer allocator.free(j);
     const parsed = try json_mod.decode(SnapshotRequest, allocator, j);
     defer parsed.deinit();
     try std.testing.expectEqual(@as(u32, 1), parsed.value.session_id);
+    try std.testing.expect(!parsed.value.include_scrollback);
 }
 
-test "Subscribe event_mask JSON round-trip" {
+test "ProcessExited JSON round-trip" {
     const allocator = std.testing.allocator;
-    const original = Subscribe{ .pane_id = 0, .event_mask = 0x7F };
+    const original = ProcessExited{ .pane_id = 1, .exit_code = -9, .process_name = "make" };
     const j = try json_mod.encode(allocator, original);
     defer allocator.free(j);
-    const parsed = try json_mod.decode(Subscribe, allocator, j);
+    const parsed = try json_mod.decode(ProcessExited, allocator, j);
     defer parsed.deinit();
-    try std.testing.expectEqual(@as(u32, 0x7F), parsed.value.event_mask);
+    try std.testing.expectEqual(@as(i32, -9), parsed.value.exit_code);
+    try std.testing.expectEqualStrings("make", parsed.value.process_name);
 }
 
-test "RendererHealth coalescing_tier field" {
+test "EventMask constants" {
+    try std.testing.expectEqual(@as(u32, 0x0001), EventMask.pane_title_changed);
+    try std.testing.expectEqual(@as(u32, 0x0100), EventMask.output_queue_status);
+    const all = EventMask.pane_title_changed | EventMask.process_exited | EventMask.bell |
+        EventMask.renderer_health | EventMask.pane_cwd_changed | EventMask.activity_detected |
+        EventMask.silence_detected | EventMask.clipboard_changed | EventMask.output_queue_status;
+    try std.testing.expectEqual(@as(u32, 0x01FF), all);
+}
+
+test "RendererHealth JSON round-trip" {
     const allocator = std.testing.allocator;
-    const original = RendererHealth{ .pane_id = 1, .coalescing_tier = "bulk" };
+    const original = RendererHealth{
+        .pane_id = 1,
+        .frames_processed = 180,
+        .frames_dropped = 2,
+        .avg_frame_time_us = 450,
+        .ring_usage_percent = 25,
+        .coalescing_tier = "active",
+    };
     const j = try json_mod.encode(allocator, original);
     defer allocator.free(j);
     const parsed = try json_mod.decode(RendererHealth, allocator, j);
     defer parsed.deinit();
-    try std.testing.expectEqualStrings("bulk", parsed.value.coalescing_tier);
+    try std.testing.expectEqualStrings("active", parsed.value.coalescing_tier);
+    try std.testing.expectEqual(@as(u64, 180), parsed.value.frames_processed);
 }

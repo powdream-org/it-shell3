@@ -3,8 +3,8 @@ const json_mod = @import("json.zig");
 
 /// ClientHello (0x0001, C->S)
 pub const ClientHello = struct {
-    protocol_version_min: u32 = 1,
-    protocol_version_max: u32 = 1,
+    protocol_version_min: u8 = 1,
+    protocol_version_max: u8 = 1,
     client_type: ClientType = .native,
     capabilities: []const []const u8 = &.{},
     render_capabilities: []const []const u8 = &.{},
@@ -36,8 +36,8 @@ pub const ServerHello = struct {
     server_name: []const u8 = "itshell3d",
     server_version: []const u8 = "",
     heartbeat_interval_ms: u32 = 30000,
-    max_panes_per_session: u32 = 0,
-    max_sessions: u32 = 0,
+    max_panes_per_session: u16 = 0,
+    max_sessions: u16 = 0,
     coalescing_config: ?CoalescingConfig = null,
     sessions: []const SessionSummary = &.{},
 
@@ -48,17 +48,17 @@ pub const ServerHello = struct {
 
     pub const CoalescingConfig = struct {
         interactive_threshold_kbps: u32 = 1,
-        active_interval_ms: u32 = 16,
+        active_interval_ms: u16 = 16,
         bulk_threshold_kbps: u32 = 100,
-        bulk_interval_ms: u32 = 33,
-        idle_timeout_ms: u32 = 500,
-        preedit_fallback_ms: u32 = 200,
+        bulk_interval_ms: u16 = 33,
+        idle_timeout_ms: u16 = 500,
+        preedit_fallback_ms: u16 = 200,
     };
 
     pub const SessionSummary = struct {
         session_id: u32,
         name: []const u8,
-        attached_clients: u16 = 0,
+        attached_clients: u8 = 0,
         pane_count: u16 = 1,
         created_at: u64 = 0,
         last_activity: u64 = 0,

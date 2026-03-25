@@ -24,11 +24,11 @@ pub const PackedColor = extern struct {
 
 /// CellData (16 bytes, extern struct for exact binary layout)
 /// All fields little-endian on wire.
-/// Layout: codepoint(4) flags(2) wide(1) content_tag(1) fg_color(4) bg_color(4) = 16 bytes
+/// Layout: codepoint(4) wide(1) flags(2) content_tag(1) fg_color(4) bg_color(4) = 16 bytes
 pub const CellData = extern struct {
     codepoint: u32, // Unicode codepoint (0 = empty)
-    flags: u16, // Style flags (see StyleFlags)
     wide: u8, // 0=narrow, 1=wide, 2=spacer_tail, 3=spacer_head
+    flags: u16 align(1), // Style flags (see StyleFlags)
     content_tag: u8, // 0=codepoint, 1=codepoint_grapheme, 2=bg_color_palette, 3=bg_color_rgb
     fg_color: PackedColor,
     bg_color: PackedColor,
@@ -119,6 +119,7 @@ pub const UnderlineColorEntry = struct {
 };
 
 /// Encode CellData to exactly 16 bytes (little-endian, portable)
+/// Wire layout matches extern struct: codepoint(0-3) wide(4) flags(5-6) content_tag(7) fg(8-11) bg(12-15)
 pub fn encodeCellData(cell: CellData, out: *[16]u8) void {
     std.mem.writeInt(u32, out[0..4], cell.codepoint, .little);
     out[4] = cell.wide;

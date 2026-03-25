@@ -21,7 +21,7 @@ pub const PreeditEnd = struct {
     pane_id: u32,
     preedit_session_id: u32,
     reason: []const u8, // "committed", "cancelled", "pane_closed", etc.
-    committed_text: ?[]const u8 = null,
+    committed_text: []const u8 = "",
 };
 
 /// PreeditSync (0x0403, S->C) — full state snapshot for late-joining client
@@ -79,7 +79,7 @@ test "PreeditStart JSON round-trip" {
     try std.testing.expectEqual(@as(u32, 42), parsed.value.preedit_session_id);
 }
 
-test "PreeditEnd committed_text optional" {
+test "PreeditEnd committed_text round-trip" {
     const allocator = std.testing.allocator;
     const original = PreeditEnd{ .pane_id = 1, .preedit_session_id = 42, .reason = "committed", .committed_text = "\xed\x95\x9c" };
     const j = try json_mod.encode(allocator, original);
@@ -87,15 +87,19 @@ test "PreeditEnd committed_text optional" {
     const parsed = try json_mod.decode(PreeditEnd, allocator, j);
     defer parsed.deinit();
     try std.testing.expectEqualStrings("committed", parsed.value.reason);
-    try std.testing.expect(parsed.value.committed_text != null);
+    try std.testing.expectEqualStrings("\xed\x95\x9c", parsed.value.committed_text);
 }
 
-test "PreeditEnd committed_text absent when null" {
+test "PreeditEnd committed_text empty when cancelled" {
     const allocator = std.testing.allocator;
     const original = PreeditEnd{ .pane_id = 1, .preedit_session_id = 1, .reason = "cancelled" };
     const j = try json_mod.encode(allocator, original);
     defer allocator.free(j);
-    try std.testing.expect(std.mem.indexOf(u8, j, "committed_text") == null);
+    // committed_text is always present (empty string for cancelled)
+    try std.testing.expect(std.mem.indexOf(u8, j, "committed_text") != null);
+    const parsed = try json_mod.decode(PreeditEnd, allocator, j);
+    defer parsed.deinit();
+    try std.testing.expectEqualStrings("", parsed.value.committed_text);
 }
 
 test "InputMethodSwitch optional keyboard_layout" {
