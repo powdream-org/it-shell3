@@ -42,6 +42,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 5 | IME Integration              | (not yet written)                               | libitshell3          | Not started |
 | 6 | Runtime Policies             | (not yet written)                               | libitshell3          | Not started |
 | 7 | Cascades                     | (not yet written)                               | libitshell3          | Not started |
+| 8 | SSH Transport                | (not yet written)                               | libitshell3-protocol | Not started |
 
 ---
 
@@ -58,17 +59,22 @@ Plan 1 (Foundation) ────────────────────
     ├── Plan 5 (IME Integration) ──── can parallel with Plan 6
     │    Needs: ring buffer for preedit overlay in frames
     │
-    └── Plan 6 (Runtime Policies) ─── can parallel with Plan 5
-         Needs: ring buffer + frame delivery for coalescing/flow control
-              │
-         Plan 7 (Cascades)
-              Needs: IME deactivate (Plan 5) + health/flow cleanup (Plan 6)
+    ├── Plan 6 (Runtime Policies) ─── can parallel with Plan 5
+    │    Needs: ring buffer + frame delivery for coalescing/flow control
+    │         │
+    │    Plan 7 (Cascades)
+    │         Needs: IME deactivate (Plan 5) + health/flow cleanup (Plan 6)
+    │
+    Plan 8 (SSH Transport) ──── can parallel with Plans 4-7
+         Needs: Plan 3 Transport vtable only (no daemon dependency)
 ```
 
 **Parallelization opportunities:**
 
 - Plans 2 + 3 ran in parallel (different modules, no file conflicts)
 - Plans 5 + 6 can run in parallel (different subsystems within libitshell3)
+- Plan 8 can run in parallel with Plans 4-7 (different module, only needs Plan
+  3's Transport interface)
 
 ---
 
@@ -193,20 +199,52 @@ loop iteration:
 **Depends on:** Plan 5 (IME deactivate/flush in cascade) + Plan 6 (health/flow
 state cleanup in cascade)
 
+### Plan 8: SSH Transport (Not Started)
+
+**Scope:** libssh2-based SSH client transport for libitshell3-protocol. Enables
+remote connections from client apps to daemons on remote hosts. Implements the
+same `Transport` vtable as `UnixTransport` so the rest of the protocol stack is
+transport-agnostic.
+
+Key components:
+
+- `SshTransport` — Transport vtable impl over libssh2 channel
+- SSH session management (connect, authenticate, channel open)
+- `direct-streamlocal@openssh.com` channel forwarding to daemon's Unix socket
+- SSH channel multiplexing (one TCP connection, multiple sessions)
+- Remote daemon auto-start via SSH exec (`fork+exec` without LaunchAgent)
+- `libssh2-wrapper` module (real + mock per ADR 00052 pattern, if adopted)
+
+**Design spec refs:**
+
+- `server-client-protocols/.../01-protocol-overview.md` §2.2 (SSH Tunneling)
+- `server-client-protocols/.../01-protocol-overview.md` §5.5.2 (SSH Channel
+  Multiplexing)
+- `server-client-protocols/.../06-flow-control-and-auxiliary.md` §7.2 (Heartbeat
+  over SSH)
+- ADR 00010 (SSH tunneling over custom TCP/TLS)
+
+**Depends on:** Plan 3 (Transport vtable interface). Can run in parallel with
+Plans 4-7 (no daemon-side changes needed — SSH is client-side transport only).
+
 ---
 
 ## AGENTS.md Phase Mapping
 
-| AGENTS.md Development Phase                     | Plans                             | Status                                   |
-| ----------------------------------------------- | --------------------------------- | ---------------------------------------- |
-| Phase 1: Daemon + client + RenderState pipeline | Plans 1-4                         | 3/4 done                                 |
-| Phase 2: Native IME (QWERTY + Korean 2-set)     | Plan 5 + libitshell3-ime (v0.7.0) | IME engine done, integration not started |
-| Phase 3: Multi-pane, tabs, sessions, layout     | Plan 7                            | Not started                              |
-| Phase 5: CJK preedit sync protocol              | Plans 5+6                         | Not started                              |
+| AGENTS.md Phase     | Plans                             | Status                               |
+| ------------------- | --------------------------------- | ------------------------------------ |
+| 1. Core daemon      | Plans 1-2                         | Done                                 |
+| 2. Wire protocol    | Plan 3                            | Done                                 |
+| 3. Frame pipeline   | Plan 4                            | Not started                          |
+| 4. IME integration  | Plan 5 + libitshell3-ime (v0.7.0) | Engine done, integration not started |
+| 5. Runtime policies | Plan 6                            | Not started                          |
+| 6. Cascades         | Plan 7                            | Not started                          |
+| 7. SSH transport    | Plan 8                            | Not started                          |
+| 8. macOS client app | (no plan yet)                     | Not started                          |
+| 9. iOS client       | (no plan yet)                     | Not started                          |
+| 10. Polish          | (no plan yet)                     | Not started                          |
 
-(Phase 4: Session persistence is deferred post-v1 per ADR 00036.) (Phase 6: iOS
-client + network TLS is separate from daemon implementation.) (Phase 7: Polish —
-3-set Korean, config, theming.)
+Session persistence deferred post-v1 per ADR 00036.
 
 ---
 

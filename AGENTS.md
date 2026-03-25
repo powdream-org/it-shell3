@@ -122,13 +122,22 @@ auto memory):
 
 ## Development Phases
 
-1. Daemon + client + RenderState pipeline
-2. Native IME (QWERTY + Korean 2-set) — parallel with Phase 1
-3. Multi-pane, tabs, sessions, layout
-4. Session persistence — parallel with Phase 3
-5. CJK preedit sync protocol
-6. iOS client + network TLS
-7. Polish: config, theming, 3-set Korean
+See `docs/superpowers/plans/ROADMAP.md` for the detailed implementation roadmap
+(Plans 1-7+), dependency graph, per-plan status, and test/coverage commands.
+
+High-level phases (updated to reflect actual implementation order):
+
+1. **Core daemon** — Types, event loop, PTY, socket, ghostty integration (Done)
+2. **Wire protocol** — Message types, framing, handshake, local transport (Done)
+3. **Frame pipeline** — Ring buffer, I/P-frame delivery, dirty tracking
+4. **IME integration** — Wire libitshell3-ime into daemon event loop
+5. **Runtime policies** — Adaptive coalescing, health escalation, flow control
+6. **Cascades** — Pane exit, session destroy, client disconnect atomics
+7. **SSH transport** — libssh2 client in libitshell3-protocol (spec §2.2,
+   §5.5.2)
+8. **macOS client app** — Swift/AppKit + libghostty Metal GPU
+9. **iOS client** — UIKit adaptation + SSH-only connectivity
+10. **Polish** — Config, theming, 3-set Korean, session persistence
 
 ## Conventions
 
