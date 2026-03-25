@@ -11,6 +11,8 @@ pub const preedit = @import("preedit.zig");
 pub const auxiliary = @import("auxiliary.zig");
 pub const cell = @import("cell.zig");
 pub const frame_update = @import("frame_update.zig");
+pub const reader = @import("reader.zig");
+pub const writer = @import("writer.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
