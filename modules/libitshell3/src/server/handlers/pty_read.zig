@@ -33,7 +33,7 @@ pub fn handlePtyRead(
             // SAFETY: vt_stream is always *ReadonlyStream, set by server/
             // during pane creation via terminal_mod.createVtStream().
             const stream: *terminal_mod.ReadonlyStream = @ptrCast(@alignCast(stream_ptr));
-            terminal_mod.feedStream(stream, buf[0..n]);
+            terminal_mod.feedStream(stream, buf[0..n]) catch {};
         }
 
         // Partial read means no more data available right now

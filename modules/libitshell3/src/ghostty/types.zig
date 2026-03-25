@@ -12,10 +12,6 @@ pub const KeyAction = ghostty.input.KeyAction;
 pub const KeyEvent = ghostty.input.KeyEvent;
 pub const KeyMods = ghostty.input.KeyMods;
 pub const KeyEncodeOptions = ghostty.input.KeyEncodeOptions;
-pub const MouseAction = ghostty.input.MouseAction;
-pub const MouseButton = ghostty.input.MouseButton;
-pub const MouseEncodeOptions = ghostty.input.MouseEncodeOptions;
-pub const MouseEncodeEvent = ghostty.input.MouseEncodeEvent;
 
 // --- Tests ---
 

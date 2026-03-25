@@ -28,7 +28,6 @@ pub const ghostty_types = @import("ghostty/types.zig");
 pub const ghostty_terminal = @import("ghostty/terminal.zig");
 pub const ghostty_render_state = @import("ghostty/render_state.zig");
 pub const ghostty_key_encoder = @import("ghostty/key_encoder.zig");
-pub const ghostty_mouse_encoder = @import("ghostty/mouse_encoder.zig");
 pub const ghostty_render_export = @import("ghostty/render_export.zig");
 pub const ghostty_preedit_overlay = @import("ghostty/preedit_overlay.zig");
 

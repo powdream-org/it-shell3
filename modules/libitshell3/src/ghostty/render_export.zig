@@ -211,7 +211,7 @@ test "bulkExport captures text content" {
     var t = try terminal_mod.initTerminal(std.testing.allocator, 80, 24);
     defer terminal_mod.deinitTerminal(&t, std.testing.allocator);
 
-    terminal_mod.feedTerminal(&t, "ABC");
+    try terminal_mod.feedTerminal(&t, "ABC");
 
     var rs = render_state_mod.initRenderState();
     defer render_state_mod.deinitRenderState(&rs, std.testing.allocator);
@@ -230,7 +230,7 @@ test "bulkExport cursor tracks terminal position" {
     var t = try terminal_mod.initTerminal(std.testing.allocator, 80, 24);
     defer terminal_mod.deinitTerminal(&t, std.testing.allocator);
 
-    terminal_mod.feedTerminal(&t, "Hello");
+    try terminal_mod.feedTerminal(&t, "Hello");
 
     var rs = render_state_mod.initRenderState();
     defer render_state_mod.deinitRenderState(&rs, std.testing.allocator);

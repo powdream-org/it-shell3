@@ -39,17 +39,17 @@ pub fn deinitVtStream(stream: *ReadonlyStream) void {
 /// Feed raw PTY output bytes through a persistent VT stream.
 /// The stream must have been created via createVtStream() and held
 /// for the terminal's lifetime to correctly handle split escape sequences.
-pub fn feedStream(stream: *ReadonlyStream, bytes: []const u8) void {
-    stream.nextSlice(bytes);
+pub fn feedStream(stream: *ReadonlyStream, bytes: []const u8) !void {
+    try stream.nextSlice(bytes);
 }
 
 /// Convenience: feed bytes using a temporary stream. Only safe when the
 /// input is guaranteed to contain complete escape sequences (e.g., tests).
 /// For production PTY reads, use createVtStream() + feedStream() instead.
-pub fn feedTerminal(t: *Terminal, bytes: []const u8) void {
+pub fn feedTerminal(t: *Terminal, bytes: []const u8) !void {
     var stream = t.vtStream();
     defer stream.deinit();
-    stream.nextSlice(bytes);
+    try stream.nextSlice(bytes);
 }
 
 // --- Tests ---
@@ -66,7 +66,7 @@ test "feedTerminal processes plain text" {
     var t = try initTerminal(std.testing.allocator, 80, 24);
     defer deinitTerminal(&t, std.testing.allocator);
 
-    feedTerminal(&t, "Hello");
+    try feedTerminal(&t, "Hello");
     try std.testing.expectEqual(@as(usize, 5), t.screens.active.cursor.x);
     try std.testing.expectEqual(@as(usize, 0), t.screens.active.cursor.y);
 }
@@ -75,7 +75,7 @@ test "feedTerminal processes escape sequences" {
     var t = try initTerminal(std.testing.allocator, 80, 24);
     defer deinitTerminal(&t, std.testing.allocator);
 
-    feedTerminal(&t, "Hello\x1B[1;1H");
+    try feedTerminal(&t, "Hello\x1B[1;1H");
     try std.testing.expectEqual(@as(usize, 0), t.screens.active.cursor.x);
     try std.testing.expectEqual(@as(usize, 0), t.screens.active.cursor.y);
 }
@@ -93,7 +93,7 @@ test "feedTerminal with empty bytes is no-op" {
     var t = try initTerminal(std.testing.allocator, 80, 24);
     defer deinitTerminal(&t, std.testing.allocator);
 
-    feedTerminal(&t, "");
+    try feedTerminal(&t, "");
     try std.testing.expectEqual(@as(usize, 0), t.screens.active.cursor.x);
 }
 
@@ -105,8 +105,8 @@ test "persistent stream handles split escape sequences" {
     defer deinitVtStream(&stream);
 
     // Split ESC [ 1 ; 1 H across two feeds
-    feedStream(&stream, "Hello \x1B");
-    feedStream(&stream, "[1;1H");
+    try feedStream(&stream, "Hello \x1B");
+    try feedStream(&stream, "[1;1H");
 
     // Cursor should be at (0,0) — the split CSI sequence was reassembled
     try std.testing.expectEqual(@as(usize, 0), t.screens.active.cursor.x);

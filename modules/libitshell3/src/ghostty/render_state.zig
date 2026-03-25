@@ -53,7 +53,7 @@ test "updateRenderState after feed marks dirty" {
     defer deinitRenderState(&rs, std.testing.allocator);
 
     // Feed some text to make terminal state different from empty RenderState
-    terminal_mod.feedTerminal(&t, "Hello World");
+    try terminal_mod.feedTerminal(&t, "Hello World");
 
     try updateRenderState(&rs, std.testing.allocator, &t);
     // First update always marks full dirty (dimension change from 0x0 to 80x24)

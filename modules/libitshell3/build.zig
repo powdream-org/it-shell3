@@ -8,7 +8,7 @@ pub fn build(b: *std.Build) void {
     const ghostty_dep = b.dependency("ghostty", .{
         .target = target,
         .optimize = optimize,
-        .@"emit-lib-vt" = true,
+        .@"version-string" = "1.3.1",
     });
     const ghostty_vt = ghostty_dep.module("ghostty-vt");
 
