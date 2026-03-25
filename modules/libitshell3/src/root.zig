@@ -8,6 +8,11 @@ pub const session = @import("core/session.zig");
 pub const session_manager = @import("core/session_manager.zig");
 pub const navigation = @import("core/navigation.zig");
 
+pub const os_interfaces = @import("os/interfaces.zig");
+pub const os_pty = @import("os/pty.zig");
+pub const testing_helpers = @import("testing/helpers.zig");
+pub const mock_os = @import("testing/mock_os.zig");
+
 test {
     std.testing.refAllDecls(@This());
 }
