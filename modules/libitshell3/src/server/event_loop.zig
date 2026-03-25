@@ -365,6 +365,7 @@ test "removeClient: nulls slot, calls close" {
     ev.removeClient(idx);
     try testing.expectEqual(@as(usize, 0), ev.clientCount());
     try testing.expect(ev.clients[idx] == null);
+    try testing.expect(ev.findClientByFd(30) == null);
     try testing.expect(ctx.mock_socket.close_called);
 }
 
