@@ -20,6 +20,12 @@ pub const handlers_pty_read = @import("server/handlers/pty_read.zig");
 pub const handlers_client_accept = @import("server/handlers/client_accept.zig");
 pub const handlers_client_read = @import("server/handlers/client_read.zig");
 pub const event_loop = @import("server/event_loop.zig");
+pub const ring_buffer = @import("server/ring_buffer.zig");
+pub const frame_serializer = @import("server/frame_serializer.zig");
+pub const direct_queue = @import("server/direct_queue.zig");
+pub const client_writer = @import("server/client_writer.zig");
+pub const pane_delivery = @import("server/pane_delivery.zig");
+pub const ring_buffer_integration_test = @import("server/ring_buffer_integration_test.zig");
 pub const protocol = @import("itshell3_protocol");
 
 pub const ghostty_types = @import("ghostty/types.zig");

@@ -10,6 +10,7 @@ const UnixTransport = protocol.transport.UnixTransport;
 const signal_handler = @import("signal_handler.zig");
 const pty_read = @import("handlers/pty_read.zig");
 const client_accept = @import("handlers/client_accept.zig");
+const client_writer_mod = @import("client_writer.zig");
 
 /// udata conventions for event dispatch:
 /// - 0: listener socket
@@ -27,6 +28,7 @@ pub const ClientEntry = struct {
     unix_transport: UnixTransport,
     conn: Connection,
     socket_fd: std.posix.socket_t,
+    writer: client_writer_mod.ClientWriter,
 };
 
 pub const EventLoop = struct {
@@ -110,7 +112,14 @@ pub const EventLoop = struct {
                     self.dispatchPtyRead(event);
                 }
             },
-            .write, .timer => {},
+            .write => {
+                if (event.udata >= UDATA_CLIENT_BASE) {
+                    self.dispatchClientWrite(event);
+                }
+            },
+            .timer => {
+                self.dispatchTimer(event);
+            },
         }
     }
 
@@ -134,11 +143,25 @@ pub const EventLoop = struct {
                 pty_read.handlePtyRead(
                     self.pty_ops,
                     pane,
+                    entry,
                     &self.clients,
                     entry.session.session_id,
                 );
             }
         }
+    }
+
+    fn dispatchClientWrite(self: *EventLoop, event: interfaces.EventLoopOps.Event) void {
+        const client_idx = event.udata - UDATA_CLIENT_BASE;
+        if (client_idx >= types.MAX_CLIENTS) return;
+        _ = self;
+        // Stub: full write delivery in Plan 6 (requires session attachment tracking)
+    }
+
+    fn dispatchTimer(self: *EventLoop, event: interfaces.EventLoopOps.Event) void {
+        _ = self;
+        _ = event;
+        // Stub: frame export timer (Plan 6: adaptive coalescing)
     }
 
     fn registerAllPtyFds(self: *EventLoop) interfaces.EventLoopOps.RegisterError!void {
@@ -169,6 +192,7 @@ pub const EventLoop = struct {
                     .unix_transport = ut,
                     .conn = undefined, // patched below
                     .socket_fd = ut.socket_fd,
+                    .writer = client_writer_mod.ClientWriter.init(),
                 };
                 slot.*.?.conn = Connection.init(slot.*.?.unix_transport.transport());
                 slot.*.?.conn.client_id = client_id;
@@ -189,6 +213,7 @@ pub const EventLoop = struct {
         if (self.clients[client_idx]) |*entry| {
             self.event_ops.unregister(self.event_ctx, entry.socket_fd);
             entry.conn.transport.close();
+            entry.writer.deinit();
             self.clients[client_idx] = null;
         }
     }
