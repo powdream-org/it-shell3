@@ -10,6 +10,7 @@ pub const input = @import("input.zig");
 pub const preedit = @import("preedit.zig");
 pub const auxiliary = @import("auxiliary.zig");
 pub const cell = @import("cell.zig");
+pub const frame_update = @import("frame_update.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
