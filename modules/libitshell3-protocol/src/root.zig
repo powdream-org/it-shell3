@@ -15,6 +15,8 @@ pub const reader = @import("reader.zig");
 pub const writer = @import("writer.zig");
 pub const socket_path = @import("socket_path.zig");
 pub const transport = @import("transport.zig");
+pub const connection = @import("connection.zig");
+pub const auth = @import("auth.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
