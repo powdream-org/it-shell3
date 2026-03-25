@@ -12,6 +12,21 @@ pub fn build(b: *std.Build) void {
     });
     const ghostty_vt = ghostty_dep.module("ghostty-vt");
 
+    // --- Named sub-modules (available via @import in all source files) ---
+    const named_imports: []const std.Build.Module.Import = &.{
+        .{ .name = "ghostty", .module = ghostty_vt },
+        .{ .name = "itshell3_core", .module = b.createModule(.{
+            .root_source_file = b.path("src/core/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        }) },
+        .{ .name = "itshell3_os", .module = b.createModule(.{
+            .root_source_file = b.path("src/os/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        }) },
+    };
+
     // --- libitshell3 static library ---
     const lib = b.addLibrary(.{
         .name = "itshell3",
@@ -20,9 +35,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
-            .imports = &.{
-                .{ .name = "ghostty", .module = ghostty_vt },
-            },
+            .imports = named_imports,
         }),
     });
     b.installArtifact(lib);
@@ -34,9 +47,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
-            .imports = &.{
-                .{ .name = "ghostty", .module = ghostty_vt },
-            },
+            .imports = named_imports,
         }),
     });
 
