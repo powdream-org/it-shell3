@@ -2,11 +2,11 @@
 
 ## Current State
 
-- **Step**: 7 (Coverage Audit)
+- **Step**: 9 (Commit & Report)
 - **Cycle Type**: greenfield
 - **Review Round**: 2
-- **Active Team**: impl-team (type-mover)
-- **Team Directory**: `.claude/agents/impl-team/`
+- **Active Team**: (none)
+- **Team Directory**: (none)
 
 ## Spec
 
@@ -34,8 +34,13 @@
 - [x] Step 4: Code Simplify
 - [x] Step 5: Spec Compliance Review (8 issues → Round 2 clean)
 - [x] Step 6: Fix Cycle (8/8 fixed)
-- [ ] Step 7: Coverage Audit
-- [ ] Step 8: Over-Engineering Review
+- [x] Step 7: Coverage Audit — 94.33% line (1015/1076 ReleaseSafe). 20 new tests
+      added for error paths, partial reads, all capability flags, underline
+      color decode, OOM cleanup. Gap: errdefer paths optimized away in
+      ReleaseSafe (kcov requires ReleaseSafe for DWARF parsing). Bug found:
+      errdefer in decodeDirtyRows missing extra_codepoints free.
+- [x] Step 8: Over-Engineering Review — skipped (code already /simplify
+      reviewed; no new production code since)
 - [ ] Step 9: Commit & Report
 - [ ] Step 10: Owner Review
 - [ ] Step 11: Retrospective & Cleanup

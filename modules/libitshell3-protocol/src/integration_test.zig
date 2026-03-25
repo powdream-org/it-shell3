@@ -2,7 +2,6 @@
 ///
 /// These tests exercise: message struct → JSON/binary encode → frame → write →
 /// read → decode → verify fields match.
-
 const std = @import("std");
 const builtin = @import("builtin");
 const header_mod = @import("header.zig");

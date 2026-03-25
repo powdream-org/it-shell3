@@ -68,8 +68,7 @@ pub fn performServerHandshake(
     }
     const payload = payload_buf[0..hdr.payload_len];
 
-    const parsed = json_mod.decode(handshake_mod.ClientHello, allocator, payload)
-        catch return error.MalformedPayload;
+    const parsed = json_mod.decode(handshake_mod.ClientHello, allocator, payload) catch return error.MalformedPayload;
     defer parsed.deinit();
     const client_hello = parsed.value;
 
@@ -163,8 +162,7 @@ pub fn performClientHandshake(
         payload_read += n;
     }
 
-    const parsed = json_mod.decode(handshake_mod.ServerHello, allocator, payload_buf[0..resp_hdr.payload_len])
-        catch return error.MalformedPayload;
+    const parsed = json_mod.decode(handshake_mod.ServerHello, allocator, payload_buf[0..resp_hdr.payload_len]) catch return error.MalformedPayload;
     defer parsed.deinit();
     const server_hello = parsed.value;
 
@@ -202,17 +200,7 @@ fn negotiateCapabilities(
         } else true;
 
         if (matched) {
-            if (std.mem.eql(u8, cap, "clipboard_sync")) result.clipboard_sync = true
-            else if (std.mem.eql(u8, cap, "mouse")) result.mouse = true
-            else if (std.mem.eql(u8, cap, "selection")) result.selection = true
-            else if (std.mem.eql(u8, cap, "search")) result.search = true
-            else if (std.mem.eql(u8, cap, "fd_passing")) result.fd_passing = true
-            else if (std.mem.eql(u8, cap, "agent_detection")) result.agent_detection = true
-            else if (std.mem.eql(u8, cap, "flow_control")) result.flow_control = true
-            else if (std.mem.eql(u8, cap, "pixel_dimensions")) result.pixel_dimensions = true
-            else if (std.mem.eql(u8, cap, "sixel")) result.sixel = true
-            else if (std.mem.eql(u8, cap, "kitty_graphics")) result.kitty_graphics = true
-            else if (std.mem.eql(u8, cap, "notifications")) result.notifications = true;
+            if (std.mem.eql(u8, cap, "clipboard_sync")) result.clipboard_sync = true else if (std.mem.eql(u8, cap, "mouse")) result.mouse = true else if (std.mem.eql(u8, cap, "selection")) result.selection = true else if (std.mem.eql(u8, cap, "search")) result.search = true else if (std.mem.eql(u8, cap, "fd_passing")) result.fd_passing = true else if (std.mem.eql(u8, cap, "agent_detection")) result.agent_detection = true else if (std.mem.eql(u8, cap, "flow_control")) result.flow_control = true else if (std.mem.eql(u8, cap, "pixel_dimensions")) result.pixel_dimensions = true else if (std.mem.eql(u8, cap, "sixel")) result.sixel = true else if (std.mem.eql(u8, cap, "kitty_graphics")) result.kitty_graphics = true else if (std.mem.eql(u8, cap, "notifications")) result.notifications = true;
         }
     }
     return result;
@@ -221,17 +209,50 @@ fn negotiateCapabilities(
 /// Convert NegotiatedCaps back to a string array for the ServerHello payload.
 fn capsToStrings(caps: connection_mod.NegotiatedCaps, out: *[11][]const u8) usize {
     var i: usize = 0;
-    if (caps.clipboard_sync) { out[i] = "clipboard_sync"; i += 1; }
-    if (caps.mouse) { out[i] = "mouse"; i += 1; }
-    if (caps.selection) { out[i] = "selection"; i += 1; }
-    if (caps.search) { out[i] = "search"; i += 1; }
-    if (caps.fd_passing) { out[i] = "fd_passing"; i += 1; }
-    if (caps.agent_detection) { out[i] = "agent_detection"; i += 1; }
-    if (caps.flow_control) { out[i] = "flow_control"; i += 1; }
-    if (caps.pixel_dimensions) { out[i] = "pixel_dimensions"; i += 1; }
-    if (caps.sixel) { out[i] = "sixel"; i += 1; }
-    if (caps.kitty_graphics) { out[i] = "kitty_graphics"; i += 1; }
-    if (caps.notifications) { out[i] = "notifications"; i += 1; }
+    if (caps.clipboard_sync) {
+        out[i] = "clipboard_sync";
+        i += 1;
+    }
+    if (caps.mouse) {
+        out[i] = "mouse";
+        i += 1;
+    }
+    if (caps.selection) {
+        out[i] = "selection";
+        i += 1;
+    }
+    if (caps.search) {
+        out[i] = "search";
+        i += 1;
+    }
+    if (caps.fd_passing) {
+        out[i] = "fd_passing";
+        i += 1;
+    }
+    if (caps.agent_detection) {
+        out[i] = "agent_detection";
+        i += 1;
+    }
+    if (caps.flow_control) {
+        out[i] = "flow_control";
+        i += 1;
+    }
+    if (caps.pixel_dimensions) {
+        out[i] = "pixel_dimensions";
+        i += 1;
+    }
+    if (caps.sixel) {
+        out[i] = "sixel";
+        i += 1;
+    }
+    if (caps.kitty_graphics) {
+        out[i] = "kitty_graphics";
+        i += 1;
+    }
+    if (caps.notifications) {
+        out[i] = "notifications";
+        i += 1;
+    }
     return i;
 }
 
@@ -686,8 +707,7 @@ test "Client partial header read via chunked transport" {
                 .protocol_version_min = 1,
                 .protocol_version_max = 1,
                 .client_name = "partial-read-client",
-                .capabilities = &.{ "fd_passing", "agent_detection", "flow_control",
-                    "pixel_dimensions", "sixel", "kitty_graphics", "notifications" },
+                .capabilities = &.{ "fd_passing", "agent_detection", "flow_control", "pixel_dimensions", "sixel", "kitty_graphics", "notifications" },
             };
             const result = performClientHandshake(cc, alloc, hello, &buf) catch return;
             // Verify that the client got all 7 capabilities
@@ -701,8 +721,7 @@ test "Client partial header read via chunked transport" {
     const result = try performServerHandshake(&server_conn, allocator, .{
         .next_client_id = 100,
         .server_pid = 9999,
-        .supported_caps = &.{ "fd_passing", "agent_detection", "flow_control",
-            "pixel_dimensions", "sixel", "kitty_graphics", "notifications" },
+        .supported_caps = &.{ "fd_passing", "agent_detection", "flow_control", "pixel_dimensions", "sixel", "kitty_graphics", "notifications" },
     }, &server_buf);
 
     client_thread.join();

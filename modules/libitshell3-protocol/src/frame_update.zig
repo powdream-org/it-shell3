@@ -496,8 +496,8 @@ test "DirtyRows with underline color entries (LSP diagnostic squiggles)" {
     };
 
     const underlines = [_]cell_mod.UnderlineColorEntry{
-        .{ .col_index = 0, .underline_color = cell_mod.PackedColor.rgb(255, 0, 0) },   // red
-        .{ .col_index = 1, .underline_color = cell_mod.PackedColor.rgb(255, 0, 0) },   // red
+        .{ .col_index = 0, .underline_color = cell_mod.PackedColor.rgb(255, 0, 0) }, // red
+        .{ .col_index = 1, .underline_color = cell_mod.PackedColor.rgb(255, 0, 0) }, // red
         .{ .col_index = 2, .underline_color = cell_mod.PackedColor.rgb(255, 255, 0) }, // yellow
     };
 
@@ -525,14 +525,14 @@ test "DirtyRows with underline color entries (LSP diagnostic squiggles)" {
     try std.testing.expectEqual(@as(u16, 0), uc0.col_index);
     try std.testing.expectEqual(@as(u8, 0x02), uc0.underline_color.tag); // rgb
     try std.testing.expectEqual(@as(u8, 255), uc0.underline_color.data[0]); // R
-    try std.testing.expectEqual(@as(u8, 0), uc0.underline_color.data[1]);   // G
-    try std.testing.expectEqual(@as(u8, 0), uc0.underline_color.data[2]);   // B
+    try std.testing.expectEqual(@as(u8, 0), uc0.underline_color.data[1]); // G
+    try std.testing.expectEqual(@as(u8, 0), uc0.underline_color.data[2]); // B
 
     const uc2 = decoded[0].underline_color_entries[2];
     try std.testing.expectEqual(@as(u16, 2), uc2.col_index);
     try std.testing.expectEqual(@as(u8, 255), uc2.underline_color.data[0]); // R
     try std.testing.expectEqual(@as(u8, 255), uc2.underline_color.data[1]); // G
-    try std.testing.expectEqual(@as(u8, 0), uc2.underline_color.data[2]);   // B
+    try std.testing.expectEqual(@as(u8, 0), uc2.underline_color.data[2]); // B
 }
 
 test "DirtyRows with both graphemes and underline colors" {
@@ -786,7 +786,7 @@ test "Multiple rows with underline colors round-trip" {
     try std.testing.expectEqual(@as(usize, 1), decoded[1].underline_color_entries.len);
     try std.testing.expectEqual(@as(u8, 255), decoded[1].underline_color_entries[0].underline_color.data[0]); // R=255
     try std.testing.expectEqual(@as(u8, 165), decoded[1].underline_color_entries[0].underline_color.data[1]); // G=165
-    try std.testing.expectEqual(@as(u8, 0), decoded[1].underline_color_entries[0].underline_color.data[2]);   // B=0
+    try std.testing.expectEqual(@as(u8, 0), decoded[1].underline_color_entries[0].underline_color.data[2]); // B=0
 }
 
 test "encodeFrameUpdate with no dirty rows and no metadata" {

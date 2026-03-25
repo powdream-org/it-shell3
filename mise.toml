@@ -70,13 +70,12 @@ docker run --rm --security-opt seccomp=unconfined \
   for MODULE_DIR in modules/libitshell3-protocol modules/libitshell3; do
     MODULE=$(basename $MODULE_DIR)
     echo "=== $MODULE: building tests ==="
+    # All modules use ReleaseSafe for kcov — Debug binaries are too large
+    # for kcov's DWARF parser. libitshell3 also needs -Dghostty-simd=false.
     if [ "$MODULE" = "libitshell3" ]; then
-      # libitshell3 needs special flags for kcov:
-      # -Dghostty-simd=false: skip C++ simd code that confuses kcov DWARF parser
-      # -Doptimize=ReleaseSafe: smaller DWARF (87MB Debug -> 19MB) that kcov can parse
       (cd $MODULE_DIR && zig build test -Dghostty-simd=false -Doptimize=ReleaseSafe --summary none)
     else
-      (cd $MODULE_DIR && zig build test --summary none)
+      (cd $MODULE_DIR && zig build test -Doptimize=ReleaseSafe --summary none)
     fi
     TEST_BIN=$(find $MODULE_DIR/.zig-cache/o -name test -type f -executable -newer $MODULE_DIR/build.zig 2>/dev/null | xargs ls -t 2>/dev/null | head -1)
     if [ -z "$TEST_BIN" ]; then echo "ERROR: no test binary for $MODULE"; continue; fi
