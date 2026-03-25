@@ -1,6 +1,9 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+// getpeereid is not in std — declare it directly
+extern "c" fn getpeereid(fd: std.posix.socket_t, euid: *std.posix.uid_t, egid: *std.posix.gid_t) c_int;
+
 pub const AuthError = error{
     UidMismatch,
     GetPeerCredFailed,
@@ -22,7 +25,7 @@ pub fn verifyPeerUid(fd: std.posix.socket_t) AuthError!u32 {
 fn verifyPeerUidBsd(fd: std.posix.socket_t) AuthError!u32 {
     var euid: std.posix.uid_t = undefined;
     var egid: std.posix.gid_t = undefined;
-    const rc = std.c.getpeereid(fd, &euid, &egid);
+    const rc = getpeereid(fd, &euid, &egid);
     if (rc != 0) return error.GetPeerCredFailed;
     const my_uid = std.c.getuid();
     if (euid != my_uid) return error.UidMismatch;
