@@ -1,9 +1,12 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const mock_os = @import("mock_os.zig");
 const interfaces = @import("../os/interfaces.zig");
 const session_manager_mod = @import("../core/session_manager.zig");
 const pane_mod = @import("../core/pane.zig");
-const Listener = @import("../server/listener.zig").Listener;
+const protocol = @import("itshell3_protocol");
+const Listener = protocol.transport.Listener;
+const UnixTransport = protocol.transport.UnixTransport;
 const EventLoop = @import("../server/event_loop.zig").EventLoop;
 
 /// Generate a unique temporary socket path for testing.
@@ -36,22 +39,17 @@ test "tempSocketPath generates valid unique paths" {
 
 // ── Integration Tests ─────────────────────────────────────────────────────────
 
-// Integration test: full daemon lifecycle using mock OS resources only.
-// No real files, sockets, or PTYs are touched.
+// Integration test: full daemon lifecycle using real sockets + mock PTY/event.
 test "integration: daemon lifecycle with mocks" {
-    // 1. Create mock OS ops
-    var mock_socket = mock_os.MockSocketOps{
-        .probe_result = .no_socket,
-        .bind_fd = 10,
-        .accept_fd = 50,
-    };
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+
+    // 1. Create mock OS ops (no MockSocketOps — protocol owns the socket)
     var mock_event = mock_os.MockEventLoopOps{};
     var mock_pty = mock_os.MockPtyOps{
         .fork_result = .{ .master_fd = 42, .child_pid = 1234 },
     };
     var mock_signal = mock_os.MockSignalOps{};
 
-    const socket_ops = mock_socket.ops();
     const event_ops = mock_event.ops();
     const pty_ops = mock_pty.ops();
     const signal_ops = mock_signal.ops();
@@ -66,11 +64,12 @@ test "integration: daemon lifecycle with mocks" {
     try std.testing.expect(entry != null);
     try std.testing.expectEqual(session_id, entry.?.session.session_id);
 
-    // 3. Create Listener with MockSocketOps
-    var listener = try Listener.init("/tmp/itshell3-integration-test.sock", &socket_ops);
+    // 3. Create Listener using protocol transport (real socket)
+    std.posix.unlink("/tmp/itshell3-integration-test.sock") catch {};
+    var listener = try protocol.transport.listen("/tmp/itshell3-integration-test.sock");
     defer listener.deinit();
 
-    try std.testing.expectEqual(@as(std.posix.fd_t, 10), listener.listen_fd);
+    try std.testing.expect(listener.listen_fd >= 0);
 
     // 4. Create EventLoop with all mock ops
     var event_ctx: u8 = 0;
@@ -86,14 +85,20 @@ test "integration: daemon lifecycle with mocks" {
     try std.testing.expect(!ev.shutdown_requested);
     try std.testing.expectEqual(@as(usize, 0), ev.clientCount());
 
-    // 5. Add a mock client (addClient with a fake fd)
-    try ev.addClient(50);
+    // 5. Create a real socketpair and add one end as a client
+    var fds: [2]std.posix.socket_t = undefined;
+    const rc = std.c.socketpair(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0, &fds);
+    try std.testing.expectEqual(@as(c_int, 0), rc);
+    defer std.posix.close(fds[1]);
+
+    const client_ut = UnixTransport{ .socket_fd = fds[0] };
+    try ev.addClientTransport(client_ut);
 
     // 6. Verify: session exists, client exists
     try std.testing.expectEqual(@as(u32, 1), sm.sessionCount());
     try std.testing.expectEqual(@as(usize, 1), ev.clientCount());
 
-    const client_idx = ev.findClientByFd(50);
+    const client_idx = ev.findClientByFd(fds[0]);
     try std.testing.expect(client_idx != null);
 
     // 7. Set shutdown_requested = true

@@ -12,9 +12,17 @@ pub fn build(b: *std.Build) void {
     });
     const ghostty_vt = ghostty_dep.module("ghostty-vt");
 
+    // --- Protocol dependency ---
+    const protocol_dep = b.dependency("itshell3-protocol", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const protocol_mod = protocol_dep.module("itshell3-protocol");
+
     // --- Named sub-modules (available via @import in all source files) ---
     const named_imports: []const std.Build.Module.Import = &.{
         .{ .name = "ghostty", .module = ghostty_vt },
+        .{ .name = "itshell3_protocol", .module = protocol_mod },
         .{ .name = "itshell3_core", .module = b.createModule(.{
             .root_source_file = b.path("src/core/root.zig"),
             .target = target,

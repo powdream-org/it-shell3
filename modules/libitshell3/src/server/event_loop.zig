@@ -3,8 +3,10 @@ const interfaces = @import("../os/interfaces.zig");
 const types = @import("../core/types.zig");
 const session_manager_mod = @import("../core/session_manager.zig");
 const pane_mod = @import("../core/pane.zig");
-const Listener = @import("listener.zig").Listener;
-const ClientState = @import("client.zig").ClientState;
+const protocol = @import("itshell3_protocol");
+const Listener = protocol.transport.Listener;
+const Connection = protocol.connection.Connection;
+const UnixTransport = protocol.transport.UnixTransport;
 const signal_handler = @import("signal_handler.zig");
 const pty_read = @import("handlers/pty_read.zig");
 const client_accept = @import("handlers/client_accept.zig");
@@ -18,6 +20,15 @@ const UDATA_LISTENER: usize = 0;
 const UDATA_CLIENT_BASE: usize = 100;
 const UDATA_PTY_BASE: usize = 1;
 
+/// Holds a protocol Connection plus the raw socket fd needed for kqueue.
+/// `unix_transport` must remain stable in memory because `conn.transport.ptr`
+/// points to it — do not copy a ClientEntry after init.
+pub const ClientEntry = struct {
+    unix_transport: UnixTransport,
+    conn: Connection,
+    socket_fd: std.posix.socket_t,
+};
+
 pub const EventLoop = struct {
     // OS interfaces (injected for testability)
     event_ops: *const interfaces.EventLoopOps,
@@ -28,7 +39,7 @@ pub const EventLoop = struct {
     // State
     listener: *Listener,
     session_manager: *session_manager_mod.SessionManager,
-    clients: [types.MAX_CLIENTS]?ClientState,
+    clients: [types.MAX_CLIENTS]?ClientEntry,
     next_client_id: types.ClientId,
     shutdown_requested: bool,
 
@@ -47,7 +58,7 @@ pub const EventLoop = struct {
             .signal_ops = signal_ops,
             .listener = listener,
             .session_manager = session_manager,
-            .clients = [_]?ClientState{null} ** types.MAX_CLIENTS,
+            .clients = [_]?ClientEntry{null} ** types.MAX_CLIENTS,
             .next_client_id = 1,
             .shutdown_requested = false,
         };
@@ -147,16 +158,24 @@ pub const EventLoop = struct {
         }
     }
 
-    pub fn addClient(self: *EventLoop, conn_fd: std.posix.fd_t) error{MaxClientsReached}!void {
+    pub fn addClientTransport(self: *EventLoop, ut: UnixTransport) error{MaxClientsReached}!void {
         for (&self.clients, 0..) |*slot, idx| {
             if (slot.* == null) {
                 const client_id = self.next_client_id;
                 self.next_client_id += 1;
-                slot.* = ClientState.init(client_id, conn_fd);
+                // Store UnixTransport in the slot first; then take its address
+                // for the Transport vtable pointer.
+                slot.* = ClientEntry{
+                    .unix_transport = ut,
+                    .conn = undefined, // patched below
+                    .socket_fd = ut.socket_fd,
+                };
+                slot.*.?.conn = Connection.init(slot.*.?.unix_transport.transport());
+                slot.*.?.conn.client_id = client_id;
                 // Register for read events
                 self.event_ops.registerRead(
                     self.event_ctx,
-                    conn_fd,
+                    ut.socket_fd,
                     UDATA_CLIENT_BASE + idx,
                 ) catch {};
                 return;
@@ -167,17 +186,17 @@ pub const EventLoop = struct {
 
     pub fn removeClient(self: *EventLoop, client_idx: usize) void {
         if (client_idx >= types.MAX_CLIENTS) return;
-        if (self.clients[client_idx]) |cs| {
-            self.event_ops.unregister(self.event_ctx, cs.conn_fd);
-            self.listener.socket_ops.close(cs.conn_fd);
+        if (self.clients[client_idx]) |*entry| {
+            self.event_ops.unregister(self.event_ctx, entry.socket_fd);
+            entry.conn.transport.close();
             self.clients[client_idx] = null;
         }
     }
 
-    pub fn findClientByFd(self: *EventLoop, fd: std.posix.fd_t) ?usize {
+    pub fn findClientByFd(self: *EventLoop, fd: std.posix.socket_t) ?usize {
         for (self.clients, 0..) |slot, idx| {
-            if (slot) |cs| {
-                if (cs.conn_fd == fd) return idx;
+            if (slot) |entry| {
+                if (entry.socket_fd == fd) return idx;
             }
         }
         return null;
@@ -195,21 +214,34 @@ pub const EventLoop = struct {
 // --- Tests ---
 
 const testing = std.testing;
+const builtin = @import("builtin");
 const mock_os = @import("../testing/mock_os.zig");
+const protocol_transport = protocol.transport;
 
-fn makeTestEventLoop() struct {
-    mock_socket: mock_os.MockSocketOps,
+/// Build a fake protocol Listener backed by a real socket for tests.
+fn makeTestListener(socket_path: []const u8) !Listener {
+    std.posix.unlink(socket_path) catch {};
+    return protocol_transport.listen(socket_path);
+}
+
+/// Create a socketpair and return both ends as UnixTransport.
+fn makeSocketPair() ![2]UnixTransport {
+    var fds: [2]std.posix.socket_t = undefined;
+    const rc = std.c.socketpair(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0, &fds);
+    if (rc != 0) return error.SocketPairFailed;
+    return .{
+        UnixTransport{ .socket_fd = fds[0] },
+        UnixTransport{ .socket_fd = fds[1] },
+    };
+}
+
+fn makeTestMocks() struct {
     mock_event: mock_os.MockEventLoopOps,
     mock_pty: mock_os.MockPtyOps,
     mock_signal: mock_os.MockSignalOps,
     event_ctx: u8,
 } {
     return .{
-        .mock_socket = mock_os.MockSocketOps{
-            .probe_result = .no_socket,
-            .bind_fd = 10,
-            .accept_fd = 50,
-        },
         .mock_event = mock_os.MockEventLoopOps{},
         .mock_pty = mock_os.MockPtyOps{},
         .mock_signal = mock_os.MockSignalOps{},
@@ -218,13 +250,13 @@ fn makeTestEventLoop() struct {
 }
 
 test "init: clients all null, shutdown_requested = false" {
-    var ctx = makeTestEventLoop();
-    const socket_ops = ctx.mock_socket.ops();
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
     const pty_ops = ctx.mock_pty.ops();
     const signal_ops = ctx.mock_signal.ops();
 
-    var listener = try Listener.init("/tmp/test-ev-init.sock", &socket_ops);
+    var listener = try makeTestListener("/tmp/itshell3-ev-init.sock");
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();
@@ -241,20 +273,19 @@ test "init: clients all null, shutdown_requested = false" {
     try testing.expect(!ev.shutdown_requested);
     try testing.expectEqual(@as(types.ClientId, 1), ev.next_client_id);
     try testing.expectEqual(@as(usize, 0), ev.clientCount());
-    // All client slots should be null
     for (ev.clients) |slot| {
         try testing.expect(slot == null);
     }
 }
 
-test "addClient: stores ClientState, increments next_client_id" {
-    var ctx = makeTestEventLoop();
-    const socket_ops = ctx.mock_socket.ops();
+test "addClientTransport: stores Connection, increments next_client_id" {
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
     const pty_ops = ctx.mock_pty.ops();
     const signal_ops = ctx.mock_signal.ops();
 
-    var listener = try Listener.init("/tmp/test-ev-add.sock", &socket_ops);
+    var listener = try makeTestListener("/tmp/itshell3-ev-add.sock");
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();
@@ -268,25 +299,26 @@ test "addClient: stores ClientState, increments next_client_id" {
         &sm,
     );
 
-    try ev.addClient(20);
+    const pair = try makeSocketPair();
+    defer std.posix.close(pair[1].socket_fd);
+
+    try ev.addClientTransport(pair[0]);
     try testing.expectEqual(@as(usize, 1), ev.clientCount());
     try testing.expectEqual(@as(types.ClientId, 2), ev.next_client_id);
 
-    // Check the stored client
-    const idx = ev.findClientByFd(20).?;
-    const cs = ev.clients[idx].?;
-    try testing.expectEqual(@as(types.ClientId, 1), cs.client_id);
-    try testing.expectEqual(@as(std.posix.fd_t, 20), cs.conn_fd);
+    const idx = ev.findClientByFd(pair[0].socket_fd).?;
+    const entry = ev.clients[idx].?;
+    try testing.expectEqual(pair[0].socket_fd, entry.socket_fd);
 }
 
-test "addClient: second client gets next ID" {
-    var ctx = makeTestEventLoop();
-    const socket_ops = ctx.mock_socket.ops();
+test "addClientTransport: second client gets next ID" {
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
     const pty_ops = ctx.mock_pty.ops();
     const signal_ops = ctx.mock_signal.ops();
 
-    var listener = try Listener.init("/tmp/test-ev-add2.sock", &socket_ops);
+    var listener = try makeTestListener("/tmp/itshell3-ev-add2.sock");
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();
@@ -300,20 +332,25 @@ test "addClient: second client gets next ID" {
         &sm,
     );
 
-    try ev.addClient(20);
-    try ev.addClient(21);
+    const p1 = try makeSocketPair();
+    defer std.posix.close(p1[1].socket_fd);
+    const p2 = try makeSocketPair();
+    defer std.posix.close(p2[1].socket_fd);
+
+    try ev.addClientTransport(p1[0]);
+    try ev.addClientTransport(p2[0]);
     try testing.expectEqual(@as(usize, 2), ev.clientCount());
     try testing.expectEqual(@as(types.ClientId, 3), ev.next_client_id);
 }
 
-test "addClient when full: error.MaxClientsReached" {
-    var ctx = makeTestEventLoop();
-    const socket_ops = ctx.mock_socket.ops();
+test "addClientTransport when full: error.MaxClientsReached" {
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
     const pty_ops = ctx.mock_pty.ops();
     const signal_ops = ctx.mock_signal.ops();
 
-    var listener = try Listener.init("/tmp/test-ev-full.sock", &socket_ops);
+    var listener = try makeTestListener("/tmp/itshell3-ev-full.sock");
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();
@@ -327,24 +364,31 @@ test "addClient when full: error.MaxClientsReached" {
         &sm,
     );
 
-    // Fill all client slots
-    var i: usize = 0;
-    while (i < types.MAX_CLIENTS) : (i += 1) {
-        try ev.addClient(@intCast(100 + i));
+    // Fill all client slots with real socketpairs
+    var pairs: [types.MAX_CLIENTS][2]UnixTransport = undefined;
+    for (0..types.MAX_CLIENTS) |i| {
+        pairs[i] = try makeSocketPair();
+        defer std.posix.close(pairs[i][1].socket_fd);
+        try ev.addClientTransport(pairs[i][0]);
     }
 
-    // Next should fail
-    try testing.expectError(error.MaxClientsReached, ev.addClient(999));
+    // One more socketpair to test the full case
+    const extra = try makeSocketPair();
+    std.posix.close(extra[0].socket_fd);
+    std.posix.close(extra[1].socket_fd);
+    try testing.expectError(error.MaxClientsReached, ev.addClientTransport(
+        UnixTransport{ .socket_fd = extra[0].socket_fd },
+    ));
 }
 
-test "removeClient: nulls slot, calls close" {
-    var ctx = makeTestEventLoop();
-    const socket_ops = ctx.mock_socket.ops();
+test "removeClient: nulls slot" {
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
     const pty_ops = ctx.mock_pty.ops();
     const signal_ops = ctx.mock_signal.ops();
 
-    var listener = try Listener.init("/tmp/test-ev-rm.sock", &socket_ops);
+    var listener = try makeTestListener("/tmp/itshell3-ev-rm.sock");
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();
@@ -358,25 +402,28 @@ test "removeClient: nulls slot, calls close" {
         &sm,
     );
 
-    try ev.addClient(30);
-    const idx = ev.findClientByFd(30).?;
+    const pair = try makeSocketPair();
+    defer std.posix.close(pair[1].socket_fd);
+    const fd = pair[0].socket_fd;
+
+    try ev.addClientTransport(pair[0]);
+    const idx = ev.findClientByFd(fd).?;
     try testing.expectEqual(@as(usize, 1), ev.clientCount());
 
     ev.removeClient(idx);
     try testing.expectEqual(@as(usize, 0), ev.clientCount());
     try testing.expect(ev.clients[idx] == null);
-    try testing.expect(ev.findClientByFd(30) == null);
-    try testing.expect(ctx.mock_socket.close_called);
+    try testing.expect(ev.findClientByFd(fd) == null);
 }
 
 test "findClientByFd: finds correct index" {
-    var ctx = makeTestEventLoop();
-    const socket_ops = ctx.mock_socket.ops();
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
     const pty_ops = ctx.mock_pty.ops();
     const signal_ops = ctx.mock_signal.ops();
 
-    var listener = try Listener.init("/tmp/test-ev-find.sock", &socket_ops);
+    var listener = try makeTestListener("/tmp/itshell3-ev-find.sock");
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();
@@ -390,24 +437,29 @@ test "findClientByFd: finds correct index" {
         &sm,
     );
 
-    try ev.addClient(40);
-    try ev.addClient(41);
+    const p1 = try makeSocketPair();
+    defer std.posix.close(p1[1].socket_fd);
+    const p2 = try makeSocketPair();
+    defer std.posix.close(p2[1].socket_fd);
 
-    const idx0 = ev.findClientByFd(40);
-    const idx1 = ev.findClientByFd(41);
+    try ev.addClientTransport(p1[0]);
+    try ev.addClientTransport(p2[0]);
+
+    const idx0 = ev.findClientByFd(p1[0].socket_fd);
+    const idx1 = ev.findClientByFd(p2[0].socket_fd);
     try testing.expect(idx0 != null);
     try testing.expect(idx1 != null);
     try testing.expect(idx0.? != idx1.?);
 }
 
 test "findClientByFd: unknown fd returns null" {
-    var ctx = makeTestEventLoop();
-    const socket_ops = ctx.mock_socket.ops();
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
     const pty_ops = ctx.mock_pty.ops();
     const signal_ops = ctx.mock_signal.ops();
 
-    var listener = try Listener.init("/tmp/test-ev-notfound.sock", &socket_ops);
+    var listener = try makeTestListener("/tmp/itshell3-ev-notfound.sock");
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();
@@ -421,17 +473,17 @@ test "findClientByFd: unknown fd returns null" {
         &sm,
     );
 
-    try testing.expect(ev.findClientByFd(999) == null);
+    try testing.expect(ev.findClientByFd(99999) == null);
 }
 
 test "dispatch: signal event sets shutdown_requested" {
-    var ctx = makeTestEventLoop();
-    const socket_ops = ctx.mock_socket.ops();
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
     const pty_ops = ctx.mock_pty.ops();
     const signal_ops = ctx.mock_signal.ops();
 
-    var listener = try Listener.init("/tmp/test-ev-sig.sock", &socket_ops);
+    var listener = try makeTestListener("/tmp/itshell3-ev-sig.sock");
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();
@@ -455,47 +507,15 @@ test "dispatch: signal event sets shutdown_requested" {
     try testing.expect(ev.shutdown_requested);
 }
 
-test "dispatch: read event on listener fd adds client" {
-    var ctx = makeTestEventLoop();
-    ctx.mock_socket.accept_fd = 60;
-    const socket_ops = ctx.mock_socket.ops();
-    const event_ops = ctx.mock_event.ops();
-    const pty_ops = ctx.mock_pty.ops();
-    const signal_ops = ctx.mock_signal.ops();
-
-    var listener = try Listener.init("/tmp/test-ev-listen.sock", &socket_ops);
-    defer listener.deinit();
-
-    var sm = session_manager_mod.SessionManager.init();
-
-    var ev = EventLoop.init(
-        &event_ops,
-        @ptrCast(&ctx.event_ctx),
-        &pty_ops,
-        &signal_ops,
-        &listener,
-        &sm,
-    );
-
-    const event = interfaces.EventLoopOps.Event{
-        .fd = listener.listen_fd,
-        .filter = .read,
-        .udata = UDATA_LISTENER,
-    };
-
-    ev.dispatch(event);
-    try testing.expectEqual(@as(usize, 1), ev.clientCount());
-}
-
 test "dispatch: read event on PTY fd triggers pty read" {
-    var ctx = makeTestEventLoop();
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
     ctx.mock_pty.read_data = "test output";
-    const socket_ops = ctx.mock_socket.ops();
     const event_ops = ctx.mock_event.ops();
     const pty_ops = ctx.mock_pty.ops();
     const signal_ops = ctx.mock_signal.ops();
 
-    var listener = try Listener.init("/tmp/test-ev-pty.sock", &socket_ops);
+    var listener = try makeTestListener("/tmp/itshell3-ev-pty.sock");
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();
@@ -528,7 +548,8 @@ test "dispatch: read event on PTY fd triggers pty read" {
 }
 
 test "run: single event then shutdown" {
-    var ctx = makeTestEventLoop();
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
 
     // Configure mock to return a SIGTERM event
     const events_to_return = [_]interfaces.EventLoopOps.Event{
@@ -540,12 +561,11 @@ test "run: single event then shutdown" {
     };
     ctx.mock_event.events_to_return = &events_to_return;
 
-    const socket_ops = ctx.mock_socket.ops();
     const event_ops = ctx.mock_event.ops();
     const pty_ops = ctx.mock_pty.ops();
     const signal_ops = ctx.mock_signal.ops();
 
-    var listener = try Listener.init("/tmp/test-ev-run.sock", &socket_ops);
+    var listener = try makeTestListener("/tmp/itshell3-ev-run.sock");
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();

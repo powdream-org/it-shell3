@@ -45,21 +45,6 @@ pub const EventLoopOps = struct {
     pub const Filter = enum { read, write, signal, timer };
 };
 
-/// Socket operations interface.
-pub const SocketOps = struct {
-    /// Bind and listen on a Unix domain socket.
-    bindAndListen: *const fn (socket_path: []const u8) SocketError!std.posix.fd_t,
-    /// Accept a new connection.
-    accept: *const fn (listen_fd: std.posix.fd_t) SocketError!std.posix.fd_t,
-    /// Close a socket fd.
-    close: *const fn (fd: std.posix.fd_t) void,
-    /// Check if a socket path has a live daemon (stale probe).
-    probeExisting: *const fn (socket_path: []const u8) ProbeResult,
-
-    pub const SocketError = error{ BindFailed, ListenFailed, AcceptFailed, PermissionDenied };
-    pub const ProbeResult = enum { no_socket, stale_socket, daemon_running };
-};
-
 /// Signal operations interface.
 pub const SignalOps = struct {
     /// Block signals from default handling (for kqueue delivery).
@@ -111,11 +96,6 @@ test "EventLoopOps Event struct has correct defaults" {
     };
     try std.testing.expectEqual(@as(u16, 0), event.flags);
     try std.testing.expectEqual(@as(i64, 0), event.data);
-}
-
-test "SocketOps ProbeResult enum has expected variants" {
-    const results = [_]SocketOps.ProbeResult{ .no_socket, .stale_socket, .daemon_running };
-    try std.testing.expectEqual(@as(usize, 3), results.len);
 }
 
 test "SignalOps WaitResult struct layout" {

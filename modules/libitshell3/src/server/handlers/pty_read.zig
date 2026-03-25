@@ -1,7 +1,7 @@
 const std = @import("std");
 const interfaces = @import("../../os/interfaces.zig");
 const pane_mod = @import("../../core/pane.zig");
-const client_mod = @import("../client.zig");
+const event_loop_mod = @import("../event_loop.zig");
 const types = @import("../../core/types.zig");
 const terminal_mod = @import("../../ghostty/terminal.zig");
 
@@ -11,7 +11,7 @@ const terminal_mod = @import("../../ghostty/terminal.zig");
 pub fn handlePtyRead(
     pty_ops: *const interfaces.PtyOps,
     pane: *pane_mod.Pane,
-    _: []?client_mod.ClientState,
+    _: []?event_loop_mod.ClientEntry,
     _: types.SessionId,
 ) void {
     var buf: [4096]u8 = undefined;
@@ -53,7 +53,7 @@ test "handlePtyRead: reads data from PTY (discard for now)" {
     const pty_ops = mock_pty.ops();
 
     var pane = pane_mod.Pane.init(1, 0, 10, 1234, 80, 24);
-    var clients = [_]?client_mod.ClientState{null} ** 4;
+    var clients = [_]?event_loop_mod.ClientEntry{null} ** 4;
 
     handlePtyRead(&pty_ops, &pane, &clients, 1);
 
@@ -68,7 +68,7 @@ test "handlePtyRead: EOF marks pane pty_eof" {
     const pty_ops = mock_pty.ops();
 
     var pane = pane_mod.Pane.init(1, 0, 10, 1234, 80, 24);
-    var clients = [_]?client_mod.ClientState{null} ** 4;
+    var clients = [_]?event_loop_mod.ClientEntry{null} ** 4;
 
     handlePtyRead(&pty_ops, &pane, &clients, 1);
 
@@ -83,7 +83,7 @@ test "handlePtyRead: isFullyDead when both flags set" {
 
     var pane = pane_mod.Pane.init(1, 0, 10, 1234, 80, 24);
     pane.markExited(0); // SIGCHLD already handled
-    var clients = [_]?client_mod.ClientState{null} ** 4;
+    var clients = [_]?event_loop_mod.ClientEntry{null} ** 4;
 
     handlePtyRead(&pty_ops, &pane, &clients, 1);
 

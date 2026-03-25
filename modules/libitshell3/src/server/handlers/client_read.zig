@@ -1,14 +1,15 @@
 const std = @import("std");
-const client_mod = @import("../client.zig");
+const protocol = @import("itshell3_protocol");
+const Connection = protocol.connection.Connection;
 
 /// Handle client read event: stub that reads and discards.
 /// Real message handling comes in Plan 3 (protocol).
 pub fn handleClientRead(
-    _: *client_mod.ClientState,
+    _: *Connection,
     _: []u8,
 ) void {
     // Stub: in the real implementation, we would:
-    // 1. Read from client conn_fd
+    // 1. Read from client transport
     // 2. Parse protocol messages
     // 3. Dispatch to appropriate handler
     // For now: no-op (the event loop reads via the OS interface)
@@ -19,9 +20,12 @@ pub fn handleClientRead(
 const testing = std.testing;
 
 test "handleClientRead: stub is callable" {
-    var cs = client_mod.ClientState.init(1, 5);
+    const allocator = testing.allocator;
+    var bt = protocol.transport.BufferTransport.init(allocator, "");
+    defer bt.deinit();
+    var conn = Connection.init(bt.transport());
     var buf: [256]u8 = undefined;
-    handleClientRead(&cs, &buf);
+    handleClientRead(&conn, &buf);
     // No crash = success for a stub
-    try testing.expectEqual(client_mod.ClientState.State.handshaking, cs.state);
+    try testing.expectEqual(protocol.connection.ConnectionState.handshaking, conn.state);
 }

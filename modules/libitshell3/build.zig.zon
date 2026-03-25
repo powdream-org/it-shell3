@@ -5,5 +5,6 @@
     .paths = .{""},
     .dependencies = .{
         .ghostty = .{ .path = "../../vendors/ghostty" },
+        .@"itshell3-protocol" = .{ .path = "../libitshell3-protocol" },
     },
 }
