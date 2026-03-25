@@ -9,6 +9,9 @@ const real_socket_ops = libitshell3.os_socket.real_socket_ops;
 const real_pty_ops = libitshell3.os_pty.real_pty_ops;
 const real_signal_ops = libitshell3.os_signals.real_signal_ops;
 
+// File-scope static — ~4.5 MB lives in .bss, not on main()'s stack.
+var sm: SessionManager = SessionManager.init();
+
 const usage =
     \\Usage: it-shell3-daemon --socket-path <path> [--foreground]
     \\
@@ -73,7 +76,7 @@ pub fn main() !void {
     defer listener.deinit();
 
     // --- 5. Init session manager + create default session ---
-    var sm = SessionManager.init();
+    // sm is declared at file scope to keep ~4.5 MB off main()'s stack.
     const session_id = sm.createSession("default") catch |err| switch (err) {
         error.MaxSessionsReached => {
             std.debug.print("error: could not create default session\n", .{});

@@ -59,10 +59,14 @@ const mock_os = @import("../testing/mock_os.zig");
 const pane_mod = @import("../core/pane.zig");
 const session_mod = @import("../core/session.zig");
 
+// File-scope static — placed in .bss segment, not on the stack.
+// Each test calls test_sm.reset() to return to a clean initial state.
+var test_sm = SessionManager.init();
+
 test "handleSignalEvent: SIGCHLD with matching pane -> pane marked exited" {
-    var sm = SessionManager.init();
-    const session_id = try sm.createSession("test");
-    const entry = sm.getSession(session_id).?;
+    test_sm.reset();
+    const session_id = try test_sm.createSession("test");
+    const entry = test_sm.getSession(session_id).?;
 
     // The session already allocated slot 0 in createSession; put a pane there
     const pane_slot: types.PaneSlot = 0;
@@ -83,7 +87,7 @@ test "handleSignalEvent: SIGCHLD with matching pane -> pane marked exited" {
     };
 
     var shutdown = false;
-    handleSignalEvent(event, &signal_ops, &sm, &shutdown);
+    handleSignalEvent(event, &signal_ops, &test_sm, &shutdown);
 
     const updated_pane = entry.getPaneAtSlot(pane_slot).?;
     try testing.expect(updated_pane.pane_exited);
@@ -92,9 +96,9 @@ test "handleSignalEvent: SIGCHLD with matching pane -> pane marked exited" {
 }
 
 test "handleSignalEvent: SIGCHLD with no children -> no change" {
-    var sm = SessionManager.init();
-    const session_id = try sm.createSession("test");
-    const entry = sm.getSession(session_id).?;
+    test_sm.reset();
+    const session_id = try test_sm.createSession("test");
+    const entry = test_sm.getSession(session_id).?;
 
     const pane_slot: types.PaneSlot = 0;
     const pane = pane_mod.Pane.init(1, pane_slot, 10, 5678, 80, 24);
@@ -112,7 +116,7 @@ test "handleSignalEvent: SIGCHLD with no children -> no change" {
     };
 
     var shutdown = false;
-    handleSignalEvent(event, &signal_ops, &sm, &shutdown);
+    handleSignalEvent(event, &signal_ops, &test_sm, &shutdown);
 
     const updated_pane = entry.getPaneAtSlot(pane_slot).?;
     try testing.expect(!updated_pane.pane_exited);
@@ -121,7 +125,7 @@ test "handleSignalEvent: SIGCHLD with no children -> no change" {
 }
 
 test "handleSignalEvent: SIGTERM -> shutdown_requested = true" {
-    var sm = SessionManager.init();
+    test_sm.reset();
     var mock_signal = mock_os.MockSignalOps{};
     const signal_ops = mock_signal.ops();
 
@@ -132,12 +136,12 @@ test "handleSignalEvent: SIGTERM -> shutdown_requested = true" {
     };
 
     var shutdown = false;
-    handleSignalEvent(event, &signal_ops, &sm, &shutdown);
+    handleSignalEvent(event, &signal_ops, &test_sm, &shutdown);
     try testing.expect(shutdown);
 }
 
 test "handleSignalEvent: SIGINT -> shutdown_requested = true" {
-    var sm = SessionManager.init();
+    test_sm.reset();
     var mock_signal = mock_os.MockSignalOps{};
     const signal_ops = mock_signal.ops();
 
@@ -148,6 +152,6 @@ test "handleSignalEvent: SIGINT -> shutdown_requested = true" {
     };
 
     var shutdown = false;
-    handleSignalEvent(event, &signal_ops, &sm, &shutdown);
+    handleSignalEvent(event, &signal_ops, &test_sm, &shutdown);
     try testing.expect(shutdown);
 }

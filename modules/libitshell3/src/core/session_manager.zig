@@ -74,6 +74,13 @@ pub const SessionManager = struct {
         return count;
     }
 
+    /// Reset to initial state. Use between tests or for daemon restart.
+    pub fn reset(self: *SessionManager) void {
+        self.sessions = [_]?SessionEntry{null} ** MAX_SESSIONS;
+        self.next_session_id = 1;
+        self.next_pane_id = 1;
+    }
+
     pub fn allocPaneId(self: *SessionManager) PaneId {
         const id = self.next_pane_id;
         self.next_pane_id += 1;
@@ -91,126 +98,140 @@ pub const SessionManager = struct {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+// File-scope static — placed in .bss segment, not on the stack.
+// Each test calls test_sm.reset() to return to a clean initial state.
+var test_sm = SessionManager.init();
+
 test "init has 0 sessions, next IDs start at 1" {
-    const sm = SessionManager.init();
-    try std.testing.expectEqual(@as(u32, 0), sm.sessionCount());
-    try std.testing.expectEqual(@as(SessionId, 1), sm.next_session_id);
-    try std.testing.expectEqual(@as(PaneId, 1), sm.next_pane_id);
+    test_sm.reset();
+    try std.testing.expectEqual(@as(u32, 0), test_sm.sessionCount());
+    try std.testing.expectEqual(@as(SessionId, 1), test_sm.next_session_id);
+    try std.testing.expectEqual(@as(PaneId, 1), test_sm.next_pane_id);
 }
 
 test "createSession returns valid ID, sessionCount = 1" {
-    var sm = SessionManager.init();
-    const id = try sm.createSession("main");
+    test_sm.reset();
+    const id = try test_sm.createSession("main");
     try std.testing.expectEqual(@as(SessionId, 1), id);
-    try std.testing.expectEqual(@as(u32, 1), sm.sessionCount());
+    try std.testing.expectEqual(@as(u32, 1), test_sm.sessionCount());
 }
 
 test "createSession twice returns two different IDs" {
-    var sm = SessionManager.init();
-    const id1 = try sm.createSession("first");
-    const id2 = try sm.createSession("second");
+    test_sm.reset();
+    const id1 = try test_sm.createSession("first");
+    const id2 = try test_sm.createSession("second");
     try std.testing.expect(id1 != id2);
     try std.testing.expectEqual(@as(SessionId, 1), id1);
     try std.testing.expectEqual(@as(SessionId, 2), id2);
-    try std.testing.expectEqual(@as(u32, 2), sm.sessionCount());
+    try std.testing.expectEqual(@as(u32, 2), test_sm.sessionCount());
 }
 
 test "getSession finds by ID" {
-    var sm = SessionManager.init();
-    const id = try sm.createSession("mysession");
-    const entry = sm.getSession(id);
+    test_sm.reset();
+    const id = try test_sm.createSession("mysession");
+    const entry = test_sm.getSession(id);
     try std.testing.expect(entry != null);
     try std.testing.expectEqual(id, entry.?.session.session_id);
     try std.testing.expectEqualSlices(u8, "mysession", entry.?.session.getName());
 }
 
 test "getSession returns null for nonexistent ID" {
-    var sm = SessionManager.init();
-    _ = try sm.createSession("x");
-    const entry = sm.getSession(999);
+    test_sm.reset();
+    _ = try test_sm.createSession("x");
+    const entry = test_sm.getSession(999);
     try std.testing.expect(entry == null);
 }
 
 test "destroySession removes and returns old entry" {
-    var sm = SessionManager.init();
-    const id = try sm.createSession("to-destroy");
-    try std.testing.expectEqual(@as(u32, 1), sm.sessionCount());
+    test_sm.reset();
+    const id = try test_sm.createSession("to-destroy");
+    try std.testing.expectEqual(@as(u32, 1), test_sm.sessionCount());
 
-    const old = sm.destroySession(id);
+    const old = test_sm.destroySession(id);
     try std.testing.expect(old != null);
     try std.testing.expectEqual(id, old.?.session.session_id);
-    try std.testing.expectEqual(@as(u32, 0), sm.sessionCount());
+    try std.testing.expectEqual(@as(u32, 0), test_sm.sessionCount());
     // Should not be findable anymore
-    try std.testing.expect(sm.getSession(id) == null);
+    try std.testing.expect(test_sm.getSession(id) == null);
 }
 
 test "destroySession returns null for nonexistent ID" {
-    var sm = SessionManager.init();
-    const result = sm.destroySession(42);
+    test_sm.reset();
+    const result = test_sm.destroySession(42);
     try std.testing.expect(result == null);
 }
 
 test "sessionCount decrements after destroy" {
-    var sm = SessionManager.init();
-    const id1 = try sm.createSession("a");
-    const id2 = try sm.createSession("b");
+    test_sm.reset();
+    const id1 = try test_sm.createSession("a");
+    const id2 = try test_sm.createSession("b");
     _ = id2;
-    try std.testing.expectEqual(@as(u32, 2), sm.sessionCount());
-    _ = sm.destroySession(id1);
-    try std.testing.expectEqual(@as(u32, 1), sm.sessionCount());
+    try std.testing.expectEqual(@as(u32, 2), test_sm.sessionCount());
+    _ = test_sm.destroySession(id1);
+    try std.testing.expectEqual(@as(u32, 1), test_sm.sessionCount());
 }
 
 test "createSession after destroy reuses the array slot" {
-    var sm = SessionManager.init();
-    const id1 = try sm.createSession("first");
-    _ = sm.destroySession(id1);
-    try std.testing.expectEqual(@as(u32, 0), sm.sessionCount());
+    test_sm.reset();
+    const id1 = try test_sm.createSession("first");
+    _ = test_sm.destroySession(id1);
+    try std.testing.expectEqual(@as(u32, 0), test_sm.sessionCount());
 
     // Should succeed — the slot is free again
-    const id2 = try sm.createSession("second");
-    try std.testing.expectEqual(@as(u32, 1), sm.sessionCount());
+    const id2 = try test_sm.createSession("second");
+    try std.testing.expectEqual(@as(u32, 1), test_sm.sessionCount());
     try std.testing.expect(id2 != id1); // IDs are still monotonically increasing
 }
 
 test "MAX_SESSIONS creates, next returns error.MaxSessionsReached" {
-    var sm = SessionManager.init();
+    test_sm.reset();
     var i: usize = 0;
     while (i < MAX_SESSIONS) : (i += 1) {
-        _ = try sm.createSession("s");
+        _ = try test_sm.createSession("s");
     }
-    try std.testing.expectEqual(@as(u32, MAX_SESSIONS), sm.sessionCount());
-    const result = sm.createSession("overflow");
+    try std.testing.expectEqual(@as(u32, MAX_SESSIONS), test_sm.sessionCount());
+    const result = test_sm.createSession("overflow");
     try std.testing.expectError(error.MaxSessionsReached, result);
 }
 
 test "allocPaneId returns incrementing IDs" {
-    var sm = SessionManager.init();
-    const id1 = sm.allocPaneId();
-    const id2 = sm.allocPaneId();
-    const id3 = sm.allocPaneId();
+    test_sm.reset();
+    const id1 = test_sm.allocPaneId();
+    const id2 = test_sm.allocPaneId();
+    const id3 = test_sm.allocPaneId();
     try std.testing.expectEqual(@as(PaneId, 1), id1);
     try std.testing.expectEqual(@as(PaneId, 2), id2);
     try std.testing.expectEqual(@as(PaneId, 3), id3);
 }
 
 test "findSessionBySlot returns entry at valid occupied index" {
-    var sm = SessionManager.init();
-    _ = try sm.createSession("slot0");
+    test_sm.reset();
+    _ = try test_sm.createSession("slot0");
     // The session was placed in the first free slot (index 0)
-    const entry = sm.findSessionBySlot(0);
+    const entry = test_sm.findSessionBySlot(0);
     try std.testing.expect(entry != null);
 }
 
 test "findSessionBySlot returns null for empty slot" {
-    var sm = SessionManager.init();
-    _ = try sm.createSession("s");
+    test_sm.reset();
+    _ = try test_sm.createSession("s");
     // Slot 1 is still empty
-    const entry = sm.findSessionBySlot(1);
+    const entry = test_sm.findSessionBySlot(1);
     try std.testing.expect(entry == null);
 }
 
 test "findSessionBySlot returns null for out-of-bounds index" {
-    var sm = SessionManager.init();
-    const entry = sm.findSessionBySlot(MAX_SESSIONS);
+    test_sm.reset();
+    const entry = test_sm.findSessionBySlot(MAX_SESSIONS);
     try std.testing.expect(entry == null);
+}
+
+test "reset returns to init state" {
+    test_sm.reset();
+    _ = try test_sm.createSession("temp");
+    try std.testing.expectEqual(@as(u32, 1), test_sm.sessionCount());
+    test_sm.reset();
+    try std.testing.expectEqual(@as(u32, 0), test_sm.sessionCount());
+    try std.testing.expectEqual(@as(SessionId, 1), test_sm.next_session_id);
+    try std.testing.expectEqual(@as(PaneId, 1), test_sm.next_pane_id);
 }
