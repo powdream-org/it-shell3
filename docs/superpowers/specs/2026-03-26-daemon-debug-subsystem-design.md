@@ -99,23 +99,30 @@ file and subscribed tags until `stop-logging` is called or the daemon exits.
 Thin client that discovers the debug socket and sends commands:
 
 ```bash
-# Single daemon instance — auto-discovers the only running daemon
+# Single daemon — auto-discovers the only running daemon
 it-shell3-debug dump-sessions
 it-shell3-debug inject-key 1 ctrl+key_c
 it-shell3-debug set-log-file /tmp/debug.log
 
-# Multiple daemon instances — specify which one
-it-shell3-debug list                                    # list running instances
-it-shell3-debug --instance work dump-sessions           # by workspace name
-it-shell3-debug --instance 12345 dump-sessions          # by PID
+# Multiple daemons — specify which workspace
+it-shell3-debug list                                  # list running workspaces
+it-shell3-debug -w work dump-sessions                 # short flag
+it-shell3-debug --workspace default dump-sessions     # long flag
 ```
 
 **Discovery logic:**
 
 1. Glob `$SOCKET_DIR/it-shell3/*/debug.sock`
 2. If exactly one found → connect to it
-3. If multiple found and `--instance` not given → print list and exit
-4. If none found → error: no daemon running
+3. If multiple found and `-w` not given → print list and exit with error:
+   ```
+   error: multiple daemons running. specify --workspace (-w):
+     default   (pid 12345)
+     work      (pid 67890)
+
+   usage: it-shell3-debug -w <workspace> <command>
+   ```
+4. If none found → `error: no daemon running`
 
 ### 2.4 Security
 
@@ -507,17 +514,17 @@ it-shell3-debug subscribe lifecycle,request,response,error
 it-shell3-debug stop-logging
 ```
 
-### 7.4 Multiple Daemon Instances
+### 7.4 Multiple Workspaces
 
 ```bash
-# List running instances
+# List running workspaces
 it-shell3-debug list
-# → 12345  default
-# → 67890  work
+# → default   (pid 12345)
+# → work      (pid 67890)
 
-# Target a specific instance
-it-shell3-debug --instance work dump-sessions
-it-shell3-debug --instance work inject-key 1 ctrl+key_c
+# Target a specific workspace
+it-shell3-debug -w work dump-sessions
+it-shell3-debug -w work inject-key 1 ctrl+key_c
 ```
 
 ## 8. Future Extensions
