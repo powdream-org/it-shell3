@@ -41,14 +41,11 @@ For any new toolchain or testing lessons discovered during this cycle, update
 
 ### 11c. Review and finalize accumulated proposals
 
-Review and finalize accumulated proposals from
-`<target>/retrospective/skill-improvement-proposals.md`. Proposals have been
-accumulated throughout the cycle via the Continuous Improvement Log (see
-SKILL.md). This step reviews them, adds any final observations, and presents the
-consolidated list to the owner.
+Review SIPs accumulated via `/sip` during the cycle at
+`<target>/retrospective/skill-improvement-proposals.md`.
 
-For each problem identified in 11a that is not already captured in the proposals
-file, add it now:
+For each problem identified in 11a that is not already captured, run
+`/sip <description>` to add it now.
 
 - Draft a specific edit to the relevant step file:
   - Add a new anti-pattern if one was discovered

@@ -35,13 +35,11 @@ Read TODO.md's Progress section end-to-end. For each step, answer:
 
 ### 9b. Review and finalize accumulated proposals
 
-Review and finalize accumulated proposals from
-`retrospective/skill-improvement-proposals.md`. Proposals have been accumulated
-throughout the cycle. This step reviews them, adds any final observations, and
-presents the consolidated list to the owner.
+Review SIPs accumulated via `/sip` during the cycle at
+`retrospective/skill-improvement-proposals.md`.
 
-For each problem identified in 9a that is not already captured in the proposals
-file, add it now:
+For each problem identified in 9a that is not already captured, run
+`/sip <description>` to add it now.
 
 - Draft a specific edit to the relevant step file:
   - Add a new anti-pattern if one was discovered

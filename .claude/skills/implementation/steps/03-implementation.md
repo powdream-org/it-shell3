@@ -20,6 +20,10 @@
   discovered, the implementer must STOP work on that area, report the gap to the
   team leader, and wait for an owner decision. Implementing a guess violates the
   spec-to-code contract (see `05-implementation-workflow.md` §5).
+- **Don't treat the plan as the spec.** The plan is a task breakdown. The design
+  spec is the architectural authority (see Document Authority in SKILL.md). When
+  spawning agents, state explicitly: "If the plan contradicts the design spec,
+  the spec wins."
 
 ## Action
 
@@ -57,11 +61,17 @@ Spawn both agents from `.claude/agents/impl-team/`:
 ```
 Implementer: "You are implementing module <module>. Wait for my signal before
 writing any code. Spec: <paths>. Plan: <path>. PoC: <paths or 'none'>.
-Source dir: <target>/src/. Read the spec and plan, then confirm ready."
+Source dir: <target>/src/. CRITICAL: The design spec is the architectural
+authority, not the plan. If the plan's descriptions contradict the spec, the
+spec wins. Verify every public API against the spec section that defines it.
+Read the spec and plan, then confirm ready."
 
 QA Reviewer: "You are QA for module <module>. Wait for my signal before writing
 any tests. Spec: <paths>. Test matrix: <path or inline>. Coverage approach:
-<instrumented/scenario-matrix>. Source dir: <target>/src/.
+<instrumented/scenario-matrix>. Source dir: <target>/src/. CRITICAL: Your test
+cases MUST be derived from the design spec, not from the implementation or the
+plan. Each test should verify a spec requirement. A test that confirms 'the code
+does what the code does' is not a spec compliance test.
 Read the spec and test matrix, then confirm ready."
 ```
 

@@ -102,14 +102,25 @@ Steps 5 → 6 → 7 → 8 form a verification chain. If Step 8 (Over-Engineering
 Review) changes code, control returns to Step 5 (not Step 9). A single clean
 pass through 5 → 7 → 8 must complete before reaching Step 9.
 
+## Document Authority
+
+Three documents govern each implementation cycle with strict precedence:
+
+1. **Design spec** (highest) — the architectural authority. Defines WHAT to
+   build: types, APIs, delivery mechanisms, behavioral contracts.
+2. **Implementation plan** — a task breakdown. Defines HOW to organize the work:
+   file structure, task ordering, dependencies. Plans reference spec sections
+   for core API design — not code snippets.
+3. **Code** (lowest) — the output. Must conform to the spec. When the plan
+   contradicts the spec, the spec wins.
+
+Every agent — implementer, QA reviewer, principal architect — must verify their
+work against the spec, not the plan.
+
 ## Continuous Improvement Log
 
-When the team leader encounters a procedural problem, spec-implementation
-mismatch, improper facilitation, or skill gap at ANY point during the cycle,
-immediately append it to
-`<target>/retrospective/skill-improvement-proposals.md`. Create the file and
-directory if they don't exist. Do not wait for the retrospective step — log
-issues as they occur so they survive context compaction.
+When you encounter a procedural problem at any step, run `/sip <description>`
+immediately. Do not wait for the retrospective step.
 
 ## Rationale & Reference
 

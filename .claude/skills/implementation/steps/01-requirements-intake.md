@@ -48,24 +48,36 @@ commit). The delta between old and new spec drives the implementation scope.
 
 If no stable spec exists, report to the owner and STOP.
 
-### 1c. Check for implementation plan
+### 1c. Find or write the implementation plan
 
 Look for an existing plan:
 
 ```bash
-ls .claude/plan/*<module>* 2>/dev/null
+ls docs/superpowers/plans/*<module>* 2>/dev/null
 ```
 
-If a plan exists, read it and confirm it covers:
+- **If a plan exists** → Read it and confirm it covers directory structure, file
+  list, task dependencies, and test categories.
+- **If no plan exists** → Write one now. Invoke the `/writing-plans` skill with
+  the spec paths discovered in 1b as context. The plan must reference spec
+  sections for core API design — not include code snippets (see Document
+  Authority in SKILL.md).
 
-- Directory structure and file list
-- Test matrix (integration test categories)
-- Build system configuration
-- Dependencies (vendored C libraries, etc.)
+Record the plan path in TODO.md.
 
-If no plan exists, tell the owner: "No implementation plan found. Please create
-one (you can use `/writing-plans`) or provide the plan details." STOP until the
-owner provides a plan.
+### 1d. Verify plan against spec
+
+Spawn verification agents to cross-check the plan's architecture descriptions
+against the design spec sections. For each public API, delivery mechanism, or
+data structure described in the plan, verify it matches the spec.
+
+This is a convergence loop:
+
+1. Spawn verifiers (one per spec topic: architecture, behavior, test coverage)
+2. If issues found → fix the plan → re-spawn verifiers
+3. Repeat until clean pass
+
+Do NOT proceed to Step 3 until the plan passes spec verification.
 
 ### 1d. Collect additional inputs
 
@@ -157,7 +169,8 @@ Wait for owner approval before proceeding.
 ## Gate
 
 - [ ] Design spec identified and version(s) recorded
-- [ ] Implementation plan exists
+- [ ] Implementation plan exists (found or written via `/writing-plans`)
+- [ ] Plan verified against design spec (convergence loop, clean pass)
 - [ ] Agent definitions verified
 - [ ] TODO.md created in `<target>/`
 - [ ] Owner has approved

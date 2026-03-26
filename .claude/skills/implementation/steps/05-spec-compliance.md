@@ -9,6 +9,10 @@
   The QA reviewer checks the spec, not the test results.
 - **Don't rush this step.** Spec violations caught here are cheap to fix.
   Violations caught after commit are expensive.
+- **Don't verify implementation against itself.** The QA reviewer reads the spec
+  independently. "It works" is not compliance — a working implementation can
+  still violate the spec's delivery mechanism or API contract. Verify against
+  the SPEC, not the plan or the code's apparent intent.
 
 ## Action
 
@@ -27,6 +31,10 @@ Check:
 - No unauthorized extensions (extra fields, methods, parameters)
 - No dead code (unused functions, types, imports, or variables)
 - Memory ownership rules followed (buffer lifetimes, pointer validity)
+- For each public API, cite the spec section that defines it and verify the
+  implementation matches the SPEC — not the plan
+- For delivery/performance-critical paths, verify the mechanism matches the
+  spec (e.g., zero-copy vs copy, writev vs write)
 
 Report either:
 (a) "Clean pass — no issues found", or

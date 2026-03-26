@@ -91,11 +91,8 @@ step's file** — do not pre-read future steps.
 
 ## Continuous Improvement Log
 
-When the team leader encounters a procedural problem, improper facilitation, or
-skill gap at ANY point during the cycle, immediately append it to
-`draft/vX.Y-rN/retrospective/skill-improvement-proposals.md`. Create the file
-and directory if they don't exist. Do not wait for the retrospective step — log
-issues as they occur.
+When you encounter a procedural problem at any step, run `/sip <description>`
+immediately. Do not wait for the retrospective step.
 
 ## Rationale & Reference
 
