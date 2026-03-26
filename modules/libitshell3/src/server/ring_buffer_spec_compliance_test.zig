@@ -141,20 +141,20 @@ test "spec 4.3: wire format in ring — iovec data is valid protocol message" {
     );
 
     // Read via iovecs — the data must be decodable.
-    // Ring stores [4-byte LE length prefix][frame_data]. Flatten iovecs to access bytes.
+    // Ring stores frame data directly (no prefix). Flatten iovecs to access bytes.
     const p = ring.pendingIovecs(&cursor).?;
     try testing.expect(p.totalLen() > 0);
 
     var flat: [8192]u8 = @splat(0);
     const flat_n = flattenIovecs(&p, &flat);
-    try testing.expect(flat_n > 4 + protocol.header.HEADER_SIZE);
+    try testing.expect(flat_n > protocol.header.HEADER_SIZE);
 
-    // Bytes 0..4 are the ring length prefix. Bytes 4..4+HEADER_SIZE are the protocol header.
-    const hdr = try protocol.header.Header.decode(flat[4..][0..protocol.header.HEADER_SIZE]);
+    // Bytes 0..HEADER_SIZE are the protocol header (no prefix).
+    const hdr = try protocol.header.Header.decode(flat[0..protocol.header.HEADER_SIZE]);
     try testing.expectEqual(@as(u16, 0x0300), hdr.msg_type); // FrameUpdate
 
     // Decode frame header
-    const fh_start = 4 + protocol.header.HEADER_SIZE;
+    const fh_start = protocol.header.HEADER_SIZE;
     const fh_end = fh_start + protocol.frame_update.FRAME_HEADER_SIZE;
     try testing.expect(flat_n >= fh_end);
     const fh = protocol.frame_update.FrameHeader.decode(
@@ -270,10 +270,11 @@ test "spec 4.6: zero-copy — BOTH iovecs point into ring.buf (wrapping case)" {
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
 
-    // Fill ring and advance cursor to push write_pos near end
-    const filler = [_]u8{'F'} ** 10; // 14 bytes per entry
+    // Fill ring and advance cursor to push write_pos near end.
+    // 10 bytes per entry (no prefix): 2 frames = 20 bytes, write_pos at 20.
+    const filler = [_]u8{'F'} ** 10;
     try ring.writeFrame(&filler, true, 1);
-    try ring.writeFrame(&filler, false, 2); // write_pos at 28
+    try ring.writeFrame(&filler, false, 2); // write_pos at 20
     ring.advanceCursor(&cursor, ring.available(&cursor));
 
     // Write frames that wrap around
@@ -321,13 +322,14 @@ test "spec 4.6: wrapping range produces count=2 iovecs" {
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
 
-    // Push write_pos near end and advance cursor
-    const filler = [_]u8{'F'} ** 20; // 24 bytes entry
+    // Push write_pos near end and advance cursor.
+    // 23 bytes per frame (no prefix): 2 frames = 46 bytes, write_pos at 46.
+    const filler = [_]u8{'F'} ** 23;
     try ring.writeFrame(&filler, true, 1);
-    try ring.writeFrame(&filler, false, 2); // write_pos at 48
+    try ring.writeFrame(&filler, false, 2); // write_pos at 46
     ring.advanceCursor(&cursor, ring.available(&cursor));
 
-    // Write a frame that wraps (starts at 48, 24 bytes wraps past 64)
+    // Write a frame that wraps (starts at 46, 23 bytes wraps past 64)
     try ring.writeFrame(&filler, false, 3);
 
     const p = ring.pendingIovecs(&cursor).?;
@@ -337,27 +339,34 @@ test "spec 4.6: wrapping range produces count=2 iovecs" {
 }
 
 test "spec 4.6: wrapping iovec concatenation reconstructs original frame data" {
-    var backing: [64]u8 = @splat(0);
+    // backing=128, capacity/2=64. Two pad frames push write_pos to 70.
+    // A payload frame of 60 bytes starts at 70 and wraps at 128:
+    //   tail = 128 - 70 = 58 bytes, head = 2 bytes → count=2.
+    var backing: [128]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
 
-    // Push write_pos near end
-    const pad = [_]u8{'P'} ** 20; // 24 bytes entry
-    try ring.writeFrame(&pad, true, 1);
-    ring.advanceCursor(&cursor, ring.available(&cursor));
+    // Push write_pos to 70 using two frames: 50 + 20
+    const pad1 = [_]u8{'P'} ** 50;
+    const pad2 = [_]u8{'P'} ** 20;
+    try ring.writeFrame(&pad1, true, 1);
+    try ring.writeFrame(&pad2, false, 2);
+    ring.advanceCursor(&cursor, ring.available(&cursor)); // cursor = 70
 
-    // Write a frame that wraps
-    const payload = [_]u8{'W'} ** 20;
-    try ring.writeFrame(&payload, false, 2);
+    // Write a frame that wraps (60 bytes starting at 70: 70+60=130 > 128)
+    const payload = [_]u8{'W'} ** 60;
+    try ring.writeFrame(&payload, false, 3);
 
     const p = ring.pendingIovecs(&cursor).?;
-    var reconstructed: [128]u8 = undefined;
+    try testing.expectEqual(@as(usize, 2), p.count);
+
+    var reconstructed: [256]u8 = undefined;
     const total_len = flattenIovecs(&p, &reconstructed);
 
-    // The reconstructed data starts with 4-byte LE length prefix
-    const frame_len = std.mem.readInt(u32, reconstructed[0..4], .little);
-    try testing.expectEqual(@as(u32, 20), frame_len);
-    try testing.expectEqualSlices(u8, &payload, reconstructed[4..total_len]);
+    // Ring stores frame data directly (no length prefix).
+    // Concatenating both iovecs reconstructs the original payload.
+    try testing.expectEqual(@as(usize, payload.len), total_len);
+    try testing.expectEqualSlices(u8, &payload, reconstructed[0..total_len]);
 }
 
 test "spec 4.6: pendingIovecs returns null when no pending data" {
@@ -373,14 +382,15 @@ test "spec 4.6: pendingIovecs returns null when no pending data" {
 
 test "spec 4.8: overwritten cursor seeks to latest I-frame, then reads via iovecs" {
     // "the client's cursor skips to the latest I-frame"
+    // Each frame is 8 bytes (no prefix). 13 frames × 8 = 104 > 96 → overwrites cursor.
     var backing: [96]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var slow = RingCursor.init();
 
-    const frame = [_]u8{'X'} ** 8; // 12 bytes per entry
-    // Write enough to overwrite slow cursor
+    const frame = [_]u8{'X'} ** 8;
+    // Write enough to overwrite slow cursor (13 × 8 = 104 > 96)
     var i: usize = 0;
-    while (i < 9) : (i += 1) {
+    while (i < 13) : (i += 1) {
         try ring.writeFrame(&frame, i % 2 == 0, @intCast(i + 1));
     }
 
@@ -462,7 +472,7 @@ test "spec 4.11: multi-client ring read — independent iovec ranges from same b
     var cursor_fast = RingCursor.init();
     var cursor_slow = RingCursor.init();
 
-    // Fast client advances past first frame (4 prefix + 7 payload = 11 bytes)
+    // Fast client advances 11 bytes (past the 7-byte "frame-1" and 4 bytes into "frame-2")
     ring.advanceCursor(&cursor_fast, 11);
 
     const p_fast = ring.pendingIovecs(&cursor_fast).?;
@@ -509,7 +519,7 @@ test "spec 5.4: partial advance — iovecs start at correct byte position in rin
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
 
-    const payload = "ABCDEFGHIJKLMNOP"; // 16 bytes + 4 prefix = 20 bytes entry
+    const payload = "ABCDEFGHIJKLMNOP"; // 16 bytes
     try ring.writeFrame(payload, false, 1);
 
     const p_before = ring.pendingIovecs(&cursor).?;
@@ -702,15 +712,14 @@ test "spec 5.3: serialize -> ring -> iovec delivery pipeline" {
     var flat: [8192]u8 = @splat(0);
     const total = flattenIovecs(&p, &flat);
 
-    // Ring stores [4-byte len prefix][frame_data]. The protocol header starts at offset 4.
+    // Ring stores frame data directly (no length prefix). Protocol header starts at offset 0.
+    try testing.expect(total >= protocol.header.HEADER_SIZE);
 
-    try testing.expect(total >= 4 + protocol.header.HEADER_SIZE);
-
-    const hdr = try Header.decode(flat[4..][0..protocol.header.HEADER_SIZE]);
+    const hdr = try Header.decode(flat[0..protocol.header.HEADER_SIZE]);
     try testing.expectEqual(@as(u16, 0x0300), hdr.msg_type);
 
     const fh = FrameHeader.decode(
-        flat[4 + protocol.header.HEADER_SIZE ..][0..protocol.frame_update.FRAME_HEADER_SIZE],
+        flat[protocol.header.HEADER_SIZE..][0..protocol.frame_update.FRAME_HEADER_SIZE],
     );
     try testing.expectEqual(@as(u32, 7), fh.session_id);
     try testing.expectEqual(@as(u32, 42), fh.pane_id);

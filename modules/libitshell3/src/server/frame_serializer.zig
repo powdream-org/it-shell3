@@ -105,22 +105,18 @@ test "serializeAndWrite: I-frame produces valid protocol message" {
         @memcpy(read_buf[off..][0..v.len], v.base[0..v.len]);
         off += v.len;
     }
-    // Ring stores [4-byte len prefix][frame_data]. Skip the 4-byte prefix.
-    const read_n = off - 4;
-
-    const hdr = try Header.decode(read_buf[4..][0..protocol.header.HEADER_SIZE]);
+    const hdr = try Header.decode(read_buf[0..protocol.header.HEADER_SIZE]);
     try std.testing.expectEqual(@as(u16, 0x0300), hdr.msg_type);
     try std.testing.expectEqual(.binary, hdr.flags.encoding);
 
-    // Decode frame header
     const fh = FrameHeader.decode(
-        read_buf[4 + protocol.header.HEADER_SIZE ..][0..protocol.frame_update.FRAME_HEADER_SIZE],
+        read_buf[protocol.header.HEADER_SIZE..][0..protocol.frame_update.FRAME_HEADER_SIZE],
     );
     try std.testing.expectEqual(@as(u32, 42), fh.session_id);
     try std.testing.expectEqual(@as(u32, 100), fh.pane_id);
     try std.testing.expectEqual(FrameType.i_frame, fh.frame_type);
     try std.testing.expect(fh.hasDirtyRows());
-    try std.testing.expectEqual(n.?, read_n);
+    try std.testing.expectEqual(n.?, off);
 }
 
 test "serializeAndWrite: empty P-frame returns null" {

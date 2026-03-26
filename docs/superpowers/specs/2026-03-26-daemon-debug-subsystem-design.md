@@ -1,7 +1,7 @@
 # Daemon Debug Subsystem
 
 - **Date**: 2026-03-26
-- **Scope**: TCP-based debug interface for logging, inspection, and control of
+- **Scope**: Unix socket debug interface for logging, inspection, and control of
   the it-shell3-daemon process
 
 ## 1. Overview
@@ -56,19 +56,28 @@ developers, AI agents, and end users filing bug reports.
 +----------------------------------------------------------+
 ```
 
-### 2.1 Activation
+### 2.1 Socket Layout
+
+The daemon always creates a debug socket alongside the client socket:
+
+```
+$SOCKET_DIR/it-shell3/<instance>/
+├── daemon.sock          # client protocol (binary)
+└── debug.sock           # debug protocol (plain text)
+```
+
+`<instance>` is the daemon's PID for now. When workspace support is added, it
+becomes the workspace name (e.g. `default`, `work`).
 
 ```bash
-# Enabled — TCP listener on localhost:9090
-IT_SHELL3_DEBUG_PORT=9090 it-shell3-daemon --socket-path /tmp/it-shell3.sock
-
-# Disabled (default) — no listener, no overhead
-it-shell3-daemon --socket-path /tmp/it-shell3.sock
+# Example: daemon PID 12345
+/tmp/it-shell3/12345/daemon.sock
+/tmp/it-shell3/12345/debug.sock
 ```
 
 ### 2.2 Connection Model
 
-Single-command request-response. Each TCP connection handles exactly one
+Single-command request-response. Each Unix socket connection handles exactly one
 command:
 
 1. Accept
@@ -85,13 +94,37 @@ daemon-wide state that persists across connections. The connection itself is
 stateless (no per-connection tracking), but the daemon remembers the active log
 file and subscribed tags until `stop-logging` is called or the daemon exits.
 
-### 2.3 Security
+### 2.3 CLI Tool (`it-shell3-debug`)
 
-- Bind to `127.0.0.1` only (no `0.0.0.0`)
-- Environment variable opt-in — no env var, no listener
+Thin client that discovers the debug socket and sends commands:
+
+```bash
+# Single daemon instance — auto-discovers the only running daemon
+it-shell3-debug dump-sessions
+it-shell3-debug inject-key 1 ctrl+key_c
+it-shell3-debug set-log-file /tmp/debug.log
+
+# Multiple daemon instances — specify which one
+it-shell3-debug list                                    # list running instances
+it-shell3-debug --instance work dump-sessions           # by workspace name
+it-shell3-debug --instance 12345 dump-sessions          # by PID
+```
+
+**Discovery logic:**
+
+1. Glob `$SOCKET_DIR/it-shell3/*/debug.sock`
+2. If exactly one found → connect to it
+3. If multiple found and `--instance` not given → print list and exit
+4. If none found → error: no daemon running
+
+### 2.4 Security
+
+- Debug socket created with mode `0600` (owner-only)
+- Socket directory created with mode `0700` (owner-only traversal)
 - Log files created with mode `0600`
-- Remote access via SSH tunnel (`ssh -L 9090:localhost:9090`)
-- No additional authentication (YAGNI for localhost same-user access)
+- Remote access via SSH tunnel (`ssh -L` + `socat`, or `ssh` + CLI tool)
+- No additional authentication (YAGNI — file permissions enforce same-user
+  access)
 
 ## 3. Command Reference
 
@@ -333,17 +366,17 @@ Spacer tail cells are abbreviated:
 
 ### 5.1 udata Allocation
 
-| Range | Purpose                         |
-| ----- | ------------------------------- |
-| 0     | Unix socket listener (existing) |
-| 1..98 | PTY fds (existing)              |
-| 99    | Debug TCP listener (new)        |
-| 100+  | Client connections (existing)   |
+| Range | Purpose                          |
+| ----- | -------------------------------- |
+| 0     | Unix socket listener (existing)  |
+| 1..98 | PTY fds (existing)               |
+| 99    | Debug Unix socket listener (new) |
+| 100+  | Client connections (existing)    |
 
 ### 5.2 Processing Model
 
-The debug TCP listener is registered as a READ event source in kqueue/epoll.
-When a connection arrives:
+The debug Unix socket listener is registered as a READ event source in
+kqueue/epoll. When a connection arrives:
 
 1. `accept()` the connection
 2. `read()` one line from the socket
@@ -357,30 +390,24 @@ tracking.
 
 ### 5.3 LogEmitter Integration
 
-**Global optional pointer**: When `IT_SHELL3_DEBUG_PORT` is not set,
-`log_emitter` is `null`. All emit calls reduce to a single null check (~1ns)
-with zero argument construction overhead.
+**Global LogEmitter**: The debug socket is always created, but the LogEmitter
+only writes to file when `set-log-file` has been called and tags are subscribed.
 
 ```zig
 // Daemon global
-var log_emitter: ?*LogEmitter = null;
+var log_emitter: LogEmitter = LogEmitter.init();
 
 // Convenience wrapper — inlined at call site
 inline fn logEmit(tag: Tag, data: anytype) void {
-    if (log_emitter) |le| le.emit(tag, data);
+    log_emitter.emit(tag, data);
 }
 ```
 
-**Two-level fast path:**
-
-1. `log_emitter == null` → null check, return (debug port not set)
-2. `active_tags & tag == 0` → bit check, return (tag not subscribed)
-
-Both levels are `inline`, so the compiler eliminates argument construction in
-the not-taken path via dead code elimination.
+**Fast path** when no tags are subscribed (default state — `active_tags == 0`):
+bit check returns in ~1ns, argument construction eliminated via dead code
+elimination.
 
 ```zig
-// LogEmitter.emit — only reached when log_emitter != null
 pub inline fn emit(self: *LogEmitter, tag: Tag, data: anytype) void {
     if (self.active_tags & @intFromEnum(tag) == 0) return;
     self.emitSlow(tag, data);
@@ -411,9 +438,9 @@ fn handleCreateSession(client: *Client, msg: Message) void {
 
 ```
 daemon/src/
-├── main.zig              # reads IT_SHELL3_DEBUG_PORT, inits debug listener
+├── main.zig              # creates debug socket, inits debug listener
 └── debug/
-    ├── listener.zig      # TCP accept, read, dispatch, respond, close
+    ├── listener.zig      # Unix socket accept, read, dispatch, respond, close
     ├── command_parser.zig # text line → Command union
     ├── inspector.zig     # dump-sessions, dump-screen, stats (read-only)
     ├── controller.zig    # create-session, inject-key, etc. (calls existing handlers)
@@ -434,15 +461,15 @@ daemon/src/
 
 ```bash
 # 1. Discover available state
-echo "dump-sessions" | nc localhost 9090
+it-shell3-debug dump-sessions
 
 # 2. Start logging
-echo "set-log-file /tmp/debug.log" | nc localhost 9090
-echo "subscribe input,ime,frame" | nc localhost 9090
+it-shell3-debug set-log-file /tmp/debug.log
+it-shell3-debug subscribe input,ime,frame
 
 # 3. Inject input and observe
-echo "inject-key 1 key_a" | nc localhost 9090
-echo "dump-screen 1" | nc localhost 9090
+it-shell3-debug inject-key 1 key_a
+it-shell3-debug dump-screen 1
 
 # 4. Check logs
 tail -f /tmp/debug.log | grep ime
@@ -452,42 +479,55 @@ tail -f /tmp/debug.log | grep ime
 
 ```bash
 # Quick state check
-echo "dump-sessions" | nc localhost 9090
-echo "dump-pane 3" | nc localhost 9090
+it-shell3-debug dump-sessions
+it-shell3-debug dump-pane 3
 
 # Watch all request/response traffic
-echo "set-log-file /tmp/traffic.log" | nc localhost 9090
-echo "subscribe request,response" | nc localhost 9090
+it-shell3-debug set-log-file /tmp/traffic.log
+it-shell3-debug subscribe request,response
 tail -f /tmp/traffic.log
 
 # Reproduce a bug without client
-echo "create-session test" | nc localhost 9090
-echo "inject-text 2 'ls -la'" | nc localhost 9090
-echo "inject-key 2 key_return" | nc localhost 9090
-echo "dump-screen 2" | nc localhost 9090
+it-shell3-debug create-session test
+it-shell3-debug inject-text 2 ls -la
+it-shell3-debug inject-key 2 key_return
+it-shell3-debug dump-screen 2
 ```
 
 ### 7.3 End-User Bug Report
 
 ```bash
-# Start daemon with debug port
-IT_SHELL3_DEBUG_PORT=9090 it-shell3-daemon --socket-path /tmp/it-shell3.sock
-
-# Capture traffic
-echo "set-log-file ~/debug-capture.log" | nc localhost 9090
-echo "subscribe lifecycle,request,response,error" | nc localhost 9090
+# Capture traffic (daemon already running)
+it-shell3-debug set-log-file ~/debug-capture.log
+it-shell3-debug subscribe lifecycle,request,response,error
 
 # ... reproduce the bug ...
 
 # Stop and attach log to bug report
-echo "stop-logging" | nc localhost 9090
+it-shell3-debug stop-logging
+```
+
+### 7.4 Multiple Daemon Instances
+
+```bash
+# List running instances
+it-shell3-debug list
+# → 12345  default
+# → 67890  work
+
+# Target a specific instance
+it-shell3-debug --instance work dump-sessions
+it-shell3-debug --instance work inject-key 1 ctrl+key_c
 ```
 
 ## 8. Future Extensions
 
-- **`it-shell3-ctl` CLI tool**: Thin TCP client wrapping the debug command set.
-  Extract command definitions into a shared module when needed. Deferred per
-  YAGNI.
+- **Workspace support**: `<instance>` directory changes from PID to workspace
+  name. `it-shell3-debug list` shows workspace names alongside PIDs.
+  `--instance` accepts either.
+- **`it-shell3-ctl`**: Promote debug CLI from diagnostic tool to full management
+  CLI (like `cmux` CLI or `zellij` CLI). Control commands already cover session
+  and pane management — add workspace lifecycle commands when needed.
 - **`:verbose` modifier on other tags**: e.g. `request:verbose` for full JSON
   payload dump. Add when needed.
 - **Log rotation**: `set-log-file` with size limit or rotation policy. Add when

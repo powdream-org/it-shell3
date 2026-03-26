@@ -107,11 +107,10 @@ test "initPaneRing: ring buffer is functional after allocation" {
     try ring.writeFrame("test-frame", true, 1);
     var cursor = ring_buffer_mod.RingCursor.init();
     const p = ring.pendingIovecs(&cursor).?;
-    // First iovec should contain the entry: [4-byte len prefix]["test-frame"]
+    // First iovec contains the frame data directly (no length prefix)
     var out: [256]u8 = @splat(0);
     @memcpy(out[0..p.iov[0].len], p.iov[0].base[0..p.iov[0].len]);
-    // Skip 4-byte ring length prefix to get frame payload
-    try std.testing.expectEqualSlices(u8, "test-frame", out[4..14]);
+    try std.testing.expectEqualSlices(u8, "test-frame", out[0..10]);
 }
 
 test "multiple pane slots can coexist independently" {
@@ -144,16 +143,16 @@ test "multiple pane slots can coexist independently" {
     try std.testing.expect(p7.totalLen() > 0);
     try std.testing.expect(p15.totalLen() > 0);
 
-    // Verify payload content by reading past 4-byte length prefix
+    // Verify frame payload content directly (ring stores raw frame data, no prefix)
     var out: [256]u8 = @splat(0);
     @memcpy(out[0..p0.iov[0].len], p0.iov[0].base[0..p0.iov[0].len]);
-    try std.testing.expectEqualSlices(u8, "pane-0-frame", out[4..16]);
+    try std.testing.expectEqualSlices(u8, "pane-0-frame", out[0..12]);
 
     @memcpy(out[0..p7.iov[0].len], p7.iov[0].base[0..p7.iov[0].len]);
-    try std.testing.expectEqualSlices(u8, "pane-7-frame", out[4..16]);
+    try std.testing.expectEqualSlices(u8, "pane-7-frame", out[0..12]);
 
     @memcpy(out[0..p15.iov[0].len], p15.iov[0].base[0..p15.iov[0].len]);
-    try std.testing.expectEqualSlices(u8, "pane-15-frame", out[4..17]);
+    try std.testing.expectEqualSlices(u8, "pane-15-frame", out[0..13]);
 }
 
 test "SharedScratch: init produces zeroed buffer" {

@@ -121,10 +121,10 @@ test "§4.3 — wire format: iovecs yield decodable protocol message" {
     const p = ring.pendingIovecs(&cursor).?;
     var flat: [8192]u8 = @splat(0);
     const n = flattenIovecs(p, &flat);
-    try testing.expectEqual(written, n - 4); // ring strips the 4-byte length prefix
+    try testing.expectEqual(written, n); // ring stores frame directly, no prefix
 
-    // Decode the wire message from the ring (skip the 4-byte length prefix)
-    const wire = flat[4..][0..written];
+    // Decode the wire message from the ring (starts at byte 0)
+    const wire = flat[0..written];
     const hdr = try Header.decode(wire[0..protocol.header.HEADER_SIZE]);
     try testing.expectEqual(@as(u16, 0x0300), hdr.msg_type);
 
@@ -163,8 +163,8 @@ test "§4.4 — two-channel priority: direct queue before ring buffer" {
     var flat: [256]u8 = @splat(0);
     const n = flattenIovecs(p, &flat);
     try testing.expect(n > 0);
-    // Payload inside ring entry (after 4-byte prefix) is "FrameUpdate-data"
-    try testing.expectEqualSlices(u8, "FrameUpdate-data", flat[4..][0.."FrameUpdate-data".len]);
+    // Payload in ring entry is "FrameUpdate-data" directly (no prefix)
+    try testing.expectEqualSlices(u8, "FrameUpdate-data", flat[0.."FrameUpdate-data".len]);
     ring.advanceCursor(&cw.ring_cursor, p.totalLen());
 
     // Now fully caught up
@@ -185,8 +185,8 @@ test "§4.5 — independent cursors: positions and available are orthogonal" {
     // Both see equal available bytes
     try testing.expectEqual(ring.available(&ca), ring.available(&cb));
 
-    // Advance A by one frame (11 bytes = 4 prefix + 7 payload)
-    ring.advanceCursor(&ca, 11);
+    // Advance A by one frame (7 bytes = "frame-1" payload)
+    ring.advanceCursor(&ca, 7);
 
     // A sees fewer bytes; B unchanged
     try testing.expect(ring.available(&ca) < ring.available(&cb));
@@ -216,19 +216,19 @@ test "§4.6 — zero-copy: single iovec points into ring.buf address range" {
 }
 
 test "§4.6 — zero-copy wrap-around: 2 iovecs both in ring.buf, concatenation correct" {
-    // 32-byte ring. 3 frames of 10 bytes each (14-byte entries).
-    // After advancing past first 2 entries (28 bytes), the 3rd entry
-    // starts at position 28 and wraps: 4 bytes tail + 10 bytes head.
+    // 32-byte ring. 3 frames of 11 bytes each (no prefix, entry = 11 bytes).
+    // After advancing past first 2 entries (22 bytes), the 3rd entry
+    // starts at position 22 and wraps at 32: 10 bytes tail + 1 byte head.
     var backing: [32]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
 
-    const payload = [_]u8{'W'} ** 10;
+    const payload = [_]u8{'W'} ** 11;
     try ring.writeFrame(&payload, false, 1);
     try ring.writeFrame(&payload, false, 2);
     // Advance cursor past first two entries
-    ring.advanceCursor(&cursor, 14);
-    ring.advanceCursor(&cursor, 14);
+    ring.advanceCursor(&cursor, 11);
+    ring.advanceCursor(&cursor, 11);
     // Write third entry — wraps
     try ring.writeFrame(&payload, true, 3);
 
@@ -241,12 +241,11 @@ test "§4.6 — zero-copy wrap-around: 2 iovecs both in ring.buf, concatenation 
         try testing.expect(@intFromPtr(v.base) >= buf_start and @intFromPtr(v.base) < buf_end);
     }
 
-    // Concatenation must equal: [4-byte LE length=10][payload]
+    // Concatenation must equal: the payload bytes directly (all 'W')
     var combined: [32]u8 = @splat(0);
     const n = flattenIovecs(p, &combined);
-    try testing.expectEqual(@as(usize, 14), n);
-    try testing.expectEqual(@as(u32, 10), std.mem.readInt(u32, combined[0..4], .little));
-    try testing.expectEqualSlices(u8, &payload, combined[4..14]);
+    try testing.expectEqual(@as(usize, 11), n);
+    try testing.expectEqualSlices(u8, &payload, combined[0..11]);
 }
 
 test "§5.4 — byte-granular cursor: partial advance, remaining iovec starts at correct position" {
@@ -254,21 +253,21 @@ test "§5.4 — byte-granular cursor: partial advance, remaining iovec starts at
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
 
-    // Write two frames: "hello" (9 bytes) and "world" (9 bytes) = 18 total
+    // Write two frames: "hello" (5 bytes) and "world" (5 bytes) = 10 total
     try ring.writeFrame("hello", false, 1);
     try ring.writeFrame("world", false, 2);
-    try testing.expectEqual(@as(usize, 18), ring.available(&cursor));
+    try testing.expectEqual(@as(usize, 10), ring.available(&cursor));
 
-    // Simulate partial write: kernel accepted 5 bytes
-    ring.advanceCursor(&cursor, 5);
-    try testing.expectEqual(@as(usize, 5), cursor.total_read);
-    try testing.expectEqual(@as(usize, 13), ring.available(&cursor));
+    // Simulate partial write: kernel accepted 3 bytes
+    ring.advanceCursor(&cursor, 3);
+    try testing.expectEqual(@as(usize, 3), cursor.total_read);
+    try testing.expectEqual(@as(usize, 7), ring.available(&cursor));
 
-    // Next iovec starts at ring position 5
+    // Next iovec starts at ring position 3
     const p = ring.pendingIovecs(&cursor).?;
-    const expected_pos = @intFromPtr(ring.buf.ptr) + 5;
+    const expected_pos = @intFromPtr(ring.buf.ptr) + 3;
     try testing.expectEqual(expected_pos, @intFromPtr(p.iov[0].base));
-    try testing.expectEqual(@as(usize, 13), p.totalLen());
+    try testing.expectEqual(@as(usize, 7), p.totalLen());
 }
 
 test "§5.4 — full delivery: cursor catches up, available == 0, no iovecs" {
@@ -308,8 +307,8 @@ test "§5.4 — would_block semantics: cursor unchanged, same iovecs returned on
     var flat: [256]u8 = @splat(0);
     const n = flattenIovecs(p, &flat);
     try testing.expectEqual(avail_before, n);
-    // First 4 bytes = length prefix of "retry-me" = 8
-    try testing.expectEqual(@as(u32, 8), std.mem.readInt(u32, flat[0..4], .little));
+    // First 8 bytes = "retry-me" directly (no prefix)
+    try testing.expectEqualSlices(u8, "retry-me", flat[0..8]);
 }
 
 test "§4.8 §5.5 — slow client recovery: overwritten cursor seeks to latest I-frame" {
@@ -317,7 +316,7 @@ test "§4.8 §5.5 — slow client recovery: overwritten cursor seeks to latest I
     var ring = RingBuffer.init(&backing);
     var slow = RingCursor.init();
 
-    // Fill ring past capacity: 9 entries of 12 bytes each (4 + 8) = 108 > 96
+    // Fill ring past capacity: 13 entries of 8 bytes each = 104 > 96
     const frame = [_]u8{'Q'} ** 8;
     try ring.writeFrame(&frame, true, 1);
     try ring.writeFrame(&frame, false, 2);
@@ -327,7 +326,11 @@ test "§4.8 §5.5 — slow client recovery: overwritten cursor seeks to latest I
     try ring.writeFrame(&frame, false, 6);
     try ring.writeFrame(&frame, true, 7);
     try ring.writeFrame(&frame, false, 8);
-    try ring.writeFrame(&frame, true, 9); // seq=9, latest I-frame
+    try ring.writeFrame(&frame, true, 9);
+    try ring.writeFrame(&frame, false, 10);
+    try ring.writeFrame(&frame, true, 11);
+    try ring.writeFrame(&frame, false, 12);
+    try ring.writeFrame(&frame, true, 13); // seq=13, latest I-frame
 
     try testing.expect(ring.isCursorOverwritten(&slow));
 
@@ -340,8 +343,8 @@ test "§4.8 §5.5 — slow client recovery: overwritten cursor seeks to latest I
     const p = ring.pendingIovecs(&slow).?;
     var flat: [256]u8 = @splat(0);
     _ = flattenIovecs(p, &flat);
-    // The 4-byte prefix for the I-frame payload (8 bytes) is 8
-    try testing.expectEqual(@as(u32, 8), std.mem.readInt(u32, flat[0..4], .little));
+    // The I-frame payload is 8 bytes of 'Q' directly (no prefix)
+    try testing.expectEqualSlices(u8, &frame, flat[0..8]);
 }
 
 test "§4.9 — I-frame no-op when unchanged: empty P-frame skipped, I-frame written" {
@@ -444,11 +447,13 @@ test "pane delivery lifecycle: SessionDeliveryState allocates and frees rings" {
     const p5 = r5.pendingIovecs(&c5).?;
     var f0: [256]u8 = @splat(0);
     var f5: [256]u8 = @splat(0);
-    _ = flattenIovecs(p0, &f0);
-    _ = flattenIovecs(p5, &f5);
-    // prefix [4] = payload length = len("pane-zero") = 9
-    try testing.expectEqual(@as(u32, 9), std.mem.readInt(u32, f0[0..4], .little));
-    try testing.expectEqual(@as(u32, 9), std.mem.readInt(u32, f5[0..4], .little));
+    const n0 = flattenIovecs(p0, &f0);
+    const n5 = flattenIovecs(p5, &f5);
+    // Ring stores frame data directly (no length prefix)
+    try testing.expectEqual(@as(usize, 9), n0); // len("pane-zero") = 9
+    try testing.expectEqual(@as(usize, 9), n5); // len("pane-five") = 9
+    try testing.expectEqualSlices(u8, "pane-zero", f0[0..9]);
+    try testing.expectEqualSlices(u8, "pane-five", f5[0..9]);
 
     // Free pane 0, pane 5 survives
     state.deinitPaneRing(0);
@@ -504,12 +509,11 @@ test "§4.1 §4.3 full pipeline: serialize → ring → iovecs → decode protoc
     const p = ring.pendingIovecs(&cursor).?;
     var flat: [8192]u8 = @splat(0);
     const n = flattenIovecs(p, &flat);
-    // Ring stores: [4-byte length prefix][wire frame]
-    // total bytes in ring = 4 + written
-    try testing.expectEqual(written + 4, n);
+    // Ring stores wire frame directly (no prefix): total bytes in ring = written
+    try testing.expectEqual(written, n);
 
-    // Decode wire message (skip 4-byte ring prefix)
-    const wire = flat[4..][0..written];
+    // Decode wire message (starts at byte 0, no prefix to skip)
+    const wire = flat[0..written];
     const hdr = try Header.decode(wire[0..protocol.header.HEADER_SIZE]);
     try testing.expectEqual(@as(u16, 0x0300), hdr.msg_type);
 
@@ -602,12 +606,11 @@ test "§4.11 — seekToLatestIFrame: most recent I-frame selected" {
 
     ring.seekToLatestIFrame(&cursor);
 
-    // Read from cursor: first bytes = length prefix of I-FRAME-006 (11)
+    // Read from cursor: first bytes are "I-FRAME-006" directly (no prefix)
     const p = ring.pendingIovecs(&cursor).?;
     var flat: [256]u8 = @splat(0);
     _ = flattenIovecs(p, &flat);
-    try testing.expectEqual(@as(u32, 11), std.mem.readInt(u32, flat[0..4], .little));
-    try testing.expectEqualSlices(u8, "I-FRAME-006", flat[4..15]);
+    try testing.expectEqualSlices(u8, "I-FRAME-006", flat[0..11]);
 }
 
 test "§4.5 — last_i_frame field updated on seekToLatestIFrame" {
@@ -643,24 +646,25 @@ test "§5.3 — frame sequence monotonicity through serializer + iovecs" {
     }
     try testing.expectEqual(@as(u64, 5), seq);
 
-    // Read all frames via byte-granular advancement and verify monotonic sequences
+    // Read all frames via byte-granular advancement and verify monotonic sequences.
+    // Each frame is a complete wire message: [16-byte header][payload].
+    // The protocol header's payload_len tells us the total frame size.
     var prev_fseq: u64 = 0;
     var count: usize = 0;
     while (ring.available(&cursor) > 0) {
-        // Read at least the ring prefix (4 bytes) + protocol header + frame header
-        const min_read = 4 + protocol.header.HEADER_SIZE + protocol.frame_update.FRAME_HEADER_SIZE;
+        const min_read = protocol.header.HEADER_SIZE + protocol.frame_update.FRAME_HEADER_SIZE;
         if (ring.available(&cursor) < min_read) break;
 
         const p = ring.pendingIovecs(&cursor).?;
         var flat: [8192]u8 = @splat(0);
         _ = flattenIovecs(p, &flat);
 
-        // Parse the frame length from ring prefix
-        const frame_len = std.mem.readInt(u32, flat[0..4], .little);
-        const wire = flat[4..][0..frame_len];
+        // Parse the protocol header to get payload_len
+        const hdr = try Header.decode(flat[0..protocol.header.HEADER_SIZE]);
+        const frame_total = protocol.header.HEADER_SIZE + hdr.payload_len;
 
         const fh = FrameHeader.decode(
-            wire[protocol.header.HEADER_SIZE..][0..protocol.frame_update.FRAME_HEADER_SIZE],
+            flat[protocol.header.HEADER_SIZE..][0..protocol.frame_update.FRAME_HEADER_SIZE],
         );
         if (count > 0) {
             try testing.expect(fh.frame_sequence > prev_fseq);
@@ -668,8 +672,8 @@ test "§5.3 — frame sequence monotonicity through serializer + iovecs" {
         prev_fseq = fh.frame_sequence;
         count += 1;
 
-        // Advance past this entry (4 prefix + frame_len)
-        ring.advanceCursor(&cursor, 4 + frame_len);
+        // Advance past this frame (protocol header + payload)
+        ring.advanceCursor(&cursor, frame_total);
     }
     try testing.expectEqual(@as(usize, 5), count);
 }
@@ -729,7 +733,7 @@ test "§4.1 — monotonic invariants: frame_count and total_written always incre
         try ring.writeFrame("monotonic-test", i % 3 == 0, @intCast(i));
         try testing.expect(ring.total_written > prev_total);
         try testing.expect(ring.frame_count > prev_count);
-        try testing.expectEqual(prev_total + 4 + "monotonic-test".len, ring.total_written);
+        try testing.expectEqual(prev_total + "monotonic-test".len, ring.total_written);
         prev_total = ring.total_written;
         prev_count = ring.frame_count;
     }
@@ -767,15 +771,15 @@ test "§4.11 — multi-pane: SessionDeliveryState pane slots are independent" {
 
     const p0 = r0.pendingIovecs(&c0).?;
     _ = flattenIovecs(p0, &out);
-    try testing.expectEqual(@as(u32, 9), std.mem.readInt(u32, out[0..4], .little)); // "pane-zero"
+    try testing.expectEqualSlices(u8, "pane-zero", out[0..9]); // "pane-zero" directly
 
     const p7 = r7.pendingIovecs(&c7).?;
     _ = flattenIovecs(p7, &out);
-    try testing.expectEqual(@as(u32, 10), std.mem.readInt(u32, out[0..4], .little)); // "pane-seven"
+    try testing.expectEqualSlices(u8, "pane-seven", out[0..10]); // "pane-seven" directly
 
     const p15 = r15.pendingIovecs(&c15).?;
     _ = flattenIovecs(p15, &out);
-    try testing.expectEqual(@as(u32, 12), std.mem.readInt(u32, out[0..4], .little)); // "pane-fifteen"
+    try testing.expectEqualSlices(u8, "pane-fifteen", out[0..12]); // "pane-fifteen" directly
 
     // Dealloc pane 7; 0 and 15 unaffected
     state.deinitPaneRing(7);

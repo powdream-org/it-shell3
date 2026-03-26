@@ -44,15 +44,18 @@ not as a library module.
 
 **Architecture:**
 
-- **Activation**: TCP listener on `localhost`, port specified via
-  `IT_SHELL3_DEBUG_PORT` environment variable. If unset, the debug subsystem is
-  entirely inactive (no listener, no overhead).
-- **Protocol**: Stateless request-response over TCP. Plain text commands in,
-  plain text or JSONL responses out. Each connection handles one command then
-  closes (like HTTP without the headers).
+- **Activation**: Always-on Unix domain socket (`debug.sock`) created alongside
+  the daemon's client socket in `$SOCKET_DIR/it-shell3/<instance>/`. No
+  environment variable needed.
+- **Protocol**: Single-command request-response over Unix socket. Plain text
+  commands in, plain text or JSONL responses out. Each connection handles one
+  command then closes.
+- **CLI tool**: `it-shell3-debug` discovers the debug socket automatically (glob
+  `$SOCKET_DIR/it-shell3/*/debug.sock`). Supports `--instance` for multi-daemon
+  environments. Scalable to future workspace support.
 - **Logging**: Tag-based filtering (`lifecycle`, `request`, `response`,
   `notification`, `input`, `ime`, `frame`, `frame:verbose`, `flow`, `error`).
-  Log output goes to a file (set via `set-log-file` command), not to the TCP
+  Log output goes to a file (set via `set-log-file` command), not to the socket
   connection. Tags support a `:verbose` modifier for detailed output.
 - **Three command categories**:
   - _Logging_: `set-log-file`, `subscribe`, `unsubscribe`, `list-tags`
@@ -61,12 +64,13 @@ not as a library module.
   - _Control_: `create-session`, `split-pane`, `inject-key`,
     `inject-mouse-{move,click,scroll}`, `switch-ime`, and other daemon
     operations via text commands
-- **Security**: localhost-only bind + env var opt-in. No additional
-  authentication (YAGNI — same-machine, same-user access only).
+- **Security**: Socket file permissions (0600) enforce same-user access. No
+  additional authentication needed.
 
 **Internal modules:**
 
-- `listener.zig` — TCP accept, read line, dispatch, write response, close
+- `listener.zig` — Unix socket accept, read line, dispatch, write response,
+  close
 - `command_parser.zig` — text → Command union parsing
 - `inspector.zig` — read-only state queries (dump-\*, stats)
 - `controller.zig` — state-mutating commands (reuses existing handler logic)
