@@ -20,9 +20,24 @@ pub const FrameMeta = struct {
 pub const RingCursor = struct {
     /// Monotonic byte offset. Ring position = total_read % capacity.
     total_read: usize = 0,
-    /// Monotonic byte offset of the last I-frame sent to this client.
-    /// Spec §4.5 defines the field; update semantics are a spec gap —
-    /// see TODO.md Spec Gap Log item #1.
+    /// Monotonic byte offset of the last I-frame delivered to this client.
+    ///
+    /// The daemon uses this for recovery decisions: if the ring has overwritten
+    /// this I-frame (total_written - last_i_frame > capacity), the client's
+    /// P-frames are no longer decodable and recovery (seekToLatestIFrame) is
+    /// required.
+    ///
+    /// The CLIENT independently tracks its own I-frame reference via the
+    /// wire-level `frame_sequence` + `frame_type` fields in each FrameUpdate
+    /// header (protocol spec doc 04: "the client MUST track the frame_sequence
+    /// of the most recently received I-frame as local state"). P-frames are
+    /// cumulative deltas against the last I-frame — no sequential chain.
+    ///
+    /// Updated only on seekToLatestIFrame(). During normal sequential delivery
+    /// the daemon does not parse frame boundaries (delivery is byte-granular
+    /// per spec §5.4), so it cannot detect I-frame passage. This is correct:
+    /// the client handles I-frame tracking from the wire format, and the daemon
+    /// only needs this field for its own "is recovery needed?" check.
     last_i_frame: usize = 0,
 
     pub fn init() RingCursor {
