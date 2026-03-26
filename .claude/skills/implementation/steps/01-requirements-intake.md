@@ -58,28 +58,52 @@ ls docs/superpowers/plans/*<module>* 2>/dev/null
 
 - **If a plan exists** → Read it and confirm it covers directory structure, file
   list, task dependencies, and test categories.
-- **If no plan exists** → Write one now. Invoke the `/writing-plans` skill with
-  the spec paths discovered in 1b as context. The plan must reference spec
-  sections for core API design — not include code snippets (see Document
-  Authority in SKILL.md).
+- **If no plan exists** → Write one now. Invoke the `/writing-impl-plan` skill
+  with the spec paths discovered in 1b as context.
 
 Record the plan path in TODO.md.
 
 ### 1d. Verify plan against spec
 
-Spawn verification agents to cross-check the plan's architecture descriptions
-against the design spec sections. For each public API, delivery mechanism, or
-data structure described in the plan, verify it matches the spec.
+Spawn one verifier per spec topic (e.g., architecture, behavior). Each verifier
+reads the spec, plan, and source code directly — the team leader provides paths,
+not curated summaries.
 
-This is a convergence loop:
+Send to each verifier:
 
-1. Spawn verifiers (one per spec topic: architecture, behavior, test coverage)
-2. If issues found → fix the plan → re-spawn verifiers
-3. Repeat until clean pass
+```
+Verify the implementation plan against the design spec.
 
-Do NOT proceed to Step 3 until the plan passes spec verification.
+Spec: <paths from TODO.md>
+Plan: <path>
+Source (modification cycle only): <target>/src/
 
-### 1d. Collect additional inputs
+Check:
+- Every in-scope spec requirement has a corresponding plan task
+- Plan's type names, field names match the spec
+- Plan does not re-add what already exists in source code
+- If spec and source code disagree, report as "spec-code divergence"
+  with both sides quoted — do NOT dismiss either side
+
+Report: clean pass, or numbered issue list.
+```
+
+This is a convergence loop driven autonomously by the team leader:
+
+1. Spawn verifiers with paths above
+2. If issues found:
+   - **Plan-vs-spec gap** → re-invoke `/writing-impl-plan` with the issue list
+   - **Spec-code divergence** → investigate: read the spec's rationale, check
+     for ADRs, understand why the code differs. Determine which side is wrong.
+     If the team leader cannot determine, escalate to owner.
+   - **Plan-vs-code redundancy** (plan re-adds existing code) → re-invoke
+     `/writing-impl-plan` with the issue list
+3. Re-spawn verifiers after plan update
+4. Repeat until clean pass
+
+Do NOT proceed to Step 2 until the plan passes spec verification.
+
+### 1e. Collect additional inputs
 
 Check for PoC code:
 
@@ -96,7 +120,7 @@ Ask the owner for any constraints not in the plan:
   §6.2)
 - Tooling preferences
 
-### 1e. Verify agent definitions
+### 1f. Verify agent definitions
 
 ```bash
 ls -la .claude/agents/impl-team/
@@ -105,7 +129,7 @@ ls -la .claude/agents/impl-team/
 Confirm that `implementer.md`, `qa-reviewer.md`, and `principal-architect.md`
 exist. If any are missing, report to the owner.
 
-### 1f. Create TODO.md
+### 1g. Create TODO.md
 
 Create `<target>/TODO.md` with this exact format:
 
@@ -154,7 +178,7 @@ Create `<target>/TODO.md` with this exact format:
 - [ ] Step 11: Retrospective & Cleanup
 ```
 
-### 1g. Present to owner
+### 1h. Present to owner
 
 Show the owner:
 
@@ -169,7 +193,7 @@ Wait for owner approval before proceeding.
 ## Gate
 
 - [ ] Design spec identified and version(s) recorded
-- [ ] Implementation plan exists (found or written via `/writing-plans`)
+- [ ] Implementation plan exists (found or written via `/writing-impl-plan`)
 - [ ] Plan verified against design spec (convergence loop, clean pass)
 - [ ] Agent definitions verified
 - [ ] TODO.md created in `<target>/`
