@@ -1,7 +1,7 @@
 # 00057. I-Frame Timer Resets on Any I-Frame Production
 
 - Date: 2026-03-26
-- Status: Proposed
+- Status: Accepted
 
 ## Context
 

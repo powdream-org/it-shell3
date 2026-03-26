@@ -167,14 +167,30 @@ before ring insertion)
 
 ### Plan 6: Runtime Policies (Not Started)
 
-**Scope:** Adaptive coalescing (5-tier model with hysteresis), health escalation
+**Scope:** Adaptive coalescing (4-tier model with hysteresis), health escalation
 timeline (T=0 → T=300s eviction), flow control (PausePane/ContinuePane), resize
-debounce (250ms per pane, 5s hysteresis).
+debounce (250ms per pane, 5s hysteresis), frame export pipeline
+(`frame_builder.zig` for FlatCell→CellData conversion + dirty bitmap → DirtyRow
+assembly), I-frame scheduling timer, EVFILT_WRITE management.
 
 **Design spec refs:**
 
 - `daemon-behavior/.../03-policies-and-procedures.md` §1-7
 - `daemon-behavior/.../impl-constraints/policies.md` (all sections)
+
+**ADRs to apply:**
+
+- ADR-00055: Ring cursor lag formula — pre-computed byte thresholds for smooth
+  degradation (50%/75%/90%). Use `rb.available(&cursor)` against pre-computed
+  `threshold_50`, `threshold_75`, `threshold_90` at ring init. No per-frame
+  multiply/divide.
+- ADR-00056: FrameEntry is prose, not a code type. Introduce
+  `server/frame_builder.zig` for FlatCell→CellData conversion (field order
+  differs — no bitcast). Pipeline calls serializer unidirectionally. No
+  FrameEntry struct needed.
+- ADR-00057: I-frame timer resets on any I-frame production (timer, attach,
+  recovery, resize). Track `last_i_frame_time` per pane; timer check is
+  `now - last_i_frame_time >= keyframe_interval and has_changes`.
 
 **Depends on:** Plan 4 (ring buffer + frame delivery for coalescing tiers and
 backpressure)

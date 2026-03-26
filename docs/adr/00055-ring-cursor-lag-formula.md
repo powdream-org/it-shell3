@@ -1,7 +1,7 @@
 # 00055. Ring Cursor Lag Formula
 
 - Date: 2026-03-26
-- Status: Proposed
+- Status: Accepted
 
 ## Context
 
