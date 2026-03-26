@@ -26,6 +26,7 @@ pub const direct_queue = @import("server/direct_queue.zig");
 pub const client_writer = @import("server/client_writer.zig");
 pub const pane_delivery = @import("server/pane_delivery.zig");
 pub const ring_buffer_integration_test = @import("server/ring_buffer_integration_test.zig");
+pub const ring_buffer_spec_compliance_test = @import("server/ring_buffer_spec_compliance_test.zig");
 pub const protocol = @import("itshell3_protocol");
 
 pub const ghostty_types = @import("ghostty/types.zig");

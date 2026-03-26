@@ -29,8 +29,6 @@ developers, AI agents, and end users filing bug reports.
 
 ## 2. Architecture
 
-<!-- markdownlint-disable MD013 -->
-
 ```
 +-- daemon process ----------------------------------------+
 |                                                          |
@@ -57,8 +55,6 @@ developers, AI agents, and end users filing bug reports.
 |                                                          |
 +----------------------------------------------------------+
 ```
-
-<!-- markdownlint-enable MD013 -->
 
 ### 2.1 Activation
 
@@ -127,6 +123,7 @@ file and subscribed tags until `stop-logging` is called or the daemon exits.
 | `dump-screen <pane_id>`                    | JSONL + `done` | Full screen: one JSON line per row (text + cells)           |
 | `dump-screen <pane_id> rows:<start>-<end>` | JSONL + `done` | Specific row range (clamped to actual screen dimensions)    |
 | `stats`                                    | JSONL + `done` | Event loop statistics                                       |
+| `list-hid-keys`                            | Key name list  | All available HID key names for `inject-key`                |
 
 ### 3.4 Control Commands
 
@@ -146,6 +143,27 @@ file and subscribed tags until `stop-logging` is called or the daemon exits.
 | `inject-mouse-scroll <pane_id> up\|down [lines]`           | `ok`                  | Inject mouse scroll                           |
 | `inject-paste <pane_id> <text>`                            | `ok`                  | Inject paste event (see §3.5 for escaping)    |
 | `switch-ime <session_id> <input_method>`                   | `ok`                  | Switch input method (e.g. `ko-2set`)          |
+
+**`inject-key` examples:**
+
+```
+inject-key 1 key_a                      → 'a'
+inject-key 1 key_a shift                → 'A'
+inject-key 1 key_return                 → Enter
+inject-key 1 key_c ctrl                 → Ctrl+C (SIGINT)
+inject-key 1 key_z ctrl                 → Ctrl+Z (SIGTSTP)
+inject-key 1 key_l ctrl                 → Ctrl+L (clear)
+inject-key 1 key_tab                    → Tab
+inject-key 1 key_backspace              → Backspace
+inject-key 1 key_up                     → Arrow up
+inject-key 1 key_d ctrl shift           → Ctrl+Shift+D
+inject-key 1 key_escape                 → Escape
+inject-key 1 key_space                  → Space
+```
+
+HID key names follow ghostty's `Key` enum (lowercase, `key_` prefix). Modifiers
+(`shift`, `ctrl`, `alt`, `super`) can appear in any order. Use `list-hid-keys`
+to see all available key names.
 
 ### 3.5 Text Argument Escaping
 

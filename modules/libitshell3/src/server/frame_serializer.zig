@@ -95,18 +95,26 @@ test "serializeAndWrite: I-frame produces valid protocol message" {
     try std.testing.expect(n != null);
     try std.testing.expectEqual(@as(u64, 1), seq);
 
-    // Read back and decode protocol header
+    // Read back via iovecs and decode protocol header
     var cursor = ring_buffer_mod.RingCursor.init();
+    const p = ring.pendingIovecs(&cursor).?;
+    // Flatten iovecs into a contiguous buffer for decoding
     var read_buf: [8192]u8 = @splat(0);
-    const read_n = ring.peekFrame(&cursor, &read_buf).?;
+    var off: usize = 0;
+    for (p.iov[0..p.count]) |v| {
+        @memcpy(read_buf[off..][0..v.len], v.base[0..v.len]);
+        off += v.len;
+    }
+    // Ring stores [4-byte len prefix][frame_data]. Skip the 4-byte prefix.
+    const read_n = off - 4;
 
-    const hdr = try Header.decode(read_buf[0..protocol.header.HEADER_SIZE]);
+    const hdr = try Header.decode(read_buf[4..][0..protocol.header.HEADER_SIZE]);
     try std.testing.expectEqual(@as(u16, 0x0300), hdr.msg_type);
     try std.testing.expectEqual(.binary, hdr.flags.encoding);
 
     // Decode frame header
     const fh = FrameHeader.decode(
-        read_buf[protocol.header.HEADER_SIZE..][0..protocol.frame_update.FRAME_HEADER_SIZE],
+        read_buf[4 + protocol.header.HEADER_SIZE ..][0..protocol.frame_update.FRAME_HEADER_SIZE],
     );
     try std.testing.expectEqual(@as(u32, 42), fh.session_id);
     try std.testing.expectEqual(@as(u32, 100), fh.pane_id);

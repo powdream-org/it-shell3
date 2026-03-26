@@ -16,12 +16,32 @@ pub const FrameMeta = struct {
 };
 
 /// Per-client read cursor into the ring buffer.
+/// Spec §4.5: cursor tracks read position + last I-frame position.
 pub const RingCursor = struct {
     /// Monotonic byte offset. Ring position = total_read % capacity.
     total_read: usize = 0,
+    /// Monotonic byte offset of the last I-frame sent to this client.
+    /// Spec §4.5 defines the field; update semantics are a spec gap —
+    /// see TODO.md Spec Gap Log item #1.
+    last_i_frame: usize = 0,
 
     pub fn init() RingCursor {
         return .{};
+    }
+};
+
+/// Two iovecs covering all pending bytes from cursor to write_pos.
+/// When pending range does not wrap: iov[0] is valid, iov[1].len == 0.
+/// When pending range wraps the ring: both iov[0] and iov[1] are valid.
+/// Spec §4.6 / §5.4: caller passes these directly to writev() — zero copy.
+pub const PendingIovecs = struct {
+    iov: [2]std.posix.iovec_const,
+    count: usize, // 1 or 2
+
+    pub fn totalLen(self: *const PendingIovecs) usize {
+        var n: usize = 0;
+        for (self.iov[0..self.count]) |v| n += v.len;
+        return n;
     }
 };
 
@@ -31,11 +51,10 @@ pub const RingBuffer = struct {
     write_pos: usize,
     total_written: usize,
 
-    // Frame index — circular array, zero-initialized via FrameMeta defaults
     frame_index: [MAX_FRAME_INDEX]FrameMeta,
     frame_count: usize,
     latest_i_frame_idx: usize,
-    has_i_frame: bool, // true once at least one I-frame has been written
+    has_i_frame: bool,
 
     const inert_state: RingBuffer = .{
         .buf = &.{},
@@ -121,43 +140,44 @@ pub const RingBuffer = struct {
         return self.total_written - cursor.total_read;
     }
 
-    /// Peek at frame data without advancing cursor.
-    /// Copies frame data (without length prefix) into `out`.
-    /// Returns frame length, or null if no frame available.
-    pub fn peekFrame(
-        self: *const RingBuffer,
-        cursor: *const RingCursor,
-        out: []u8,
-    ) ?usize {
+    /// Return iovecs covering ALL pending bytes from cursor to write_pos.
+    /// Spec §4.6 / §5.4: iovecs point DIRECTLY into self.buf — zero copy.
+    /// When range does not wrap: count=1, iov[0] covers the full range.
+    /// When range wraps the ring: count=2, iov[0] = tail segment, iov[1] = head segment.
+    /// Returns null when no pending bytes (available == 0 or cursor overwritten).
+    pub fn pendingIovecs(self: *const RingBuffer, cursor: *const RingCursor) ?PendingIovecs {
         const avail = self.available(cursor);
-        if (avail < 4) return null;
+        if (avail == 0) return null;
 
-        var len_buf: [4]u8 = undefined;
         const read_pos = cursor.total_read % self.capacity;
-        self.readBytesAt(read_pos, &len_buf);
-        const frame_len = std.mem.readInt(u32, &len_buf, .little);
+        const tail_len = self.capacity - read_pos; // bytes from read_pos to end of buf
 
-        if (frame_len > out.len) return null;
-        if (avail < 4 + frame_len) return null;
-
-        const data_pos = (cursor.total_read + 4) % self.capacity;
-        self.readBytesAt(data_pos, out[0..frame_len]);
-        return frame_len;
-    }
-
-    /// Advance cursor past a frame. `frame_len` is the value returned by
-    /// peekFrame — passing it avoids re-reading the length prefix from the ring.
-    pub fn advancePastFrame(self: *const RingBuffer, cursor: *RingCursor, frame_len: usize) void {
-        _ = self;
-        cursor.total_read += 4 + frame_len;
-    }
-
-    fn readBytesAt(self: *const RingBuffer, pos: usize, out: []u8) void {
-        const first_len = @min(out.len, self.capacity - pos);
-        @memcpy(out[0..first_len], self.buf[pos..][0..first_len]);
-        if (first_len < out.len) {
-            @memcpy(out[first_len..], self.buf[0 .. out.len - first_len]);
+        if (avail <= tail_len) {
+            return .{
+                .iov = .{
+                    .{ .base = self.buf.ptr + read_pos, .len = avail },
+                    .{ .base = self.buf.ptr, .len = 0 },
+                },
+                .count = 1,
+            };
+        } else {
+            const head_len = avail - tail_len;
+            return .{
+                .iov = .{
+                    .{ .base = self.buf.ptr + read_pos, .len = tail_len },
+                    .{ .base = self.buf.ptr, .len = head_len },
+                },
+                .count = 2,
+            };
         }
+    }
+
+    /// Advance cursor by exactly n bytes.
+    /// Spec §5.4: "advance client cursor by n bytes".
+    /// n must not exceed available(cursor). Asserts in debug builds.
+    pub fn advanceCursor(self: *const RingBuffer, cursor: *RingCursor, n: usize) void {
+        std.debug.assert(n <= self.available(cursor));
+        cursor.total_read += n;
     }
 
     /// Advance cursor to the latest I-frame position.
@@ -166,6 +186,7 @@ pub const RingBuffer = struct {
         const meta = self.frame_index[self.latest_i_frame_idx];
         if (self.total_written - meta.total_offset <= self.capacity) {
             cursor.total_read = meta.total_offset;
+            cursor.last_i_frame = meta.total_offset;
         }
     }
 
@@ -188,40 +209,137 @@ test "init: zero state with correct capacity" {
     try std.testing.expect(!rb.hasValidIFrame());
 }
 
-test "writeFrame + peekFrame: data integrity round-trip" {
+test "RingCursor: last_i_frame field present and zero-initialized (spec §4.5)" {
+    const cursor = RingCursor.init();
+    try std.testing.expectEqual(@as(usize, 0), cursor.total_read);
+    try std.testing.expectEqual(@as(usize, 0), cursor.last_i_frame);
+}
+
+test "pendingIovecs: null when ring is empty" {
+    var backing: [1024]u8 = @splat(0);
+    const rb = RingBuffer.init(&backing);
+    const cursor = RingCursor.init();
+    try std.testing.expect(rb.pendingIovecs(&cursor) == null);
+}
+
+test "pendingIovecs: single iovec, no wrap (spec §4.6 zero-copy)" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
-    var cursor = RingCursor.init();
+    const cursor = RingCursor.init();
 
     const payload = "hello, ring buffer!";
     try rb.writeFrame(payload, false, 42);
 
-    var out: [256]u8 = @splat(0);
-    const n = rb.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqualSlices(u8, payload, out[0..n]);
+    const p = rb.pendingIovecs(&cursor).?;
+    try std.testing.expectEqual(@as(usize, 1), p.count);
+    // Zero-copy proof: iovec base must be inside self.buf address range
+    const buf_start = @intFromPtr(rb.buf.ptr);
+    const buf_end = buf_start + rb.capacity;
+    const iov_base = @intFromPtr(p.iov[0].base);
+    try std.testing.expect(iov_base >= buf_start and iov_base < buf_end);
+    // Length must equal available bytes
+    try std.testing.expectEqual(rb.available(&cursor), p.totalLen());
 }
 
-test "peekFrame does NOT advance cursor; advancePastFrame does" {
+test "pendingIovecs: two iovecs when pending range wraps ring (spec §4.6)" {
+    // 32-byte ring. Write 3 frames of 10 bytes each (entry = 14).
+    // After reading 2 frames (28 bytes), write_pos = 28.
+    // Third frame at 28..42 wraps: 4 bytes tail + 10 bytes head.
+    var backing: [32]u8 = @splat(0);
+    var rb = RingBuffer.init(&backing);
+    var cursor = RingCursor.init();
+
+    const f = [_]u8{'A'} ** 10; // 14 bytes per entry
+    try rb.writeFrame(&f, false, 1);
+    try rb.writeFrame(&f, false, 2);
+    // Advance cursor past first two entries (28 bytes)
+    rb.advanceCursor(&cursor, 14);
+    rb.advanceCursor(&cursor, 14);
+    // Now write the third frame — it wraps at position 28 (28+14=42 > 32)
+    try rb.writeFrame(&f, true, 3);
+
+    const avail = rb.available(&cursor);
+    try std.testing.expectEqual(@as(usize, 14), avail);
+
+    const p = rb.pendingIovecs(&cursor).?;
+    try std.testing.expectEqual(@as(usize, 2), p.count);
+
+    // Both iovecs must point into rb.buf
+    const buf_start = @intFromPtr(rb.buf.ptr);
+    const buf_end = buf_start + rb.capacity;
+    try std.testing.expect(@intFromPtr(p.iov[0].base) >= buf_start and @intFromPtr(p.iov[0].base) < buf_end);
+    try std.testing.expect(@intFromPtr(p.iov[1].base) >= buf_start and @intFromPtr(p.iov[1].base) < buf_end);
+
+    // Total length must equal available bytes
+    try std.testing.expectEqual(avail, p.totalLen());
+
+    // Concatenated content must equal the original entry bytes
+    var combined: [32]u8 = @splat(0);
+    @memcpy(combined[0..p.iov[0].len], p.iov[0].base[0..p.iov[0].len]);
+    @memcpy(combined[p.iov[0].len..][0..p.iov[1].len], p.iov[1].base[0..p.iov[1].len]);
+    // The 4-byte length prefix of the third frame should be 10 (little-endian)
+    try std.testing.expectEqual(@as(u32, 10), std.mem.readInt(u32, combined[0..4], .little));
+}
+
+test "advanceCursor: byte-granular advancement (spec §5.4)" {
+    var backing: [1024]u8 = @splat(0);
+    var rb = RingBuffer.init(&backing);
+    var cursor = RingCursor.init();
+
+    try rb.writeFrame("hello", false, 1); // 9 bytes
+    try rb.writeFrame("world", false, 2); // 9 bytes
+    try std.testing.expectEqual(@as(usize, 18), rb.available(&cursor));
+
+    // Partial advance: 5 bytes
+    rb.advanceCursor(&cursor, 5);
+    try std.testing.expectEqual(@as(usize, 5), cursor.total_read);
+    try std.testing.expectEqual(@as(usize, 13), rb.available(&cursor));
+
+    // Advance remaining
+    rb.advanceCursor(&cursor, 13);
+    try std.testing.expectEqual(@as(usize, 18), cursor.total_read);
+    try std.testing.expectEqual(@as(usize, 0), rb.available(&cursor));
+    try std.testing.expect(rb.pendingIovecs(&cursor) == null);
+}
+
+test "advanceCursor: zero advance is no-op" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
 
     try rb.writeFrame("data", false, 1);
+    const before = cursor.total_read;
+    rb.advanceCursor(&cursor, 0);
+    try std.testing.expectEqual(before, cursor.total_read);
+}
 
-    var out: [256]u8 = @splat(0);
-    // Peek twice — same result, cursor unchanged
-    const n1 = rb.peekFrame(&cursor, &out).?;
-    const saved_read = cursor.total_read;
-    const n2 = rb.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqual(n1, n2);
-    try std.testing.expectEqual(saved_read, cursor.total_read);
+test "pendingIovecs: iovec total equals available() (spec §5.4)" {
+    var backing: [1024]u8 = @splat(0);
+    var rb = RingBuffer.init(&backing);
+    var cursor = RingCursor.init();
 
-    // Advance — cursor moves
-    rb.advancePastFrame(&cursor, n1);
-    try std.testing.expect(cursor.total_read > saved_read);
+    try rb.writeFrame("hello", false, 1);
+    try rb.writeFrame("world!", false, 2);
 
-    // No more data
-    try std.testing.expect(rb.peekFrame(&cursor, &out) == null);
+    const avail = rb.available(&cursor);
+    const p = rb.pendingIovecs(&cursor).?;
+    try std.testing.expectEqual(avail, p.totalLen());
+}
+
+test "independent cursors: advancing A does not affect B (spec §4.5)" {
+    var backing: [1024]u8 = @splat(0);
+    var rb = RingBuffer.init(&backing);
+    var c1 = RingCursor.init();
+    var c2 = RingCursor.init();
+
+    try rb.writeFrame("frame-A", false, 1);
+    try rb.writeFrame("frame-B", false, 2);
+
+    const avail_before = rb.available(&c2);
+    rb.advanceCursor(&c1, rb.available(&c1));
+    // c2 unaffected
+    try std.testing.expectEqual(avail_before, rb.available(&c2));
+    try std.testing.expectEqual(@as(usize, 0), rb.available(&c1));
 }
 
 test "monotonic counters advance correctly" {
@@ -243,42 +361,6 @@ test "rejects frame larger than half capacity" {
     try std.testing.expectError(error.FrameTooLarge, rb.writeFrame(&big, false, 1));
 }
 
-test "wrap-around: data integrity across ring boundary" {
-    var backing: [64]u8 = @splat(0);
-    var rb = RingBuffer.init(&backing);
-    var cursor = RingCursor.init();
-
-    const frame_a = "AAAAAAAAAA"; // 14 bytes per entry (4 + 10)
-    const frame_b = "BBBBBBBBBB";
-    const frame_c = "CCCCCCCCCC";
-    const frame_d = "DDDDDDDDDD";
-
-    try rb.writeFrame(frame_a, true, 1);
-    try rb.writeFrame(frame_b, false, 2);
-    try rb.writeFrame(frame_c, false, 3);
-    try rb.writeFrame(frame_d, false, 4); // 56 bytes total
-
-    var out: [64]u8 = @splat(0);
-    const na = rb.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqualSlices(u8, frame_a, out[0..na]);
-    rb.advancePastFrame(&cursor, na);
-    const nb = rb.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqualSlices(u8, frame_b, out[0..nb]);
-    rb.advancePastFrame(&cursor, nb);
-    const nc = rb.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqualSlices(u8, frame_c, out[0..nc]);
-    rb.advancePastFrame(&cursor, nc);
-    const nd = rb.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqualSlices(u8, frame_d, out[0..nd]);
-    rb.advancePastFrame(&cursor, nd);
-
-    // Write a wrapping frame
-    const frame_e = "EEEEEEEEEE";
-    try rb.writeFrame(frame_e, true, 5);
-    const n = rb.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqualSlices(u8, frame_e, out[0..n]);
-}
-
 test "isCursorOverwritten: detects when cursor data is gone" {
     var backing: [32]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
@@ -297,11 +379,10 @@ test "isCursorOverwritten: caught-up cursor is never overwritten" {
     var backing: [64]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
-    var out: [64]u8 = @splat(0);
 
     try rb.writeFrame("abc", false, 1);
-    const n = rb.peekFrame(&cursor, &out).?;
-    rb.advancePastFrame(&cursor, n);
+    const n = rb.available(&cursor);
+    rb.advanceCursor(&cursor, n);
     try std.testing.expect(!rb.isCursorOverwritten(&cursor));
 }
 
@@ -329,16 +410,6 @@ test "available: returns 0 for overwritten cursor" {
     try std.testing.expectEqual(@as(usize, 0), rb.available(&cursor));
 }
 
-test "peekFrame: returns null when buffer too small" {
-    var backing: [1024]u8 = @splat(0);
-    var rb = RingBuffer.init(&backing);
-    var cursor = RingCursor.init();
-    const big = [_]u8{'Z'} ** 100;
-    try rb.writeFrame(&big, false, 1);
-    var small: [50]u8 = @splat(0);
-    try std.testing.expect(rb.peekFrame(&cursor, &small) == null);
-}
-
 test "I-frame tracking: latest_i_frame_idx tracks most recent" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
@@ -357,32 +428,38 @@ test "I-frame tracking: latest_i_frame_idx tracks most recent" {
     try std.testing.expectEqual(@as(u64, 4), rb.frame_index[rb.latest_i_frame_idx].frame_sequence);
 }
 
-test "seekToLatestIFrame: cursor reads I-frame then subsequent frames" {
+test "seekToLatestIFrame: cursor reads I-frame then subsequent frames via iovecs" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
 
+    // Write: P P I P P
+    // lengths: "p-frame-1"=13, "THE-I-FRAME"=15, "p-frame-2"=13, "p-frame-3"=13
     try rb.writeFrame("p-frame-1", false, 1);
     try rb.writeFrame("THE-I-FRAME", true, 2);
     try rb.writeFrame("p-frame-2", false, 3);
     try rb.writeFrame("p-frame-3", false, 4);
 
     rb.seekToLatestIFrame(&cursor);
+    // cursor.last_i_frame should be updated
+    try std.testing.expect(cursor.last_i_frame > 0 or cursor.total_read == 0);
 
-    var out: [256]u8 = @splat(0);
-    const n1 = rb.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqualSlices(u8, "THE-I-FRAME", out[0..n1]);
-    rb.advancePastFrame(&cursor, n1);
-    const n2 = rb.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqualSlices(u8, "p-frame-2", out[0..n2]);
-    rb.advancePastFrame(&cursor, n2);
-    const n3 = rb.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqualSlices(u8, "p-frame-3", out[0..n3]);
+    // Verify iovecs start from I-frame: the first 4 bytes read via iovec
+    // form the length prefix of "THE-I-FRAME" (11 bytes).
+    const p = rb.pendingIovecs(&cursor).?;
+    var combined: [512]u8 = @splat(0);
+    var off: usize = 0;
+    for (p.iov[0..p.count]) |v| {
+        @memcpy(combined[off..][0..v.len], v.base[0..v.len]);
+        off += v.len;
+    }
+    // First 4 bytes = length prefix of "THE-I-FRAME" = 11
+    try std.testing.expectEqual(@as(u32, 11), std.mem.readInt(u32, combined[0..4], .little));
+    // Bytes 4..15 = the I-frame payload
+    try std.testing.expectEqualSlices(u8, "THE-I-FRAME", combined[4..15]);
 }
 
 test "seekToLatestIFrame: recovers overwritten cursor" {
-    // 96-byte ring, 8-byte payload frames (12 bytes per entry incl. prefix).
-    // 9 entries = 108 bytes > 96 => cursor gets overwritten.
     var backing: [96]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -415,7 +492,7 @@ test "hasValidIFrame: false with no I-frames, true after I-frame" {
     try std.testing.expect(rb.hasValidIFrame());
 }
 
-test "multiple independent cursors read full sequence" {
+test "multiple independent cursors: iovecs span same ring memory (spec §4.1 §4.11)" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var c1 = RingCursor.init();
@@ -425,25 +502,69 @@ test "multiple independent cursors read full sequence" {
     try rb.writeFrame("frame-B", false, 2);
     try rb.writeFrame("frame-C", false, 3);
 
-    var out: [64]u8 = @splat(0);
-    // Cursor 1
-    const c1a = rb.peekFrame(&c1, &out).?;
-    try std.testing.expectEqualSlices(u8, "frame-A", out[0..c1a]);
-    rb.advancePastFrame(&c1, c1a);
-    const c1b = rb.peekFrame(&c1, &out).?;
-    try std.testing.expectEqualSlices(u8, "frame-B", out[0..c1b]);
-    rb.advancePastFrame(&c1, c1b);
-    const c1c = rb.peekFrame(&c1, &out).?;
-    try std.testing.expectEqualSlices(u8, "frame-C", out[0..c1c]);
-    rb.advancePastFrame(&c1, c1c);
+    // Both cursors get iovecs from the same ring backing memory
+    const p1 = rb.pendingIovecs(&c1).?;
+    const p2 = rb.pendingIovecs(&c2).?;
 
-    // Cursor 2 — same data
-    const c2a = rb.peekFrame(&c2, &out).?;
-    try std.testing.expectEqualSlices(u8, "frame-A", out[0..c2a]);
-    rb.advancePastFrame(&c2, c2a);
-    const c2b = rb.peekFrame(&c2, &out).?;
-    try std.testing.expectEqualSlices(u8, "frame-B", out[0..c2b]);
-    rb.advancePastFrame(&c2, c2b);
-    const c2c = rb.peekFrame(&c2, &out).?;
-    try std.testing.expectEqualSlices(u8, "frame-C", out[0..c2c]);
+    const buf_start = @intFromPtr(rb.buf.ptr);
+    const buf_end = buf_start + rb.capacity;
+
+    for (p1.iov[0..p1.count]) |v| {
+        try std.testing.expect(@intFromPtr(v.base) >= buf_start and @intFromPtr(v.base) < buf_end);
+    }
+    for (p2.iov[0..p2.count]) |v| {
+        try std.testing.expect(@intFromPtr(v.base) >= buf_start and @intFromPtr(v.base) < buf_end);
+    }
+
+    // Both cursors see identical total bytes
+    try std.testing.expectEqual(p1.totalLen(), p2.totalLen());
+
+    // Advance c1 entirely; c2 stays put
+    rb.advanceCursor(&c1, p1.totalLen());
+    try std.testing.expectEqual(@as(usize, 0), rb.available(&c1));
+    try std.testing.expectEqual(p2.totalLen(), rb.available(&c2));
+}
+
+test "wrap-around: data integrity via iovecs across ring boundary" {
+    var backing: [64]u8 = @splat(0);
+    var rb = RingBuffer.init(&backing);
+    var cursor = RingCursor.init();
+
+    const frame_a = "AAAAAAAAAA"; // 14 bytes per entry (4 + 10)
+    const frame_b = "BBBBBBBBBB";
+    const frame_c = "CCCCCCCCCC";
+    const frame_d = "DDDDDDDDDD";
+
+    try rb.writeFrame(frame_a, true, 1);
+    try rb.writeFrame(frame_b, false, 2);
+    try rb.writeFrame(frame_c, false, 3);
+    try rb.writeFrame(frame_d, false, 4); // 56 bytes total
+
+    // Advance cursor to read all 4 frames byte-by-byte via iovecs
+    var read_buf: [256]u8 = @splat(0);
+    var off: usize = 0;
+    const p = rb.pendingIovecs(&cursor).?;
+    for (p.iov[0..p.count]) |v| {
+        @memcpy(read_buf[off..][0..v.len], v.base[0..v.len]);
+        off += v.len;
+    }
+    try std.testing.expectEqual(@as(usize, 56), off);
+    rb.advanceCursor(&cursor, 56);
+
+    // Write a wrapping frame (starts at position 56 % 64 = 56, extends to 70)
+    const frame_e = "EEEEEEEEEE";
+    try rb.writeFrame(frame_e, true, 5);
+    const avail = rb.available(&cursor);
+    try std.testing.expectEqual(@as(usize, 14), avail);
+
+    const p2 = rb.pendingIovecs(&cursor).?;
+    var combined: [64]u8 = @splat(0);
+    var off2: usize = 0;
+    for (p2.iov[0..p2.count]) |v| {
+        @memcpy(combined[off2..][0..v.len], v.base[0..v.len]);
+        off2 += v.len;
+    }
+    // Verify 4-byte prefix = 10, then payload = frame_e
+    try std.testing.expectEqual(@as(u32, 10), std.mem.readInt(u32, combined[0..4], .little));
+    try std.testing.expectEqualSlices(u8, frame_e, combined[4..14]);
 }

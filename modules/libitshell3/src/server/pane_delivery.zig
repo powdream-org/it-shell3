@@ -103,12 +103,15 @@ test "initPaneRing: ring buffer is functional after allocation" {
     try state.initPaneRing(0);
     const ring = state.getRingBuffer(0).?;
 
-    // Write and read back
+    // Write and read back via iovecs
     try ring.writeFrame("test-frame", true, 1);
     var cursor = ring_buffer_mod.RingCursor.init();
+    const p = ring.pendingIovecs(&cursor).?;
+    // First iovec should contain the entry: [4-byte len prefix]["test-frame"]
     var out: [256]u8 = @splat(0);
-    const n = ring.peekFrame(&cursor, &out).?;
-    try std.testing.expectEqualSlices(u8, "test-frame", out[0..n]);
+    @memcpy(out[0..p.iov[0].len], p.iov[0].base[0..p.iov[0].len]);
+    // Skip 4-byte ring length prefix to get frame payload
+    try std.testing.expectEqualSlices(u8, "test-frame", out[4..14]);
 }
 
 test "multiple pane slots can coexist independently" {
@@ -127,19 +130,30 @@ test "multiple pane slots can coexist independently" {
     try r7.writeFrame("pane-7-frame", false, 2);
     try r15.writeFrame("pane-15-frame", true, 3);
 
-    var c: ring_buffer_mod.RingCursor = .{};
+    // Verify each pane's ring has data via iovecs
+    var c0 = ring_buffer_mod.RingCursor.init();
+    var c7 = ring_buffer_mod.RingCursor.init();
+    var c15 = ring_buffer_mod.RingCursor.init();
+
+    const p0 = r0.pendingIovecs(&c0).?;
+    const p7 = r7.pendingIovecs(&c7).?;
+    const p15 = r15.pendingIovecs(&c15).?;
+
+    // Each ring has data, and iovecs point into their respective ring backing
+    try std.testing.expect(p0.totalLen() > 0);
+    try std.testing.expect(p7.totalLen() > 0);
+    try std.testing.expect(p15.totalLen() > 0);
+
+    // Verify payload content by reading past 4-byte length prefix
     var out: [256]u8 = @splat(0);
+    @memcpy(out[0..p0.iov[0].len], p0.iov[0].base[0..p0.iov[0].len]);
+    try std.testing.expectEqualSlices(u8, "pane-0-frame", out[4..16]);
 
-    const n0 = r0.peekFrame(&c, &out).?;
-    try std.testing.expectEqualSlices(u8, "pane-0-frame", out[0..n0]);
+    @memcpy(out[0..p7.iov[0].len], p7.iov[0].base[0..p7.iov[0].len]);
+    try std.testing.expectEqualSlices(u8, "pane-7-frame", out[4..16]);
 
-    c = .{};
-    const n7 = r7.peekFrame(&c, &out).?;
-    try std.testing.expectEqualSlices(u8, "pane-7-frame", out[0..n7]);
-
-    c = .{};
-    const n15 = r15.peekFrame(&c, &out).?;
-    try std.testing.expectEqualSlices(u8, "pane-15-frame", out[0..n15]);
+    @memcpy(out[0..p15.iov[0].len], p15.iov[0].base[0..p15.iov[0].len]);
+    try std.testing.expectEqualSlices(u8, "pane-15-frame", out[4..17]);
 }
 
 test "SharedScratch: init produces zeroed buffer" {

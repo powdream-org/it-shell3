@@ -1,11 +1,12 @@
 const std = @import("std");
 const direct_queue_mod = @import("direct_queue.zig");
 const ring_buffer_mod = @import("ring_buffer.zig");
-const frame_serializer_mod = @import("frame_serializer.zig");
 const DirectQueue = direct_queue_mod.DirectQueue;
 const RingBuffer = ring_buffer_mod.RingBuffer;
 const RingCursor = ring_buffer_mod.RingCursor;
 
+/// Result of a writePending call.
+/// Matches spec §5.4 three-branch model exactly.
 pub const WriteResult = enum {
     fully_caught_up,
     more_pending,
@@ -17,27 +18,25 @@ pub const WriteResult = enum {
 /// Per-client two-channel writer: drains direct (priority 1) queue first,
 /// then delivers ring buffer frames (priority 2).
 ///
-/// **Partial frame handling**: When a ring frame write is partial, the cursor
-/// is NOT advanced. Instead, `ring_frame_sent` tracks how many bytes of the
-/// current frame have been sent. The frame is re-peeked (re-read from the
-/// ring) on the next write attempt, starting from `ring_frame_sent`. This
-/// avoids buffering a full frame copy (up to MAX_FRAME_SIZE bytes) per client.
+/// Delivery model per spec §5.4:
+///   1. Drain direct queue completely (or until write blocks).
+///   2. Get iovecs for ALL pending ring bytes (cursor to write_pos).
+///   3. Call writev() once — kernel reads directly from ring memory (zero copy).
+///   4. Advance cursor by bytes returned by writev().
+///   5. Partial writes: cursor holds position, next call resumes from there.
+///
+/// No intermediate frame buffer. No ring_frame_sent tracker.
 pub const ClientWriter = struct {
     direct_queue: DirectQueue,
     ring_cursor: RingCursor,
     /// Partial send state for direct queue messages.
     direct_partial_offset: usize,
-    /// How many bytes of the current ring frame have already been sent.
-    /// Non-zero means a partial ring frame is in progress.
-    /// Cursor is NOT advanced until the full frame is sent.
-    ring_frame_sent: usize,
 
     pub fn init() ClientWriter {
         return .{
             .direct_queue = DirectQueue.init(),
             .ring_cursor = RingCursor.init(),
             .direct_partial_offset = 0,
-            .ring_frame_sent = 0,
         };
     }
 
@@ -50,67 +49,55 @@ pub const ClientWriter = struct {
     }
 
     pub fn hasPending(self: *const ClientWriter, ring: *const RingBuffer) bool {
-        if (self.ring_frame_sent > 0) return true;
         return !self.direct_queue.isEmpty() or ring.available(&self.ring_cursor) > 0;
     }
 
-    /// Attempt to write pending data to socket.
+    /// Attempt to write pending data to socket fd.
     /// Priority: direct queue (priority 1) → ring buffer (priority 2).
-    ///
+    /// Spec §4.4 (two-channel priority), §5.4 (delivery pseudocode).
     pub fn writePending(
         self: *ClientWriter,
         fd: std.posix.socket_t,
         ring: *const RingBuffer,
     ) WriteResult {
-        // Phase 1: Drain direct queue (priority 1)
-        var msg_buf: [direct_queue_mod.QUEUE_CAPACITY]u8 = undefined;
-        while (true) {
-            const msg_len = self.direct_queue.peekCopy(&msg_buf) orelse break;
-            const data = msg_buf[self.direct_partial_offset..msg_len];
+        // Phase 1: Drain direct queue (priority 1).
+        if (!self.direct_queue.isEmpty()) {
+            var msg_buf: [direct_queue_mod.QUEUE_CAPACITY]u8 = undefined;
+            while (true) {
+                const msg_len = self.direct_queue.peekCopy(&msg_buf) orelse break;
+                const data = msg_buf[self.direct_partial_offset..msg_len];
 
-            const n = std.posix.write(fd, data) catch |err| return writeErrorToResult(err);
-            if (n == 0) return .peer_closed;
+                const n = std.posix.write(fd, data) catch |err| return writeErrorToResult(err);
+                if (n == 0) return .peer_closed;
 
-            if (n + self.direct_partial_offset < msg_len) {
-                self.direct_partial_offset += n;
-                return .more_pending;
+                if (n + self.direct_partial_offset < msg_len) {
+                    self.direct_partial_offset += n;
+                    return .more_pending;
+                }
+                self.direct_queue.dequeue();
+                self.direct_partial_offset = 0;
             }
-            self.direct_queue.dequeue();
-            self.direct_partial_offset = 0;
         }
 
-        // Phase 2: Deliver ring buffer frames
+        // Phase 2: Zero-copy ring buffer delivery (priority 2).
         if (ring.isCursorOverwritten(&self.ring_cursor)) {
             ring.seekToLatestIFrame(&self.ring_cursor);
-            self.ring_frame_sent = 0;
         }
 
-        var frame_buf: [frame_serializer_mod.SCRATCH_SIZE]u8 = undefined;
+        const pending = ring.pendingIovecs(&self.ring_cursor) orelse {
+            return .fully_caught_up;
+        };
 
-        while (ring.available(&self.ring_cursor) > 0 or self.ring_frame_sent > 0) {
-            const frame_len = ring.peekFrame(&self.ring_cursor, &frame_buf) orelse break;
+        const n = std.posix.writev(fd, pending.iov[0..pending.count]) catch |err| return writeErrorToResult(err);
 
-            const remaining = frame_buf[self.ring_frame_sent..frame_len];
-            if (remaining.len == 0) {
-                ring.advancePastFrame(&self.ring_cursor, frame_len);
-                self.ring_frame_sent = 0;
-                continue;
-            }
+        if (n == 0) return .peer_closed;
 
-            const n = std.posix.write(fd, remaining) catch |err| return writeErrorToResult(err);
-            if (n == 0) return .peer_closed;
+        ring.advanceCursor(&self.ring_cursor, n);
 
-            if (n < remaining.len) {
-                self.ring_frame_sent += n;
-                return .more_pending;
-            }
-
-            ring.advancePastFrame(&self.ring_cursor, frame_len);
-            self.ring_frame_sent = 0;
+        if (ring.available(&self.ring_cursor) == 0 and self.direct_queue.isEmpty()) {
+            return .fully_caught_up;
         }
-
-        if (self.hasPending(ring)) return .more_pending;
-        return .fully_caught_up;
+        return .more_pending;
     }
 
     fn writeErrorToResult(err: anyerror) WriteResult {
@@ -124,11 +111,16 @@ pub const ClientWriter = struct {
 
 // --- Tests ---
 
-test "init: clean state" {
+test "init: clean state — no ring_frame_sent field" {
     const cw = ClientWriter.init();
     try std.testing.expect(cw.direct_queue.isEmpty());
-    try std.testing.expectEqual(@as(usize, 0), cw.ring_frame_sent);
     try std.testing.expectEqual(@as(usize, 0), cw.direct_partial_offset);
+    try std.testing.expectEqual(@as(usize, 0), cw.ring_cursor.total_read);
+    // Verify no large stack buffer in struct (structural check via field count).
+    // ClientWriter has exactly 3 fields: direct_queue, ring_cursor, direct_partial_offset.
+    // Use comptime field count to avoid runtime typeInfo limitation.
+    const field_count = comptime @typeInfo(ClientWriter).@"struct".fields.len;
+    try std.testing.expectEqual(@as(usize, 3), field_count);
 }
 
 test "enqueueDirect adds to direct queue" {
@@ -162,30 +154,38 @@ test "hasPending: true with ring data" {
     try std.testing.expect(cw.hasPending(&ring));
 }
 
-test "hasPending: true with partial ring frame in progress" {
-    var cw = ClientWriter.init();
-    var backing: [1024]u8 = @splat(0);
-    const ring = RingBuffer.init(&backing);
-    // Simulate partial frame state
-    cw.ring_frame_sent = 5;
-    try std.testing.expect(cw.hasPending(&ring));
-}
-
-test "hasPending: false with ring data but cursor caught up" {
+test "hasPending: false when ring cursor caught up" {
     var cw = ClientWriter.init();
     var backing: [1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     try ring.writeFrame("frame", false, 1);
-    var out: [256]u8 = undefined;
-    const n = ring.peekFrame(&cw.ring_cursor, &out).?;
-    ring.advancePastFrame(&cw.ring_cursor, n);
+    const n = ring.available(&cw.ring_cursor);
+    ring.advanceCursor(&cw.ring_cursor, n);
+    try std.testing.expect(!cw.hasPending(&ring));
+}
+
+test "hasPending: reflects both channels independently" {
+    var cw = ClientWriter.init();
+    defer cw.deinit();
+    var backing: [1024]u8 = @splat(0);
+    var ring = RingBuffer.init(&backing);
+
+    // Direct only
+    try cw.enqueueDirect("msg");
+    try std.testing.expect(cw.hasPending(&ring));
+    cw.direct_queue.dequeue();
+    try std.testing.expect(!cw.hasPending(&ring));
+
+    // Ring only
+    try ring.writeFrame("frame", false, 1);
+    try std.testing.expect(cw.hasPending(&ring));
+    ring.advanceCursor(&cw.ring_cursor, ring.available(&cw.ring_cursor));
     try std.testing.expect(!cw.hasPending(&ring));
 }
 
 test "enqueueDirect error propagation from QueueFull" {
     var cw = ClientWriter.init();
     defer cw.deinit();
-    // Fill up to near capacity
     const big = [_]u8{'A'} ** (direct_queue_mod.QUEUE_CAPACITY - 8);
     try cw.enqueueDirect(&big);
     try std.testing.expectError(error.QueueFull, cw.enqueueDirect("overflow"));
@@ -194,4 +194,20 @@ test "enqueueDirect error propagation from QueueFull" {
 test "ring_cursor starts at zero" {
     const cw = ClientWriter.init();
     try std.testing.expectEqual(@as(usize, 0), cw.ring_cursor.total_read);
+}
+
+test "WriteResult enum has spec §5.4 three-branch variants" {
+    // Verify all three spec §5.4 outcomes + write_error are present
+    _ = WriteResult.fully_caught_up;
+    _ = WriteResult.more_pending;
+    _ = WriteResult.would_block;
+    _ = WriteResult.peer_closed;
+    _ = WriteResult.write_error;
+}
+
+test "partial cursor advancement: cursor position is the only state (no extra tracker)" {
+    // Verify that the struct has no ring_frame_sent or frame_buf field.
+    // Partial state is entirely encoded in ring_cursor.total_read (spec §5.4).
+    try std.testing.expect(!@hasField(ClientWriter, "ring_frame_sent"));
+    try std.testing.expect(!@hasField(ClientWriter, "frame_buf"));
 }
