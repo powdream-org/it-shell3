@@ -9,14 +9,14 @@ The daemon architecture spec (§4.3) says: "The ring buffer stores pre-serialize
 wire-format frames (FrameEntry = header + payload bytes)." This names
 `FrameEntry` as a concept but provides no struct definition.
 
-During Plan 4 implementation, the question arose: should `FrameEntry` exist as a
-named type in the code? Analysis by the daemon-architect and
+During the ring buffer implementation, the question arose: should `FrameEntry`
+exist as a named type in the code? Analysis by the daemon-architect and
 ghostty-integration-engineer identified the frame export data flow:
 
 ```
 ghostty/render_export.bulkExport()  →  ExportResult (FlatCell[] + dirty_bitmap)
 ghostty/preedit_overlay.overlayPreedit()  →  mutates FlatCell[] in-place
-server/frame_builder.buildDirtyRows()  →  DirtyRow[]  [Plan 6, not yet implemented]
+server/frame_builder.buildDirtyRows()  →  DirtyRow[]  [not yet implemented]
 server/frame_serializer.serializeAndWrite()  →  raw bytes written to ring
 ```
 
@@ -31,8 +31,8 @@ order: codepoint/fg/bg/flags/wide/content_tag) must be converted to `CellData[]`
 (protocol wire format, field order: codepoint/wide/flags/content_tag/fg/bg).
 Despite both being 16-byte extern structs, their field orderings differ — no
 bitcast is valid. This conversion belongs in a new `server/frame_builder.zig`
-module (Plan 6), which sits at the boundary between ghostty-domain and
-protocol-domain types.
+module (the runtime policies implementation), which sits at the boundary between
+ghostty-domain and protocol-domain types.
 
 Note: the integration boundaries spec (§4.3) states FlatCell and CellData have
 "identical memory layout." The code shows they do not — the field order
@@ -49,19 +49,20 @@ serializer's existing parameter list (session_id, pane_id, frame_type,
 dirty_rows, next_sequence) is its input contract — callers conform to it.
 
 The FlatCell→CellData conversion and dirty bitmap → DirtyRow[] assembly will
-live in `server/frame_builder.zig` (Plan 6). This module depends on both
-`ghostty/` (for ExportResult/FlatCell) and `libitshell3-protocol` (for
-CellData/DirtyRow). The ring buffer remains type-agnostic — it stores and
-delivers raw bytes via `writeFrame()`.
+live in `server/frame_builder.zig` (the runtime policies implementation). This
+module depends on both `ghostty/` (for ExportResult/FlatCell) and
+`libitshell3-protocol` (for CellData/DirtyRow). The ring buffer remains
+type-agnostic — it stores and delivers raw bytes via `writeFrame()`.
 
 ## Consequences
 
 - No new type to maintain. The serializer's flat parameter list is the only
   interface contract between the frame export pipeline and the serialization
   step.
-- If Plan 6 reveals that frames need to be batched, queued, or inspected before
-  serialization, a local struct in `frame_builder.zig` can be introduced at that
-  point — driven by implementation need, not speculative design.
+- If the runtime policies implementation reveals that frames need to be batched,
+  queued, or inspected before serialization, a local struct in
+  `frame_builder.zig` can be introduced at that point — driven by implementation
+  need, not speculative design.
 - The spec's "FrameEntry = header + payload bytes" accurately describes what the
   ring buffer stores (raw wire bytes), not a pre-serialization struct. No spec
   change needed.
