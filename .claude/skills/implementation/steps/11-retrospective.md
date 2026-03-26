@@ -65,15 +65,16 @@ reason.
 After retrospective is complete:
 
 1. Delete `<target>/TODO.md`
-2. Delete the implementation plan (`.claude/plan/<name>.md`)
-3. Commit:
+2. Delete `<target>/retrospective/` (SIPs have been processed in 11c)
+3. Delete the implementation plan (`.claude/plan/<name>.md`)
+4. Commit:
 
 ```bash
 git add -u
 git commit -m "$(cat <<'EOF'
 chore(<target>): clean up implementation artifacts
 
-Remove TODO.md and implementation plan after owner acceptance.
+Remove TODO.md, processed SIPs, and implementation plan after owner acceptance.
 EOF
 )"
 ```
