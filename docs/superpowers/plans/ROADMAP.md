@@ -22,7 +22,7 @@ libhangul, POSIX (kqueue/epoll, forkpty, Unix sockets).
 
 | Module               | Source Files | Tests | Coverage (kcov)            |
 | -------------------- | ------------ | ----- | -------------------------- |
-| libitshell3          | 29           | 159   | 94.33%                     |
+| libitshell3          | 33           | 274   | 94.54%                     |
 | libitshell3-protocol | 16           | 128   | 97.44%                     |
 | libitshell3-ime      | 10           | 138   | exempted (scenario-matrix) |
 | daemon               | 1            | —     | —                          |
@@ -38,7 +38,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 1 | Foundation                        | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**    |
 | 2 | ghostty Integration               | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**    |
 | 3 | Wire Protocol                     | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
-| 4 | Ring Buffer + Frame Delivery      | (not yet written)                                   | libitshell3          | Not started |
+| 4 | Ring Buffer + Frame Delivery      | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**    |
 | 5 | IME Integration                   | (not yet written)                                   | libitshell3          | Not started |
 | 6 | Runtime Policies                  | (not yet written)                                   | libitshell3          | Not started |
 | 7 | Cascades                          | (not yet written)                                   | libitshell3          | Not started |
@@ -54,7 +54,7 @@ Plan 1 (Foundation) ────────────────────
 ├── Plan 2 (ghostty Integration) ────────────────────── DONE
 └── Plan 3 (Wire Protocol) ──────────────────────────── DONE
          │
-    Plan 4 (Ring Buffer + Frame Delivery)
+    Plan 4 (Ring Buffer + Frame Delivery) ──────────── DONE
     │    Needs: ghostty bulkExport (Plan 2) + FrameUpdate encoding (Plan 3)
     │
     ├── Plan 5 (IME Integration) ──── can parallel with Plan 6
@@ -138,21 +138,29 @@ transport layer, connection state machine.
 - UID authentication (getpeereid/SO_PEERCRED)
 - Socket path resolution (XDG + TMPDIR + platform defaults)
 
-### Plan 4: Ring Buffer + Frame Delivery (Not Started)
+### Plan 4: Ring Buffer + Frame Delivery (Done)
 
-**Scope:** Per-pane ring buffer with pre-serialized wire-format frames,
-per-client read cursors, writev zero-copy delivery, I-frame/P-frame
-serialization, dirty tracking pipeline integration.
+Zero-copy iovec-based frame delivery pipeline. Per-pane ring buffer with
+monotonic byte cursors, writev delivery from ring memory, two-channel socket
+write priority (direct queue + ring), dirty tracking integration.
 
-**Design spec refs:**
+**Key deliverables:**
 
-- `daemon-architecture/.../02-state-and-types.md` §4 (Ring Buffer Architecture)
-- `daemon-behavior/.../03-policies-and-procedures.md` §9-11
-- `daemon-behavior/.../impl-constraints/policies.md` (Ring Buffer Delivery,
-  Socket Write Priority, Backpressure)
+- `ring_buffer.zig` — circular byte ring, `pendingIovecs()` returns slices into
+  ring memory, `advanceCursor(n)` byte-granular per spec §5.4
+- `frame_serializer.zig` — DirtyRow[] → wire bytes → ring
+- `direct_queue.zig` — per-client priority-1 control message FIFO (lazy heap)
+- `client_writer.zig` — two-channel writev delivery per spec §4.4/§5.4
+- `pane_delivery.zig` — per-pane ring buffer lifecycle (page_allocator)
+- 58 spec-citing tests (28 integration + 30 compliance)
 
-**Depends on:** Plan 2 (ghostty bulkExport for frame data) + Plan 3 (FrameUpdate
-binary encoding for wire format)
+**Key decisions:** ADR 00055 (ring cursor lag formula with pre-computed
+thresholds), ADR 00056 (FrameEntry is prose not a type), ADR 00057 (I-frame
+timer resets on any I-frame)
+
+**Known gaps (resolved):** `last_i_frame` update semantics (client tracks its
+own via wire-level frame_sequence), FlatCell/CellData field order divergence
+(spec says identical, code differs — flagged for spec revision)
 
 ### Plan 5: IME Integration (Not Started)
 
@@ -287,7 +295,7 @@ debugged via this subsystem.
 | ------------------- | --------------------------------- | ------------------------------------ |
 | 1. Core daemon      | Plans 1-2                         | Done                                 |
 | 2. Wire protocol    | Plan 3                            | Done                                 |
-| 3. Frame pipeline   | Plan 4                            | Not started                          |
+| 3. Frame pipeline   | Plan 4                            | Done                                 |
 | 4. IME integration  | Plan 5 + libitshell3-ime (v0.7.0) | Engine done, integration not started |
 | 5. Runtime policies | Plan 6                            | Not started                          |
 | 6. Cascades         | Plan 7                            | Not started                          |
