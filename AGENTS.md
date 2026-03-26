@@ -144,6 +144,8 @@ High-level phases (updated to reflect actual implementation order):
 > **⚠️ MANDATORY: You MUST read and strictly follow all convention docs under
 > `docs/conventions/` before making any changes. No exceptions.**
 
+- [**Zig Naming**](docs/conventions/zig-naming.md) — No abbreviations, buffer
+  size constants, getter patterns. Applies to all Zig source.
 - [**Commit Messages**](docs/conventions/commit-messages.md) — Conventional
   commits format. **English only.**
 - [**Document Artifact Conventions**](docs/conventions/artifacts/documents/01-overview.md)
