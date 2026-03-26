@@ -127,45 +127,76 @@ file and subscribed tags until `stop-logging` is called or the daemon exits.
 
 ### 3.4 Control Commands
 
-| Command                                                    | Response              | Description                                   |
-| ---------------------------------------------------------- | --------------------- | --------------------------------------------- |
-| `create-session [name]`                                    | `ok session_id:<id>`  | Create a new session                          |
-| `destroy-session <id>`                                     | `ok`                  | Destroy session and all its panes             |
-| `split-pane <pane_id> horizontal\|vertical`                | `ok new_pane_id:<id>` | Split a pane                                  |
-| `close-pane <pane_id>`                                     | `ok`                  | Close a pane                                  |
-| `focus-pane <pane_id>`                                     | `ok`                  | Set focused pane                              |
-| `navigate-pane <pane_id> up\|down\|left\|right`            | `ok focused:<id>`     | Navigate to adjacent pane                     |
-| `resize-pane <pane_id> <cols> <rows>`                      | `ok`                  | Resize a pane                                 |
-| `inject-key <pane_id> <hid_name> [modifiers...]`           | `ok`                  | Inject key event (e.g. `key_a`, `key_return`) |
-| `inject-text <pane_id> <text>`                             | `ok`                  | Inject text string (see §3.5 for escaping)    |
-| `inject-mouse-move <pane_id> <x> <y>`                      | `ok`                  | Inject mouse move                             |
-| `inject-mouse-click <pane_id> <x> <y> left\|right\|middle` | `ok`                  | Inject mouse click                            |
-| `inject-mouse-scroll <pane_id> up\|down [lines]`           | `ok`                  | Inject mouse scroll                           |
-| `inject-paste <pane_id> <text>`                            | `ok`                  | Inject paste event (see §3.5 for escaping)    |
-| `switch-ime <session_id> <input_method>`                   | `ok`                  | Switch input method (e.g. `ko-2set`)          |
+| Command                                           | Response              | Description                                |
+| ------------------------------------------------- | --------------------- | ------------------------------------------ |
+| `create-session [name]`                           | `ok session_id:<id>`  | Create a new session                       |
+| `destroy-session <id>`                            | `ok`                  | Destroy session and all its panes          |
+| `split-pane <pane_id> horizontal\|vertical`       | `ok new_pane_id:<id>` | Split a pane                               |
+| `close-pane <pane_id>`                            | `ok`                  | Close a pane                               |
+| `focus-pane <pane_id>`                            | `ok`                  | Set focused pane                           |
+| `navigate-pane <pane_id> up\|down\|left\|right`   | `ok focused:<id>`     | Navigate to adjacent pane                  |
+| `resize-pane <pane_id> <cols> <rows>`             | `ok`                  | Resize a pane                              |
+| `inject-key <pane_id> <key_spec>`                 | `ok`                  | Press + release (see §3.5)                 |
+| `inject-key-press <pane_id> <key_spec>`           | `ok`                  | Key press only                             |
+| `inject-key-release <pane_id> <key_spec>`         | `ok`                  | Key release only                           |
+| `inject-key-repeat <pane_id> <key_spec> <count>`  | `ok`                  | Repeat event N times (no auto-release)     |
+| `inject-key-hold <pane_id> <key_spec> <count>`    | `ok`                  | Press + repeat×N + release                 |
+| `inject-text <pane_id> <text>`                    | `ok`                  | Inject text string (see §3.6 for escaping) |
+| `inject-mouse-click <pane_id> <x> <y> <button>`   | `ok`                  | Mouse press + release (see §3.5)           |
+| `inject-mouse-press <pane_id> <x> <y> <button>`   | `ok`                  | Mouse press only                           |
+| `inject-mouse-release <pane_id> <x> <y> <button>` | `ok`                  | Mouse release only                         |
+| `inject-mouse-move <pane_id> <x> <y>`             | `ok`                  | Mouse move                                 |
+| `inject-mouse-scroll <pane_id> up\|down [lines]`  | `ok`                  | Mouse scroll                               |
+| `inject-paste <pane_id> <text>`                   | `ok`                  | Inject paste event (see §3.6 for escaping) |
+| `switch-ime <session_id> <input_method>`          | `ok`                  | Switch input method (e.g. `ko-2set`)       |
 
-**`inject-key` examples:**
+### 3.5 Key and Mouse Specification
+
+**Key spec format:** `[modifier+...]key_name`
+
+Modifiers and key name are joined by `+` into a single token. The last
+`+`-separated component is always the key name; all preceding components are
+modifiers.
+
+**Modifier names:**
+
+| Canonical | Aliases          |
+| --------- | ---------------- |
+| `shift`   | —                |
+| `ctrl`    | —                |
+| `alt`     | `opt`, `option`  |
+| `super`   | `cmd`, `command` |
+
+Aliases are accepted in commands. Log output always uses canonical names.
+
+**Mouse button:** `left`, `right`, `middle`
+
+**Key command examples:**
 
 ```
-inject-key 1 key_a                      → 'a'
-inject-key 1 key_a shift                → 'A'
-inject-key 1 key_return                 → Enter
-inject-key 1 key_c ctrl                 → Ctrl+C (SIGINT)
-inject-key 1 key_z ctrl                 → Ctrl+Z (SIGTSTP)
-inject-key 1 key_l ctrl                 → Ctrl+L (clear)
-inject-key 1 key_tab                    → Tab
-inject-key 1 key_backspace              → Backspace
-inject-key 1 key_up                     → Arrow up
-inject-key 1 key_d ctrl shift           → Ctrl+Shift+D
-inject-key 1 key_escape                 → Escape
-inject-key 1 key_space                  → Space
+inject-key 1 key_a                       → 'a' (press + release)
+inject-key 1 shift+key_a                 → 'A'
+inject-key 1 key_return                  → Enter
+inject-key 1 ctrl+key_c                  → Ctrl+C (SIGINT)
+inject-key 1 ctrl+key_z                  → Ctrl+Z (SIGTSTP)
+inject-key 1 ctrl+key_l                  → Ctrl+L (clear)
+inject-key 1 key_tab                     → Tab
+inject-key 1 key_backspace               → Backspace
+inject-key 1 key_up                      → Arrow up
+inject-key 1 ctrl+shift+key_d            → Ctrl+Shift+D
+inject-key 1 cmd+key_c                   → Super+C (macOS Command+C)
+inject-key 1 opt+key_a                   → Alt+A (macOS Option+A)
+inject-key-press 1 key_a                 → press only
+inject-key-release 1 key_a               → release only
+inject-key-repeat 1 key_a 5              → repeat event ×5 (no release)
+inject-key-repeat 1 ctrl+key_a 5         → Ctrl+A repeat ×5
+inject-key-hold 1 shift+key_j 10         → press + repeat×10 + release
 ```
 
-HID key names follow ghostty's `Key` enum (lowercase, `key_` prefix). Modifiers
-(`shift`, `ctrl`, `alt`, `super`) can appear in any order. Use `list-hid-keys`
-to see all available key names.
+HID key names follow ghostty's `Key` enum (lowercase, `key_` prefix). Use
+`list-hid-keys` to see all available key names.
 
-### 3.5 Text Argument Escaping
+### 3.6 Text Argument Escaping
 
 Commands that accept free-form text (`inject-text`, `inject-paste`) use the
 following escaping rules:
@@ -326,12 +357,41 @@ tracking.
 
 ### 5.3 LogEmitter Integration
 
-Log emit points are inserted into existing event handlers:
+**Global optional pointer**: When `IT_SHELL3_DEBUG_PORT` is not set,
+`log_emitter` is `null`. All emit calls reduce to a single null check (~1ns)
+with zero argument construction overhead.
 
 ```zig
-// In a request handler:
+// Daemon global
+var log_emitter: ?*LogEmitter = null;
+
+// Convenience wrapper — inlined at call site
+inline fn logEmit(tag: Tag, data: anytype) void {
+    if (log_emitter) |le| le.emit(tag, data);
+}
+```
+
+**Two-level fast path:**
+
+1. `log_emitter == null` → null check, return (debug port not set)
+2. `active_tags & tag == 0` → bit check, return (tag not subscribed)
+
+Both levels are `inline`, so the compiler eliminates argument construction in
+the not-taken path via dead code elimination.
+
+```zig
+// LogEmitter.emit — only reached when log_emitter != null
+pub inline fn emit(self: *LogEmitter, tag: Tag, data: anytype) void {
+    if (self.active_tags & @intFromEnum(tag) == 0) return;
+    self.emitSlow(tag, data);
+}
+```
+
+**Call site usage:**
+
+```zig
 fn handleCreateSession(client: *Client, msg: Message) void {
-    log_emitter.emit(.request, .{
+    logEmit(.request, .{
         .client_id = client.id,
         .msg_type = msg.header.msg_type,
         .payload = msg.payload,
@@ -339,20 +399,11 @@ fn handleCreateSession(client: *Client, msg: Message) void {
 
     // ... existing handler logic ...
 
-    log_emitter.emit(.response, .{
+    logEmit(.response, .{
         .client_id = client.id,
         .msg_type = msg.header.msg_type,
         .payload = response_payload,
     });
-}
-```
-
-`emit()` fast path when tag is disabled:
-
-```zig
-pub fn emit(self: *LogEmitter, tag: Tag, data: anytype) void {
-    if (self.active_tags & @intFromEnum(tag) == 0) return;  // bit check, ~1ns
-    self.emitSlow(tag, data);
 }
 ```
 

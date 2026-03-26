@@ -101,8 +101,19 @@ pub const RingBuffer = struct {
         };
     }
 
-    /// Write a pre-serialized frame into the ring.
-    /// Stored as: [4-byte LE length][frame_data].
+    /// Write a pre-serialized frame (protocol Header + FrameUpdate payload)
+    /// into the ring as [4-byte LE length prefix][frame_data].
+    ///
+    /// The length prefix exists because delivery is byte-granular (spec §5.4)
+    /// — the delivery path doesn't know frame boundaries. Only
+    /// seekToLatestIFrame needs frame boundaries (to position the cursor at
+    /// the start of an I-frame), and it uses the frame_index for that, not
+    /// the length prefix. The prefix is stored for potential future use
+    /// (e.g., frame-level inspection/debugging).
+    ///
+    /// Rejects frames larger than capacity/2 to guarantee at least two
+    /// frames can coexist in the ring — otherwise a single large frame
+    /// could immediately overwrite itself.
     pub fn writeFrame(
         self: *RingBuffer,
         frame_data: []const u8,
@@ -144,6 +155,15 @@ pub const RingBuffer = struct {
         self.total_written += data.len;
     }
 
+    /// Returns true if the ring has wrapped past the cursor's position,
+    /// meaning the data the cursor points to has been overwritten by newer
+    /// frames. When this returns true, the cursor's iovecs would point to
+    /// corrupted data — the caller MUST call seekToLatestIFrame before
+    /// attempting delivery.
+    ///
+    /// The `total_read > total_written` guard catches impossible states
+    /// (cursor ahead of writer), which can only happen via direct struct
+    /// mutation — defensive, not expected in production.
     pub fn isCursorOverwritten(self: *const RingBuffer, cursor: *const RingCursor) bool {
         if (cursor.total_read > self.total_written) return true;
         return (self.total_written - cursor.total_read) > self.capacity;
@@ -195,7 +215,26 @@ pub const RingBuffer = struct {
         cursor.total_read += n;
     }
 
-    /// Advance cursor to the latest I-frame position.
+    /// Advance cursor to the latest I-frame position in the ring.
+    ///
+    /// This is the universal recovery operation — all recovery scenarios
+    /// collapse into this single call (spec §4.8, §5.5):
+    ///   - Slow client: cursor overwritten by ring wrap → seek to I-frame
+    ///   - ContinuePane after PausePane → seek to I-frame
+    ///   - Stale client recovery → seek to I-frame
+    ///   - Client attach/reattach → seek to I-frame
+    ///
+    /// After seeking, the client receives a complete terminal state
+    /// (I-frame) as its next delivery, then resumes incremental P-frames.
+    /// No special recovery codepath — the I-frame IS the resync.
+    ///
+    /// Also updates cursor.last_i_frame so the daemon can later check
+    /// whether this I-frame is still valid in the ring.
+    ///
+    /// No-op if no I-frame has ever been written to the ring, or if the
+    /// latest I-frame has itself been overwritten (ring too small for the
+    /// write rate). In the latter case the caller should produce a fresh
+    /// I-frame before retrying.
     pub fn seekToLatestIFrame(self: *const RingBuffer, cursor: *RingCursor) void {
         if (!self.has_i_frame) return;
         const meta = self.frame_index[self.latest_i_frame_idx];
@@ -205,6 +244,14 @@ pub const RingBuffer = struct {
         }
     }
 
+    /// Returns true if the ring contains at least one I-frame that hasn't
+    /// been overwritten. Used to check the ring invariant (spec §4.1:
+    /// "ring MUST always contain at least one complete I-frame").
+    ///
+    /// When this returns false and the ring is actively being written to,
+    /// the frame export logic (Plan 6) must force-produce an I-frame
+    /// before any more P-frames — otherwise seekToLatestIFrame will be a
+    /// no-op and slow clients cannot recover.
     pub fn hasValidIFrame(self: *const RingBuffer) bool {
         if (!self.has_i_frame) return false;
         const meta = self.frame_index[self.latest_i_frame_idx];
