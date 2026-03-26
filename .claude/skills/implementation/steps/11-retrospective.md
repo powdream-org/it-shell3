@@ -39,15 +39,26 @@ For any new toolchain or testing lessons discovered during this cycle, update
   description
 - Do NOT duplicate existing entries — check first
 
-### 11c. Propose skill improvements
+### 11c. Review and finalize accumulated proposals
 
-For process issues discovered during this cycle:
+Review and finalize accumulated proposals from
+`<target>/retrospective/skill-improvement-proposals.md`. Proposals have been
+accumulated throughout the cycle via the Continuous Improvement Log (see
+SKILL.md). This step reviews them, adds any final observations, and presents the
+consolidated list to the owner.
 
-- Draft specific improvements (add anti-pattern, clarify gate, fix step
-  instruction)
-- Present each proposal to the owner with rationale
-- Wait for owner approval before editing any skill files
-- If approved: apply the change and commit with reason
+For each problem identified in 11a that is not already captured in the proposals
+file, add it now:
+
+- Draft a specific edit to the relevant step file:
+  - Add a new anti-pattern if one was discovered
+  - Clarify a gate condition if it was ambiguous
+  - Add a missing instruction if a step was unclear
+  - Remove unnecessary steps if they wasted tokens
+
+Present each proposal to the owner with rationale. Wait for owner approval
+before editing any skill files. If approved: apply the change and commit with
+reason.
 
 ### 11d. Cleanup
 

@@ -102,6 +102,15 @@ Steps 5 → 6 → 7 → 8 form a verification chain. If Step 8 (Over-Engineering
 Review) changes code, control returns to Step 5 (not Step 9). A single clean
 pass through 5 → 7 → 8 must complete before reaching Step 9.
 
+## Continuous Improvement Log
+
+When the team leader encounters a procedural problem, spec-implementation
+mismatch, improper facilitation, or skill gap at ANY point during the cycle,
+immediately append it to
+`<target>/retrospective/skill-improvement-proposals.md`. Create the file and
+directory if they don't exist. Do not wait for the retrospective step — log
+issues as they occur so they survive context compaction.
+
 ## Rationale & Reference
 
 For **why** each phase exists (not **how** to execute it), see:
