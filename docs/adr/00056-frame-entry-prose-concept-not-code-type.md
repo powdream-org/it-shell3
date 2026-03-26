@@ -1,7 +1,7 @@
 # 00056. FrameEntry as Prose Concept, Not Code Type
 
 - Date: 2026-03-26
-- Status: Proposed
+- Status: Accepted
 
 ## Context
 
