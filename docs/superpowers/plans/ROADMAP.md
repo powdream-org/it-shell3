@@ -33,16 +33,17 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 
 ## Plan Index
 
-| # | Name                         | Plan File                                       | Target Module        | Status      |
-| - | ---------------------------- | ----------------------------------------------- | -------------------- | ----------- |
-| 1 | Foundation                   | `2026-03-25-libitshell3-foundation.md`          | libitshell3          | **Done**    |
-| 2 | ghostty Integration          | `2026-03-25-libitshell3-ghostty-integration.md` | libitshell3          | **Done**    |
-| 3 | Wire Protocol                | `2026-03-25-libitshell3-protocol.md`            | libitshell3-protocol | **Done**    |
-| 4 | Ring Buffer + Frame Delivery | (not yet written)                               | libitshell3          | Not started |
-| 5 | IME Integration              | (not yet written)                               | libitshell3          | Not started |
-| 6 | Runtime Policies             | (not yet written)                               | libitshell3          | Not started |
-| 7 | Cascades                     | (not yet written)                               | libitshell3          | Not started |
-| 8 | SSH Transport                | (not yet written)                               | libitshell3-protocol | Not started |
+| # | Name                              | Plan File                                           | Target Module        | Status      |
+| - | --------------------------------- | --------------------------------------------------- | -------------------- | ----------- |
+| 1 | Foundation                        | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**    |
+| 2 | ghostty Integration               | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**    |
+| 3 | Wire Protocol                     | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
+| 4 | Ring Buffer + Frame Delivery      | (not yet written)                                   | libitshell3          | Not started |
+| 5 | IME Integration                   | (not yet written)                                   | libitshell3          | Not started |
+| 6 | Runtime Policies                  | (not yet written)                                   | libitshell3          | Not started |
+| 7 | Cascades                          | (not yet written)                                   | libitshell3          | Not started |
+| 8 | SSH Transport                     | (not yet written)                                   | libitshell3-protocol | Not started |
+| 9 | Debug Subsystem + `it-shell3-ctl` | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started |
 
 ---
 
@@ -63,9 +64,14 @@ Plan 1 (Foundation) ────────────────────
     │    Needs: ring buffer + frame delivery for coalescing/flow control
     │         │
     │    Plan 7 (Cascades)
-    │         Needs: IME deactivate (Plan 5) + health/flow cleanup (Plan 6)
+    │    │    Needs: IME deactivate (Plan 5) + health/flow cleanup (Plan 6)
+    │    │
+    │    Plan 9 (Debug Subsystem + it-shell3-ctl)
+    │         Needs: ALL Plans 1-7 (all daemon features must exist to
+    │         debug/inspect/control them)
+    │         Changes: socket_path.zig (per-instance directory, ADR 00054)
     │
-    Plan 8 (SSH Transport) ──── can parallel with Plans 4-7
+    Plan 8 (SSH Transport) ──── can parallel with Plans 4-7, 9
          Needs: Plan 3 Transport vtable only (no daemon dependency)
 ```
 
@@ -73,8 +79,8 @@ Plan 1 (Foundation) ────────────────────
 
 - Plans 2 + 3 ran in parallel (different modules, no file conflicts)
 - Plans 5 + 6 can run in parallel (different subsystems within libitshell3)
-- Plan 8 can run in parallel with Plans 4-7 (different module, only needs Plan
-  3's Transport interface)
+- Plan 8 can run in parallel with Plans 4-7, 9 (different module, only needs
+  Plan 3's Transport interface)
 
 ---
 
@@ -242,6 +248,36 @@ Key components:
 
 **Depends on:** Plan 3 (Transport vtable interface). Can run in parallel with
 Plans 4-7 (no daemon-side changes needed — SSH is client-side transport only).
+
+### Plan 9: Debug Subsystem + `it-shell3-ctl` (Not Started)
+
+**Scope:** Unix socket debug interface for logging, inspection, and control of
+the daemon. Tag-based JSONL logging to file, state inspection (dump-sessions,
+dump-screen), input injection (inject-key, inject-mouse), and a CLI tool
+(`it-shell3-ctl`) for socket discovery and command dispatch.
+
+Key components:
+
+- `daemon/src/debug/` — listener, command parser, inspector, controller, log
+  emitter, format helpers
+- `it-shell3-ctl` — thin CLI client with `-w`/`--workspace` for multi-instance
+- Per-instance socket directory (ADR 00054): `<server_id>/daemon.sock` +
+  `debug.sock` + `daemon.pid`
+- Key spec format: `modifier+key_name` with macOS aliases (`cmd`, `opt`)
+- Press/release/repeat/hold key injection matching protocol's KeyEvent action
+
+**Design spec:**
+`docs/superpowers/specs/2026-03-26-daemon-debug-subsystem-design.md`
+
+**ADRs:** ADR 00053 (daemon-embedded debug subsystem), ADR 00054 (per-instance
+socket directory)
+
+**CTRs:** server-client-protocols v1.0-r12 (socket path format),
+daemon-architecture v1.0-r8 (startup sequence + debug listener)
+
+**Depends on:** Plans 1-7 (all daemon features must exist to
+debug/inspect/control them). Plan 8 (SSH) is independent — SSH transport is not
+debugged via this subsystem.
 
 ---
 
