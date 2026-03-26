@@ -69,18 +69,29 @@ a valid frame offset within the ring). The defensive
 hypothetical violation.
 
 Note that `RingBuffer.available()` already computes
-`total_written - cursor.total_read` -- this is identical to `lag_bytes`. The lag
-percentage computation can reuse `available()` directly:
+`total_written - cursor.total_read` -- this is identical to `lag_bytes`.
+
+For the hot path, avoid per-frame percentage computation entirely. Pre-compute
+byte thresholds at ring buffer initialization:
 
 ```zig
-const lag_percent = rb.available(&cursor) * 100 / rb.capacity;
+threshold_50: usize,  // capacity >> 1
+threshold_75: usize,  // capacity >> 1 + capacity >> 2
+threshold_90: usize,  // capacity - capacity / 10
+```
+
+Then the runtime check is a single comparison against the pre-computed value:
+
+```zig
+const lag = rb.available(&cursor);
+if (lag > rb.threshold_90) { ... }
 ```
 
 ## Consequences
 
-- The behavior spec's thresholds are now precisely defined. Implementors can
-  compute lag percentage with a single subtraction and division using existing
-  ring buffer API methods.
+- The behavior spec's thresholds are now precisely defined. Pre-computed byte
+  thresholds at ring init reduce the hot-path check to a single comparison — no
+  multiplication or division per frame.
 - The monotonic counter model avoids the ambiguity that a wrapping `position`
   field would introduce (where distinguishing "fully caught up" from "exactly
   one full ring behind" requires additional state).

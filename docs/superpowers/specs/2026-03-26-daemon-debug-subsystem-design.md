@@ -94,20 +94,20 @@ daemon-wide state that persists across connections. The connection itself is
 stateless (no per-connection tracking), but the daemon remembers the active log
 file and subscribed tags until `stop-logging` is called or the daemon exits.
 
-### 2.3 CLI Tool (`it-shell3-debug`)
+### 2.3 CLI Tool (`it-shell3-ctl`)
 
 Thin client that discovers the debug socket and sends commands:
 
 ```bash
 # Single daemon — auto-discovers the only running daemon
-it-shell3-debug dump-sessions
-it-shell3-debug inject-key 1 ctrl+key_c
-it-shell3-debug set-log-file /tmp/debug.log
+it-shell3-ctl dump-sessions
+it-shell3-ctl inject-key 1 ctrl+key_c
+it-shell3-ctl set-log-file /tmp/debug.log
 
 # Multiple daemons — specify which workspace
-it-shell3-debug list                                  # list running workspaces
-it-shell3-debug -w work dump-sessions                 # short flag
-it-shell3-debug --workspace default dump-sessions     # long flag
+it-shell3-ctl list                                  # list running workspaces
+it-shell3-ctl -w work dump-sessions                 # short flag
+it-shell3-ctl --workspace default dump-sessions     # long flag
 ```
 
 **Discovery logic:**
@@ -120,7 +120,7 @@ it-shell3-debug --workspace default dump-sessions     # long flag
      default   (pid 12345)
      work      (pid 67890)
 
-   usage: it-shell3-debug -w <workspace> <command>
+   usage: it-shell3-ctl -w <workspace> <command>
    ```
 4. If none found → `error: no daemon running`
 
@@ -468,15 +468,15 @@ daemon/src/
 
 ```bash
 # 1. Discover available state
-it-shell3-debug dump-sessions
+it-shell3-ctl dump-sessions
 
 # 2. Start logging
-it-shell3-debug set-log-file /tmp/debug.log
-it-shell3-debug subscribe input,ime,frame
+it-shell3-ctl set-log-file /tmp/debug.log
+it-shell3-ctl subscribe input,ime,frame
 
 # 3. Inject input and observe
-it-shell3-debug inject-key 1 key_a
-it-shell3-debug dump-screen 1
+it-shell3-ctl inject-key 1 key_a
+it-shell3-ctl dump-screen 1
 
 # 4. Check logs
 tail -f /tmp/debug.log | grep ime
@@ -486,52 +486,52 @@ tail -f /tmp/debug.log | grep ime
 
 ```bash
 # Quick state check
-it-shell3-debug dump-sessions
-it-shell3-debug dump-pane 3
+it-shell3-ctl dump-sessions
+it-shell3-ctl dump-pane 3
 
 # Watch all request/response traffic
-it-shell3-debug set-log-file /tmp/traffic.log
-it-shell3-debug subscribe request,response
+it-shell3-ctl set-log-file /tmp/traffic.log
+it-shell3-ctl subscribe request,response
 tail -f /tmp/traffic.log
 
 # Reproduce a bug without client
-it-shell3-debug create-session test
-it-shell3-debug inject-text 2 ls -la
-it-shell3-debug inject-key 2 key_return
-it-shell3-debug dump-screen 2
+it-shell3-ctl create-session test
+it-shell3-ctl inject-text 2 ls -la
+it-shell3-ctl inject-key 2 key_return
+it-shell3-ctl dump-screen 2
 ```
 
 ### 7.3 End-User Bug Report
 
 ```bash
 # Capture traffic (daemon already running)
-it-shell3-debug set-log-file ~/debug-capture.log
-it-shell3-debug subscribe lifecycle,request,response,error
+it-shell3-ctl set-log-file ~/debug-capture.log
+it-shell3-ctl subscribe lifecycle,request,response,error
 
 # ... reproduce the bug ...
 
 # Stop and attach log to bug report
-it-shell3-debug stop-logging
+it-shell3-ctl stop-logging
 ```
 
 ### 7.4 Multiple Workspaces
 
 ```bash
 # List running workspaces
-it-shell3-debug list
+it-shell3-ctl list
 # → default   (pid 12345)
 # → work      (pid 67890)
 
 # Target a specific workspace
-it-shell3-debug -w work dump-sessions
-it-shell3-debug -w work inject-key 1 ctrl+key_c
+it-shell3-ctl -w work dump-sessions
+it-shell3-ctl -w work inject-key 1 ctrl+key_c
 ```
 
 ## 8. Future Extensions
 
 - **Workspace support**: `<instance>` directory changes from PID to workspace
-  name. `it-shell3-debug list` shows workspace names alongside PIDs.
-  `--instance` accepts either.
+  name. `it-shell3-ctl list` shows workspace names alongside PIDs.
+  `-w`/`--workspace` accepts either.
 - **`it-shell3-ctl`**: Promote debug CLI from diagnostic tool to full management
   CLI (like `cmux` CLI or `zellij` CLI). Control commands already cover session
   and pane management — add workspace lifecycle commands when needed.

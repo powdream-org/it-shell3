@@ -50,7 +50,7 @@ not as a library module.
 - **Protocol**: Single-command request-response over Unix socket. Plain text
   commands in, plain text or JSONL responses out. Each connection handles one
   command then closes.
-- **CLI tool**: `it-shell3-debug` discovers the debug socket automatically (glob
+- **CLI tool**: `it-shell3-ctl` discovers the debug socket automatically (glob
   `$SOCKET_DIR/it-shell3/*/debug.sock`). Supports `--instance` for multi-daemon
   environments. Scalable to future workspace support.
 - **Logging**: Tag-based filtering (`lifecycle`, `request`, `response`,

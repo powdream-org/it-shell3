@@ -58,8 +58,8 @@ $BASE/itshell3/<server_id>/daemon.pid
 replacing the filename.
 
 **PID file** (`daemon.pid`) contains the daemon's process ID as a decimal
-string. Used by clients and `it-shell3-debug` for stale instance detection: if
-the PID is not running, the instance directory is stale and can be cleaned up.
+string. Used by clients and `it-shell3-ctl` for stale instance detection: if the
+PID is not running, the instance directory is stale and can be cleaned up.
 
 **Directory permissions**:
 
