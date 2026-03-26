@@ -5,9 +5,9 @@
 
 ## Context
 
-The daemon architecture spec (§4.3) says: "The ring buffer stores pre-serialized
-wire-format frames (FrameEntry = header + payload bytes)." This names
-`FrameEntry` as a concept but provides no struct definition.
+The daemon architecture spec (v1.0-r8, 02-state-and-types §4.3) says: "The ring
+buffer stores pre-serialized wire-format frames (FrameEntry = header + payload
+bytes)." This names `FrameEntry` as a concept but provides no struct definition.
 
 During the ring buffer implementation, the question arose: should `FrameEntry`
 exist as a named type in the code? Analysis by the daemon-architect and
@@ -34,9 +34,10 @@ bitcast is valid. This conversion belongs in a new `server/frame_builder.zig`
 module (the runtime policies implementation), which sits at the boundary between
 ghostty-domain and protocol-domain types.
 
-Note: the integration boundaries spec (§4.3) states FlatCell and CellData have
-"identical memory layout." The code shows they do not — the field order
-diverges. This is a spec-code discrepancy to address in the next spec revision.
+Note: the integration boundaries spec (v1.0-r8, 03-integration-boundaries §4.3)
+states FlatCell and CellData have "identical memory layout." The code shows they
+do not — the field order diverges. This is a spec-code discrepancy to address in
+the next spec revision.
 
 ## Decision
 
