@@ -123,15 +123,16 @@ When approving a design:
 When reviewing implementation code (as over-engineering reviewer in Step 8 of
 the implementation skill), apply the same principles but at source-code level:
 
-| Check                     | What to look for                                                     |
-| ------------------------- | -------------------------------------------------------------------- |
-| **Spec scope**            | No types, fields, methods, or features beyond what the spec requires |
-| **Dead code**             | No unused functions, types, imports, or variables                    |
-| **KISS**                  | Simplest possible implementation for each requirement                |
-| **YAGNI**                 | No code for hypothetical future requirements                         |
-| **Premature abstraction** | No helpers or utilities for one-time operations                      |
-| **Buffer sizing**         | All buffer sizes justified by spec or empirical measurement          |
-| **Build system**          | No unnecessary build steps, targets, or dependencies                 |
+| Check                     | What to look for                                                                 |
+| ------------------------- | -------------------------------------------------------------------------------- |
+| **Spec scope**            | No types, fields, methods, or features beyond what the spec requires             |
+| **Dead code**             | No unused functions, types, imports, or variables                                |
+| **KISS**                  | Simplest possible implementation for each requirement                            |
+| **YAGNI**                 | No code for hypothetical future requirements                                     |
+| **Premature abstraction** | No helpers or utilities for one-time operations                                  |
+| **Buffer sizing**         | All buffer sizes justified by spec or empirical measurement                      |
+| **Build system**          | No unnecessary build steps, targets, or dependencies                             |
+| **Cyclic dependency**     | No `@import("../…")` reverse references; no circular import chains between files |
 
 Report findings with `file:line` references. You report — the implementer fixes.
 You re-validate after fixes.
