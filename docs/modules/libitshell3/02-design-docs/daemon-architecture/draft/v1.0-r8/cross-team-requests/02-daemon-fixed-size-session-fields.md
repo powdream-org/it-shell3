@@ -56,7 +56,18 @@ during spec-code verification.
   and complement ADR 00052's static allocation model. Length fields use
   `_length` suffix per Zig naming convention (`docs/conventions/zig-naming.md`).
 
-### 2. `impl-constraints/state-and-types.md` — Add MAX_SIZE constants
+### 2. `01-module-structure.md` §1.5 — SessionManager data structure
+
+- **Current**: "SessionManager uses `HashMap(u32, *SessionEntry)` for sessions
+  (dynamic count, few instances — no fixed limit for sessions)."
+- **After**: "SessionManager uses `[MAX_SESSIONS]?SessionEntry` fixed-size array
+  for sessions. `MAX_SESSIONS = 64`. Session lookup by ID uses linear scan over
+  the array (64 slots, negligible cost for single-threaded daemon)."
+- **Rationale**: ADR 00052 established static allocation for SessionManager. The
+  `[64]?SessionEntry` array is explicitly documented in the ADR. The spec's
+  HashMap description predates this decision and was never updated.
+
+### 3. `impl-constraints/state-and-types.md` — Add MAX_SIZE constants (including MAX_SESSIONS)
 
 - **Current**: No buffer size constants defined.
 - **After**: Add constants table:
@@ -68,12 +79,13 @@ during spec-code verification.
   | `MAX_KEYBOARD_LAYOUT_NAME` | 32    | Identifier (`"qwerty"`)                |
   | `MAX_PREEDIT_BUF`          | 64    | UTF-8 preedit overlay                  |
   | `MAX_PANE_TITLE`           | 256   | Terminal title (OSC 0/2)               |
+  | `MAX_SESSIONS`             | 64    | Static array capacity (ADR 00052)      |
   | `MAX_PANE_CWD`             | 4096  | Current working directory (`PATH_MAX`) |
 
 - **Rationale**: ADR 00058 requires documented maximum sizes for all inline
-  buffer fields.
+  buffer fields. `MAX_SESSIONS` is per ADR 00052.
 
-### 3. `02-state-and-types.md` §1.2 — Field naming and types
+### 4. `02-state-and-types.md` §1.2 — Field naming and types
 
 - **Current**: Field name `keyboard_layout` with default `"us"`.
 - **After**: Field name `active_keyboard_layout` with default `"qwerty"`. Length
@@ -83,7 +95,7 @@ during spec-code verification.
   wire field name. Default `"qwerty"` per protocol identifier space (ADR 00025).
   No abbreviations per Zig naming convention.
 
-### 4. `02-state-and-types.md` §1.3 — Confirm SessionEntry fields
+### 5. `02-state-and-types.md` §1.3 — Confirm SessionEntry fields
 
 - **Current**: `SessionEntry` spec includes `latest_client_id: u32`. Code does
   not have this field.
@@ -91,7 +103,7 @@ during spec-code verification.
   to match.
 - **Rationale**: Pre-existing spec requirement for the `latest` resize policy.
 
-### 5. Transient artifact lifecycle
+### 6. Transient artifact lifecycle
 
 - **Current**: `impl-constraints/state-and-types.md` header says "Deleted when
   the types exist in code." The types now exist in code.
@@ -99,7 +111,7 @@ during spec-code verification.
   (per changes 1-2 above), or delete it per its own lifecycle rule.
 - **Rationale**: The artifact's own lifecycle clause.
 
-### 6. `03-policies-and-procedures.md` — Overflow handling for user-settable fields
+### 7. `03-policies-and-procedures.md` — Overflow handling for user-settable fields
 
 - **Current**: No overflow policy defined for fixed-size buffer fields.
 - **After**: Define overflow handling policy distinguishing two categories:
@@ -125,11 +137,12 @@ during spec-code verification.
 
 ## Summary Table
 
-| Target Doc                            | Section/Message   | Change Type                                  | Source Resolution    |
-| ------------------------------------- | ----------------- | -------------------------------------------- | -------------------- |
-| `impl-constraints/state-and-types.md` | Session struct    | Update representation to inline buffers      | ADR 00058            |
-| `impl-constraints/state-and-types.md` | (new)             | Add MAX_SIZE constants table                 | ADR 00058            |
-| `02-state-and-types.md`               | §1.2 Session      | Fix field names, types, defaults             | ADR 00058, ADR 00025 |
-| `02-state-and-types.md`               | §1.3 SessionEntry | Confirm `latest_client_id` (no spec change)  | Pre-existing spec    |
-| `impl-constraints/state-and-types.md` | lifecycle         | Update or delete per transient artifact rule | Self-referential     |
-| `03-policies-and-procedures.md`       | (new)             | Add overflow policy for user-settable fields | ADR 00058            |
+| Target Doc                            | Section/Message     | Change Type                                      | Source Resolution    |
+| ------------------------------------- | ------------------- | ------------------------------------------------ | -------------------- |
+| `impl-constraints/state-and-types.md` | Session struct      | Update representation to inline buffers          | ADR 00058            |
+| `01-module-structure.md`              | §1.5 SessionManager | HashMap → fixed array `[MAX_SESSIONS]?`          | ADR 00052            |
+| `impl-constraints/state-and-types.md` | (new)               | Add MAX_SIZE constants table (incl MAX_SESSIONS) | ADR 00052, 00058     |
+| `02-state-and-types.md`               | §1.2 Session        | Fix field names, types, defaults                 | ADR 00058, ADR 00025 |
+| `02-state-and-types.md`               | §1.3 SessionEntry   | Confirm `latest_client_id` (no spec change)      | Pre-existing spec    |
+| `impl-constraints/state-and-types.md` | lifecycle           | Update or delete per transient artifact rule     | Self-referential     |
+| `03-policies-and-procedures.md`       | (new)               | Add overflow policy for user-settable fields     | ADR 00058            |

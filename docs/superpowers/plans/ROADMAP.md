@@ -45,40 +45,33 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 7   | Cascades                          | (not yet written)                                   | libitshell3          | Not started                                          |
 | 8   | SSH Transport                     | (not yet written)                                   | libitshell3-protocol | Not started                                          |
 | 9   | Debug Subsystem + `it-shell3-ctl` | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started                                          |
+| 10  | Design Doc CTR Resolution         | (not yet written)                                   | multi-module         | Not started                                          |
+| 11  | Post-Design Code Alignment        | (not yet written)                                   | multi-module         | Not started                                          |
 
 ---
 
 ## Dependency Graph
 
-```
-Plan 1 (Foundation) ─────────────────────────────────── DONE
-├── Plan 2 (ghostty Integration) ────────────────────── DONE
-└── Plan 3 (Wire Protocol) ──────────────────────────── DONE
-         │
-    Plan 4 (Ring Buffer + Frame Delivery) ──────────── DONE
-    │    Needs: ghostty bulkExport (Plan 2) + FrameUpdate encoding (Plan 3)
-    │
-    ├── Plan 5 (IME Integration) ──── can parallel with Plan 6
-    │    Needs: ring buffer for preedit overlay in frames
-    │    │
-    │    Plan 5.5 (Spec Alignment Audit)
-    │    │    Needs: Plan 5 (establishes verification chain + conventions)
-    │    │    Fixes: Plan 1-2 tech debt (ClientState, cyclic refs, naming)
-    │    │
-    ├── Plan 6 (Runtime Policies)
-    │    Needs: Plan 5.5 (clean ClientState, correct interfaces)
-    │    Needs: ring buffer + frame delivery for coalescing/flow control
-    │         │
-    │    Plan 7 (Cascades)
-    │    │    Needs: IME deactivate (Plan 5) + health/flow cleanup (Plan 6)
-    │    │
-    │    Plan 9 (Debug Subsystem + it-shell3-ctl)
-    │         Needs: ALL Plans 1-7 (all daemon features must exist to
-    │         debug/inspect/control them)
-    │         Changes: socket_path.zig (per-instance directory, ADR 00054)
-    │
-    Plan 8 (SSH Transport) ──── can parallel with Plans 4-7, 9
-         Needs: Plan 3 Transport vtable only (no daemon dependency)
+```mermaid
+graph TD
+    P1["Plan 1: Foundation ✅"] --> P2["Plan 2: ghostty Integration ✅"]
+    P1 --> P3["Plan 3: Wire Protocol ✅"]
+    P2 --> P4["Plan 4: Ring Buffer + Frame Delivery ✅"]
+    P3 --> P4
+    P4 --> P5["Plan 5: IME Integration ✅"]
+    P5 --> P5_5["Plan 5.5: Spec Alignment Audit"]
+    P5_5 --> P6["Plan 6: Runtime Policies"]
+    P4 --> P6
+    P5 --> P7["Plan 7: Cascades"]
+    P6 --> P7
+    P7 --> P9["Plan 9: Debug Subsystem"]
+    P3 --> P8["Plan 8: SSH Transport"]
+    P4 --> P10["Plan 10: Design Doc CTR Resolution"]
+    P5 --> P10
+    P6 --> P10
+    P8 --> P10
+    P9 --> P10
+    P10 --> P11["Plan 11: Post-Design Code Alignment"]
 ```
 
 **Parallelization opportunities:**
@@ -269,6 +262,15 @@ assembly), I-frame scheduling timer, EVFILT_WRITE management.
 **Depends on:** Plan 4 (ring buffer + frame delivery for coalescing tiers and
 backpressure)
 
+**Note (from Plan 5.5 audit):** Wire message sending for IME procedures:
+PreeditEnd, PreeditStart, InputMethodAck, LayoutChanged. Code has `TODO(Plan 6)`
+in `ime_procedures.zig` but was not previously listed in Plan 6 scope.
+
+**Note (from Plan 5.5 audit):** `Session.creation_timestamp` is hardcoded to 0.
+`core/` cannot call OS time functions; the server layer must pass a real
+timestamp when creating sessions (from CreateSessionRequest or default session
+creation). TODO comment in `session.zig`.
+
 **Note (from Plan 5):** Add Pane fields `foreground_process`, `foreground_pid`,
 `silence_subscriptions`, `silence_deadline` per spec `state-and-types.md`.
 Requires `SilenceSubscription` type definition. TODO comments in `pane.zig`.
@@ -356,6 +358,67 @@ daemon-architecture v1.0-r8 (startup sequence + debug listener)
 **Depends on:** Plans 1-7 (all daemon features must exist to
 debug/inspect/control them). Plan 8 (SSH) is independent — SSH transport is not
 debugged via this subsystem.
+
+### Plan 10: Design Doc CTR Resolution (Not Started)
+
+**Scope:** Apply all open CTRs to their target design docs via
+design-doc-revision cycles. This is a documentation-only plan — no source code
+changes.
+
+**Known CTRs to resolve:**
+
+- daemon-architecture v1.0-r8:
+  - `01-daemon-per-instance-socket-directory.md` (ADR 00054)
+  - `02-daemon-fixed-size-session-fields.md` (ADR 00052, 00058 — Session/Pane
+    inline buffers, SessionManager fixed array)
+- daemon-behavior v1.0-r8:
+  - `01-impl-static-allocation-connection-limit.md` (ADR 00052 — connection
+    limit policy)
+- server-client-protocols v1.0-r12:
+  - `01-daemon-per-instance-socket-directory.md` (ADR 00054)
+  - `02-daemon-field-length-validation.md` (ADR 00058)
+  - `03-impl-max-tree-depth-correction.md` (MAX_TREE_DEPTH 16→4)
+  - `04-impl-preedit-session-id-per-session.md` (per-pane→per-session)
+  - `05-impl-capslock-numlock-wire-preservation.md` (ADR 00059)
+- libitshell3-ime interface-contract v1.0-r10:
+  - `01-impl-capslock-numlock-modifiers.md` (ADR 00059)
+- app (inbox):
+  - `01-protocol-client-rendering-pipeline-from-v1.0.md`
+
+**Depends on:** Plan 5.5 (produces the final set of CTRs). Can run in parallel
+with Plans 6-9.
+
+### Plan 11: Post-Design Code Alignment (Not Started)
+
+**Scope:** Code changes that were blocked on spec updates during Plan 5.5. These
+changes require the design docs to be updated first (Plan 10) before the code
+can be modified.
+
+**Known items (by CTR source):**
+
+- **ADR 00059** (CapsLock/NumLock in KeyEvent): After IME interface-contract +
+  protocol specs are revised:
+  - `core/ime_engine.zig`: add `caps_lock`, `num_lock` to `Modifiers` packed
+    struct
+  - `input/wire_decompose.zig`: preserve bits 4-5 instead of dropping
+  - `libitshell3-ime` engine: implement CapsLock-aware character resolution and
+    NumLock-aware numpad key classification
+- **ADR 00052** (static allocation): After daemon-behavior spec revises
+  connection limit policy:
+  - Review `MAX_CLIENTS` value (currently 64) against revised spec minimum
+- **ADR 00054** (per-instance socket directory): After daemon-architecture +
+  protocol specs are revised:
+  - `os/socket_path.zig`: implement per-instance directory layout
+- **ADR 00058** (inline buffers): After daemon-architecture spec revises field
+  representations:
+  - Verify code matches revised spec (most already aligned, confirm edge cases)
+- **MAX_TREE_DEPTH correction**: After protocol spec changes "16 levels" to "4":
+  - No code change needed (code already correct)
+- **preedit_session_id scope**: After protocol spec changes "per pane" to "per
+  session":
+  - No code change needed (code already correct)
+
+**Depends on:** Plan 10 (specs must be updated before code follows)
 
 ---
 
