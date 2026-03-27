@@ -9,13 +9,18 @@ if [ -n "$AGENT_ID" ]; then
 fi
 
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
-USAGE_FILE="${TMPDIR}claude-token-usage/${SESSION_ID}.json"
-
-if [ -z "$SESSION_ID" ] || [ ! -f "$USAGE_FILE" ]; then
+if [ -z "$SESSION_ID" ]; then
   exit 0
 fi
 
-REMAINING=$(jq -r '.remaining_percentage // 100' "$USAGE_FILE")
+# Use shared script to read usage data
+SCRIPT_DIR="$(dirname "$0")/../skills/check-available-context-window/scripts"
+USAGE=$(bash "$SCRIPT_DIR/get-context-usage.sh" "$SESSION_ID" 2>/dev/null)
+if [ $? -ne 0 ] || [ -z "$USAGE" ]; then
+  exit 0
+fi
+
+REMAINING=$(echo "$USAGE" | jq -r '.remaining_percentage // 100')
 REMAINING_INT=${REMAINING%.*}
 
 if [ "$REMAINING_INT" -lt "$THRESHOLD" ]; then
