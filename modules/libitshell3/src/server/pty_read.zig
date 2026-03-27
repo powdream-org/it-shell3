@@ -4,8 +4,8 @@ const interfaces = os.interfaces;
 const core = @import("itshell3_core");
 const session_mod = core.session;
 const types = core.types;
-const pane_mod = @import("pane.zig");
-const session_entry_mod = @import("session_entry.zig");
+const pane_mod = @import("state/pane.zig");
+const session_entry_mod = @import("state/session_entry.zig");
 const client_state_mod = @import("client_state.zig");
 const terminal_mod = @import("itshell3_ghostty").terminal;
 

@@ -10,12 +10,12 @@ pub const ring_buffer = @import("ring_buffer.zig");
 pub const frame_serializer = @import("frame_serializer.zig");
 pub const direct_queue = @import("direct_queue.zig");
 pub const pane_delivery = @import("pane_delivery.zig");
-pub const ime_consumer = @import("ime_consumer.zig");
-pub const ime_lifecycle = @import("ime_lifecycle.zig");
-pub const ime_procedures = @import("ime_procedures.zig");
-pub const pane = @import("pane.zig");
-pub const session_entry = @import("session_entry.zig");
-pub const session_manager = @import("session_manager.zig");
+pub const ime_consumer = @import("ime/consumer.zig");
+pub const ime_lifecycle = @import("ime/lifecycle.zig");
+pub const ime_procedures = @import("ime/procedures.zig");
+pub const pane = @import("state/pane.zig");
+pub const session_entry = @import("state/session_entry.zig");
+pub const session_manager = @import("state/session_manager.zig");
 pub const client_state = @import("client_state.zig");
 
 // Handlers (flattened from former handlers/ subdirectory)

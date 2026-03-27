@@ -12,8 +12,8 @@ const pty_read = @import("pty_read.zig");
 const client_accept = @import("client_accept.zig");
 const client_writer_mod = @import("client_writer.zig");
 const client_state_mod = @import("client_state.zig");
-const session_manager_mod = @import("session_manager.zig");
-const pane_mod = @import("pane.zig");
+const session_manager_mod = @import("state/session_manager.zig");
+const pane_mod = @import("state/pane.zig");
 
 pub const ClientEntry = client_state_mod.ClientEntry;
 

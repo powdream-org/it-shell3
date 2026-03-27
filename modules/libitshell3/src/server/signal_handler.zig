@@ -3,7 +3,7 @@ const os = @import("os/root.zig");
 const interfaces = os.interfaces;
 const core = @import("itshell3_core");
 const types = core.types;
-const session_manager_mod = @import("session_manager.zig");
+const session_manager_mod = @import("state/session_manager.zig");
 
 pub const SessionManager = session_manager_mod.SessionManager;
 
@@ -61,7 +61,7 @@ const testing = std.testing;
 const test_mod = @import("itshell3_testing");
 const mock_os = test_mod.mock_os;
 const test_helpers = test_mod.helpers;
-const pane_mod = @import("pane.zig");
+const pane_mod = @import("state/pane.zig");
 const session_mod = core.session;
 
 // File-scope statics for tests.
