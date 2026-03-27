@@ -69,55 +69,6 @@ set -e
 rm -rf coverage
 docker run --rm --security-opt seccomp=unconfined \
   -e TEST_MODULES="$TEST_MODULES" \
-  -v "$(pwd):/workspace" -w /workspace zig-kcov bash -c '
-  COVERAGE_DIR=coverage
-  rm -rf $COVERAGE_DIR && mkdir -p $COVERAGE_DIR
-
-  for MODULE_DIR in $TEST_MODULES; do
-    MODULE=$(basename $MODULE_DIR)
-    echo "=== $MODULE: building tests ==="
-    # All modules use ReleaseSafe for kcov — Debug binaries are too large
-    # for kcov DWARF parser. libitshell3 also needs -Dghostty-simd=false.
-    if [ "$MODULE" = "libitshell3" ]; then
-      (cd $MODULE_DIR && zig build test -Dghostty-simd=false -Doptimize=ReleaseSafe --summary none)
-    else
-      (cd $MODULE_DIR && zig build test -Doptimize=ReleaseSafe --summary none)
-    fi
-    TEST_BIN=$(find $MODULE_DIR/.zig-cache/o -name test -type f -executable -newer $MODULE_DIR/build.zig 2>/dev/null | xargs ls -t 2>/dev/null | head -1)
-    if [ -z "$TEST_BIN" ]; then echo "ERROR: no test binary for $MODULE"; continue; fi
-    echo "=== $MODULE: running kcov ==="
-    kcov --include-path=/workspace/$MODULE_DIR/src/ $COVERAGE_DIR/$MODULE "$TEST_BIN"
-    echo "=== $MODULE: done ==="
-  done
-
-  MERGE_ARGS=""
-  for dir in $TEST_MODULES; do
-    MERGE_ARGS="$MERGE_ARGS $COVERAGE_DIR/$(basename $dir)"
-  done
-  kcov --merge $COVERAGE_DIR/merged $MERGE_ARGS 2>/dev/null || true
-
-  echo
-  echo "=== Coverage Summary ==="
-  COVERAGE_NAMES=""
-  for dir in $TEST_MODULES; do
-    COVERAGE_NAMES="$COVERAGE_NAMES $(basename $dir)"
-  done
-  COVERAGE_NAMES="$COVERAGE_NAMES merged"
-  export COVERAGE_NAMES
-  deno eval '"'"'
-    const names = Deno.env.get("COVERAGE_NAMES").trim().split(/ +/);
-    for (const name of names) {
-      for (const sub of ["test/coverage.json", "coverage.json"]) {
-        try {
-          const d = JSON.parse(Deno.readTextFileSync(`coverage/${name}/${sub}`));
-          console.log(`${name.padEnd(25)} ${d.percent_covered.padStart(6)}%  (${d.covered_lines}/${d.total_lines} lines)`);
-          break;
-        } catch { continue; }
-      }
-    }
-  '"'"'
-
-  echo
-  echo "HTML report: coverage/merged/index.html"
-'
+  -v "$(pwd):/workspace" -w /workspace zig-kcov \
+  bash /workspace/scripts/coverage.sh
 """

@@ -30,6 +30,7 @@ pub fn build(b: *std.Build) void {
         .flags = &.{
             "-DENABLE_EXTERNAL_KEYBOARDS=0",
             "-UENABLE_NLS",
+            "-D_POSIX_C_SOURCE=200809L",
             "-std=c99",
         },
     });
