@@ -66,6 +66,7 @@ graph TD
     P6 --> P7
     P7 --> P9["Plan 9: Debug Subsystem"]
     P3 --> P8["Plan 8: SSH Transport"]
+    P5_5 --> P8
     P4 --> P10["Plan 10: Design Doc CTR Resolution"]
     P5 --> P10
     P6 --> P10
