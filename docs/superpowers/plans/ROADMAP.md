@@ -40,7 +40,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
 | 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**    |
 | 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done**    |
-| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3          | Not started |
+| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3 + docs   | Not started |
 | 6    | Message Infrastructure & Connection Lifecycle | (not yet written)                                   | libitshell3          | Not started |
 | 7    | Session & Pane Operations                     | (not yet written)                                   | libitshell3          | Not started |
 | 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                   | libitshell3          | Not started |
