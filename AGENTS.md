@@ -34,14 +34,44 @@ consists of three libraries and two applications:
 
 ## Current State
 
-The repository is in the **design/planning phase** — documentation only, no
-source code yet. Implementation begins with Phase 1 (daemon + client +
-RenderState pipeline).
+Three library modules are under active implementation. See
+[`ROADMAP.md`](docs/superpowers/plans/ROADMAP.md) for per-plan status.
 
-## Build System (Planned)
+| Module               | Status                                           |
+| -------------------- | ------------------------------------------------ |
+| libitshell3-protocol | Implemented (22 source files), 135+ tests        |
+| libitshell3-ime      | Implemented (9 source files), 135+ tests         |
+| libitshell3          | Implemented (6 sub-modules), spec alignment next |
 
-Zig build system (`build.zig`) targeting Zig 0.14+. Will produce static `.a` and
-shared `.dylib`/`.so` libraries with C header export.
+Applications (it-shell3 client, it-shell3-daemon) are not yet started.
+
+## Build & Test
+
+**Prerequisites:** [mise](https://mise.jdx.dev/), Docker (for Linux tests and
+coverage)
+
+Zig build system (`build.zig`) per module. Managed via `mise` tasks:
+
+```bash
+mise run test:macos                # All modules — Debug
+mise run test:macos:release-safe   # All modules — ReleaseSafe
+mise run test:coverage             # kcov in Docker (Linux)
+mise run test:linux                # All modules in Docker — Debug
+mise run build:docker:zig-kcov     # Build the kcov Docker image
+```
+
+Single-module test (from project root):
+
+```bash
+(cd modules/libitshell3 && zig build test --summary all)
+```
+
+### Why Docker for coverage?
+
+kcov cannot parse macOS DWARF debug info — it only works with Linux ELF
+binaries. `Dockerfile.kcov` builds a `zig-kcov` image (kcov + mise + Zig
+pre-installed) so macOS developers can produce ELF binaries and run coverage
+inside a Linux container via `mise run test:coverage`.
 
 ## Architecture
 
