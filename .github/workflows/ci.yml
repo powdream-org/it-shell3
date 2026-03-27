@@ -77,35 +77,35 @@ jobs:
           done
 
   coverage:
-    runs-on: ubuntu-latest
-    container: kcov/kcov
+    runs-on: mac-mini
     needs: test
+
+    env:
+      IMAGE_TAG: zig-kcov-ci:${{ github.sha }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Install system dependencies
-        run: apt-get update && apt-get install -y git curl xz-utils
-
       - name: Init submodules
         run: git submodule update --init --recursive vendors/ghostty vendors/libhangul
-
-      - name: Install mise
-        run: |
-          curl https://mise.run | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
-
-      - name: Install tools
-        run: mise trust && mise install
 
       - name: Load mise environment
         run: mise env -s bash | grep -v '^export PATH=' | sed "s/^export //; s/='\(.*\)'$/=\1/" >> "$GITHUB_ENV"
 
+      - name: Cleanup old CI images
+        run: docker images zig-kcov-ci --format '{{.ID}}' | xargs -r docker rmi -f || true
+
+      - name: Build Docker image
+        run: |
+          docker build -t zig-kcov-base -f Dockerfile.kcov.base .
+          docker build -t $IMAGE_TAG -f Dockerfile.kcov .
+
       - name: Measure coverage
-        run: bash scripts/coverage.sh
-        env:
-          WORKSPACE_DIR: ${{ github.workspace }}
+        run: |
+          docker run --rm --security-opt seccomp=unconfined \
+            -e TEST_MODULES="$TEST_MODULES" \
+            -v "$(pwd):/workspace" -w /workspace \
+            $IMAGE_TAG bash /workspace/scripts/coverage.sh
 
       - name: Find coverage report
         id: coverage
@@ -120,3 +120,7 @@ jobs:
         with:
           file: ${{ steps.coverage.outputs.file }}
           format: cobertura
+
+      - name: Cleanup current CI image
+        if: always()
+        run: docker rmi $IMAGE_TAG || true
