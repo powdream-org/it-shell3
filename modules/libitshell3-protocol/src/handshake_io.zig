@@ -59,14 +59,14 @@ pub fn performServerHandshake(
     if (hdr.msg_type != @intFromEnum(message_type_mod.MessageType.client_hello))
         return error.UnexpectedMessage;
 
-    if (hdr.payload_len > payload_buf.len) return error.Overflow;
+    if (hdr.payload_length > payload_buf.len) return error.Overflow;
     var payload_read: usize = 0;
-    while (payload_read < hdr.payload_len) {
-        const n = conn.transport.read(payload_buf[payload_read..hdr.payload_len]) catch return error.EndOfStream;
+    while (payload_read < hdr.payload_length) {
+        const n = conn.transport.read(payload_buf[payload_read..hdr.payload_length]) catch return error.EndOfStream;
         if (n == 0) return error.EndOfStream;
         payload_read += n;
     }
-    const payload = payload_buf[0..hdr.payload_len];
+    const payload = payload_buf[0..hdr.payload_length];
 
     const parsed = json_mod.decode(handshake_mod.ClientHello, allocator, payload) catch return error.MalformedPayload;
     defer parsed.deinit();
@@ -100,7 +100,7 @@ pub fn performServerHandshake(
     const resp_hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.server_hello),
         .flags = .{ .response = true },
-        .payload_len = @intCast(json_payload.len),
+        .payload_length = @intCast(json_payload.len),
         .sequence = hdr.sequence,
     };
     var resp_buf: [header_mod.HEADER_SIZE]u8 = undefined;
@@ -133,7 +133,7 @@ pub fn performClientHandshake(
     const hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.client_hello),
         .flags = .{},
-        .payload_len = @intCast(json_payload.len),
+        .payload_length = @intCast(json_payload.len),
         .sequence = seq,
     };
     var hdr_buf: [header_mod.HEADER_SIZE]u8 = undefined;
@@ -154,15 +154,15 @@ pub fn performClientHandshake(
     if (resp_hdr.msg_type != @intFromEnum(message_type_mod.MessageType.server_hello))
         return error.UnexpectedMessage;
 
-    if (resp_hdr.payload_len > payload_buf.len) return error.Overflow;
+    if (resp_hdr.payload_length > payload_buf.len) return error.Overflow;
     var payload_read: usize = 0;
-    while (payload_read < resp_hdr.payload_len) {
-        const n = conn.transport.read(payload_buf[payload_read..resp_hdr.payload_len]) catch return error.EndOfStream;
+    while (payload_read < resp_hdr.payload_length) {
+        const n = conn.transport.read(payload_buf[payload_read..resp_hdr.payload_length]) catch return error.EndOfStream;
         if (n == 0) return error.EndOfStream;
         payload_read += n;
     }
 
-    const parsed = json_mod.decode(handshake_mod.ServerHello, allocator, payload_buf[0..resp_hdr.payload_len]) catch return error.MalformedPayload;
+    const parsed = json_mod.decode(handshake_mod.ServerHello, allocator, payload_buf[0..resp_hdr.payload_length]) catch return error.MalformedPayload;
     defer parsed.deinit();
     const server_hello = parsed.value;
 
@@ -260,7 +260,7 @@ fn capsToStrings(caps: connection_mod.NegotiatedCaps, out: *[11][]const u8) usiz
 
 const builtin = @import("builtin");
 
-test "negotiateCapabilities intersection" {
+test "negotiateCapabilities: intersection" {
     const client = [_][]const u8{ "mouse", "clipboard_sync", "search" };
     const server = [_][]const u8{ "mouse", "search", "sixel" };
     const caps = negotiateCapabilities(&client, &server);
@@ -270,14 +270,14 @@ test "negotiateCapabilities intersection" {
     try std.testing.expect(!caps.sixel); // not in client
 }
 
-test "negotiateCapabilities empty server accepts all client" {
+test "negotiateCapabilities: empty server accepts all client" {
     const client = [_][]const u8{ "mouse", "clipboard_sync" };
     const caps = negotiateCapabilities(&client, &.{});
     try std.testing.expect(caps.mouse);
     try std.testing.expect(caps.clipboard_sync);
 }
 
-test "Full handshake round-trip over socketpair" {
+test "performServerHandshake/performClientHandshake: round-trip over socketpair" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
 
     const allocator = std.testing.allocator;
@@ -326,7 +326,7 @@ test "Full handshake round-trip over socketpair" {
     try std.testing.expectEqual(connection_mod.ConnectionState.ready, server_conn.state);
 }
 
-test "Version mismatch" {
+test "performServerHandshake: version mismatch" {
     const allocator = std.testing.allocator;
 
     // Build a ClientHello requesting version 2-3
@@ -344,7 +344,7 @@ test "Version mismatch" {
     const hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.client_hello),
         .flags = .{},
-        .payload_len = @intCast(json_payload.len),
+        .payload_length = @intCast(json_payload.len),
         .sequence = 1,
     };
     var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
@@ -417,7 +417,7 @@ const ChunkedTransport = struct {
     fn closeImpl(_: *anyopaque) void {}
 };
 
-test "Server partial header read: header arrives in 1-byte chunks" {
+test "performServerHandshake: partial header read in 1-byte chunks" {
     const allocator = std.testing.allocator;
 
     const hello = handshake_mod.ClientHello{
@@ -434,7 +434,7 @@ test "Server partial header read: header arrives in 1-byte chunks" {
     const hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.client_hello),
         .flags = .{},
-        .payload_len = @intCast(json_payload.len),
+        .payload_length = @intCast(json_payload.len),
         .sequence = 1,
     };
     var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
@@ -460,7 +460,7 @@ test "Server partial header read: header arrives in 1-byte chunks" {
     try std.testing.expectEqual(connection_mod.ConnectionState.ready, conn.state);
 }
 
-test "Server partial payload read: payload arrives in small chunks" {
+test "performServerHandshake: partial payload read in small chunks" {
     const allocator = std.testing.allocator;
 
     const hello = handshake_mod.ClientHello{
@@ -477,7 +477,7 @@ test "Server partial payload read: payload arrives in small chunks" {
     const hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.client_hello),
         .flags = .{},
-        .payload_len = @intCast(json_payload.len),
+        .payload_length = @intCast(json_payload.len),
         .sequence = 1,
     };
     var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
@@ -501,7 +501,7 @@ test "Server partial payload read: payload arrives in small chunks" {
     try std.testing.expect(result.negotiated_caps.clipboard_sync);
 }
 
-test "Client receives unexpected message type (error instead of ServerHello)" {
+test "performClientHandshake: unexpected message type" {
     const allocator = std.testing.allocator;
 
     // Build a frame with msg_type=error (0x00FF) instead of server_hello
@@ -511,7 +511,7 @@ test "Client receives unexpected message type (error instead of ServerHello)" {
     const resp_hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.@"error"),
         .flags = .{ .response = true, .@"error" = true },
-        .payload_len = @intCast(error_payload.len),
+        .payload_length = @intCast(error_payload.len),
         .sequence = 1,
     };
     var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
@@ -533,7 +533,7 @@ test "Client receives unexpected message type (error instead of ServerHello)" {
     try std.testing.expectEqual(connection_mod.ConnectionState.handshaking, conn.state);
 }
 
-test "Client receives oversized payload" {
+test "performClientHandshake: oversized payload" {
     const allocator = std.testing.allocator;
 
     // Build a ServerHello-shaped frame claiming a payload larger than our buffer
@@ -542,7 +542,7 @@ test "Client receives oversized payload" {
     const resp_hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.server_hello),
         .flags = .{ .response = true },
-        .payload_len = 8000, // larger than our 256-byte buffer
+        .payload_length = 8000, // larger than our 256-byte buffer
         .sequence = 1,
     };
     var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
@@ -562,7 +562,7 @@ test "Client receives oversized payload" {
     try std.testing.expectError(error.Overflow, result);
 }
 
-test "Client receives malformed JSON payload" {
+test "performClientHandshake: malformed JSON payload" {
     const allocator = std.testing.allocator;
 
     // Build a valid header with server_hello type but garbage JSON payload
@@ -572,7 +572,7 @@ test "Client receives malformed JSON payload" {
     const resp_hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.server_hello),
         .flags = .{ .response = true },
-        .payload_len = @intCast(garbage_json.len),
+        .payload_length = @intCast(garbage_json.len),
         .sequence = 1,
     };
     var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
@@ -594,7 +594,7 @@ test "Client receives malformed JSON payload" {
     try std.testing.expectEqual(connection_mod.ConnectionState.handshaking, conn.state);
 }
 
-test "All 11 capability flags are correctly negotiated" {
+test "negotiateCapabilities: all 11 capability flags" {
     const all_caps = [_][]const u8{
         "clipboard_sync",
         "mouse",
@@ -629,14 +629,14 @@ test "All 11 capability flags are correctly negotiated" {
     try std.testing.expectEqual(@as(usize, 11), count);
 }
 
-test "capsToStrings empty caps produces 0 entries" {
+test "capsToStrings: empty caps produces 0 entries" {
     const empty = connection_mod.NegotiatedCaps{};
     var out: [11][]const u8 = undefined;
     const count = capsToStrings(empty, &out);
     try std.testing.expectEqual(@as(usize, 0), count);
 }
 
-test "Server receives unexpected message type (not client_hello)" {
+test "performServerHandshake: unexpected message type" {
     const allocator = std.testing.allocator;
 
     // Send a heartbeat instead of client_hello
@@ -646,7 +646,7 @@ test "Server receives unexpected message type (not client_hello)" {
     const hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.heartbeat),
         .flags = .{},
-        .payload_len = @intCast(payload.len),
+        .payload_length = @intCast(payload.len),
         .sequence = 1,
     };
     var hdr_bytes: [header_mod.HEADER_SIZE]u8 = undefined;
@@ -665,7 +665,7 @@ test "Server receives unexpected message type (not client_hello)" {
     try std.testing.expectError(error.UnexpectedMessage, result);
 }
 
-test "Server receives EOF mid-header" {
+test "performServerHandshake: EOF mid-header" {
     const allocator = std.testing.allocator;
 
     // Only 4 bytes — not enough for a 16-byte header
@@ -681,7 +681,7 @@ test "Server receives EOF mid-header" {
     try std.testing.expectError(error.EndOfStream, result);
 }
 
-test "Client partial header read via chunked transport" {
+test "performClientHandshake: partial header read via chunked transport" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
 
     const allocator = std.testing.allocator;

@@ -231,7 +231,7 @@ pub const WindowResizeAck = struct {
     rows: u16,
 };
 
-test "SplitPaneRequest JSON round-trip" {
+test "SplitPaneRequest: JSON round-trip" {
     const allocator = std.testing.allocator;
     const original = SplitPaneRequest{ .session_id = 1, .pane_id = 1, .direction = 1, .ratio = 0.5 };
     const j = try json_mod.encode(allocator, original);
@@ -242,7 +242,7 @@ test "SplitPaneRequest JSON round-trip" {
     try std.testing.expectEqual(@as(u8, 1), parsed.value.direction);
 }
 
-test "ClosePaneResponse side_effect field" {
+test "ClosePaneResponse: side_effect field" {
     const allocator = std.testing.allocator;
     const original = ClosePaneResponse{ .status = 0, .side_effect = 1, .new_focus_pane_id = 0 };
     const j = try json_mod.encode(allocator, original);
@@ -252,7 +252,7 @@ test "ClosePaneResponse side_effect field" {
     try std.testing.expectEqual(@as(u32, 1), parsed.value.side_effect);
 }
 
-test "ZoomPaneResponse zoomed field" {
+test "ZoomPaneResponse: zoomed field" {
     const allocator = std.testing.allocator;
     const original = ZoomPaneResponse{ .status = 0, .zoomed = true };
     const j = try json_mod.encode(allocator, original);
@@ -262,7 +262,7 @@ test "ZoomPaneResponse zoomed field" {
     try std.testing.expect(parsed.value.zoomed);
 }
 
-test "SessionListChanged event field" {
+test "SessionListChanged: event field" {
     const allocator = std.testing.allocator;
     const original = SessionListChanged{ .event = "created", .session_id = 1, .name = "main" };
     const j = try json_mod.encode(allocator, original);
@@ -272,7 +272,7 @@ test "SessionListChanged event field" {
     try std.testing.expectEqualStrings("created", parsed.value.event);
 }
 
-test "WindowResize optional pixel fields omitted" {
+test "WindowResize: optional pixel fields omitted" {
     const allocator = std.testing.allocator;
     const original = WindowResize{ .session_id = 1, .cols = 120, .rows = 40 };
     const j = try json_mod.encode(allocator, original);
@@ -280,7 +280,7 @@ test "WindowResize optional pixel fields omitted" {
     try std.testing.expect(std.mem.indexOf(u8, j, "pixel_width") == null);
 }
 
-test "ClientHealthChanged JSON round-trip" {
+test "ClientHealthChanged: JSON round-trip" {
     const allocator = std.testing.allocator;
     const original = ClientHealthChanged{
         .session_id = 1,

@@ -242,7 +242,7 @@ pub const RingBuffer = struct {
     /// "ring MUST always contain at least one complete I-frame").
     ///
     /// When this returns false and the ring is actively being written to,
-    /// the frame export logic (Plan 6) must force-produce an I-frame
+    /// the frame export logic (Plan 9) must force-produce an I-frame
     /// before any more P-frames — otherwise seekToLatestIFrame will be a
     /// no-op and slow clients cannot recover.
     pub fn hasValidIFrame(self: *const RingBuffer) bool {

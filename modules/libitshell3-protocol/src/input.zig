@@ -117,7 +117,7 @@ pub const SearchCancel = struct {
     pane_id: u32,
 };
 
-test "KeyEvent JSON round-trip" {
+test "KeyEvent: JSON round-trip" {
     const allocator = std.testing.allocator;
     const original = KeyEvent{
         .keycode = 0x04,
@@ -134,7 +134,7 @@ test "KeyEvent JSON round-trip" {
     try std.testing.expectEqualStrings("direct", parsed.value.input_method);
 }
 
-test "KeyEvent optional pane_id omitted when null" {
+test "KeyEvent: optional pane_id omitted when null" {
     const allocator = std.testing.allocator;
     const original = KeyEvent{ .keycode = 0x28, .action = 0, .modifiers = 0 };
     const j = try json_mod.encode(allocator, original);
@@ -142,7 +142,7 @@ test "KeyEvent optional pane_id omitted when null" {
     try std.testing.expect(std.mem.indexOf(u8, j, "pane_id") == null);
 }
 
-test "MouseButton JSON round-trip" {
+test "MouseButton: JSON round-trip" {
     const allocator = std.testing.allocator;
     const original = MouseButton{ .pane_id = 1, .button = 0, .action = 0, .modifiers = 0, .x = 5.0, .y = 10.0 };
     const j = try json_mod.encode(allocator, original);
@@ -153,7 +153,7 @@ test "MouseButton JSON round-trip" {
     try std.testing.expectEqual(@as(f32, 10.0), parsed.value.y);
 }
 
-test "PasteData JSON round-trip" {
+test "PasteData: JSON round-trip" {
     const allocator = std.testing.allocator;
     const original = PasteData{ .pane_id = 1, .data = "hello world" };
     const j = try json_mod.encode(allocator, original);
@@ -163,7 +163,7 @@ test "PasteData JSON round-trip" {
     try std.testing.expectEqualStrings("hello world", parsed.value.data);
 }
 
-test "SearchRequest JSON round-trip" {
+test "SearchRequest: JSON round-trip" {
     const allocator = std.testing.allocator;
     const original = SearchRequest{ .pane_id = 1, .query = "foo", .regex = true };
     const j = try json_mod.encode(allocator, original);
@@ -174,7 +174,7 @@ test "SearchRequest JSON round-trip" {
     try std.testing.expect(parsed.value.regex);
 }
 
-test "Modifiers constants" {
+test "Modifiers: constants" {
     try std.testing.expectEqual(@as(u8, 0x01), Modifiers.shift);
     try std.testing.expectEqual(@as(u8, 0x02), Modifiers.ctrl);
     try std.testing.expectEqual(@as(u8, 0x04), Modifiers.alt);

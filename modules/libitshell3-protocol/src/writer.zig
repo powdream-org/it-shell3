@@ -11,14 +11,14 @@ pub fn writeFrame(writer: anytype, hdr: header_mod.Header, payload: []const u8) 
     }
 }
 
-test "writeFrame produces correct bytes" {
+test "writeFrame: produces correct bytes" {
     var buf: [4096]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
 
     const hdr = header_mod.Header{
         .msg_type = 0x0100,
         .flags = .{},
-        .payload_len = 3,
+        .payload_length = 3,
         .sequence = 7,
     };
     try writeFrame(fbs.writer(), hdr, "abc");

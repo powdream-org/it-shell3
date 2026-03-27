@@ -121,7 +121,7 @@ pub const Connection = struct {
 
 // --- Tests ---
 
-test "Connection init state is handshaking" {
+test "Connection.init: state is handshaking" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -130,7 +130,7 @@ test "Connection init state is handshaking" {
     try std.testing.expectEqual(@as(?u32, null), conn.client_id);
 }
 
-test "completeHandshake: handshaking -> ready" {
+test "Connection.completeHandshake: handshaking to ready" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -141,7 +141,7 @@ test "completeHandshake: handshaking -> ready" {
     try std.testing.expect(conn.negotiated_caps.mouse);
 }
 
-test "completeHandshake from ready -> error" {
+test "Connection.completeHandshake: from ready returns error" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -150,7 +150,7 @@ test "completeHandshake from ready -> error" {
     try std.testing.expectError(error.InvalidTransition, conn.completeHandshake(2, .{}));
 }
 
-test "attachSession: ready -> operating" {
+test "Connection.attachSession: ready to operating" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -161,7 +161,7 @@ test "attachSession: ready -> operating" {
     try std.testing.expectEqual(@as(?u32, 42), conn.attached_session_id);
 }
 
-test "attachSession from handshaking -> error" {
+test "Connection.attachSession: from handshaking returns error" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -169,7 +169,7 @@ test "attachSession from handshaking -> error" {
     try std.testing.expectError(error.InvalidTransition, conn.attachSession(1));
 }
 
-test "detachSession: operating -> ready" {
+test "Connection.detachSession: operating to ready" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -181,7 +181,7 @@ test "detachSession: operating -> ready" {
     try std.testing.expectEqual(@as(?u32, null), conn.attached_session_id);
 }
 
-test "beginDisconnect from operating" {
+test "Connection.beginDisconnect: from operating" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -192,7 +192,7 @@ test "beginDisconnect from operating" {
     try std.testing.expectEqual(ConnectionState.disconnecting, conn.state);
 }
 
-test "beginDisconnect from ready" {
+test "Connection.beginDisconnect: from ready" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -202,7 +202,7 @@ test "beginDisconnect from ready" {
     try std.testing.expectEqual(ConnectionState.disconnecting, conn.state);
 }
 
-test "beginDisconnect from handshaking -> error" {
+test "Connection.beginDisconnect: from handshaking returns error" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -210,7 +210,7 @@ test "beginDisconnect from handshaking -> error" {
     try std.testing.expectError(error.InvalidTransition, conn.beginDisconnect());
 }
 
-test "validateMessageType: handshaking allows hello" {
+test "Connection.validateMessageType: handshaking allows hello" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -219,7 +219,7 @@ test "validateMessageType: handshaking allows hello" {
     try std.testing.expectError(error.InvalidState, conn.validateMessageType(@intFromEnum(message_type_mod.MessageType.key_event)));
 }
 
-test "validateMessageType: operating allows everything" {
+test "Connection.validateMessageType: operating allows everything" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -230,7 +230,7 @@ test "validateMessageType: operating allows everything" {
     try conn.validateMessageType(@intFromEnum(message_type_mod.MessageType.frame_update));
 }
 
-test "validateMessageType: disconnecting allows only disconnect/error" {
+test "Connection.validateMessageType: disconnecting allows only disconnect and error" {
     const allocator = std.testing.allocator;
     var bt = transport_mod.BufferTransport.init(allocator, "");
     defer bt.deinit();

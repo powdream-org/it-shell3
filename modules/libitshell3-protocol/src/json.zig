@@ -23,7 +23,7 @@ const TestMsg = struct {
     value: ?u32 = null,
 };
 
-test "JSON encode/decode round-trip" {
+test "encode/decode: round-trip" {
     const allocator = std.testing.allocator;
     const original = TestMsg{ .id = 42, .name = "hello", .value = 99 };
     const json = try encode(allocator, original);
@@ -35,7 +35,7 @@ test "JSON encode/decode round-trip" {
     try std.testing.expectEqual(original.value, parsed.value.value);
 }
 
-test "JSON decode with unknown fields is tolerated" {
+test "decode: unknown fields tolerated" {
     const allocator = std.testing.allocator;
     const json = "{\"id\":1,\"name\":\"x\",\"unknown_field\":true}";
     const parsed = try decode(TestMsg, allocator, json);
@@ -43,7 +43,7 @@ test "JSON decode with unknown fields is tolerated" {
     try std.testing.expectEqual(@as(u32, 1), parsed.value.id);
 }
 
-test "JSON encode omits null optional fields" {
+test "encode: omits null optional fields" {
     const allocator = std.testing.allocator;
     const msg = TestMsg{ .id = 1, .name = "x", .value = null };
     const json = try encode(allocator, msg);
@@ -52,7 +52,7 @@ test "JSON encode omits null optional fields" {
     try std.testing.expect(std.mem.indexOf(u8, json, "value") == null);
 }
 
-test "JSON decode null optional field treated as absent" {
+test "decode: null optional field treated as absent" {
     const allocator = std.testing.allocator;
     // Receivers must tolerate null values as "absent"
     const json = "{\"id\":5,\"name\":\"y\",\"value\":null}";

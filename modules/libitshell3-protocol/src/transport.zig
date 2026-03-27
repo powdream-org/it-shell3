@@ -81,10 +81,10 @@ pub const UnixTransport = struct {
 pub const Listener = struct {
     listen_fd: std.posix.socket_t,
     socket_path_storage: [socket_path_mod.MAX_SOCKET_PATH]u8,
-    socket_path_len: usize,
+    socket_path_length: usize,
 
     pub fn socketPath(self: *const Listener) []const u8 {
-        return self.socket_path_storage[0..self.socket_path_len];
+        return self.socket_path_storage[0..self.socket_path_length];
     }
 
     pub fn accept(self: *Listener) !UnixTransport {
@@ -132,7 +132,7 @@ pub fn listen(socket_path: []const u8) !Listener {
     var result = Listener{
         .listen_fd = fd,
         .socket_path_storage = undefined,
-        .socket_path_len = socket_path.len,
+        .socket_path_length = socket_path.len,
     };
     @memcpy(result.socket_path_storage[0..socket_path.len], socket_path);
     return result;
@@ -224,7 +224,7 @@ pub const BufferTransport = struct {
 
 // --- Tests ---
 
-test "BufferTransport write then read" {
+test "BufferTransport: write then read" {
     const allocator = std.testing.allocator;
     var bt = BufferTransport.init(allocator, "hello");
     defer bt.deinit();
@@ -242,7 +242,7 @@ test "BufferTransport write then read" {
     try std.testing.expectEqualSlices(u8, "world", bt.writtenData());
 }
 
-test "BufferTransport returns 0 at EOF" {
+test "BufferTransport: returns 0 at EOF" {
     const allocator = std.testing.allocator;
     var bt = BufferTransport.init(allocator, "");
     defer bt.deinit();
@@ -253,7 +253,7 @@ test "BufferTransport returns 0 at EOF" {
     try std.testing.expectEqual(@as(usize, 0), n);
 }
 
-test "UnixTransport via socketpair" {
+test "UnixTransport: via socketpair" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
 
     var fds: [2]std.posix.socket_t = undefined;
@@ -277,7 +277,7 @@ test "UnixTransport via socketpair" {
     st.close();
 }
 
-test "listen and connect (real socket)" {
+test "listen/connect: real socket round-trip" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
 
     const allocator = std.testing.allocator;

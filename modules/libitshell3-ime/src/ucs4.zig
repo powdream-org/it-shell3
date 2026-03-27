@@ -7,7 +7,7 @@ const c = @import("c.zig");
 /// Encode a single UCS-4 codepoint to UTF-8.
 /// Returns the number of bytes written (1–4), or 0 if the codepoint is invalid
 /// or the buffer is too small.
-pub fn encodeCodepoint(cp: u32, buf: []u8) u3 {
+pub fn encodeCodepoint(cp: u32, buf: []u8) u8 {
     if (cp < 0x80) {
         if (buf.len < 1) return 0;
         buf[0] = @intCast(cp);
@@ -59,7 +59,7 @@ pub fn ucs4ToUtf8(ucs4: [*c]const c.ucschar, buf: []u8) usize {
 test "encodeCodepoint: ASCII" {
     var buf: [4]u8 = undefined;
     const n = encodeCodepoint('a', &buf);
-    try std.testing.expectEqual(@as(u3, 1), n);
+    try std.testing.expectEqual(@as(u8, 1), n);
     try std.testing.expectEqual(@as(u8, 'a'), buf[0]);
 }
 
@@ -67,7 +67,7 @@ test "encodeCodepoint: 2-byte (Latin)" {
     var buf: [4]u8 = undefined;
     // é = U+00E9
     const n = encodeCodepoint(0xE9, &buf);
-    try std.testing.expectEqual(@as(u3, 2), n);
+    try std.testing.expectEqual(@as(u8, 2), n);
     try std.testing.expectEqualSlices(u8, "\xC3\xA9", buf[0..2]);
 }
 
@@ -75,12 +75,12 @@ test "encodeCodepoint: 3-byte (Korean)" {
     var buf: [4]u8 = undefined;
     // ㄱ = U+3131
     const n = encodeCodepoint(0x3131, &buf);
-    try std.testing.expectEqual(@as(u3, 3), n);
+    try std.testing.expectEqual(@as(u8, 3), n);
     try std.testing.expectEqualSlices(u8, "\xE3\x84\xB1", buf[0..3]);
 
     // 한 = U+D55C
     const n2 = encodeCodepoint(0xD55C, &buf);
-    try std.testing.expectEqual(@as(u3, 3), n2);
+    try std.testing.expectEqual(@as(u8, 3), n2);
     try std.testing.expectEqualSlices(u8, "\xED\x95\x9C", buf[0..3]);
 }
 
@@ -88,7 +88,7 @@ test "encodeCodepoint: 4-byte (emoji)" {
     var buf: [4]u8 = undefined;
     // 😀 = U+1F600
     const n = encodeCodepoint(0x1F600, &buf);
-    try std.testing.expectEqual(@as(u3, 4), n);
+    try std.testing.expectEqual(@as(u8, 4), n);
     try std.testing.expectEqualSlices(u8, "\xF0\x9F\x98\x80", buf[0..4]);
 }
 
@@ -96,13 +96,13 @@ test "encodeCodepoint: buffer too small" {
     var buf: [1]u8 = undefined;
     // 3-byte char in 1-byte buffer
     const n = encodeCodepoint(0x3131, &buf);
-    try std.testing.expectEqual(@as(u3, 0), n);
+    try std.testing.expectEqual(@as(u8, 0), n);
 }
 
 test "encodeCodepoint: invalid codepoint" {
     var buf: [4]u8 = undefined;
     const n = encodeCodepoint(0x110000, &buf);
-    try std.testing.expectEqual(@as(u3, 0), n);
+    try std.testing.expectEqual(@as(u8, 0), n);
 }
 
 test "ucs4ToUtf8: single Korean character" {

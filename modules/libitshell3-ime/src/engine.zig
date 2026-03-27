@@ -1,5 +1,5 @@
 //! ImeEngine vtable interface for dependency injection.
-//! Follows IME Interface Contract v0.7, Section 3.5.
+//! See the IME interface-contract spec for the vtable definition.
 
 const types = @import("types.zig");
 pub const KeyEvent = types.KeyEvent;
@@ -62,7 +62,7 @@ pub const ImeEngine = struct {
 const std = @import("std");
 
 test "ImeEngine: vtable dispatch works via MockImeEngine" {
-    const MockImeEngine = @import("mock_engine.zig").MockImeEngine;
+    const MockImeEngine = @import("testing/mocks/mock_engine.zig").MockImeEngine;
     var mock = MockImeEngine{};
     const eng = mock.engine();
 

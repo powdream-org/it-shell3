@@ -1,5 +1,5 @@
 //! Integration tests for HangulImeEngine covering the full v0.7 scenario matrix.
-//! 56 tests across 16 categories (A-P) from the implementation plan §3.1.
+//! Tests are derived from the IME behavior spec scenario matrix.
 //!
 //! These tests exercise the real libhangul C library through HangulImeEngine,
 //! verifying Korean Hangul composition, flush behavior, backspace jamo undo,
@@ -8,10 +8,10 @@
 const std = @import("std");
 const testing = std.testing;
 
-const types = @import("types.zig");
+const types = @import("../../types.zig");
 const KeyEvent = types.KeyEvent;
 const ImeResult = types.ImeResult;
-const hangul_engine = @import("hangul_engine.zig");
+const hangul_engine = @import("../../hangul_engine.zig");
 const HangulImeEngine = hangul_engine.HangulImeEngine;
 
 // ============================================================
@@ -181,7 +181,7 @@ fn expectPreeditChanged(result: ImeResult, expected: bool) !void {
 // A. Direct mode (7 tests)
 // ============================================================
 
-test "A1: direct_printable_lowercase" {
+test "spec: direct input — printable lowercase letter" {
     var eng = try createDirectEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -192,7 +192,7 @@ test "A1: direct_printable_lowercase" {
     try expectPreeditChanged(r, false);
 }
 
-test "A2: direct_printable_uppercase" {
+test "spec: direct input — printable uppercase letter" {
     var eng = try createDirectEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -203,7 +203,7 @@ test "A2: direct_printable_uppercase" {
     try expectPreeditChanged(r, false);
 }
 
-test "A3: direct_enter" {
+test "spec: direct input — enter key forwards" {
     var eng = try createDirectEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -214,7 +214,7 @@ test "A3: direct_enter" {
     try expectPreeditChanged(r, false);
 }
 
-test "A4: direct_space" {
+test "spec: direct input — space key forwards" {
     var eng = try createDirectEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -225,7 +225,7 @@ test "A4: direct_space" {
     try expectPreeditChanged(r, false);
 }
 
-test "A5: direct_ctrl_c" {
+test "spec: direct input — ctrl+c forwards with modifier" {
     var eng = try createDirectEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -236,7 +236,7 @@ test "A5: direct_ctrl_c" {
     try expectPreeditChanged(r, false);
 }
 
-test "A6: direct_arrow" {
+test "spec: direct input — arrow key forwards" {
     var eng = try createDirectEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -247,7 +247,7 @@ test "A6: direct_arrow" {
     try expectPreeditChanged(r, false);
 }
 
-test "A7: direct_escape" {
+test "spec: direct input — escape key forwards" {
     var eng = try createDirectEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -262,7 +262,7 @@ test "A7: direct_escape" {
 // B. Korean basic composition (5 tests)
 // ============================================================
 
-test "B1: korean_initial_consonant" {
+test "spec: Korean composition — initial consonant" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -274,7 +274,7 @@ test "B1: korean_initial_consonant" {
     try expectPreeditChanged(r, true);
 }
 
-test "B2: korean_add_vowel" {
+test "spec: Korean composition — add vowel to consonant" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -288,7 +288,7 @@ test "B2: korean_add_vowel" {
     try expectPreeditChanged(r, true);
 }
 
-test "B3: korean_add_tail" {
+test "spec: Korean composition — add tail consonant" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -303,7 +303,7 @@ test "B3: korean_add_tail" {
     try expectPreeditChanged(r, true);
 }
 
-test "B4: korean_syllable_break" {
+test "spec: Korean composition — syllable break on new consonant" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -317,7 +317,7 @@ test "B4: korean_syllable_break" {
     //   Wait, the plan says: r→k→s→k -> commit "간", preedit "가"
     //   But that's syllable break by adding a NEW consonant that starts a new syllable.
     //   Actually r→k→s→k: 간 + k(ㅏ) -> tail stealing: ㄴ moves to next syllable -> commit "가", preedit "나"
-    //   Hmm, but the plan §3.1 says commit "간", preedit "가" for category B4.
+    //   Hmm, but the plan says commit "간", preedit "가" for category B4.
     //   Let me re-check: In dubeolsik, 'k' maps to ㅏ. After 간(ㄱ+ㅏ+ㄴ), pressing ㅏ:
     //   libhangul does tail stealing: ㄴ becomes choseong of new syllable -> commit "가", preedit "나"
     //   But the plan says commit "간", preedit "가" for B4 AND category E1 also has r→k→s→k.
@@ -360,7 +360,7 @@ test "B4: korean_syllable_break" {
     try expectPreeditChanged(r, true);
 }
 
-test "B5: korean_vowel_only" {
+test "spec: Korean composition — vowel only" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -376,7 +376,7 @@ test "B5: korean_vowel_only" {
 // C. Shift 겹자음 (double consonants via Shift) (4 tests)
 // ============================================================
 
-test "C1: korean_double_choseong_gg" {
+test "spec: double choseong — gg via shift" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -388,7 +388,7 @@ test "C1: korean_double_choseong_gg" {
     try expectPreeditChanged(r, true);
 }
 
-test "C2: korean_double_choseong_dd" {
+test "spec: double choseong — dd via shift" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -400,7 +400,7 @@ test "C2: korean_double_choseong_dd" {
     try expectPreeditChanged(r, true);
 }
 
-test "C3: korean_double_choseong_in_syllable" {
+test "spec: double choseong — in syllable context" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -413,7 +413,7 @@ test "C3: korean_double_choseong_in_syllable" {
     try expectPreeditChanged(r, true);
 }
 
-test "C4: korean_double_choseong_ss" {
+test "spec: double choseong — ss via shift" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -430,7 +430,7 @@ test "C4: korean_double_choseong_ss" {
 // D. 겹받침 (compound jongseong) (3 tests)
 // ============================================================
 
-test "D1: korean_compound_jong_rg" {
+test "spec: compound jongseong — rg combination" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -445,7 +445,7 @@ test "D1: korean_compound_jong_rg" {
     try expectPreeditChanged(r, true);
 }
 
-test "D2: korean_compound_jong_bs" {
+test "spec: compound jongseong — bs combination" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -460,7 +460,7 @@ test "D2: korean_compound_jong_bs" {
     try expectPreeditChanged(r, true);
 }
 
-test "D3: korean_compound_jong_lg" {
+test "spec: compound jongseong — lg combination" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -479,7 +479,7 @@ test "D3: korean_compound_jong_lg" {
 // E. 받침 탈취 (tail stealing / onset reassignment) (3 tests)
 // ============================================================
 
-test "E1: korean_tail_stealing_simple" {
+test "spec: tail stealing — simple jongseong to next syllable" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -494,7 +494,7 @@ test "E1: korean_tail_stealing_simple" {
     try expectPreeditChanged(r, true);
 }
 
-test "E2: korean_tail_stealing_compound" {
+test "spec: tail stealing — compound jongseong splits" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -511,7 +511,7 @@ test "E2: korean_tail_stealing_compound" {
     try expectPreeditChanged(r, true);
 }
 
-test "E3: korean_full_word_dalgogi" {
+test "spec: tail stealing — full word dalgogi" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -540,7 +540,7 @@ test "E3: korean_full_word_dalgogi" {
 // F. 연속 입력 (multi-syllable sequences) (3 tests)
 // ============================================================
 
-test "F1: korean_word_hangul" {
+test "spec: multi-syllable word — hangul" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -568,7 +568,7 @@ test "F1: korean_word_hangul" {
     try expectPreedit(r, "글");
 }
 
-test "F2: korean_word_sarang" {
+test "spec: multi-syllable word — sarang" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -607,7 +607,7 @@ test "F2: korean_word_sarang" {
     try expectPreedit(r, "ㄱ");
 }
 
-test "F3: korean_three_syllables" {
+test "spec: multi-syllable word — three syllables" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -643,7 +643,7 @@ test "F3: korean_three_syllables" {
 // G. Space 띄어쓰기 (4 tests)
 // ============================================================
 
-test "G1: flush_space_during_composition" {
+test "spec: space handling — flush during composition" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -658,7 +658,7 @@ test "G1: flush_space_during_composition" {
     try expectPreeditChanged(r, true);
 }
 
-test "G2: space_after_committed" {
+test "spec: space handling — after committed syllable" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -673,7 +673,7 @@ test "G2: space_after_committed" {
     try expectForward(r, HID.space);
 }
 
-test "G3: space_then_continue" {
+test "spec: space handling — then continue composing" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -692,7 +692,7 @@ test "G3: space_then_continue" {
     try expectCommitted(r, null);
 }
 
-test "G4: space_empty_composition" {
+test "spec: space handling — empty composition" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -708,7 +708,7 @@ test "G4: space_empty_composition" {
 // H. Backspace 자소 삭제 (5 tests)
 // ============================================================
 
-test "H1: backspace_jamo_undo_chain" {
+test "spec: backspace — jamo undo chain" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -739,7 +739,7 @@ test "H1: backspace_jamo_undo_chain" {
     try expectPreeditChanged(r, true);
 }
 
-test "H2: backspace_from_compound_jong" {
+test "spec: backspace — from compound jongseong" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -757,7 +757,7 @@ test "H2: backspace_from_compound_jong" {
     try expectPreeditChanged(r, true);
 }
 
-test "H3: backspace_empty_forward" {
+test "spec: backspace — empty composition forwards" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -769,7 +769,7 @@ test "H3: backspace_empty_forward" {
     try expectPreeditChanged(r, false);
 }
 
-test "H4: backspace_after_syllable_committed" {
+test "spec: backspace — after syllable committed" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -792,7 +792,7 @@ test "H4: backspace_after_syllable_committed" {
     try expectForward(r, null);
 }
 
-test "H5: backspace_to_empty_then_forward" {
+test "spec: backspace — to empty then forward" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -816,7 +816,7 @@ test "H5: backspace_to_empty_then_forward" {
 // I. hangul_ic_process returns false (2 tests)
 // ============================================================
 
-test "I1: process_false_period" {
+test "spec: process false — period not consumed" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -830,7 +830,7 @@ test "I1: process_false_period" {
     try expectPreeditChanged(r, true);
 }
 
-test "I2: process_false_number" {
+test "spec: process false — number not consumed" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -849,7 +849,7 @@ test "I2: process_false_number" {
 // J. Modifier flush (3 tests)
 // ============================================================
 
-test "J1: flush_ctrl_c" {
+test "spec: modifier flush — ctrl+c flushes composition" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -863,7 +863,7 @@ test "J1: flush_ctrl_c" {
     try expectPreeditChanged(r, true);
 }
 
-test "J2: flush_alt_key" {
+test "spec: modifier flush — alt key flushes composition" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -877,7 +877,7 @@ test "J2: flush_alt_key" {
     try expectPreeditChanged(r, true);
 }
 
-test "J3: flush_super_key" {
+test "spec: modifier flush — super key flushes composition" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -895,7 +895,7 @@ test "J3: flush_super_key" {
 // K. Special key flush (5 tests)
 // ============================================================
 
-test "K1: flush_enter" {
+test "spec: special key flush — enter flushes and forwards" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -909,7 +909,7 @@ test "K1: flush_enter" {
     try expectPreeditChanged(r, true);
 }
 
-test "K2: flush_tab" {
+test "spec: special key flush — tab flushes and forwards" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -923,7 +923,7 @@ test "K2: flush_tab" {
     try expectPreeditChanged(r, true);
 }
 
-test "K3: flush_escape" {
+test "spec: special key flush — escape flushes and forwards" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -937,7 +937,7 @@ test "K3: flush_escape" {
     try expectPreeditChanged(r, true);
 }
 
-test "K4: flush_arrow" {
+test "spec: special key flush — arrow flushes and forwards" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -951,7 +951,7 @@ test "K4: flush_arrow" {
     try expectPreeditChanged(r, true);
 }
 
-test "K5: flush_arrow_no_composition" {
+test "spec: special key flush — arrow with no composition" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -967,7 +967,7 @@ test "K5: flush_arrow_no_composition" {
 // L. Input method switching (4 tests)
 // ============================================================
 
-test "L1: switch_with_composition" {
+test "spec: input method switch — with active composition" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -981,7 +981,7 @@ test "L1: switch_with_composition" {
     try expectPreeditChanged(r, true);
 }
 
-test "L2: switch_without_composition" {
+test "spec: input method switch — without composition" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -993,7 +993,7 @@ test "L2: switch_without_composition" {
     try expectPreeditChanged(r, false);
 }
 
-test "L3: switch_same_method" {
+test "spec: input method switch — same method is no-op" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -1009,7 +1009,7 @@ test "L3: switch_same_method" {
     try testing.expect(!ime.isEmpty());
 }
 
-test "L4: switch_unsupported" {
+test "spec: input method switch — unsupported returns error" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -1021,7 +1021,7 @@ test "L4: switch_unsupported" {
 // M. Lifecycle (3 tests)
 // ============================================================
 
-test "M1: deactivate_flushes" {
+test "spec: lifecycle — deactivate flushes composition" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -1033,7 +1033,7 @@ test "M1: deactivate_flushes" {
     try expectPreedit(r, null);
 }
 
-test "M2: deactivate_empty" {
+test "spec: lifecycle — deactivate with empty composition" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -1043,7 +1043,7 @@ test "M2: deactivate_empty" {
     try expectPreedit(r, null);
 }
 
-test "M3: activate_preserves_method" {
+test "spec: lifecycle — activate preserves input method" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -1060,7 +1060,7 @@ test "M3: activate_preserves_method" {
 // N. preedit_changed accuracy (3 tests)
 // ============================================================
 
-test "N1: preedit_changed_false_direct" {
+test "spec: preedit changed — false in direct mode" {
     var eng = try createDirectEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -1075,7 +1075,7 @@ test "N1: preedit_changed_false_direct" {
     try expectPreeditChanged(r, false);
 }
 
-test "N2: preedit_changed_transitions" {
+test "spec: preedit changed — transitions from empty to composing" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -1091,7 +1091,7 @@ test "N2: preedit_changed_transitions" {
     try expectPreeditChanged(r, true);
 }
 
-test "N3: preedit_changed_false_no_change" {
+test "spec: preedit changed — false when no state change" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -1103,12 +1103,12 @@ test "N3: preedit_changed_false_no_change" {
     try expectPreeditChanged(r, false);
 }
 
-test "N4: preedit_changed_true_same_byte_length" {
+test "spec: preedit changed — true even with same byte length" {
     // Validates that preedit_changed is true when preedit content changes but
     // UTF-8 byte length stays the same. This is the scenario from Mismatch #1:
     //   ㄱ (U+3131, UTF-8: E3 84 B1, 3 bytes) -> 가 (U+AC00, UTF-8: EA B0 80, 3 bytes)
     //
-    // The implementation uses prev_preedit_len (length-only tracking) but with a
+    // The implementation uses prev_preedit_length (length-only tracking) but with a
     // "non-null -> non-null always means content changed" rule in feedLibhangul.
     // This is correct because libhangul's hangul_ic_process never consumes a key
     // without changing the preedit: every consumed keystroke advances composition
@@ -1141,7 +1141,7 @@ test "N4: preedit_changed_true_same_byte_length" {
 // O. Release events (1 test)
 // ============================================================
 
-test "O1: release_ignored" {
+test "spec: key release — ignored in all modes" {
     // Direct mode release
     var eng_d = try createDirectEngine();
     defer eng_d.deinit();
@@ -1167,7 +1167,7 @@ test "O1: release_ignored" {
 // P. Repeat events (1 test)
 // ============================================================
 
-test "P1: repeat_key" {
+test "spec: key repeat — treated as press" {
     var eng = try createKoreanEngine();
     defer eng.deinit();
     const ime = eng.engine();
@@ -1185,7 +1185,7 @@ test "P1: repeat_key" {
 // Q. Edge cases for coverage gaps (additional tests)
 // ============================================================
 
-test "Q1: composing_mode_non_printable_non_special_key" {
+test "spec: edge case — composing mode non-printable non-special key" {
     // Tests processKeyComposing line 140: fallback flush+forward for
     // keys that are non-printable, non-special (e.g., F-keys, CapsLock).
     // HID 0x39 = CapsLock, 0x3A = F1. Both are outside printable range
@@ -1204,7 +1204,7 @@ test "Q1: composing_mode_non_printable_non_special_key" {
     try expectPreeditChanged(r, true);
 }
 
-test "Q2: composing_mode_non_printable_no_composition" {
+test "spec: edge case — composing mode non-printable without composition" {
     // Same path but with no active composition — tests flushAndForward
     // with empty hangul_ic.
     var eng = try createKoreanEngine();
@@ -1219,7 +1219,7 @@ test "Q2: composing_mode_non_printable_no_composition" {
     try expectPreeditChanged(r, false);
 }
 
-test "Q3: switch_direct_to_korean" {
+test "spec: edge case — switch direct to korean" {
     // Tests setActiveInputMethodImpl switching TO korean (libhangul keyboard update).
     var eng = try createDirectEngine();
     defer eng.deinit();
@@ -1238,7 +1238,7 @@ test "Q3: switch_direct_to_korean" {
     try expectPreeditChanged(r2, true);
 }
 
-test "Q4: switch_korean_to_different_korean" {
+test "spec: edge case — switch korean to different korean layout" {
     // Tests switching between two Korean layouts (keyboard ID update path).
     var eng = try createKoreanEngine();
     defer eng.deinit();
@@ -1252,7 +1252,7 @@ test "Q4: switch_korean_to_different_korean" {
     try testing.expectEqualStrings("korean_3set_390", ime.getActiveInputMethod());
 }
 
-test "Q5: direct_mode_release_event" {
+test "spec: edge case — direct mode release event ignored" {
     // Tests that release events in direct mode return empty.
     var eng = try createDirectEngine();
     defer eng.deinit();
@@ -1264,7 +1264,7 @@ test "Q5: direct_mode_release_event" {
     try expectPreeditChanged(r, false);
 }
 
-test "Q6: direct_mode_repeat_event" {
+test "spec: edge case — direct mode repeat event" {
     // Tests that repeat events in direct mode work like press.
     var eng = try createDirectEngine();
     defer eng.deinit();
@@ -1276,7 +1276,7 @@ test "Q6: direct_mode_repeat_event" {
     try expectPreeditChanged(r, false);
 }
 
-test "Q7: flush_explicit_with_composition" {
+test "spec: edge case — explicit flush with composition" {
     // Tests flush() via the ImeEngine interface with active composition.
     var eng = try createKoreanEngine();
     defer eng.deinit();
@@ -1293,7 +1293,7 @@ test "Q7: flush_explicit_with_composition" {
     try testing.expect(ime.isEmpty());
 }
 
-test "Q8: flush_explicit_empty" {
+test "spec: edge case — explicit flush with empty composition" {
     // Tests flush() with no active composition.
     var eng = try createKoreanEngine();
     defer eng.deinit();
@@ -1306,7 +1306,7 @@ test "Q8: flush_explicit_empty" {
     try expectPreeditChanged(r, false);
 }
 
-test "Q9: reset_discards_composition" {
+test "spec: edge case — reset discards composition" {
     // Tests reset() discards without committing.
     var eng = try createKoreanEngine();
     defer eng.deinit();
@@ -1325,7 +1325,7 @@ test "Q9: reset_discards_composition" {
     try expectCommitted(r, null);
 }
 
-test "Q10: process_false_with_no_prior_composition" {
+test "spec: edge case — process false with no prior composition" {
     // Tests feedLibhangul not-consumed path when there was no prior composition.
     // Press a number key as the FIRST key in composing mode.
     var eng = try createKoreanEngine();

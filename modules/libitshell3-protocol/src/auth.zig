@@ -47,7 +47,7 @@ fn verifyPeerUidLinux(fd: std.posix.socket_t) AuthError!u32 {
 
 // --- Tests ---
 
-test "verifyPeerUid on socketpair (same UID)" {
+test "verifyPeerUid: socketpair same UID" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
 
     var fds: [2]std.posix.socket_t = undefined;

@@ -17,9 +17,9 @@ pub fn readFrame(reader: anytype, payload_buf: []u8) (ReadError || @TypeOf(reade
     var hdr_buf: [header_mod.HEADER_SIZE]u8 = undefined;
     try reader.readNoEof(&hdr_buf);
     const hdr = try header_mod.Header.decode(&hdr_buf);
-    if (hdr.payload_len > payload_buf.len)
+    if (hdr.payload_length > payload_buf.len)
         return error.PayloadTooLarge;
-    const payload = payload_buf[0..hdr.payload_len];
+    const payload = payload_buf[0..hdr.payload_length];
     if (payload.len > 0) {
         try reader.readNoEof(payload);
     }
@@ -42,14 +42,14 @@ pub const SequenceTracker = struct {
 
 const writer_mod = @import("writer.zig");
 
-test "readFrame/writeFrame round-trip (JSON message)" {
+test "readFrame: round-trip with JSON message" {
     var buf: [4096]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
 
     const hdr = header_mod.Header{
         .msg_type = 0x0100,
         .flags = .{},
-        .payload_len = 5,
+        .payload_length = 5,
         .sequence = 1,
     };
     try writer_mod.writeFrame(fbs.writer(), hdr, "hello");
@@ -58,18 +58,18 @@ test "readFrame/writeFrame round-trip (JSON message)" {
     var payload_buf: [1024]u8 = undefined;
     const frame = try readFrame(read_stream.reader(), &payload_buf);
     try std.testing.expectEqual(@as(u16, 0x0100), frame.header.msg_type);
-    try std.testing.expectEqual(@as(u32, 5), frame.header.payload_len);
+    try std.testing.expectEqual(@as(u32, 5), frame.header.payload_length);
     try std.testing.expectEqualSlices(u8, "hello", frame.payload);
 }
 
-test "readFrame/writeFrame round-trip (empty payload)" {
+test "readFrame: round-trip with empty payload" {
     var buf: [4096]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
 
     const hdr = header_mod.Header{
         .msg_type = 0x0300,
         .flags = .{ .encoding = .binary },
-        .payload_len = 0,
+        .payload_length = 0,
         .sequence = 42,
     };
     try writer_mod.writeFrame(fbs.writer(), hdr, "");
@@ -78,11 +78,11 @@ test "readFrame/writeFrame round-trip (empty payload)" {
     var payload_buf: [1024]u8 = undefined;
     const frame = try readFrame(read_stream.reader(), &payload_buf);
     try std.testing.expectEqual(@as(u16, 0x0300), frame.header.msg_type);
-    try std.testing.expectEqual(@as(u32, 0), frame.header.payload_len);
+    try std.testing.expectEqual(@as(u32, 0), frame.header.payload_length);
     try std.testing.expectEqual(@as(usize, 0), frame.payload.len);
 }
 
-test "Multiple frames written and read back-to-back" {
+test "readFrame: multiple frames read back-to-back" {
     var buf: [4096]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
     const w = fbs.writer();
@@ -91,7 +91,7 @@ test "Multiple frames written and read back-to-back" {
         const hdr = header_mod.Header{
             .msg_type = 0x0100,
             .flags = .{},
-            .payload_len = 1,
+            .payload_length = 1,
             .sequence = @intCast(i + 1),
         };
         const payload = [_]u8{@intCast('A' + i)};
@@ -109,7 +109,7 @@ test "Multiple frames written and read back-to-back" {
     }
 }
 
-test "Read from stream with bad magic" {
+test "readFrame: bad magic returns error" {
     var buf = [_]u8{ 0xFF, 0xFF } ++ ([_]u8{0} ** 14);
     var fbs = std.io.fixedBufferStream(&buf);
     var payload_buf: [1024]u8 = undefined;
@@ -117,7 +117,7 @@ test "Read from stream with bad magic" {
     try std.testing.expectError(error.BadMagic, result);
 }
 
-test "Read from stream that ends mid-header" {
+test "readFrame: stream ends mid-header" {
     // Only 4 bytes, header needs 16
     var buf = [_]u8{ 0x49, 0x54, 0x01, 0x00 };
     var fbs = std.io.fixedBufferStream(&buf);
@@ -126,14 +126,14 @@ test "Read from stream that ends mid-header" {
     try std.testing.expectError(error.EndOfStream, result);
 }
 
-test "Read from stream that ends mid-payload" {
+test "readFrame: stream ends mid-payload" {
     // Write a valid header claiming 100 bytes, but only 2 bytes of payload follow
     var buf: [4096]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
     const hdr = header_mod.Header{
         .msg_type = 0x0100,
         .flags = .{},
-        .payload_len = 100,
+        .payload_length = 100,
         .sequence = 1,
     };
     var hdr_buf: [header_mod.HEADER_SIZE]u8 = undefined;
@@ -147,19 +147,19 @@ test "Read from stream that ends mid-payload" {
     try std.testing.expectError(error.EndOfStream, result);
 }
 
-test "SequenceTracker starts at 1" {
+test "SequenceTracker: starts at 1" {
     var tracker = SequenceTracker{};
     try std.testing.expectEqual(@as(u32, 1), tracker.advance());
     try std.testing.expectEqual(@as(u32, 2), tracker.advance());
 }
 
-test "SequenceTracker wraps from max to 1" {
+test "SequenceTracker: wraps from max to 1" {
     var tracker = SequenceTracker{ .next = 0xFFFFFFFF };
     try std.testing.expectEqual(@as(u32, 0xFFFFFFFF), tracker.advance());
     try std.testing.expectEqual(@as(u32, 1), tracker.advance());
 }
 
-test "SequenceTracker never produces 0" {
+test "SequenceTracker: never produces 0" {
     var tracker = SequenceTracker{ .next = 0xFFFFFFFE };
     _ = tracker.advance(); // 0xFFFFFFFE
     const at_max = tracker.advance(); // 0xFFFFFFFF

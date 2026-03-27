@@ -1,5 +1,5 @@
 //! Core types for libitshell3-ime: KeyEvent (input) and ImeResult (output).
-//! Follows IME Interface Contract v0.7, Section 3.1–3.2.
+//! See the IME interface-contract spec for the canonical type definitions.
 
 const std = @import("std");
 
@@ -177,10 +177,10 @@ test "KeyEvent: isPrintablePosition" {
     try std.testing.expect(!above_key.isPrintablePosition());
 }
 
-test "KeyEvent: isPrintablePosition excludes gap keycodes 0x28-0x2C (spec v1.0-r10)" {
-    // Per interface contract v1.0-r10 §02-types.md, isPrintablePosition() must use
-    // a SPLIT range: 0x04–0x27 (letters+digits) OR 0x2D–0x38 (punctuation).
-    // Keycodes 0x28–0x2C (Enter, Escape, Backspace, Tab, Space) must return false.
+test "KeyEvent: isPrintablePosition excludes gap keycodes 0x28-0x2C" {
+    // Per the IME interface-contract types spec, isPrintablePosition() must use
+    // a SPLIT range: 0x04-0x27 (letters+digits) OR 0x2D-0x38 (punctuation).
+    // Keycodes 0x28-0x2C (Enter, Escape, Backspace, Tab, Space) must return false.
 
     const gap_keys = [_]struct { code: u8, name: []const u8 }{
         .{ .code = 0x28, .name = "Enter" },

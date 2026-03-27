@@ -3,16 +3,12 @@ const protocol = @import("itshell3_protocol");
 const Connection = protocol.connection.Connection;
 
 /// Handle client read event: stub that reads and discards.
-/// Real message handling comes in Plan 3 (protocol).
+/// Real message handling comes in Plan 6.
 pub fn handleClientRead(
     _: *Connection,
     _: []u8,
 ) void {
-    // Stub: in the real implementation, we would:
-    // 1. Read from client transport
-    // 2. Parse protocol messages
-    // 3. Dispatch to appropriate handler
-    // For now: no-op (the event loop reads via the OS interface)
+    // Stub: reads and discards. Real protocol dispatch in Plan 6.
 }
 
 // --- Tests ---

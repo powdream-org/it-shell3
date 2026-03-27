@@ -75,26 +75,26 @@ pub fn ensureDirectory(path: []const u8) !void {
 
 // --- Tests ---
 
-test "resolve with ITSHELL3_SOCKET env override" {
+test "formatPath: XDG runtime dir format" {
     // We can't easily set env in tests, so test the format functions directly
     var buf: [MAX_SOCKET_PATH]u8 = undefined;
     const path = try formatPath(&buf, "/run/user/1000", "itshell3", "default");
     try std.testing.expectEqualStrings("/run/user/1000/itshell3/default.sock", path);
 }
 
-test "formatPathWithUid" {
+test "formatPathWithUid: tmp with uid" {
     var buf: [MAX_SOCKET_PATH]u8 = undefined;
     const path = try formatPathWithUid(&buf, "/tmp", 501, "default");
     try std.testing.expectEqualStrings("/tmp/itshell3-501/default.sock", path);
 }
 
-test "formatPathWithUid TMPDIR" {
+test "formatPathWithUid: TMPDIR format" {
     var buf: [MAX_SOCKET_PATH]u8 = undefined;
     const path = try formatPathWithUid(&buf, "/var/folders/xx/yy", 501, "myserver");
     try std.testing.expectEqualStrings("/var/folders/xx/yy/itshell3-501/myserver.sock", path);
 }
 
-test "path too long returns error" {
+test "formatPathWithUid: path too long returns error" {
     var buf: [MAX_SOCKET_PATH]u8 = undefined;
     // Create a server_id that will exceed 104 bytes
     const long_id = "a" ** 90;
@@ -102,6 +102,6 @@ test "path too long returns error" {
     try std.testing.expectError(error.PathTooLong, result);
 }
 
-test "MAX_SOCKET_PATH is 104" {
+test "MAX_SOCKET_PATH: is 104" {
     try std.testing.expectEqual(@as(usize, 104), MAX_SOCKET_PATH);
 }

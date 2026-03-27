@@ -139,7 +139,7 @@ pub const EventLoop = struct {
         if (client_idx >= types.MAX_CLIENTS) return;
         if (self.clients[client_idx] != null) {
             // Stub: read from client fd and discard.
-            // Real protocol handling in Plan 3.
+            // Real protocol handling in Plan 6.
         }
     }
 
@@ -172,7 +172,7 @@ pub const EventLoop = struct {
     fn dispatchTimer(self: *EventLoop, event: interfaces.EventLoopOps.Event) void {
         _ = self;
         _ = event;
-        // Stub: frame export timer (Plan 6: adaptive coalescing).
+        // Stub: frame export timer (Plan 9: adaptive coalescing).
     }
 
     fn registerAllPtyFds(self: *EventLoop) interfaces.EventLoopOps.RegisterError!void {

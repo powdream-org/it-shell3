@@ -1,3 +1,7 @@
+//! libitshell3-protocol: Wire protocol library for the it-shell3 daemon-client
+//! communication. Defines message types, header encoding, JSON/binary
+//! serialization, transport abstraction, and connection state management.
+
 pub const header = @import("header.zig");
 pub const message_type = @import("message_type.zig");
 pub const err = @import("error.zig");
@@ -18,12 +22,8 @@ pub const transport = @import("transport.zig");
 pub const connection = @import("connection.zig");
 pub const auth = @import("auth.zig");
 pub const handshake_io = @import("handshake_io.zig");
+pub const testing_mod = @import("testing/root.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
-}
-
-// Integration tests
-test {
-    _ = @import("integration_test.zig");
 }

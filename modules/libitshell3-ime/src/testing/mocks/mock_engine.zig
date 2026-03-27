@@ -1,8 +1,8 @@
 //! MockImeEngine for testing libitshell3's handleKeyEvent without libhangul.
-//! Follows IME Interface Contract v0.7, Section 3.8.
+//! See the IME interface-contract spec for the mock engine requirements.
 
 const std = @import("std");
-const engine_mod = @import("engine.zig");
+const engine_mod = @import("../../engine.zig");
 const ImeEngine = engine_mod.ImeEngine;
 const KeyEvent = engine_mod.KeyEvent;
 const ImeResult = engine_mod.ImeResult;

@@ -4,25 +4,25 @@
 /// read → decode → verify fields match.
 const std = @import("std");
 const builtin = @import("builtin");
-const header_mod = @import("header.zig");
-const message_type_mod = @import("message_type.zig");
-const json_mod = @import("json.zig");
-const handshake_mod = @import("handshake.zig");
-const handshake_io_mod = @import("handshake_io.zig");
-const session_mod = @import("session.zig");
-const pane_mod = @import("pane.zig");
-const input_mod = @import("input.zig");
-const error_mod = @import("error.zig");
-const cell_mod = @import("cell.zig");
-const frame_update_mod = @import("frame_update.zig");
-const reader_mod = @import("reader.zig");
-const writer_mod = @import("writer.zig");
-const transport_mod = @import("transport.zig");
-const connection_mod = @import("connection.zig");
+const header_mod = @import("../../header.zig");
+const message_type_mod = @import("../../message_type.zig");
+const json_mod = @import("../../json.zig");
+const handshake_mod = @import("../../handshake.zig");
+const handshake_io_mod = @import("../../handshake_io.zig");
+const session_mod = @import("../../session.zig");
+const pane_mod = @import("../../pane.zig");
+const input_mod = @import("../../input.zig");
+const error_mod = @import("../../error.zig");
+const cell_mod = @import("../../cell.zig");
+const frame_update_mod = @import("../../frame_update.zig");
+const reader_mod = @import("../../reader.zig");
+const writer_mod = @import("../../writer.zig");
+const transport_mod = @import("../../transport.zig");
+const connection_mod = @import("../../connection.zig");
 
 // ── Test 1: Handshake round-trip over fixedBufferStream ──────────────────────
 
-test "integration: ClientHello encode → frame → readFrame → decode" {
+test "spec: frame encoding — ClientHello round-trip" {
     const allocator = std.testing.allocator;
 
     const hello = handshake_mod.ClientHello{
@@ -42,7 +42,7 @@ test "integration: ClientHello encode → frame → readFrame → decode" {
     const hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.client_hello),
         .flags = .{},
-        .payload_len = @intCast(payload.len),
+        .payload_length = @intCast(payload.len),
         .sequence = 1,
     };
     try writer_mod.writeFrame(fbs.writer(), hdr, payload);
@@ -68,7 +68,7 @@ test "integration: ClientHello encode → frame → readFrame → decode" {
 
 // ── Test 2: Session/pane message round-trip ───────────────────────────────────
 
-test "integration: CreateSessionRequest round-trip" {
+test "spec: frame encoding — CreateSessionRequest round-trip" {
     const allocator = std.testing.allocator;
 
     const req = session_mod.CreateSessionRequest{
@@ -86,7 +86,7 @@ test "integration: CreateSessionRequest round-trip" {
     const hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.create_session_request),
         .flags = .{},
-        .payload_len = @intCast(payload.len),
+        .payload_length = @intCast(payload.len),
         .sequence = 2,
     };
     try writer_mod.writeFrame(fbs.writer(), hdr, payload);
@@ -104,7 +104,7 @@ test "integration: CreateSessionRequest round-trip" {
 
 // ── Test 3: FrameUpdate binary integration ────────────────────────────────────
 
-test "integration: FrameUpdate encode → frame → decode" {
+test "spec: frame encoding — FrameUpdate binary round-trip" {
     const allocator = std.testing.allocator;
 
     // Build a minimal I-frame with one dirty row (2 cells)
@@ -165,7 +165,7 @@ test "integration: FrameUpdate encode → frame → decode" {
     const msg_hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.frame_update),
         .flags = .{},
-        .payload_len = @intCast(binary_payload.len),
+        .payload_length = @intCast(binary_payload.len),
         .sequence = 3,
     };
     try writer_mod.writeFrame(fbs.writer(), msg_hdr, binary_payload);
@@ -192,7 +192,7 @@ test "integration: FrameUpdate encode → frame → decode" {
 
 // ── Test 4: Multi-message stream ──────────────────────────────────────────────
 
-test "integration: multi-message stream maintains sequence order" {
+test "spec: frame encoding — multi-message stream maintains sequence order" {
     const allocator = std.testing.allocator;
 
     // Write 3 messages to a buffer
@@ -211,7 +211,7 @@ test "integration: multi-message stream maintains sequence order" {
         const h = header_mod.Header{
             .msg_type = @intFromEnum(msg.mt),
             .flags = .{},
-            .payload_len = @intCast(msg.payload.len),
+            .payload_length = @intCast(msg.payload.len),
             .sequence = s,
         };
         try writer_mod.writeFrame(fbs.writer(), h, msg.payload);
@@ -234,14 +234,14 @@ test "integration: multi-message stream maintains sequence order" {
 
 // ── Test 5: Error response round-trip ────────────────────────────────────────
 
-test "integration: error response flags RESPONSE + ERROR" {
+test "spec: frame encoding — error response flags RESPONSE and ERROR" {
     var buf: [512]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
 
     const hdr = header_mod.Header{
         .msg_type = @intFromEnum(message_type_mod.MessageType.@"error"),
         .flags = .{ .response = true, .@"error" = true },
-        .payload_len = 2,
+        .payload_length = 2,
         .sequence = 9,
     };
     try writer_mod.writeFrame(fbs.writer(), hdr, "{}");
@@ -260,7 +260,7 @@ test "integration: error response flags RESPONSE + ERROR" {
 
 // ── Test 6: Full connection lifecycle over socketpair ─────────────────────────
 
-test "integration: full connection lifecycle over socketpair" {
+test "spec: connection lifecycle — full handshake over socketpair" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
 
     const allocator = std.testing.allocator;
@@ -332,7 +332,7 @@ test "integration: full connection lifecycle over socketpair" {
 
 // ── Test 7: SequenceTracker wrap-around ───────────────────────────────────────
 
-test "integration: sequence tracker wraps from 0xFFFFFFFF to 1" {
+test "spec: sequence tracking — wraps from 0xFFFFFFFF to 1" {
     var seq = reader_mod.SequenceTracker{ .next = 0xFFFFFFFE };
 
     try std.testing.expectEqual(@as(u32, 0xFFFFFFFE), seq.advance());
