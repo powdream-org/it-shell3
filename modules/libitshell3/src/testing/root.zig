@@ -1,16 +1,21 @@
-pub const helpers = @import("helpers.zig");
-pub const mock_os = @import("mock_os.zig");
-pub const mock_ime_engine = @import("mock_ime_engine.zig");
+//! Testing module. Mock implementations and spec compliance test files for
+//! deterministic unit testing of the libitshell3 daemon.
 
-// Spec compliance test files
-pub const ime_types_spec_test = @import("ime_types_spec_test.zig");
-pub const session_ime_spec_test = @import("session_ime_spec_test.zig");
-pub const wire_decompose_spec_test = @import("wire_decompose_spec_test.zig");
-pub const key_router_spec_test = @import("key_router_spec_test.zig");
-pub const ime_consumer_spec_test = @import("ime_consumer_spec_test.zig");
-pub const ime_lifecycle_spec_test = @import("ime_lifecycle_spec_test.zig");
-pub const ime_procedures_spec_test = @import("ime_procedures_spec_test.zig");
-pub const mock_ime_engine_spec_test = @import("mock_ime_engine_spec_test.zig");
+pub const helpers = @import("helpers.zig");
+
+// Mocks
+pub const mock_os = @import("mocks/mock_os.zig");
+pub const mock_ime_engine = @import("mocks/mock_ime_engine.zig");
+
+// Spec compliance tests
+pub const ime_types_spec_test = @import("spec/ime_types_spec_test.zig");
+pub const session_ime_spec_test = @import("spec/session_ime_spec_test.zig");
+pub const wire_decompose_spec_test = @import("spec/wire_decompose_spec_test.zig");
+pub const key_router_spec_test = @import("spec/key_router_spec_test.zig");
+pub const ime_consumer_spec_test = @import("spec/ime_consumer_spec_test.zig");
+pub const ime_lifecycle_spec_test = @import("spec/ime_lifecycle_spec_test.zig");
+pub const ime_procedures_spec_test = @import("spec/ime_procedures_spec_test.zig");
+pub const mock_ime_engine_spec_test = @import("spec/mock_ime_engine_spec_test.zig");
 
 // Re-exports
 pub const MockImeEngine = mock_ime_engine.MockImeEngine;

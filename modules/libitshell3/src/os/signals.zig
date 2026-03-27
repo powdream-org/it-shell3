@@ -40,6 +40,6 @@ fn realWaitChild() ?interfaces.SignalOps.WaitResult {
     return .{ .pid = pid, .exit_status = exit_status };
 }
 
-test "realBlockSignals does not crash" {
+test "realBlockSignals: does not crash" {
     try real_signal_ops.blockSignals();
 }

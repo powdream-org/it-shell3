@@ -1,3 +1,6 @@
+//! OS interface module. Defines vtables for PTY, kqueue, and signal operations,
+//! with both real implementations and mock implementations for testing.
+
 pub const interfaces = @import("interfaces.zig");
 pub const pty = @import("pty.zig");
 pub const kqueue = @import("kqueue.zig");

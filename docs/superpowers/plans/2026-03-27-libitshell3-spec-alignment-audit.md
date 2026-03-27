@@ -34,14 +34,16 @@ arithmetic. Convention fixes are mechanical and parallelizable.
 **In scope:**
 
 1. Code bugs: SIGHUP handler, Direction enum integer mapping, Action enum
-   explicit tags
+   explicit tags, signal-first dispatch ordering (EVFILT_SIGNAL before
+   EVFILT_READ in kevent64() batch)
 2. Owner-decided code fixes: Pane/SessionEntry move to server/, SplitNodeData
    heap-index redesign, navigation algorithm fix, KeyEvent.hid_keycode widening
 3. Convention violations: module-level docs, spec section number removal, test
    directory restructure, test naming, compiler-verified test removal,
    `_len`/`_length` rename, `aim` abbreviation, inline test prefix format,
    arbitrary-width integer replacement (u3/u5 → u8 per zig-coding.md)
-4. TODO additions: signal_handler, event_loop, client_accept
+4. TODO additions: signal_handler, client_accept, event_loop (5-tier client
+   message priority)
 5. Structural refactoring: ClientEntry extraction, input/ module function moves
 
 **Out of scope:**
@@ -53,49 +55,49 @@ arithmetic. Convention fixes are mechanical and parallelizable.
 
 ## File Structure
 
-| File                                              | Action | Responsibility                                                                           |
-| ------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------- |
-| `src/core/types.zig`                              | Modify | Fix Direction enum integer mapping; remove `_len` local if applicable                    |
-| `src/core/ime_engine.zig`                         | Modify | Add explicit integer tags to Action enum; widen hid_keycode to u16                       |
-| `src/core/split_tree.zig`                         | Modify | Redesign SplitNodeData to use `?SplitNodeData` optional + heap-index arithmetic          |
-| `src/core/navigation.zig`                         | Modify | Change selection from "greatest overlap" to "shortest edge distance"                     |
-| `src/core/session.zig`                            | Modify | Remove Pane/SessionEntry to server/; rename `aim` locals; adapt tree_nodes type          |
-| `src/core/pane.zig`                               | Delete | Move to `src/server/pane.zig`                                                            |
-| `src/core/root.zig`                               | Modify | Add `//!` header; remove Pane/SessionEntry re-exports; update post-move                  |
-| `src/core/session_manager.zig`                    | Modify | Update imports after Pane/SessionEntry move; adapt to new tree type                      |
-| `src/server/pane.zig`                             | Create | Pane struct moved from core/; typed ghostty pointers                                     |
-| `src/server/session_entry.zig`                    | Create | SessionEntry extracted from core/session.zig                                             |
-| `src/server/client_state.zig`                     | Create | ClientEntry extracted from event_loop.zig                                                |
-| `src/server/event_loop.zig`                       | Modify | Extract ClientEntry; add TODO(Plan 6) for event priority ordering                        |
-| `src/server/signal_handler.zig`                   | Modify | Fix SIGHUP to trigger shutdown; add TODO(Plan 10) for graceful shutdown                  |
-| `src/server/handlers/client_accept.zig`           | Modify | Add TODO(Plan 6) for UID verification and SO_SNDBUF/SO_RCVBUF                            |
-| `src/server/ime_procedures.zig`                   | Modify | Update imports after Pane/SessionEntry move                                              |
-| `src/server/ime_lifecycle.zig`                    | Modify | Update imports after Pane/SessionEntry move                                              |
-| `src/server/ime_consumer.zig`                     | Modify | Update imports after Pane/SessionEntry move                                              |
-| `src/server/root.zig`                             | Modify | Add `//!` header; add new file imports; update re-exports                                |
-| `src/input/root.zig`                              | Modify | Add `//!` header                                                                         |
-| `src/input/key_router.zig`                        | Modify | Remove spec section number refs if present                                               |
-| `src/ghostty/root.zig`                            | Modify | Add `//!` header                                                                         |
-| `src/ghostty/key_encoder.zig`                     | Modify | Remove spec section number refs                                                          |
-| `src/ghostty/terminal.zig`                        | Modify | Remove spec section number refs                                                          |
-| `src/ghostty/render_state.zig`                    | Modify | Remove spec section number refs                                                          |
-| `src/ghostty/preedit_overlay.zig`                 | Modify | Remove spec section number refs                                                          |
-| `src/ghostty/render_export.zig`                   | Modify | Remove spec section number refs                                                          |
-| `src/os/root.zig`                                 | Modify | Add `//!` header                                                                         |
-| `src/root.zig`                                    | Modify | Add `//!` header                                                                         |
-| `src/testing/mock_os.zig`                         | Modify | Rename `write_len` field to `write_length`                                               |
-| `src/testing/mock_ime_engine.zig`                 | Modify | Rename `set_aim_result`/`set_aim_count`/`last_set_aim_method` fields                     |
-| `src/testing/root.zig`                            | Modify | Add `//!` header; restructure imports for mocks/ and spec/ subdirs                       |
-| `src/testing/mocks/`                              | Create | New subdirectory for mock files                                                          |
-| `src/testing/mocks/mock_os.zig`                   | Create | Moved from `src/testing/mock_os.zig`                                                     |
-| `src/testing/mocks/mock_ime_engine.zig`           | Create | Moved from `src/testing/mock_ime_engine.zig`                                             |
-| `src/testing/spec/`                               | Create | New subdirectory for spec test files                                                     |
-| `src/testing/spec/*_spec_test.zig`                | Create | 8 spec test files moved from `src/testing/`                                              |
-| `src/server/ring_buffer_integration_test.zig`     | Modify | Remove spec section number refs from comments and test names                             |
-| `src/server/ring_buffer_spec_compliance_test.zig` | Modify | Remove spec section number refs; remove 6 compiler-verified tests; move to testing/spec/ |
-| `build.zig`                                       | Modify | Update root source paths after testing/ restructure if needed                            |
-| Multiple files (~10)                              | Modify | Rename ~80 spec test names to `"spec: topic -- requirement"` format                      |
-| Multiple files (~10+)                             | Modify | Add `function_or_type:` prefix to ~57 inline tests                                       |
+| File                                              | Action | Responsibility                                                                                               |
+| ------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| `src/core/types.zig`                              | Modify | Fix Direction enum integer mapping; remove `_len` local if applicable                                        |
+| `src/core/ime_engine.zig`                         | Modify | Add explicit integer tags to Action enum; widen hid_keycode to u16                                           |
+| `src/core/split_tree.zig`                         | Modify | Redesign SplitNodeData to use `?SplitNodeData` optional + heap-index arithmetic                              |
+| `src/core/navigation.zig`                         | Modify | Change selection from "greatest overlap" to "shortest edge distance"                                         |
+| `src/core/session.zig`                            | Modify | Remove Pane/SessionEntry to server/; rename `aim` locals; adapt tree_nodes type                              |
+| `src/core/pane.zig`                               | Delete | Move to `src/server/pane.zig`                                                                                |
+| `src/core/root.zig`                               | Modify | Add `//!` header; remove Pane/SessionEntry re-exports; update post-move                                      |
+| `src/core/session_manager.zig`                    | Modify | Update imports after Pane/SessionEntry move; adapt to new tree type                                          |
+| `src/server/pane.zig`                             | Create | Pane struct moved from core/; typed ghostty pointers                                                         |
+| `src/server/session_entry.zig`                    | Create | SessionEntry extracted from core/session.zig                                                                 |
+| `src/server/client_state.zig`                     | Create | ClientEntry extracted from event_loop.zig                                                                    |
+| `src/server/event_loop.zig`                       | Modify | Extract ClientEntry; fix signal-first dispatch ordering; add TODO(Plan 6) for 5-tier client message priority |
+| `src/server/signal_handler.zig`                   | Modify | Fix SIGHUP to trigger shutdown; add TODO(Plan 10) for graceful shutdown                                      |
+| `src/server/handlers/client_accept.zig`           | Modify | Add TODO(Plan 6) for UID verification and SO_SNDBUF/SO_RCVBUF                                                |
+| `src/server/ime_procedures.zig`                   | Modify | Update imports after Pane/SessionEntry move                                                                  |
+| `src/server/ime_lifecycle.zig`                    | Modify | Update imports after Pane/SessionEntry move                                                                  |
+| `src/server/ime_consumer.zig`                     | Modify | Update imports after Pane/SessionEntry move                                                                  |
+| `src/server/root.zig`                             | Modify | Add `//!` header; add new file imports; update re-exports                                                    |
+| `src/input/root.zig`                              | Modify | Add `//!` header                                                                                             |
+| `src/input/key_router.zig`                        | Modify | Remove spec section number refs if present                                                                   |
+| `src/ghostty/root.zig`                            | Modify | Add `//!` header                                                                                             |
+| `src/ghostty/key_encoder.zig`                     | Modify | Remove spec section number refs                                                                              |
+| `src/ghostty/terminal.zig`                        | Modify | Remove spec section number refs                                                                              |
+| `src/ghostty/render_state.zig`                    | Modify | Remove spec section number refs                                                                              |
+| `src/ghostty/preedit_overlay.zig`                 | Modify | Remove spec section number refs                                                                              |
+| `src/ghostty/render_export.zig`                   | Modify | Remove spec section number refs                                                                              |
+| `src/os/root.zig`                                 | Modify | Add `//!` header                                                                                             |
+| `src/root.zig`                                    | Modify | Add `//!` header                                                                                             |
+| `src/testing/mock_os.zig`                         | Modify | Rename `write_len` field to `write_length`                                                                   |
+| `src/testing/mock_ime_engine.zig`                 | Modify | Rename `set_aim_result`/`set_aim_count`/`last_set_aim_method` fields                                         |
+| `src/testing/root.zig`                            | Modify | Add `//!` header; restructure imports for mocks/ and spec/ subdirs                                           |
+| `src/testing/mocks/`                              | Create | New subdirectory for mock files                                                                              |
+| `src/testing/mocks/mock_os.zig`                   | Create | Moved from `src/testing/mock_os.zig`                                                                         |
+| `src/testing/mocks/mock_ime_engine.zig`           | Create | Moved from `src/testing/mock_ime_engine.zig`                                                                 |
+| `src/testing/spec/`                               | Create | New subdirectory for spec test files                                                                         |
+| `src/testing/spec/*_spec_test.zig`                | Create | 8 spec test files moved from `src/testing/`                                                                  |
+| `src/server/ring_buffer_integration_test.zig`     | Modify | Remove spec section number refs from comments and test names                                                 |
+| `src/server/ring_buffer_spec_compliance_test.zig` | Modify | Remove spec section number refs; remove 6 compiler-verified tests; move to testing/spec/                     |
+| `build.zig`                                       | Modify | Update root source paths after testing/ restructure if needed                                                |
+| Multiple files (~10)                              | Modify | Rename ~80 spec test names to `"spec: topic — requirement"` format                                           |
+| Multiple files (~10+)                             | Modify | Add `function_or_type:` prefix to ~57 inline tests                                                           |
 
 ## Tasks
 
@@ -202,7 +204,13 @@ belongs in server/.
 **Spec (ghostty pointers):** Pane currently uses `?*anyopaque` for terminal,
 render_state, vt_stream. The spec defines typed pointers: `*ghostty.Terminal`,
 `*ghostty.RenderState`. Since Pane moves to server/ (which has ghostty as a
-dependency), these should become typed pointers.
+dependency), these should become typed pointers. Note: the
+`vt_stream:
+?*anyopaque` field is NOT in the spec type definition — it was added
+per `implementation-learnings.md G3`. When moving Pane to server/, the
+implementer must decide: either give `vt_stream` a typed pointer (matching the
+ghostty API used), or document it explicitly as a code-only addition not present
+in the spec.
 
 **Depends on:** Task 1 (SplitNodeData redesign changes the tree_nodes type that
 Session uses, which SessionEntry wraps)
@@ -265,16 +273,19 @@ server-side type; extraction to its own file improves module organization.
 **Files:** `src/server/event_loop.zig` (modify),
 `src/server/handlers/client_accept.zig` (modify)
 
-**Spec:** daemon-behavior `02-event-handling.md` — event priority ordering.
-daemon-architecture `03-integration-boundaries.md` — UID verification and socket
-buffer configuration at accept time.
+**Spec:** daemon-behavior `03-policies-and-procedures.md` §6 — 5-tier client
+message priority table (the ordering policy deferred to Plan 6). daemon-
+architecture `03-integration-boundaries.md` — UID verification and socket buffer
+configuration at accept time.
 
 **Depends on:** None
 
 **Verification:**
 
-- `event_loop.zig` dispatch function has a `TODO(Plan 6)` comment about event
-  priority ordering
+- `event_loop.zig` dispatch function has a `TODO(Plan 6)` comment about the
+  5-tier client message priority ordering (per `03-policies-and-procedures.md`
+  §6); this TODO covers only the priority policy, NOT the signal-first ordering
+  (that is a code fix in Task 17)
 - `client_accept.zig` has `TODO(Plan 6)` for UID verification
   (`getpeereid`/`SO_PEERCRED`)
 - `client_accept.zig` has `TODO(Plan 6)` for `SO_SNDBUF`/`SO_RCVBUF`
@@ -349,7 +360,8 @@ MUST have `//!` top-level doc comments.
 
 **Files:** `src/ghostty/key_encoder.zig`, `src/ghostty/preedit_overlay.zig`,
 `src/ghostty/terminal.zig`, `src/ghostty/render_state.zig`,
-`src/ghostty/render_export.zig`, `src/server/ring_buffer_integration_test.zig`,
+`src/ghostty/render_export.zig`, `src/server/ring_buffer.zig`,
+`src/server/client_writer.zig`, `src/server/ring_buffer_integration_test.zig`,
 `src/server/ring_buffer_spec_compliance_test.zig`, and any other files with `§`
 or `Section N.N` references
 
@@ -367,7 +379,8 @@ section numbers. Reference specs by document/topic name only.
 
 ### Task 13: Convention Fixes — Compiler-Verified Test Removal (CONV-7)
 
-**Files:** `src/server/ring_buffer_spec_compliance_test.zig` (modify)
+**Files:** `src/server/ring_buffer_spec_compliance_test.zig` (modify),
+`src/server/client_writer.zig` (modify)
 
 **Spec:** docs/conventions/zig-testing.md — compiler-verified tests
 (`@hasField`, `@hasDecl`, field count checks) should not exist because they test
@@ -377,10 +390,12 @@ the compiler, not the spec.
 
 **Verification:**
 
-- The following 6 tests are removed:
+- The following 6 tests are removed from `ring_buffer_spec_compliance_test.zig`:
   - Tests using `@hasField` to check field existence
   - Tests using `@hasDecl` to check API existence
   - Tests using `@typeInfo` to count struct fields
+- `client_writer.zig` inline unit tests that use `@hasField` as their sole
+  assertion are removed
 - No remaining tests in the codebase use `@hasField`, `@hasDecl`, or
   `@typeInfo(...).fields.len` as their sole assertion
 
@@ -425,11 +440,11 @@ word in the variable name context).
 **Files:** ~10 files containing spec tests, ~10+ files containing inline tests
 
 **Spec:** docs/conventions/zig-testing.md — spec tests must use
-`"spec: topic -- requirement"` format. docs/conventions/zig-naming.md — inline
+`"spec: topic — requirement"` format. docs/conventions/zig-naming.md — inline
 tests must use `"function_or_type: description"` format.
 
 **CONV-6 (spec test naming):** ~80 spec tests in 10 files need renaming from
-current format (e.g., `"spec 4.1: ..."`) to `"spec: topic -- requirement"`
+current format (e.g., `"spec 4.1: ..."`) to `"spec: topic — requirement"`
 format.
 
 **CONV-10 (inline test prefix):** ~57 inline tests missing the
@@ -439,7 +454,7 @@ format.
 
 **Verification:**
 
-- All spec tests match the pattern `test "spec: <topic> -- <requirement>"`
+- All spec tests match the pattern `test "spec: <topic> — <requirement>"`
 - All inline tests match the pattern `test "<FunctionOrType>.<method>: ..."` or
   `test "<function>: ..."` with the function/type prefix present
 - No test name starts with a bare description without a function/type prefix
@@ -448,20 +463,35 @@ format.
 ### Task 16: Convention Fixes — Integer Width Alignment
 
 **Files:** `src/core/types.zig` (modify), `src/core/split_tree.zig` (modify),
-`src/core/session_manager.zig` (modify), `src/core/navigation.zig` (modify),
-`src/server/event_loop.zig` (modify), `src/ghostty/preedit_overlay.zig`
+`src/core/session.zig` (modify), `src/core/session_manager.zig` (modify),
+`src/core/navigation.zig` (modify), `src/server/event_loop.zig` (modify),
+`src/server/signal_handler.zig` (modify), `src/ghostty/preedit_overlay.zig`
 (modify), and any other files with integer width violations
 
-**Spec:** docs/conventions/zig-coding.md — 5 rules for integer type selection:
+**Spec:** docs/conventions/zig-coding.md — 6 rules for integer type selection:
 public symbols (tight but future-proof), locals (register-friendly), array
-indices (match capacity), loop counters (u32/usize), sparse returns (enum).
+indices (match capacity), loop counters (u32/usize), sparse returns (enum),
+derived constants (comptime-derived from source constant).
 
 **Known violations:**
 
 - `types.zig`: `MAX_PANES: u5`, `MAX_TREE_NODES: u5`, `MAX_TREE_DEPTH: u3` →
   `u8` (Rule 1: public constants, future-proof width)
-- `types.zig`, `split_tree.zig`, `navigation.zig`, `event_loop.zig`: loop
-  counters `var i: u5` → `u32` (Rule 4: loop counters always u32 or usize)
+- `types.zig`: `MAX_TREE_NODES` should be comptime-derived as
+  `MAX_PANES * 2 - 1`; `MAX_TREE_DEPTH` should be comptime-derived as
+  `std.math.log2_int(u8, MAX_PANES)` — both are currently hardcoded (Rule 6:
+  derived constants must be comptime-derived from the source constant)
+- `types.zig`, `split_tree.zig`, `navigation.zig`, `event_loop.zig`,
+  `signal_handler.zig`: loop counters `var i: u5` → `u32` (Rule 4: loop counters
+  always u32 or usize)
+- `session.zig`: `paneCount` method has `var count: u5 = 0` and
+  `var i: u5 =
+  0` loop counters → `u32` (Rule 4); `paneCount` returning `u5` →
+  `u8` (Rule 1: public function return type, future-proof width)
+- `split_tree.zig`: public functions `depth`, `findParent`, `leafCount`
+  returning `u5` and any `u5` parameters → `u8` (Rule 1: public function
+  signatures use future-proof widths). Note: many of these will be redesigned by
+  Task 1; any surviving public functions with `u5` params/returns must use `u8`.
 - `preedit_overlay.zig`: `bit_idx: u6` → `u8` (Rule 2: local variable,
   register-friendly)
 - `preedit_overlay.zig`: `codepointWidth` return `u2` → `enum(u2)` with named
@@ -484,6 +514,27 @@ indices (match capacity), loop counters (u32/usize), sparse returns (enum).
 - Packed struct fields and array-capacity indices are unchanged
 - Build succeeds and all tests pass
 
+### Task 17: Signal-First Dispatch Fix (BEHAV-2)
+
+**Files:** `src/server/event_loop.zig` (modify)
+
+**Spec:** daemon-behavior `02-event-handling.md` §1.3 — EVFILT_SIGNAL MUST be
+processed before EVFILT_READ when both are returned in the same kevent64()
+batch. This ensures the PANE_EXITED flag is set before the PTY read handler
+checks for it.
+
+**Depends on:** None
+
+**Verification:**
+
+- When kevent64() returns both EVFILT_SIGNAL and EVFILT_READ events in the same
+  batch, all EVFILT_SIGNAL events are dispatched before any EVFILT_READ events
+- The dispatch loop uses either a pre-sort or a two-pass approach: first pass
+  handles all EVFILT_SIGNAL entries in the returned event array, second pass
+  handles all remaining event types
+- No EVFILT_READ handler runs before EVFILT_SIGNAL handlers when both appear in
+  the same kevent64() call result
+
 ## Dependency Graph
 
 ```
@@ -501,11 +552,12 @@ Task 11 (module-level docs) ─────────────────�
 Task 12 (section number removal) ─────────────────/
 Task 13 (compiler test removal) ────────────────/
 Task 14 (naming fixes) ───────────────────────/
+Task 17 (signal-first dispatch) ─────────────/
 ```
 
 **Parallelization opportunities:**
 
-- Tasks 2, 3, 4, 7, 8, 11, 12, 13, 14 are all independent and can run in
+- Tasks 2, 3, 4, 7, 8, 11, 12, 13, 14, 17 are all independent and can run in
   parallel
 - Task 1 must complete before Tasks 5, 6, and 16
 - Task 5 must complete before Tasks 9 and 10
@@ -513,21 +565,22 @@ Task 14 (naming fixes) ───────────────────
 
 ## Summary
 
-| Task                         | Files                                       | Spec Section                                 |
-| ---------------------------- | ------------------------------------------- | -------------------------------------------- |
-| 1. SplitNodeData redesign    | split_tree.zig, session.zig, navigation.zig | daemon-arch state-and-types, ADR 00043       |
-| 2. Direction enum fix        | types.zig                                   | protocol 03-session-pane-management          |
-| 3. Action enum + hid_keycode | ime_engine.zig                              | protocol 04-input-and-renderstate            |
-| 4. SIGHUP fix + TODO         | signal_handler.zig                          | daemon-behavior daemon-lifecycle             |
-| 5. Pane/SessionEntry move    | core/ -> server/, multiple files            | daemon-arch impl-constraints/state-and-types |
-| 6. Navigation algorithm      | navigation.zig                              | daemon-arch state-and-types Section 2.2      |
-| 7. ClientEntry extraction    | event_loop.zig, client_state.zig            | daemon-arch module-structure                 |
-| 8. TODO additions            | event_loop.zig, client_accept.zig           | daemon-behavior event-handling               |
-| 9. input/ module moves       | input/ files                                | daemon-arch module-structure                 |
-| 10. Test dir restructure     | testing/ directory, build.zig               | zig-testing convention                       |
-| 11. Module-level docs        | 7 root.zig files                            | zig-documentation convention                 |
-| 12. Section number removal   | 8+ source files                             | zig-documentation convention                 |
-| 13. Compiler test removal    | ring_buffer_spec_compliance_test.zig        | zig-testing convention                       |
-| 14. Naming fixes             | mock_os, mock_ime_engine, session           | zig-naming convention                        |
-| 15. Test naming              | ~20 files                                   | zig-naming + zig-testing conventions         |
-| 16. Integer width fixes      | types.zig, split_tree.zig, navigation.zig+  | zig-coding convention                        |
+| Task                          | Files                                       | Spec Section                                  |
+| ----------------------------- | ------------------------------------------- | --------------------------------------------- |
+| 1. SplitNodeData redesign     | split_tree.zig, session.zig, navigation.zig | daemon-arch state-and-types, ADR 00043        |
+| 2. Direction enum fix         | types.zig                                   | protocol 03-session-pane-management           |
+| 3. Action enum + hid_keycode  | ime_engine.zig                              | protocol 04-input-and-renderstate             |
+| 4. SIGHUP fix + TODO          | signal_handler.zig                          | daemon-behavior daemon-lifecycle              |
+| 5. Pane/SessionEntry move     | core/ -> server/, multiple files            | daemon-arch impl-constraints/state-and-types  |
+| 6. Navigation algorithm       | navigation.zig                              | daemon-arch state-and-types Section 2.2       |
+| 7. ClientEntry extraction     | event_loop.zig, client_state.zig            | daemon-arch module-structure                  |
+| 8. TODO additions             | event_loop.zig, client_accept.zig           | daemon-behavior 03-policies-and-procedures §6 |
+| 9. input/ module moves        | input/ files                                | daemon-arch module-structure                  |
+| 10. Test dir restructure      | testing/ directory, build.zig               | zig-testing convention                        |
+| 11. Module-level docs         | 7 root.zig files                            | zig-documentation convention                  |
+| 12. Section number removal    | 8+ source files                             | zig-documentation convention                  |
+| 13. Compiler test removal     | ring_buffer_spec_compliance_test.zig        | zig-testing convention                        |
+| 14. Naming fixes              | mock_os, mock_ime_engine, session           | zig-naming convention                         |
+| 15. Test naming               | ~20 files                                   | zig-naming + zig-testing conventions          |
+| 16. Integer width fixes       | types.zig, split_tree.zig, navigation.zig+  | zig-coding convention                         |
+| 17. Signal-first dispatch fix | event_loop.zig                              | daemon-behavior 02-event-handling §1.3        |

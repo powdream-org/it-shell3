@@ -15,7 +15,7 @@ pub const MockPtyOps = struct {
     resize_rows: u16 = 0,
     close_called: bool = false,
     write_buf: [1024]u8 = @splat(0),
-    write_len: usize = 0,
+    write_length: usize = 0,
 
     /// Install this mock and return a PtyOps vtable pointing to it.
     pub fn ops(self: *MockPtyOps) interfaces.PtyOps {
@@ -31,7 +31,7 @@ pub const MockPtyOps = struct {
 
     /// Return the bytes written so far.
     pub fn written(self: *const MockPtyOps) []const u8 {
-        return self.write_buf[0..self.write_len];
+        return self.write_buf[0..self.write_length];
     }
 
     fn mockForkPty(_: u16, _: u16) interfaces.PtyOps.ForkPtyError!interfaces.PtyOps.ForkPtyResult {
@@ -65,15 +65,15 @@ pub const MockPtyOps = struct {
 
     fn mockWrite(_: std.posix.fd_t, data: []const u8) interfaces.PtyOps.WriteError!usize {
         const self = global_mock_pty orelse unreachable;
-        const available = self.write_buf.len - self.write_len;
+        const available = self.write_buf.len - self.write_length;
         const to_copy = @min(data.len, available);
-        @memcpy(self.write_buf[self.write_len..][0..to_copy], data[0..to_copy]);
-        self.write_len += to_copy;
+        @memcpy(self.write_buf[self.write_length..][0..to_copy], data[0..to_copy]);
+        self.write_length += to_copy;
         return data.len;
     }
 };
 
-test "mock PTY: fork returns configured result" {
+test "MockPtyOps: fork returns configured result" {
     var mock = MockPtyOps{
         .fork_result = .{ .master_fd = 42, .child_pid = 1234 },
     };
@@ -84,7 +84,7 @@ test "mock PTY: fork returns configured result" {
     try std.testing.expectEqual(@as(std.posix.pid_t, 1234), result.child_pid);
 }
 
-test "mock PTY: fork returns configured error" {
+test "MockPtyOps: fork returns configured error" {
     var mock = MockPtyOps{
         .fork_error = error.ForkFailed,
     };
@@ -94,7 +94,7 @@ test "mock PTY: fork returns configured error" {
     try std.testing.expectError(error.ForkFailed, result);
 }
 
-test "mock PTY: resize sets called flag and captures dimensions" {
+test "MockPtyOps: resize sets called flag and captures dimensions" {
     var mock = MockPtyOps{};
     const pty_ops = mock.ops();
 
@@ -104,7 +104,7 @@ test "mock PTY: resize sets called flag and captures dimensions" {
     try std.testing.expectEqual(@as(u16, 40), mock.resize_rows);
 }
 
-test "mock PTY: close sets called flag" {
+test "MockPtyOps: close sets called flag" {
     var mock = MockPtyOps{};
     const pty_ops = mock.ops();
 
@@ -112,7 +112,7 @@ test "mock PTY: close sets called flag" {
     try std.testing.expect(mock.close_called);
 }
 
-test "mock PTY: read returns configured data" {
+test "MockPtyOps: read returns configured data" {
     const test_data = "hello from PTY";
     var mock = MockPtyOps{
         .read_data = test_data,
@@ -129,7 +129,7 @@ test "mock PTY: read returns configured data" {
     try std.testing.expectEqual(@as(usize, 0), n2);
 }
 
-test "mock PTY: write records data" {
+test "MockPtyOps: write records data" {
     var mock = MockPtyOps{};
     const pty_ops = mock.ops();
 
@@ -140,7 +140,7 @@ test "mock PTY: write records data" {
     try std.testing.expectEqualSlices(u8, "hello world", mock.written());
 }
 
-test "mock PTY: read returns 0 when no data configured" {
+test "MockPtyOps: read returns 0 when no data configured" {
     var mock = MockPtyOps{};
     const pty_ops = mock.ops();
 
@@ -194,21 +194,21 @@ pub const MockSignalOps = struct {
     }
 };
 
-test "mock signal: blockSignals sets called flag" {
+test "MockSignalOps: blockSignals sets called flag" {
     var mock = MockSignalOps{};
     const signal_ops = mock.ops();
     try signal_ops.blockSignals();
     try std.testing.expect(mock.block_called);
 }
 
-test "mock signal: blockSignals returns configured error" {
+test "MockSignalOps: blockSignals returns configured error" {
     var mock = MockSignalOps{ .block_error = error.SignalSetupFailed };
     const signal_ops = mock.ops();
     const result = signal_ops.blockSignals();
     try std.testing.expectError(error.SignalSetupFailed, result);
 }
 
-test "mock signal: waitChild returns results in order then null" {
+test "MockSignalOps: waitChild returns results in order then null" {
     const results = [_]interfaces.SignalOps.WaitResult{
         .{ .pid = 100, .exit_status = 0 },
         .{ .pid = 200, .exit_status = 1 },
@@ -228,7 +228,7 @@ test "mock signal: waitChild returns results in order then null" {
     try std.testing.expect(r3 == null);
 }
 
-test "mock signal: waitChild returns null when no results" {
+test "MockSignalOps: waitChild returns null when no results" {
     var mock = MockSignalOps{};
     const signal_ops = mock.ops();
     try std.testing.expect(signal_ops.waitChild() == null);
@@ -307,7 +307,7 @@ pub const MockEventLoopOps = struct {
     }
 };
 
-test "mock event loop: registerRead tracks fd" {
+test "MockEventLoopOps: registerRead tracks fd" {
     var mock = MockEventLoopOps{};
     const event_ops = mock.ops();
 
@@ -320,7 +320,7 @@ test "mock event loop: registerRead tracks fd" {
     try std.testing.expectEqual(@as(usize, 42), mock.registered[0].?.udata);
 }
 
-test "mock event loop: registerWrite tracks fd" {
+test "MockEventLoopOps: registerWrite tracks fd" {
     var mock = MockEventLoopOps{};
     const event_ops = mock.ops();
 
@@ -332,7 +332,7 @@ test "mock event loop: registerWrite tracks fd" {
     try std.testing.expectEqual(MockRegistration{ .fd = 7, .filter = .write, .udata = 99 }, mock.registered[0].?);
 }
 
-test "mock event loop: unregister increments counter" {
+test "MockEventLoopOps: unregister increments counter" {
     var mock = MockEventLoopOps{};
     const event_ops = mock.ops();
 
@@ -344,7 +344,7 @@ test "mock event loop: unregister increments counter" {
     try std.testing.expectEqual(@as(usize, 2), mock.unregister_count);
 }
 
-test "mock event loop: wait returns configured events" {
+test "MockEventLoopOps: wait returns configured events" {
     const evts = [_]interfaces.EventLoopOps.Event{
         .{ .fd = 3, .filter = .read, .udata = 10 },
         .{ .fd = 4, .filter = .write, .udata = 20 },
@@ -362,7 +362,7 @@ test "mock event loop: wait returns configured events" {
     try std.testing.expectEqual(@as(std.posix.fd_t, 4), out[1].fd);
 }
 
-test "mock event loop: wait returns 0 when no events" {
+test "MockEventLoopOps: wait returns 0 when no events" {
     var mock = MockEventLoopOps{};
     const event_ops = mock.ops();
 

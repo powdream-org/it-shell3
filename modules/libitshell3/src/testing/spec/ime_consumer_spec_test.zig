@@ -21,7 +21,7 @@ fn makeSession() struct { mock: MockImeEngine, session: Session } {
     return .{ .mock = m, .session = Session.init(1, "t", 0, m.engine()) };
 }
 
-test "ime_consumer: committed_text written to PTY" {
+test "spec: IME consumer — committed_text written to PTY" {
     var ts = makeSession();
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -30,7 +30,7 @@ test "ime_consumer: committed_text written to PTY" {
     try std.testing.expect(!dirty);
 }
 
-test "ime_consumer: preedit_text copied when preedit_changed=true" {
+test "spec: IME consumer — preedit_text copied when preedit_changed is true" {
     var ts = makeSession();
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -39,7 +39,7 @@ test "ime_consumer: preedit_text copied when preedit_changed=true" {
     try std.testing.expectEqualStrings("ga", ts.session.current_preedit.?);
 }
 
-test "ime_consumer: preedit NOT copied when preedit_changed=false" {
+test "spec: IME consumer — preedit not copied when preedit_changed is false" {
     var ts = makeSession();
     ts.session.setPreedit("old");
     var mock_pty = MockPtyOps{};
@@ -48,7 +48,7 @@ test "ime_consumer: preedit NOT copied when preedit_changed=false" {
     try std.testing.expectEqualStrings("old", ts.session.current_preedit.?);
 }
 
-test "ime_consumer: preedit cleared when preedit_text=null, preedit_changed=true" {
+test "spec: IME consumer — preedit cleared when preedit_text is null and preedit_changed" {
     var ts = makeSession();
     ts.session.setPreedit("old");
     var mock_pty = MockPtyOps{};
@@ -58,7 +58,7 @@ test "ime_consumer: preedit cleared when preedit_text=null, preedit_changed=true
     try std.testing.expect(ts.session.current_preedit == null);
 }
 
-test "ime_consumer: forward_key encoded and written to PTY" {
+test "spec: IME consumer — forward_key encoded and written to PTY" {
     const MockKeyEncoder = struct {
         result: ?[]const u8 = null,
         fn enc(self: *@This()) KeyEncoder {
@@ -79,7 +79,7 @@ test "ime_consumer: forward_key encoded and written to PTY" {
     try std.testing.expectEqualStrings("\x03", mock_pty.written());
 }
 
-test "ime_consumer: empty ImeResult is no-op" {
+test "spec: IME consumer — empty ImeResult is no-op" {
     var ts = makeSession();
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();

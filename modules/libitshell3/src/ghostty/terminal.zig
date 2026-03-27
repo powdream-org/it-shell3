@@ -1,5 +1,5 @@
 //! Thin helper functions for ghostty Terminal lifecycle.
-//! These are free functions, NOT wrapper types — per design spec §1.2/§4.5.
+//! These are free functions, NOT wrapper types — per design spec module-structure.
 const std = @import("std");
 const ghostty = @import("ghostty");
 const Allocator = std.mem.Allocator;
@@ -54,7 +54,7 @@ pub fn feedTerminal(t: *Terminal, bytes: []const u8) !void {
 
 // --- Tests ---
 
-test "initTerminal creates terminal with correct dimensions" {
+test "initTerminal: creates terminal with correct dimensions" {
     var t = try initTerminal(std.testing.allocator, 80, 24);
     defer deinitTerminal(&t, std.testing.allocator);
 
@@ -62,7 +62,7 @@ test "initTerminal creates terminal with correct dimensions" {
     try std.testing.expectEqual(@as(CellCountInt, 24), t.rows);
 }
 
-test "feedTerminal processes plain text" {
+test "feedTerminal: processes plain text" {
     var t = try initTerminal(std.testing.allocator, 80, 24);
     defer deinitTerminal(&t, std.testing.allocator);
 
@@ -71,7 +71,7 @@ test "feedTerminal processes plain text" {
     try std.testing.expectEqual(@as(usize, 0), t.screens.active.cursor.y);
 }
 
-test "feedTerminal processes escape sequences" {
+test "feedTerminal: processes escape sequences" {
     var t = try initTerminal(std.testing.allocator, 80, 24);
     defer deinitTerminal(&t, std.testing.allocator);
 
@@ -80,7 +80,7 @@ test "feedTerminal processes escape sequences" {
     try std.testing.expectEqual(@as(usize, 0), t.screens.active.cursor.y);
 }
 
-test "resizeTerminal changes dimensions" {
+test "resizeTerminal: changes dimensions" {
     var t = try initTerminal(std.testing.allocator, 80, 24);
     defer deinitTerminal(&t, std.testing.allocator);
 
@@ -89,7 +89,7 @@ test "resizeTerminal changes dimensions" {
     try std.testing.expectEqual(@as(CellCountInt, 40), t.rows);
 }
 
-test "feedTerminal with empty bytes is no-op" {
+test "feedTerminal: with empty bytes is no-op" {
     var t = try initTerminal(std.testing.allocator, 80, 24);
     defer deinitTerminal(&t, std.testing.allocator);
 
@@ -97,7 +97,7 @@ test "feedTerminal with empty bytes is no-op" {
     try std.testing.expectEqual(@as(usize, 0), t.screens.active.cursor.x);
 }
 
-test "persistent stream handles split escape sequences" {
+test "createVtStream: persistent stream handles split escape sequences" {
     var t = try initTerminal(std.testing.allocator, 80, 24);
     defer deinitTerminal(&t, std.testing.allocator);
 

@@ -21,7 +21,7 @@ pub const MockImeEngine = struct {
     active_input_method: []const u8 = "direct",
 
     /// Result to return from setActiveInputMethod().
-    set_aim_result: ImeResult = .{},
+    set_active_input_method_result: ImeResult = .{},
 
     /// Whether the engine is empty (for isEmpty).
     is_empty_val: bool = true,
@@ -32,9 +32,9 @@ pub const MockImeEngine = struct {
     reset_count: usize = 0,
     activate_count: usize = 0,
     deactivate_count: usize = 0,
-    set_aim_count: usize = 0,
+    set_active_input_method_count: usize = 0,
     last_process_key: ?KeyEvent = null,
-    last_set_aim_method: ?[]const u8 = null,
+    last_set_active_input_method: ?[]const u8 = null,
 
     pub fn engine(self: *MockImeEngine) ImeEngine {
         return .{
@@ -104,14 +104,14 @@ pub const MockImeEngine = struct {
 
     fn setActiveInputMethodImpl(ptr: *anyopaque, method: []const u8) error{UnsupportedInputMethod}!ImeResult {
         const self: *MockImeEngine = @ptrCast(@alignCast(ptr));
-        self.set_aim_count += 1;
-        self.last_set_aim_method = method;
+        self.set_active_input_method_count += 1;
+        self.last_set_active_input_method = method;
         // Per interface-contract 03-engine-interface section 2 Case 3:
         // return error.UnsupportedInputMethod for unrecognized strings.
         if (!std.mem.eql(u8, method, "direct") and !std.mem.eql(u8, method, "korean_2set")) {
             return error.UnsupportedInputMethod;
         }
-        return self.set_aim_result;
+        return self.set_active_input_method_result;
     }
 };
 
@@ -185,8 +185,8 @@ test "MockImeEngine: setActiveInputMethod tracks calls" {
     var mock = MockImeEngine{};
     const eng = mock.engine();
     _ = try eng.setActiveInputMethod("korean_2set");
-    try std.testing.expectEqual(@as(usize, 1), mock.set_aim_count);
-    try std.testing.expectEqualSlices(u8, "korean_2set", mock.last_set_aim_method.?);
+    try std.testing.expectEqual(@as(usize, 1), mock.set_active_input_method_count);
+    try std.testing.expectEqualSlices(u8, "korean_2set", mock.last_set_active_input_method.?);
 }
 
 test "MockImeEngine: last_process_key tracks last key" {
@@ -195,7 +195,7 @@ test "MockImeEngine: last_process_key tracks last key" {
     const key = KeyEvent{ .hid_keycode = 0x15, .modifiers = .{ .ctrl = true }, .shift = true, .action = .press };
     _ = eng.processKey(key);
     try std.testing.expect(mock.last_process_key != null);
-    try std.testing.expectEqual(@as(u8, 0x15), mock.last_process_key.?.hid_keycode);
+    try std.testing.expectEqual(@as(u16, 0x15), mock.last_process_key.?.hid_keycode);
     try std.testing.expect(mock.last_process_key.?.modifiers.ctrl);
     try std.testing.expect(mock.last_process_key.?.shift);
 }
@@ -205,7 +205,7 @@ test "MockImeEngine: setActiveInputMethod rejects unknown method" {
     const eng = mock.engine();
     try std.testing.expectError(error.UnsupportedInputMethod, eng.setActiveInputMethod("japanese_hiragana"));
     // Call should still be tracked
-    try std.testing.expectEqual(@as(usize, 1), mock.set_aim_count);
+    try std.testing.expectEqual(@as(usize, 1), mock.set_active_input_method_count);
 }
 
 test "MockImeEngine: flush clears flush_result after first call" {

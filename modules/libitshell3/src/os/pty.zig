@@ -129,7 +129,7 @@ fn realWrite(master_fd: posix.fd_t, data: []const u8) interfaces.PtyOps.WriteErr
 // unit test runner. The vtable contract is verified via mock tests in
 // testing/mock_os.zig.
 
-test "real_pty_ops vtable has all required function pointers" {
+test "real_pty_ops: vtable has all required function pointers" {
     try std.testing.expect(real_pty_ops.forkPty == realForkPty);
     try std.testing.expect(real_pty_ops.resize == realResize);
     try std.testing.expect(real_pty_ops.close == realClose);

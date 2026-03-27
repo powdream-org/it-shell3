@@ -1,3 +1,7 @@
+//! Server module for the it-shell3 daemon. Contains the event loop, signal
+//! handling, client management, session/pane management, IME consumer/lifecycle/
+//! procedures, ring buffer frame delivery, and client writer.
+
 pub const event_loop = @import("event_loop.zig");
 pub const signal_handler = @import("signal_handler.zig");
 pub const client_writer = @import("client_writer.zig");
@@ -8,6 +12,10 @@ pub const pane_delivery = @import("pane_delivery.zig");
 pub const ime_consumer = @import("ime_consumer.zig");
 pub const ime_lifecycle = @import("ime_lifecycle.zig");
 pub const ime_procedures = @import("ime_procedures.zig");
+pub const pane = @import("pane.zig");
+pub const session_entry = @import("session_entry.zig");
+pub const session_manager = @import("session_manager.zig");
+pub const client_state = @import("client_state.zig");
 
 // Handlers
 pub const handlers = struct {
@@ -23,8 +31,11 @@ pub const ring_buffer_spec_compliance_test = @import("ring_buffer_spec_complianc
 
 // Re-exports
 pub const EventLoop = event_loop.EventLoop;
-pub const ClientEntry = event_loop.ClientEntry;
+pub const ClientEntry = client_state.ClientEntry;
 pub const ClientTracker = ime_lifecycle.ClientTracker;
+pub const Pane = pane.Pane;
+pub const SessionEntry = session_entry.SessionEntry;
+pub const SessionManager = session_manager.SessionManager;
 
 const std = @import("std");
 test {

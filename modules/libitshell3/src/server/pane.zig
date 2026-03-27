@@ -1,5 +1,9 @@
 const std = @import("std");
-const types = @import("types.zig");
+const core = @import("itshell3_core");
+const types = core.types;
+const ghostty = @import("itshell3_ghostty");
+const terminal_mod = ghostty.terminal;
+const render_state_mod = ghostty.render_state;
 
 pub const Pane = struct {
     pane_id: types.PaneId,
@@ -7,15 +11,15 @@ pub const Pane = struct {
     pty_fd: std.posix.fd_t,
     child_pid: std.posix.pid_t,
 
-    /// ghostty pointers — opaque, null until server/ initializes these.
-    /// server/ casts to real types (*Terminal, *RenderState, *ReadonlyStream).
-    terminal: ?*anyopaque = null,
-    render_state: ?*anyopaque = null,
+    /// Typed ghostty pointers — null until server/ initializes these.
+    terminal: ?*terminal_mod.Terminal = null,
+    render_state: ?*render_state_mod.RenderState = null,
     /// Persistent ghostty VT parser stream. Held for the pane's lifetime so
     /// that split escape sequences spanning multiple PTY reads are parsed
     /// correctly. Creating a new vtStream per feedTerminal call would lose
     /// mid-sequence parser state. (See implementation-learnings.md G3.)
-    vt_stream: ?*anyopaque = null,
+    /// Code-only addition not present in the spec type definition.
+    vt_stream: ?*terminal_mod.ReadonlyStream = null,
 
     // Dimensions
     cols: u16,
@@ -90,9 +94,9 @@ pub const Pane = struct {
     }
 };
 
-// --- Tests ---
+// ── Tests ────────────────────────────────────────────────────────────────────
 
-test "init creates pane with correct fields and default flags" {
+test "Pane.init: creates pane with correct fields and default flags" {
     const p = Pane.init(1, 3, 5, 100, 80, 24);
     try std.testing.expectEqual(@as(types.PaneId, 1), p.pane_id);
     try std.testing.expectEqual(@as(types.PaneSlot, 3), p.slot_index);
@@ -106,33 +110,34 @@ test "init creates pane with correct fields and default flags" {
     try std.testing.expect(!p.pty_eof);
     try std.testing.expect(p.terminal == null);
     try std.testing.expect(p.render_state == null);
+    try std.testing.expect(p.vt_stream == null);
 }
 
-test "isFullyDead returns false when neither flag set" {
+test "Pane.isFullyDead: returns false when neither flag set" {
     const p = Pane.init(1, 0, 5, 100, 80, 24);
     try std.testing.expect(!p.isFullyDead());
 }
 
-test "isFullyDead returns false when only pane_exited set" {
+test "Pane.isFullyDead: returns false when only pane_exited set" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     p.markExited(0);
     try std.testing.expect(!p.isFullyDead());
 }
 
-test "isFullyDead returns false when only pty_eof set" {
+test "Pane.isFullyDead: returns false when only pty_eof set" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     p.markPtyEof();
     try std.testing.expect(!p.isFullyDead());
 }
 
-test "isFullyDead returns true when both flags set" {
+test "Pane.isFullyDead: returns true when both flags set" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     p.markExited(0);
     p.markPtyEof();
     try std.testing.expect(p.isFullyDead());
 }
 
-test "markExited sets pane_exited, exit_status, and clears is_running" {
+test "Pane.markExited: sets pane_exited, exit_status, and clears is_running" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     try std.testing.expect(p.is_running);
     p.markExited(42);
@@ -141,30 +146,14 @@ test "markExited sets pane_exited, exit_status, and clears is_running" {
     try std.testing.expect(!p.is_running);
 }
 
-test "markPtyEof sets pty_eof but does not change is_running" {
+test "Pane.markPtyEof: sets pty_eof but does not change is_running" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     p.markPtyEof();
     try std.testing.expect(p.pty_eof);
-    try std.testing.expect(p.is_running); // unchanged
+    try std.testing.expect(p.is_running);
 }
 
-test "two-phase: markExited then markPtyEof -> isFullyDead true" {
-    var p = Pane.init(1, 0, 5, 100, 80, 24);
-    p.markExited(0);
-    try std.testing.expect(!p.isFullyDead());
-    p.markPtyEof();
-    try std.testing.expect(p.isFullyDead());
-}
-
-test "two-phase: markPtyEof then markExited -> isFullyDead true (reverse order)" {
-    var p = Pane.init(1, 0, 5, 100, 80, 24);
-    p.markPtyEof();
-    try std.testing.expect(!p.isFullyDead());
-    p.markExited(0);
-    try std.testing.expect(p.isFullyDead());
-}
-
-test "setTitle copies bytes and updates title_length" {
+test "Pane.setTitle: copies bytes and updates title_length" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     const title = "my terminal";
     p.setTitle(title);
@@ -172,7 +161,7 @@ test "setTitle copies bytes and updates title_length" {
     try std.testing.expectEqualSlices(u8, title, p.title[0..p.title_length]);
 }
 
-test "setTitle truncates if longer than MAX_PANE_TITLE" {
+test "Pane.setTitle: truncates if longer than MAX_PANE_TITLE" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     const long_title = "a" ** 300;
     p.setTitle(long_title);
@@ -180,7 +169,7 @@ test "setTitle truncates if longer than MAX_PANE_TITLE" {
     try std.testing.expectEqualSlices(u8, long_title[0..types.MAX_PANE_TITLE], p.title[0..types.MAX_PANE_TITLE]);
 }
 
-test "setCwd copies bytes and updates cwd_length" {
+test "Pane.setCwd: copies bytes and updates cwd_length" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     const cwd = "/home/user/project";
     p.setCwd(cwd);

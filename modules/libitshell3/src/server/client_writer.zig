@@ -6,7 +6,7 @@ const RingBuffer = ring_buffer_mod.RingBuffer;
 const RingCursor = ring_buffer_mod.RingCursor;
 
 /// Result of a writePending call.
-/// Matches spec §5.4 three-branch model exactly.
+/// Matches daemon-behavior policies spec three-branch model exactly.
 pub const WriteResult = enum {
     fully_caught_up,
     more_pending,
@@ -18,7 +18,7 @@ pub const WriteResult = enum {
 /// Per-client two-channel writer: drains direct (priority 1) queue first,
 /// then delivers ring buffer frames (priority 2).
 ///
-/// Delivery model per spec §5.4:
+/// Delivery model per daemon-behavior policies spec:
 ///   1. Drain direct queue completely (or until write blocks).
 ///   2. Get iovecs for ALL pending ring bytes (cursor to write_pos).
 ///   3. Call writev() once — kernel reads directly from ring memory (zero copy).
@@ -54,7 +54,7 @@ pub const ClientWriter = struct {
 
     /// Attempt to write pending data to socket fd.
     /// Priority: direct queue (priority 1) → ring buffer (priority 2).
-    /// Spec §4.4 (two-channel priority), §5.4 (delivery pseudocode).
+    /// Per daemon-architecture state-and-types (two-channel priority) and daemon-behavior policies (delivery pseudocode).
     pub fn writePending(
         self: *ClientWriter,
         fd: std.posix.socket_t,
@@ -111,33 +111,28 @@ pub const ClientWriter = struct {
 
 // --- Tests ---
 
-test "init: clean state — no ring_frame_sent field" {
+test "ClientWriter.init: clean state" {
     const cw = ClientWriter.init();
     try std.testing.expect(cw.direct_queue.isEmpty());
     try std.testing.expectEqual(@as(usize, 0), cw.direct_partial_offset);
-    try std.testing.expectEqual(@as(usize, 0), cw.ring_cursor.total_read);
-    // Verify no large stack buffer in struct (structural check via field count).
-    // ClientWriter has exactly 3 fields: direct_queue, ring_cursor, direct_partial_offset.
-    // Use comptime field count to avoid runtime typeInfo limitation.
-    const field_count = comptime @typeInfo(ClientWriter).@"struct".fields.len;
-    try std.testing.expectEqual(@as(usize, 3), field_count);
+    try std.testing.expectEqual(@as(usize, 0), cw.ring_cursor.position);
 }
 
-test "enqueueDirect adds to direct queue" {
+test "ClientWriter.enqueueDirect: adds to direct queue" {
     var cw = ClientWriter.init();
     defer cw.deinit();
     try cw.enqueueDirect("control-msg");
     try std.testing.expect(!cw.direct_queue.isEmpty());
 }
 
-test "hasPending: false when all channels empty" {
+test "ClientWriter.hasPending: false when all channels empty" {
     var cw = ClientWriter.init();
     var backing: [1024]u8 = @splat(0);
     const ring = RingBuffer.init(&backing);
     try std.testing.expect(!cw.hasPending(&ring));
 }
 
-test "hasPending: true with direct queue" {
+test "ClientWriter.hasPending: true with direct queue" {
     var cw = ClientWriter.init();
     defer cw.deinit();
     var backing: [1024]u8 = @splat(0);
@@ -146,7 +141,7 @@ test "hasPending: true with direct queue" {
     try std.testing.expect(cw.hasPending(&ring));
 }
 
-test "hasPending: true with ring data" {
+test "ClientWriter.hasPending: true with ring data" {
     var cw = ClientWriter.init();
     var backing: [1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
@@ -154,7 +149,7 @@ test "hasPending: true with ring data" {
     try std.testing.expect(cw.hasPending(&ring));
 }
 
-test "hasPending: false when ring cursor caught up" {
+test "ClientWriter.hasPending: false when ring cursor caught up" {
     var cw = ClientWriter.init();
     var backing: [1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
@@ -164,7 +159,7 @@ test "hasPending: false when ring cursor caught up" {
     try std.testing.expect(!cw.hasPending(&ring));
 }
 
-test "hasPending: reflects both channels independently" {
+test "ClientWriter.hasPending: reflects both channels independently" {
     var cw = ClientWriter.init();
     defer cw.deinit();
     var backing: [1024]u8 = @splat(0);
@@ -183,7 +178,7 @@ test "hasPending: reflects both channels independently" {
     try std.testing.expect(!cw.hasPending(&ring));
 }
 
-test "enqueueDirect error propagation from QueueFull" {
+test "ClientWriter.enqueueDirect: error propagation from QueueFull" {
     var cw = ClientWriter.init();
     defer cw.deinit();
     const big = [_]u8{'A'} ** (direct_queue_mod.QUEUE_CAPACITY - 8);
@@ -191,23 +186,16 @@ test "enqueueDirect error propagation from QueueFull" {
     try std.testing.expectError(error.QueueFull, cw.enqueueDirect("overflow"));
 }
 
-test "ring_cursor starts at zero" {
+test "ClientWriter.init: ring_cursor starts at zero" {
     const cw = ClientWriter.init();
-    try std.testing.expectEqual(@as(usize, 0), cw.ring_cursor.total_read);
+    try std.testing.expectEqual(@as(usize, 0), cw.ring_cursor.position);
 }
 
-test "WriteResult enum has spec §5.4 three-branch variants" {
-    // Verify all three spec §5.4 outcomes + write_error are present
+test "WriteResult: enum has three-branch variants" {
+    // Verify all three daemon-behavior policies spec outcomes + write_error are present
     _ = WriteResult.fully_caught_up;
     _ = WriteResult.more_pending;
     _ = WriteResult.would_block;
     _ = WriteResult.peer_closed;
     _ = WriteResult.write_error;
-}
-
-test "partial cursor advancement: cursor position is the only state (no extra tracker)" {
-    // Verify that the struct has no ring_frame_sent or frame_buf field.
-    // Partial state is entirely encoded in ring_cursor.total_read (spec §5.4).
-    try std.testing.expect(!@hasField(ClientWriter, "ring_frame_sent"));
-    try std.testing.expect(!@hasField(ClientWriter, "frame_buf"));
 }

@@ -13,12 +13,12 @@ const MockImeEngine = test_mod.MockImeEngine;
 
 // ---- KeyEvent behavioral spec ----
 
-test "hasCompositionBreakingModifier: Shift does NOT break composition" {
+test "spec: composition breaking modifier — shift does not break composition" {
     const key = KeyEvent{ .hid_keycode = 0x04, .modifiers = .{}, .shift = true, .action = .press };
     try std.testing.expect(!key.hasCompositionBreakingModifier());
 }
 
-test "hasCompositionBreakingModifier: Ctrl/Alt/Super all break composition" {
+test "spec: composition breaking modifier — ctrl alt super all break composition" {
     for ([_]KeyEvent.Modifiers{
         .{ .ctrl = true },
         .{ .alt = true },
@@ -29,7 +29,7 @@ test "hasCompositionBreakingModifier: Ctrl/Alt/Super all break composition" {
     }
 }
 
-test "isPrintablePosition: letters 0x04-0x27, punctuation 0x2D-0x38, gap 0x28-0x2C excluded" {
+test "spec: printable position — letters and punctuation ranges with gap excluded" {
     // Letters+digits range
     var code: u8 = 0x04;
     while (code <= 0x27) : (code += 1) {
@@ -56,7 +56,7 @@ test "isPrintablePosition: letters 0x04-0x27, punctuation 0x2D-0x38, gap 0x28-0x
 
 // ---- ImeResult behavioral spec ----
 
-test "ImeResult: default constructor produces all-null/false state" {
+test "spec: ImeResult — default constructor produces all-null/false state" {
     const r = ImeResult{};
     try std.testing.expect(r.committed_text == null);
     try std.testing.expect(r.preedit_text == null);
@@ -66,7 +66,7 @@ test "ImeResult: default constructor produces all-null/false state" {
 
 // ---- ImeEngine vtable behavioral spec ----
 
-test "ImeEngine: convenience wrappers dispatch all 8 methods through vtable" {
+test "spec: ImeEngine vtable — convenience wrappers dispatch all 8 methods" {
     var mock = MockImeEngine{};
     const eng = mock.engine();
     const key = KeyEvent{ .hid_keycode = 0x04, .modifiers = .{}, .shift = false, .action = .press };
@@ -81,7 +81,7 @@ test "ImeEngine: convenience wrappers dispatch all 8 methods through vtable" {
     _ = try eng.setActiveInputMethod("korean_2set");
 }
 
-test "setActiveInputMethod: unknown method returns error.UnsupportedInputMethod" {
+test "spec: input method selection — unknown method returns error.UnsupportedInputMethod" {
     var mock = MockImeEngine{};
     try std.testing.expectError(error.UnsupportedInputMethod, mock.engine().setActiveInputMethod("japanese_romaji"));
 }

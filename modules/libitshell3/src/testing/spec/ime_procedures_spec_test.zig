@@ -15,7 +15,7 @@ const procs = server.ime_procedures;
 
 // ---- Ownership transfer ----
 
-test "ownershipTransfer: flush, clear preedit, increment session_id, update owner" {
+test "spec: ownership transfer — flush, clear preedit, increment session_id, update owner" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "c", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine());
     s.preedit.owner = 42;
@@ -34,7 +34,7 @@ test "ownershipTransfer: flush, clear preedit, increment session_id, update owne
 
 // ---- Client disconnect/detach/eviction ----
 
-test "onClientDisconnect: owner disconnects -> flush, owner=null" {
+test "spec: client disconnect — owner disconnects triggers flush and clears owner" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "d", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine());
     s.preedit.owner = 5;
@@ -45,7 +45,7 @@ test "onClientDisconnect: owner disconnects -> flush, owner=null" {
     try std.testing.expectEqualStrings("d", mock_pty.written());
 }
 
-test "onClientDisconnect: non-owner -> no-op" {
+test "spec: client disconnect — non-owner disconnect is no-op" {
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine());
     s.preedit.owner = 5;
@@ -56,7 +56,7 @@ test "onClientDisconnect: non-owner -> no-op" {
     try std.testing.expectEqual(@as(usize, 0), mock.flush_count);
 }
 
-test "onClientDisconnect: no active composition -> no-op" {
+test "spec: client disconnect — no active composition is no-op" {
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine());
     var mock_pty = MockPtyOps{};
@@ -67,7 +67,7 @@ test "onClientDisconnect: no active composition -> no-op" {
 
 // ---- Focus change ----
 
-test "onFocusChange: flush to OLD pane, then update focused_pane" {
+test "spec: focus change — flush to old pane then update focused_pane" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "old", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine());
     var mock_pty = MockPtyOps{};
@@ -78,7 +78,7 @@ test "onFocusChange: flush to OLD pane, then update focused_pane" {
     try std.testing.expect(s.current_preedit == null);
 }
 
-test "onFocusChange: empty engine still updates focused_pane" {
+test "spec: focus change — empty engine still updates focused_pane" {
     var mock = MockImeEngine{ .flush_result = .{} };
     var s = Session.init(1, "t", 0, mock.engine());
     var mock_pty = MockPtyOps{};
@@ -90,7 +90,7 @@ test "onFocusChange: empty engine still updates focused_pane" {
 
 // ---- Pane close ----
 
-test "onPaneClose: reset NOT flush, clear preedit/owner, increment session_id" {
+test "spec: pane close — reset not flush, clear preedit and owner, increment session_id" {
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine());
     s.preedit.owner = 1;
@@ -108,7 +108,7 @@ test "onPaneClose: reset NOT flush, clear preedit/owner, increment session_id" {
 
 // ---- Alternate screen ----
 
-test "onAlternateScreenSwitch: flush and clear" {
+test "spec: alternate screen switch — flush and clear" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "alt", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine());
     s.setPreedit("comp");
@@ -121,7 +121,7 @@ test "onAlternateScreenSwitch: flush and clear" {
 
 // ---- Mouse ----
 
-test "onMouseClick: flushes before forwarding" {
+test "spec: mouse click — flushes before forwarding" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "click", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine());
     var mock_pty = MockPtyOps{};
@@ -132,19 +132,19 @@ test "onMouseClick: flushes before forwarding" {
 
 // ---- InputMethodSwitch ----
 
-test "onInputMethodSwitch: commit_current=true flushes atomically" {
-    var mock = MockImeEngine{ .set_aim_result = .{ .committed_text = "sw", .preedit_changed = true } };
+test "spec: input method switch — commit_current true flushes atomically" {
+    var mock = MockImeEngine{ .set_active_input_method_result = .{ .committed_text = "sw", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine());
     s.setPreedit("comp");
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
     procs.onInputMethodSwitch(&s, "direct", true, 10, &pty_ops);
-    try std.testing.expectEqual(@as(usize, 1), mock.set_aim_count);
+    try std.testing.expectEqual(@as(usize, 1), mock.set_active_input_method_count);
     try std.testing.expectEqualStrings("sw", mock_pty.written());
     try std.testing.expect(s.current_preedit == null);
 }
 
-test "onInputMethodSwitch: commit_current=false resets and switches" {
+test "spec: input method switch — commit_current false resets and switches" {
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine());
     s.preedit.owner = 5;
@@ -155,7 +155,7 @@ test "onInputMethodSwitch: commit_current=false resets and switches" {
     procs.onInputMethodSwitch(&s, "direct", false, 10, &pty_ops);
     try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
     try std.testing.expectEqual(@as(usize, 0), mock.flush_count);
-    try std.testing.expectEqual(@as(usize, 1), mock.set_aim_count);
+    try std.testing.expectEqual(@as(usize, 1), mock.set_active_input_method_count);
     try std.testing.expect(s.current_preedit == null);
     try std.testing.expect(s.preedit.owner == null);
     try std.testing.expectEqual(@as(u32, 8), s.preedit.session_id);
@@ -164,7 +164,7 @@ test "onInputMethodSwitch: commit_current=false resets and switches" {
 
 // ---- Error recovery ----
 
-test "errorRecovery: best-effort commit + reset to known-good state" {
+test "spec: error recovery — best-effort commit plus reset to known-good state" {
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine());
     s.preedit.owner = 7;
@@ -180,7 +180,7 @@ test "errorRecovery: best-effort commit + reset to known-good state" {
 
 // ---- No composition restoration on focus return ----
 
-test "no composition restoration after focus return" {
+test "spec: focus return — no composition restoration after focus return" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "x", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine());
     s.preedit.owner = 1;

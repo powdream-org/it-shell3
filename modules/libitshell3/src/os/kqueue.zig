@@ -244,7 +244,7 @@ fn createPipe() ![2]std.posix.fd_t {
     return std.posix.pipe() catch return error.EventLoopError;
 }
 
-test "event loop: registerRead + pipe write → event detected and data verified" {
+test "KqueueContext: registerRead pipe write event detected and data verified" {
     var ctx = try PlatformContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -274,7 +274,7 @@ test "event loop: registerRead + pipe write → event detected and data verified
     try testing.expectEqualSlices(u8, "hello", buf[0..bytes_read]);
 }
 
-test "event loop: registerWrite → immediately writable and write succeeds" {
+test "KqueueContext: registerWrite immediately writable and write succeeds" {
     var ctx = try PlatformContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -300,7 +300,7 @@ test "event loop: registerWrite → immediately writable and write succeeds" {
     try testing.expect(bytes_written > 0);
 }
 
-test "event loop: unregister → no event after write" {
+test "KqueueContext: unregister no event after write" {
     var ctx = try PlatformContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -324,7 +324,7 @@ test "event loop: unregister → no event after write" {
     try testing.expectEqual(@as(usize, 0), n);
 }
 
-test "event loop: timeout with no events returns 0" {
+test "KqueueContext: timeout with no events returns 0" {
     var ctx = try PlatformContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -342,7 +342,7 @@ test "event loop: timeout with no events returns 0" {
     try testing.expectEqual(@as(usize, 0), n);
 }
 
-test "event loop: multiple fds → correct udata routing" {
+test "KqueueContext: multiple fds correct udata routing" {
     var ctx = try PlatformContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -385,7 +385,7 @@ test "event loop: multiple fds → correct udata routing" {
     try testing.expectEqualSlices(u8, "two", buf2[0..n2]);
 }
 
-test "event loop: EOF detection when write end is closed" {
+test "KqueueContext: EOF detection when write end is closed" {
     var ctx = try PlatformContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();

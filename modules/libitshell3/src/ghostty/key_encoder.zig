@@ -1,5 +1,5 @@
 //! Key encoding helper: HID keycode → ghostty Key translation + key_encode.
-//! Free functions, NOT wrapper types — per design spec §1.2/§4.5.
+//! Free functions, NOT wrapper types — per design spec module-structure.
 const std = @import("std");
 const ghostty = @import("ghostty");
 
@@ -43,7 +43,7 @@ pub fn hidToKey(hid_keycode: u8) Key {
 
 /// Comptime lookup table: HID Usage Page 0x07 keycodes → ghostty Key.
 /// Index = HID keycode, value = ghostty Key.
-/// Reference: USB HID Usage Tables §10 (Keyboard/Keypad Page).
+/// Reference: USB HID Usage Tables, Keyboard/Keypad Page.
 const hid_to_key_table = blk: {
     var table: [256]Key = .{.unidentified} ** 256;
 
@@ -194,18 +194,18 @@ const hid_to_key_table = blk: {
 
 // --- Tests ---
 
-test "hidToKey maps A-Z correctly" {
+test "hidToKey: maps A-Z correctly" {
     try std.testing.expectEqual(Key.key_a, hidToKey(0x04));
     try std.testing.expectEqual(Key.key_z, hidToKey(0x1D));
     try std.testing.expectEqual(Key.key_h, hidToKey(0x0B));
 }
 
-test "hidToKey maps digits correctly" {
+test "hidToKey: maps digits correctly" {
     try std.testing.expectEqual(Key.digit_1, hidToKey(0x1E));
     try std.testing.expectEqual(Key.digit_0, hidToKey(0x27));
 }
 
-test "hidToKey maps functional keys" {
+test "hidToKey: maps functional keys" {
     try std.testing.expectEqual(Key.enter, hidToKey(0x28));
     try std.testing.expectEqual(Key.escape, hidToKey(0x29));
     try std.testing.expectEqual(Key.backspace, hidToKey(0x2A));
@@ -213,41 +213,41 @@ test "hidToKey maps functional keys" {
     try std.testing.expectEqual(Key.space, hidToKey(0x2C));
 }
 
-test "hidToKey maps arrow keys" {
+test "hidToKey: maps arrow keys" {
     try std.testing.expectEqual(Key.arrow_up, hidToKey(0x52));
     try std.testing.expectEqual(Key.arrow_down, hidToKey(0x51));
     try std.testing.expectEqual(Key.arrow_left, hidToKey(0x50));
     try std.testing.expectEqual(Key.arrow_right, hidToKey(0x4F));
 }
 
-test "hidToKey maps F-keys" {
+test "hidToKey: maps F-keys" {
     try std.testing.expectEqual(Key.f1, hidToKey(0x3A));
     try std.testing.expectEqual(Key.f12, hidToKey(0x45));
     try std.testing.expectEqual(Key.f13, hidToKey(0x68));
     try std.testing.expectEqual(Key.f24, hidToKey(0x73));
 }
 
-test "hidToKey maps modifier keys" {
+test "hidToKey: maps modifier keys" {
     try std.testing.expectEqual(Key.control_left, hidToKey(0xE0));
     try std.testing.expectEqual(Key.shift_left, hidToKey(0xE1));
     try std.testing.expectEqual(Key.alt_left, hidToKey(0xE2));
     try std.testing.expectEqual(Key.meta_left, hidToKey(0xE3));
 }
 
-test "hidToKey returns unidentified for unmapped codes" {
+test "hidToKey: returns unidentified for unmapped codes" {
     try std.testing.expectEqual(Key.unidentified, hidToKey(0x00));
     try std.testing.expectEqual(Key.unidentified, hidToKey(0x01));
     try std.testing.expectEqual(Key.unidentified, hidToKey(0xFF));
 }
 
-test "hidToKey numpad" {
+test "hidToKey: maps numpad keys" {
     try std.testing.expectEqual(Key.numpad_0, hidToKey(0x62));
     try std.testing.expectEqual(Key.numpad_9, hidToKey(0x61));
     try std.testing.expectEqual(Key.numpad_enter, hidToKey(0x58));
     try std.testing.expectEqual(Key.num_lock, hidToKey(0x53));
 }
 
-test "encodeKey produces output for Enter key in legacy mode" {
+test "encodeKey: produces output for Enter key in legacy mode" {
     var buf: [max_encode_size]u8 = undefined;
     const event: KeyEvent = .{
         .key = .enter,
@@ -258,7 +258,7 @@ test "encodeKey produces output for Enter key in legacy mode" {
     try std.testing.expectEqualStrings("\r", result);
 }
 
-test "encodeKey produces arrow key escape sequence" {
+test "encodeKey: produces arrow key escape sequence" {
     var buf: [max_encode_size]u8 = undefined;
     const event: KeyEvent = .{
         .key = .arrow_up,
@@ -269,7 +269,7 @@ test "encodeKey produces arrow key escape sequence" {
     try std.testing.expectEqualStrings("\x1B[A", result);
 }
 
-test "encodeKey arrow key in application cursor mode" {
+test "encodeKey: arrow key in application cursor mode" {
     var buf: [max_encode_size]u8 = undefined;
     const event: KeyEvent = .{
         .key = .arrow_up,
@@ -282,7 +282,7 @@ test "encodeKey arrow key in application cursor mode" {
     try std.testing.expectEqualStrings("\x1BOA", result);
 }
 
-test "keyEncodeOptionsFromTerminal reads terminal modes" {
+test "keyEncodeOptionsFromTerminal: reads terminal modes" {
     const terminal_mod = @import("terminal.zig");
     var t = try terminal_mod.initTerminal(std.testing.allocator, 80, 24);
     defer terminal_mod.deinitTerminal(&t, std.testing.allocator);

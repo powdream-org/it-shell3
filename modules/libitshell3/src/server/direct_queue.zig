@@ -128,7 +128,7 @@ pub const DirectQueue = struct {
 
 // --- Tests ---
 
-test "init: empty queue, no allocation" {
+test "DirectQueue.init: empty queue, no allocation" {
     const q = DirectQueue.init();
     try std.testing.expect(q.isEmpty());
     try std.testing.expectEqual(@as(usize, 0), q.count);
@@ -136,14 +136,14 @@ test "init: empty queue, no allocation" {
     try std.testing.expect(q.buf_storage == null);
 }
 
-test "enqueue allocates buffer on first use" {
+test "DirectQueue.enqueue: allocates buffer on first use" {
     var q = DirectQueue.init();
     defer q.deinit();
     try q.enqueue("hello world");
     try std.testing.expect(q.buf_storage != null);
 }
 
-test "enqueue + peek + dequeue: data integrity" {
+test "DirectQueue: enqueue peek dequeue data integrity" {
     var q = DirectQueue.init();
     defer q.deinit();
     try q.enqueue("hello world");
@@ -155,7 +155,7 @@ test "enqueue + peek + dequeue: data integrity" {
     try std.testing.expect(q.isEmpty());
 }
 
-test "FIFO ordering across multiple messages" {
+test "DirectQueue: FIFO ordering across multiple messages" {
     var q = DirectQueue.init();
     defer q.deinit();
     try q.enqueue("first");
@@ -171,7 +171,7 @@ test "FIFO ordering across multiple messages" {
     try std.testing.expect(q.isEmpty());
 }
 
-test "peek does not consume" {
+test "DirectQueue.peek: does not consume" {
     var q = DirectQueue.init();
     defer q.deinit();
     try q.enqueue("stable");
@@ -184,7 +184,7 @@ test "peek does not consume" {
     try std.testing.expect(q.isEmpty());
 }
 
-test "peekCopy handles wrapped messages" {
+test "DirectQueue.peekCopy: handles wrapped messages" {
     var q = DirectQueue.init();
     defer q.deinit();
 
@@ -202,7 +202,7 @@ test "peekCopy handles wrapped messages" {
     try std.testing.expectEqualSlices(u8, msg, out[0..n]);
 }
 
-test "QueueFull when capacity exceeded" {
+test "DirectQueue.enqueue: QueueFull when capacity exceeded" {
     var q = DirectQueue.init();
     defer q.deinit();
     // Fill with a large message (leaves no room for another entry)
@@ -213,7 +213,7 @@ test "QueueFull when capacity exceeded" {
     try std.testing.expectError(error.QueueFull, q.enqueue("x"));
 }
 
-test "interleaved enqueue/dequeue preserves ordering" {
+test "DirectQueue: interleaved enqueue dequeue preserves ordering" {
     var q = DirectQueue.init();
     defer q.deinit();
 
@@ -230,7 +230,7 @@ test "interleaved enqueue/dequeue preserves ordering" {
     try std.testing.expect(q.isEmpty());
 }
 
-test "many small messages fill and drain" {
+test "DirectQueue: many small messages fill and drain" {
     var q = DirectQueue.init();
     defer q.deinit();
 
@@ -251,7 +251,7 @@ test "many small messages fill and drain" {
     try std.testing.expectEqual(enqueued, drained);
 }
 
-test "peekCopy: returns null when out buffer too small" {
+test "DirectQueue.peekCopy: returns null when out buffer too small" {
     var q = DirectQueue.init();
     defer q.deinit();
     try q.enqueue("a long message that wont fit");
@@ -260,7 +260,7 @@ test "peekCopy: returns null when out buffer too small" {
     try std.testing.expect(q.peekCopy(&tiny) == null);
 }
 
-test "dequeue on empty queue is a no-op" {
+test "DirectQueue.dequeue: on empty queue is a no-op" {
     var q = DirectQueue.init();
     defer q.deinit();
     q.dequeue(); // should not crash
@@ -268,7 +268,7 @@ test "dequeue on empty queue is a no-op" {
     try std.testing.expectEqual(@as(usize, 0), q.count);
 }
 
-test "deinit frees buffer and can be called multiple times" {
+test "DirectQueue.deinit: frees buffer and can be called multiple times" {
     var q = DirectQueue.init();
     try q.enqueue("data");
     q.deinit();

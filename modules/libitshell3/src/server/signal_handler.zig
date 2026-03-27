@@ -2,16 +2,18 @@ const std = @import("std");
 const os = @import("itshell3_os");
 const interfaces = os.interfaces;
 const core = @import("itshell3_core");
-const session_manager_mod = core.session_manager;
 const types = core.types;
+const session_manager_mod = @import("session_manager.zig");
 
 pub const SessionManager = session_manager_mod.SessionManager;
 
 /// Handle a signal event delivered via the event loop.
 ///
 /// - SIGCHLD: drain waitChild() in a loop, marking matching panes exited.
-/// - SIGTERM/SIGINT: set shutdown_requested = true.
-/// - SIGHUP: ignored (future: reload config).
+/// - SIGTERM/SIGINT/SIGHUP: set shutdown_requested = true.
+///
+/// Per daemon-behavior daemon-lifecycle spec, SIGHUP is a shutdown trigger
+/// alongside SIGTERM and SIGINT.
 pub fn handleSignalEvent(
     event: interfaces.EventLoopOps.Event,
     signal_ops: *const interfaces.SignalOps,
@@ -28,11 +30,10 @@ pub fn handleSignalEvent(
                 markPaneExited(session_manager, result.pid, result.exit_status);
             }
         },
-        std.posix.SIG.TERM, std.posix.SIG.INT => {
+        std.posix.SIG.TERM, std.posix.SIG.INT, std.posix.SIG.HUP => {
+            // TODO(Plan 10): Graceful shutdown procedure (client drain, preedit
+            // flush, child SIGHUP forwarding) before setting shutdown_requested.
             shutdown_requested.* = true;
-        },
-        std.posix.SIG.HUP => {
-            // Ignored for now — future: reload config
         },
         else => {},
     }
@@ -41,7 +42,7 @@ pub fn handleSignalEvent(
 fn markPaneExited(sm: *SessionManager, pid: std.posix.pid_t, exit_status: u8) void {
     for (&sm.sessions) |*slot| {
         if (slot.*) |*entry| {
-            var i: u5 = 0;
+            var i: u32 = 0;
             while (i < types.MAX_PANES) : (i += 1) {
                 if (entry.pane_slots[i]) |*pane| {
                     if (pane.child_pid == pid) {
@@ -60,7 +61,7 @@ const testing = std.testing;
 const test_mod = @import("itshell3_testing");
 const mock_os = test_mod.mock_os;
 const test_helpers = test_mod.helpers;
-const pane_mod = core.pane;
+const pane_mod = @import("pane.zig");
 const session_mod = core.session;
 
 // File-scope statics for tests.
@@ -138,6 +139,22 @@ test "handleSignalEvent: SIGTERM -> shutdown_requested = true" {
         .fd = std.posix.SIG.TERM,
         .filter = .signal,
         .udata = std.posix.SIG.TERM,
+    };
+
+    var shutdown = false;
+    handleSignalEvent(event, &signal_ops, &test_sm, &shutdown);
+    try testing.expect(shutdown);
+}
+
+test "handleSignalEvent: SIGHUP -> shutdown_requested = true" {
+    test_sm.reset();
+    var mock_signal = mock_os.MockSignalOps{};
+    const signal_ops = mock_signal.ops();
+
+    const event = interfaces.EventLoopOps.Event{
+        .fd = std.posix.SIG.HUP,
+        .filter = .signal,
+        .udata = std.posix.SIG.HUP,
     };
 
     var shutdown = false;

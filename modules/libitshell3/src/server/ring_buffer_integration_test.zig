@@ -4,17 +4,17 @@
 // Each test cites the spec section it verifies.
 //
 // Spec references:
-//   §4.1  Per-pane shared ring buffer — O(1) memory, write-once
-//   §4.3  Wire format in ring (pre-serialized frames)
-//   §4.4  Two-channel socket write priority
-//   §4.5  Per-client cursors (independent positions, last_i_frame field)
-//   §4.6  Frame delivery — sendv(iovecs) for zero-copy delivery
-//   §4.8  Slow client recovery (cursor skip to latest I-frame)
-//   §4.9  I-frame scheduling (no-op when unchanged)
-//   §4.11 Multi-client ring read (independent cursors, same backing)
-//   §5.3  Frame delivery procedure
-//   §5.4  Write-ready and backpressure (byte-granular cursor)
-//   §5.5  Slow client recovery (same as §4.8)
+//   state-and-types per-pane ring buffer  Per-pane shared ring buffer — O(1) memory, write-once
+//   state-and-types wire format  Wire format in ring (pre-serialized frames)
+//   state-and-types two-channel priority  Two-channel socket write priority
+//   state-and-types per-client cursors  Per-client cursors (independent positions, last_i_frame field)
+//   state-and-types frame delivery  Frame delivery — sendv(iovecs) for zero-copy delivery
+//   state-and-types slow client recovery  Slow client recovery (cursor skip to latest I-frame)
+//   state-and-types I-frame scheduling  I-frame scheduling (no-op when unchanged)
+//   state-and-types per-pane ring buffer1 Multi-client ring read (independent cursors, same backing)
+//   policies frame delivery procedure  Frame delivery procedure
+//   policies write-ready and backpressure  Write-ready and backpressure (byte-granular cursor)
+//   policies slow client recovery  Slow client recovery (same as state-and-types slow client recovery)
 
 const std = @import("std");
 const testing = std.testing;
@@ -65,7 +65,7 @@ fn flattenIovecs(p: ring_buffer_mod.PendingIovecs, out: []u8) usize {
     return off;
 }
 
-test "§4.1 — O(1) memory: multiple cursors share single ring backing" {
+test "spec: ring buffer sharing — multiple cursors share single ring backing" {
     var backing: [4096]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
 
@@ -95,7 +95,7 @@ test "§4.1 — O(1) memory: multiple cursors share single ring backing" {
     try testing.expectEqual(p2.totalLen(), p3.totalLen());
 }
 
-test "§4.3 — wire format: iovecs yield decodable protocol message" {
+test "spec: wire format — iovecs yield decodable protocol message" {
     var backing: [256 * 1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var scratch = pane_delivery_mod.SharedScratch.init();
@@ -137,7 +137,7 @@ test "§4.3 — wire format: iovecs yield decodable protocol message" {
     try testing.expectEqual(@as(u64, 0), fh.frame_sequence);
 }
 
-test "§4.4 — two-channel priority: direct queue before ring buffer" {
+test "spec: two-channel priority — direct queue drained before ring buffer" {
     var cw = client_writer_mod.ClientWriter.init();
     defer cw.deinit();
     var backing: [4096]u8 = @splat(0);
@@ -171,7 +171,7 @@ test "§4.4 — two-channel priority: direct queue before ring buffer" {
     try testing.expect(!cw.hasPending(&ring));
 }
 
-test "§4.5 — independent cursors: positions and available are orthogonal" {
+test "spec: independent cursors — positions and available are orthogonal" {
     var backing: [4096]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
 
@@ -190,7 +190,7 @@ test "§4.5 — independent cursors: positions and available are orthogonal" {
 
     // A sees fewer bytes; B unchanged
     try testing.expect(ring.available(&ca) < ring.available(&cb));
-    try testing.expectEqual(@as(usize, 0), cb.total_read);
+    try testing.expectEqual(@as(usize, 0), cb.position);
 
     // Advance A to full; B still at 0
     ring.advanceCursor(&ca, ring.available(&ca));
@@ -198,7 +198,7 @@ test "§4.5 — independent cursors: positions and available are orthogonal" {
     try testing.expect(ring.available(&cb) > 0);
 }
 
-test "§4.6 — zero-copy: single iovec points into ring.buf address range" {
+test "spec: zero-copy delivery — single iovec points into ring.buf address range" {
     var backing: [1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -215,7 +215,7 @@ test "§4.6 — zero-copy: single iovec points into ring.buf address range" {
     try testing.expectEqual(ring.available(&cursor), p.totalLen());
 }
 
-test "§4.6 — zero-copy wrap-around: 2 iovecs both in ring.buf, concatenation correct" {
+test "spec: zero-copy delivery — wrap-around 2 iovecs both in ring.buf with correct concatenation" {
     // 32-byte ring. 3 frames of 11 bytes each (no prefix, entry = 11 bytes).
     // After advancing past first 2 entries (22 bytes), the 3rd entry
     // starts at position 22 and wraps at 32: 10 bytes tail + 1 byte head.
@@ -248,7 +248,7 @@ test "§4.6 — zero-copy wrap-around: 2 iovecs both in ring.buf, concatenation 
     try testing.expectEqualSlices(u8, &payload, combined[0..11]);
 }
 
-test "§5.4 — byte-granular cursor: partial advance, remaining iovec starts at correct position" {
+test "spec: byte-granular cursor — partial advance remaining iovec starts at correct position" {
     var backing: [1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -260,7 +260,7 @@ test "§5.4 — byte-granular cursor: partial advance, remaining iovec starts at
 
     // Simulate partial write: kernel accepted 3 bytes
     ring.advanceCursor(&cursor, 3);
-    try testing.expectEqual(@as(usize, 3), cursor.total_read);
+    try testing.expectEqual(@as(usize, 3), cursor.position);
     try testing.expectEqual(@as(usize, 7), ring.available(&cursor));
 
     // Next iovec starts at ring position 3
@@ -270,7 +270,7 @@ test "§5.4 — byte-granular cursor: partial advance, remaining iovec starts at
     try testing.expectEqual(@as(usize, 7), p.totalLen());
 }
 
-test "§5.4 — full delivery: cursor catches up, available == 0, no iovecs" {
+test "spec: full delivery — cursor catches up with available zero and no iovecs" {
     var backing: [1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -285,7 +285,7 @@ test "§5.4 — full delivery: cursor catches up, available == 0, no iovecs" {
     try testing.expect(ring.pendingIovecs(&cursor) == null);
 }
 
-test "§5.4 — would_block semantics: cursor unchanged, same iovecs returned on retry" {
+test "spec: would_block semantics — cursor unchanged and same iovecs returned on retry" {
     var backing: [1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -293,13 +293,13 @@ test "§5.4 — would_block semantics: cursor unchanged, same iovecs returned on
     try ring.writeFrame("retry-me", false, 1);
 
     const avail_before = ring.available(&cursor);
-    const pos_before = cursor.total_read;
+    const pos_before = cursor.position;
 
-    // Simulate would_block: cursor NOT advanced (spec §5.4 .would_block branch)
+    // Simulate would_block: cursor NOT advanced (spec policies write-ready and backpressure .would_block branch)
     // (In real code, writev returns EAGAIN. Here we verify cursor stays put.)
     _ = ring.pendingIovecs(&cursor); // call but don't advance
 
-    try testing.expectEqual(pos_before, cursor.total_read);
+    try testing.expectEqual(pos_before, cursor.position);
     try testing.expectEqual(avail_before, ring.available(&cursor));
 
     // Retry: same data available
@@ -311,7 +311,7 @@ test "§5.4 — would_block semantics: cursor unchanged, same iovecs returned on
     try testing.expectEqualSlices(u8, "retry-me", flat[0..8]);
 }
 
-test "§4.8 §5.5 — slow client recovery: overwritten cursor seeks to latest I-frame" {
+test "spec: slow client recovery — overwritten cursor seeks to latest I-frame" {
     var backing: [96]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var slow = RingCursor.init();
@@ -347,7 +347,7 @@ test "§4.8 §5.5 — slow client recovery: overwritten cursor seeks to latest I
     try testing.expectEqualSlices(u8, &frame, flat[0..8]);
 }
 
-test "§4.9 — I-frame no-op when unchanged: empty P-frame skipped, I-frame written" {
+test "spec: I-frame scheduling — empty P-frame skipped and I-frame written" {
     var backing: [256 * 1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var scratch = pane_delivery_mod.SharedScratch.init();
@@ -383,7 +383,7 @@ test "§4.9 — I-frame no-op when unchanged: empty P-frame skipped, I-frame wri
     try testing.expect(ring.has_i_frame);
 }
 
-test "§4.11 — multi-client ring read: independent cursor positions, same backing" {
+test "spec: multi-client ring read — independent cursor positions with same backing" {
     var backing: [4096]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var scratch = pane_delivery_mod.SharedScratch.init();
@@ -407,7 +407,7 @@ test "§4.11 — multi-client ring read: independent cursor positions, same back
 
     // B is unchanged
     try testing.expect(ring.available(&cb) > 0);
-    try testing.expectEqual(@as(usize, 0), cb.total_read);
+    try testing.expectEqual(@as(usize, 0), cb.position);
 
     // Both cursors' iovecs (when available) point into same ring backing
     const pb = ring.pendingIovecs(&cb).?;
@@ -418,7 +418,7 @@ test "§4.11 — multi-client ring read: independent cursor positions, same back
     }
 }
 
-test "pane delivery lifecycle: SessionDeliveryState allocates and frees rings" {
+test "spec: pane delivery lifecycle — SessionDeliveryState allocates and frees rings" {
     var state = pane_delivery_mod.SessionDeliveryState.init();
     defer state.deinit();
 
@@ -461,7 +461,7 @@ test "pane delivery lifecycle: SessionDeliveryState allocates and frees rings" {
     try testing.expect(state.getRingBuffer(5) != null);
 }
 
-test "edge cases: advanceCursor(0) no-op; cursor at write_pos yields null iovecs" {
+test "spec: cursor edge cases — advanceCursor zero no-op and cursor at write_pos yields null iovecs" {
     var backing: [1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -469,17 +469,17 @@ test "edge cases: advanceCursor(0) no-op; cursor at write_pos yields null iovecs
     try ring.writeFrame("data", false, 1);
 
     // advanceCursor(0) must not move cursor
-    const before = cursor.total_read;
+    const before = cursor.position;
     ring.advanceCursor(&cursor, 0);
-    try testing.expectEqual(before, cursor.total_read);
+    try testing.expectEqual(before, cursor.position);
 
     // Advance to caught-up position
     ring.advanceCursor(&cursor, ring.available(&cursor));
-    try testing.expectEqual(ring.total_written, cursor.total_read);
+    try testing.expectEqual(ring.total_written, cursor.position);
     try testing.expect(ring.pendingIovecs(&cursor) == null);
 }
 
-test "§4.1 §4.3 full pipeline: serialize → ring → iovecs → decode protocol message" {
+test "spec: full pipeline — serialize to ring to iovecs to decoded protocol message" {
     var backing: [256 * 1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var scratch = pane_delivery_mod.SharedScratch.init();
@@ -504,7 +504,7 @@ test "§4.1 §4.3 full pipeline: serialize → ring → iovecs → decode protoc
     try testing.expectEqual(@as(u64, 1), seq);
 
     // Cursor NOT advanced yet
-    try testing.expectEqual(@as(usize, 0), cursor.total_read);
+    try testing.expectEqual(@as(usize, 0), cursor.position);
 
     const p = ring.pendingIovecs(&cursor).?;
     var flat: [8192]u8 = @splat(0);
@@ -530,7 +530,7 @@ test "§4.1 §4.3 full pipeline: serialize → ring → iovecs → decode protoc
     try testing.expect(ring.pendingIovecs(&cursor) == null);
 }
 
-test "§4.8 — fast vs slow client divergence and slow client iovec recovery" {
+test "spec: slow client recovery — fast vs slow client divergence and iovec recovery" {
     var backing: [128]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var fast = RingCursor.init();
@@ -569,7 +569,7 @@ test "§4.8 — fast vs slow client divergence and slow client iovec recovery" {
     }
 }
 
-test "§5.4 — single writev spanning all pending frames" {
+test "spec: write-ready delivery — single writev spanning all pending frames" {
     var backing: [4096]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -592,7 +592,7 @@ test "§5.4 — single writev spanning all pending frames" {
     try testing.expectEqual(@as(usize, 0), ring.available(&cursor));
 }
 
-test "§4.11 — seekToLatestIFrame: most recent I-frame selected" {
+test "spec: I-frame seek — seekToLatestIFrame selects most recent I-frame" {
     var backing: [4096]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -613,7 +613,7 @@ test "§4.11 — seekToLatestIFrame: most recent I-frame selected" {
     try testing.expectEqualSlices(u8, "I-FRAME-006", flat[0..11]);
 }
 
-test "§4.5 — last_i_frame field updated on seekToLatestIFrame" {
+test "spec: cursor I-frame tracking — last_i_frame field updated on seekToLatestIFrame" {
     var backing: [4096]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -628,7 +628,7 @@ test "§4.5 — last_i_frame field updated on seekToLatestIFrame" {
     try testing.expectEqual(meta.total_offset, cursor.last_i_frame);
 }
 
-test "§5.3 — frame sequence monotonicity through serializer + iovecs" {
+test "spec: frame delivery — frame sequence monotonicity through serializer and iovecs" {
     var backing: [256 * 1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var scratch = pane_delivery_mod.SharedScratch.init();
@@ -678,7 +678,7 @@ test "§5.3 — frame sequence monotonicity through serializer + iovecs" {
     try testing.expectEqual(@as(usize, 5), count);
 }
 
-test "§4.4 — direct queue FIFO ordering preserved under interleaving" {
+test "spec: two-channel priority — direct queue FIFO ordering preserved under interleaving" {
     var q = direct_queue_mod.DirectQueue.init();
 
     try q.enqueue("LayoutChanged");
@@ -703,7 +703,7 @@ test "§4.4 — direct queue FIFO ordering preserved under interleaving" {
 // Test 22: Ring FrameMeta index wraps correctly at MAX_FRAME_INDEX.
 // ---------------------------------------------------------------------------
 
-test "frame index wraps at MAX_FRAME_INDEX boundary, latest I-frame still valid" {
+test "spec: frame index wrapping — wraps at MAX_FRAME_INDEX boundary with valid latest I-frame" {
     var backing: [256 * 1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
 
@@ -720,10 +720,10 @@ test "frame index wraps at MAX_FRAME_INDEX boundary, latest I-frame still valid"
 }
 
 // ---------------------------------------------------------------------------
-// Test 23: §4.1 — O(1) write: frame_count and total_written are monotonic.
+// Test 23: state-and-types per-pane ring buffer — O(1) write: frame_count and total_written are monotonic.
 // ---------------------------------------------------------------------------
 
-test "§4.1 — monotonic invariants: frame_count and total_written always increase" {
+test "spec: monotonic invariants — frame_count and total_written always increase" {
     var backing: [4096]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var prev_total: usize = 0;
@@ -740,10 +740,10 @@ test "§4.1 — monotonic invariants: frame_count and total_written always incre
 }
 
 // ---------------------------------------------------------------------------
-// Test 24: §4.11 — Multi-pane independent rings via SessionDeliveryState.
+// Test 24: state-and-types per-pane ring buffer1 — Multi-pane independent rings via SessionDeliveryState.
 // ---------------------------------------------------------------------------
 
-test "§4.11 — multi-pane: SessionDeliveryState pane slots are independent" {
+test "spec: multi-pane delivery — SessionDeliveryState pane slots are independent" {
     var state = pane_delivery_mod.SessionDeliveryState.init();
     defer state.deinit();
 
@@ -792,7 +792,7 @@ test "§4.11 — multi-pane: SessionDeliveryState pane slots are independent" {
 // Test 25: Per-pane sequence counters in SessionDeliveryState are independent.
 // ---------------------------------------------------------------------------
 
-test "per-pane sequence counters independent via SessionDeliveryState" {
+test "spec: per-pane sequence — counters independent via SessionDeliveryState" {
     var state = pane_delivery_mod.SessionDeliveryState.init();
     defer state.deinit();
 
@@ -814,7 +814,7 @@ test "per-pane sequence counters independent via SessionDeliveryState" {
 // Test 26: Direct queue wrap-around — peekCopy handles wrapped messages.
 // ---------------------------------------------------------------------------
 
-test "direct queue wrap-around handled by peekCopy" {
+test "spec: direct queue — wrap-around handled by peekCopy" {
     var q = direct_queue_mod.DirectQueue.init();
 
     const fill_size = direct_queue_mod.QUEUE_CAPACITY - 64;
@@ -831,19 +831,19 @@ test "direct queue wrap-around handled by peekCopy" {
 }
 
 // ---------------------------------------------------------------------------
-// Test 27: §5.4 — cursor at total_written means fully caught up; no iovecs.
+// Test 27: policies write-ready and backpressure — cursor at total_written means fully caught up; no iovecs.
 // ---------------------------------------------------------------------------
 
-test "§5.4 — cursor at total_written: available == 0, pendingIovecs returns null" {
+test "spec: caught-up cursor — cursor at total_written yields zero available and null pendingIovecs" {
     var backing: [1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
 
     try ring.writeFrame("data", false, 1);
-    try testing.expect(cursor.total_read < ring.total_written);
+    try testing.expect(cursor.position < ring.total_written);
 
     ring.advanceCursor(&cursor, ring.available(&cursor));
-    try testing.expectEqual(ring.total_written, cursor.total_read);
+    try testing.expectEqual(ring.total_written, cursor.position);
     try testing.expectEqual(@as(usize, 0), ring.available(&cursor));
     try testing.expect(ring.pendingIovecs(&cursor) == null);
 }
@@ -852,7 +852,7 @@ test "§5.4 — cursor at total_written: available == 0, pendingIovecs returns n
 // Test 28: seekToLatestIFrame no-op when no I-frames exist.
 // ---------------------------------------------------------------------------
 
-test "seekToLatestIFrame no-op when no I-frames have been written" {
+test "spec: I-frame seek — no-op when no I-frames have been written" {
     var backing: [1024]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -863,7 +863,7 @@ test "seekToLatestIFrame no-op when no I-frames have been written" {
     try testing.expect(!ring.has_i_frame);
     try testing.expect(!ring.hasValidIFrame());
 
-    const saved = cursor.total_read;
+    const saved = cursor.position;
     ring.seekToLatestIFrame(&cursor);
-    try testing.expectEqual(saved, cursor.total_read);
+    try testing.expectEqual(saved, cursor.position);
 }

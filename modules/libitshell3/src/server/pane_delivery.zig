@@ -66,7 +66,7 @@ pub const SharedScratch = struct {
 
 // --- Tests ---
 
-test "init: all ring backing null" {
+test "SessionDeliveryState.init: all ring backing null" {
     var state = SessionDeliveryState.init();
     defer state.deinit();
     for (0..types.MAX_PANES) |i| {
@@ -75,7 +75,7 @@ test "init: all ring backing null" {
     }
 }
 
-test "initPaneRing + getRingBuffer: allocates and returns ring" {
+test "SessionDeliveryState.initPaneRing: allocates and getRingBuffer returns ring" {
     var state = SessionDeliveryState.init();
     defer state.deinit();
 
@@ -85,7 +85,7 @@ test "initPaneRing + getRingBuffer: allocates and returns ring" {
     try std.testing.expectEqual(@as(usize, 0), ring.frame_count);
 }
 
-test "deinitPaneRing: frees and nulls" {
+test "SessionDeliveryState.deinitPaneRing: frees and nulls" {
     var state = SessionDeliveryState.init();
     defer state.deinit();
 
@@ -96,7 +96,7 @@ test "deinitPaneRing: frees and nulls" {
     try std.testing.expect(state.getRingBuffer(5) == null);
 }
 
-test "initPaneRing: ring buffer is functional after allocation" {
+test "SessionDeliveryState.initPaneRing: ring buffer is functional after allocation" {
     var state = SessionDeliveryState.init();
     defer state.deinit();
 
@@ -113,7 +113,7 @@ test "initPaneRing: ring buffer is functional after allocation" {
     try std.testing.expectEqualSlices(u8, "test-frame", out[0..10]);
 }
 
-test "multiple pane slots can coexist independently" {
+test "SessionDeliveryState: multiple pane slots can coexist independently" {
     var state = SessionDeliveryState.init();
     defer state.deinit();
 

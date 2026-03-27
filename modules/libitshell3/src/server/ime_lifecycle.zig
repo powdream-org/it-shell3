@@ -64,23 +64,6 @@ pub fn deactivateSessionIme(
     return ime_consumer.consumeImeResult(result, session, pty_fd, pty_ops, null);
 }
 
-/// Handle intra-session pane focus change.
-/// Flushes composition to the OLD pane's PTY before the focus switch.
-/// Per ime-procedures intra-session pane focus change spec:
-/// 1. engine.flush() -> ImeResult
-/// 2. Consume result (write committed text to old PTY, clear preedit)
-/// 3. Caller then updates session.focused_pane
-///
-/// Returns true if preedit state changed (caller should mark old pane dirty).
-pub fn flushOnPaneFocusChange(
-    session: *session_mod.Session,
-    old_pane_pty_fd: std.posix.fd_t,
-    pty_ops: *const PtyOps,
-) bool {
-    const result = session.ime_engine.flush();
-    return ime_consumer.consumeImeResult(result, session, old_pane_pty_fd, pty_ops, null);
-}
-
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 const test_mod = @import("itshell3_testing");
@@ -138,37 +121,6 @@ test "deactivateSessionIme: language state preserved (active_input_method unchan
     _ = deactivateSessionIme(&session, 10, &pty_ops);
 
     try std.testing.expectEqualSlices(u8, "korean_2set", mock.active_input_method);
-}
-
-test "flushOnPaneFocusChange: flushes composition to old pane PTY" {
-    var mock = mock_ime.MockImeEngine{
-        .flush_result = .{ .committed_text = "committed", .preedit_changed = true },
-    };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
-    session.setPreedit("composing");
-    var mock_pty = MockPtyOps{};
-    const pty_ops = mock_pty.ops();
-
-    const dirty = flushOnPaneFocusChange(&session, 42, &pty_ops);
-
-    try std.testing.expectEqual(@as(usize, 1), mock.flush_count);
-    try std.testing.expectEqualSlices(u8, "committed", mock_pty.written());
-    try std.testing.expect(dirty);
-    try std.testing.expect(session.current_preedit == null);
-}
-
-test "flushOnPaneFocusChange: empty engine is no-op" {
-    var mock = mock_ime.MockImeEngine{
-        .flush_result = .{},
-    };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
-    var mock_pty = MockPtyOps{};
-    const pty_ops = mock_pty.ops();
-
-    const dirty = flushOnPaneFocusChange(&session, 42, &pty_ops);
-
-    try std.testing.expect(!dirty);
-    try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
 }
 
 test "ClientTracker: first attach triggers activate" {

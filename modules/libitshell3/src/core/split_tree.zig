@@ -7,348 +7,363 @@ pub const MAX_TREE_NODES = types.MAX_TREE_NODES;
 pub const MAX_PANES = types.MAX_PANES;
 pub const MAX_TREE_DEPTH = types.MAX_TREE_DEPTH;
 
+/// A node in the binary split tree. Two variants: leaf (holds a PaneSlot)
+/// or split (holds orientation and ratio). Children are computed via
+/// heap-index arithmetic: left = 2*i+1, right = 2*i+2, parent = (i-1)/2.
 pub const SplitNodeData = union(enum) {
     leaf: PaneSlot,
     split: struct {
         orientation: Orientation,
         ratio: f32,
-        left: u5,
-        right: u5,
     },
-    empty: void,
 };
 
 pub const TreeFull = error{TreeFull};
 pub const MaxDepthExceeded = error{MaxDepthExceeded};
 pub const CannotRemoveRoot = error{CannotRemoveRoot};
 
-/// Initialize a tree with a single leaf at root (index 0), all others empty.
-pub fn initSingleLeaf(slot: PaneSlot) [MAX_TREE_NODES]SplitNodeData {
-    var tree: [MAX_TREE_NODES]SplitNodeData = undefined;
-    tree[0] = .{ .leaf = slot };
-    var i: usize = 1;
-    while (i < MAX_TREE_NODES) : (i += 1) {
-        tree[i] = .empty;
+/// Compute the left child index of node at index i using heap-index arithmetic.
+pub fn leftChild(i: u8) u8 {
+    return i * 2 + 1;
+}
+
+/// Compute the right child index of node at index i using heap-index arithmetic.
+pub fn rightChild(i: u8) u8 {
+    return i * 2 + 2;
+}
+
+/// Compute the parent index of node at index i using heap-index arithmetic.
+/// Returns null for root (index 0).
+pub fn parentIndex(i: u8) ?u8 {
+    if (i == 0) return null;
+    return (i - 1) / 2;
+}
+
+/// Compute the depth of node at index i using heap-index arithmetic.
+/// Root (index 0) has depth 0. Each level adds 1.
+pub fn depth(node_idx: u8) u8 {
+    if (node_idx == 0) return 0;
+    // depth = floor(log2(i+1))
+    var idx = @as(u32, node_idx) + 1;
+    var d: u8 = 0;
+    while (idx > 1) : (idx >>= 1) {
+        d += 1;
     }
+    return d;
+}
+
+/// Initialize a tree with a single leaf at root (index 0), all others null.
+pub fn initSingleLeaf(slot: PaneSlot) [MAX_TREE_NODES]?SplitNodeData {
+    var tree: [MAX_TREE_NODES]?SplitNodeData = .{null} ** MAX_TREE_NODES;
+    tree[0] = .{ .leaf = slot };
     return tree;
 }
 
-/// Find a free (empty) slot in the tree array. Returns null if full.
-fn findFreeSlot(tree: *const [MAX_TREE_NODES]SplitNodeData) ?u5 {
-    var i: u5 = 0;
-    while (i < MAX_TREE_NODES) : (i += 1) {
-        if (tree[i] == .empty) return i;
-        if (i == MAX_TREE_NODES - 1) break;
-    }
-    return null;
-}
-
-/// Compute the depth of node_idx in the tree (root = 0).
-pub fn depth(tree: *const [MAX_TREE_NODES]SplitNodeData, node_idx: u5) u5 {
-    if (node_idx == 0) return 0;
-    const parent_idx = findParent(tree, node_idx) orelse return 0;
-    return 1 + depth(tree, parent_idx);
-}
-
-/// Find the parent of node_idx. Returns null for root (index 0).
-pub fn findParent(tree: *const [MAX_TREE_NODES]SplitNodeData, child_idx: u5) ?u5 {
-    if (child_idx == 0) return null;
-    var i: u5 = 0;
-    while (i < MAX_TREE_NODES) : (i += 1) {
-        switch (tree[i]) {
-            .split => |s| {
-                if (s.left == child_idx or s.right == child_idx) return i;
-            },
-            else => {},
-        }
-        if (i == MAX_TREE_NODES - 1) break;
-    }
-    return null;
-}
-
-/// Split a leaf node into a split node with:
-///   - original leaf as left child
-///   - new_slot as right child
-/// Enforces MAX_TREE_DEPTH and TreeFull.
-pub fn splitLeaf(
-    tree: *[MAX_TREE_NODES]SplitNodeData,
-    node_idx: u5,
-    orientation: Orientation,
-    ratio: f32,
-    new_slot: PaneSlot,
-) (TreeFull || MaxDepthExceeded)!void {
-    // Get the original leaf value before mutating
-    const orig_leaf = switch (tree[node_idx]) {
-        .leaf => |s| s,
-        else => unreachable, // caller must pass a leaf index
-    };
-
-    // Depth check: after split, children will be at depth+1
-    const current_depth = depth(tree, node_idx);
-    if (current_depth + 1 > MAX_TREE_DEPTH) return error.MaxDepthExceeded;
-
-    // Find two free slots for children
-    const left_idx = findFreeSlot(tree) orelse return error.TreeFull;
-    // Temporarily mark left slot as leaf to avoid finding it again
-    tree[left_idx] = .{ .leaf = orig_leaf };
-    const right_idx = findFreeSlot(tree) orelse {
-        // Restore and propagate error
-        tree[left_idx] = .empty;
-        return error.TreeFull;
-    };
-
-    // Write children
-    tree[left_idx] = .{ .leaf = orig_leaf };
-    tree[right_idx] = .{ .leaf = new_slot };
-
-    // Convert node_idx from leaf to split
-    tree[node_idx] = .{ .split = .{
-        .orientation = orientation,
-        .ratio = ratio,
-        .left = left_idx,
-        .right = right_idx,
-    } };
-}
-
-/// Remove a leaf node. Find its parent split, promote the sibling to replace
-/// the parent's data. Returns error.CannotRemoveRoot if node_idx == 0 and root
-/// is a leaf (single-pane tree has no parent to re-parent into).
-pub fn removeLeaf(
-    tree: *[MAX_TREE_NODES]SplitNodeData,
-    node_idx: u5,
-) CannotRemoveRoot!void {
-    const parent_idx = findParent(tree, node_idx) orelse return error.CannotRemoveRoot;
-
-    const parent_split = switch (tree[parent_idx]) {
-        .split => |s| s,
-        else => unreachable,
-    };
-
-    // Determine sibling
-    const sibling_idx: u5 = if (parent_split.left == node_idx)
-        parent_split.right
-    else
-        parent_split.left;
-
-    // Copy sibling data into parent position
-    tree[parent_idx] = tree[sibling_idx];
-
-    // Clear removed nodes
-    tree[node_idx] = .empty;
-    tree[sibling_idx] = .empty;
-}
-
-/// Search for a leaf containing the given pane slot. Returns tree index or null.
-pub fn findLeafBySlot(tree: *const [MAX_TREE_NODES]SplitNodeData, slot: PaneSlot) ?u5 {
-    var i: u5 = 0;
-    while (i < MAX_TREE_NODES) : (i += 1) {
-        switch (tree[i]) {
-            .leaf => |s| {
-                if (s == slot) return i;
-            },
-            else => {},
-        }
-        if (i == MAX_TREE_NODES - 1) break;
-    }
-    return null;
-}
-
 /// Count the number of leaf nodes in the tree.
-pub fn leafCount(tree: *const [MAX_TREE_NODES]SplitNodeData) u5 {
-    var count: u5 = 0;
-    var i: u5 = 0;
+pub fn leafCount(tree: *const [MAX_TREE_NODES]?SplitNodeData) u8 {
+    var count: u8 = 0;
+    var i: u32 = 0;
     while (i < MAX_TREE_NODES) : (i += 1) {
-        switch (tree[i]) {
-            .leaf => count += 1,
-            else => {},
+        if (tree[i]) |node| {
+            switch (node) {
+                .leaf => count += 1,
+                .split => {},
+            }
         }
-        if (i == MAX_TREE_NODES - 1) break;
     }
     return count;
 }
 
+/// Search for a leaf containing the given pane slot. Returns tree index or null.
+pub fn findLeafBySlot(tree: *const [MAX_TREE_NODES]?SplitNodeData, slot: PaneSlot) ?u8 {
+    var i: u32 = 0;
+    while (i < MAX_TREE_NODES) : (i += 1) {
+        if (tree[i]) |node| {
+            switch (node) {
+                .leaf => |s| {
+                    if (s == slot) return @intCast(i);
+                },
+                .split => {},
+            }
+        }
+    }
+    return null;
+}
+
+/// Copy a subtree rooted at src_idx to dst_idx within the tree.
+/// Used during split and remove operations to relocate subtrees.
+fn copySubtree(
+    tree: *[MAX_TREE_NODES]?SplitNodeData,
+    dst_idx: u8,
+    src_idx: u8,
+) void {
+    if (src_idx >= MAX_TREE_NODES or dst_idx >= MAX_TREE_NODES) return;
+    tree[dst_idx] = tree[src_idx];
+    tree[src_idx] = null;
+
+    if (tree[dst_idx]) |node| {
+        switch (node) {
+            .split => {
+                copySubtree(tree, leftChild(dst_idx), leftChild(src_idx));
+                copySubtree(tree, rightChild(dst_idx), rightChild(src_idx));
+            },
+            .leaf => {},
+        }
+    }
+}
+
+/// Clear a subtree rooted at idx (set all nodes to null).
+fn clearSubtree(tree: *[MAX_TREE_NODES]?SplitNodeData, idx: u8) void {
+    if (idx >= MAX_TREE_NODES) return;
+    if (tree[idx]) |node| {
+        switch (node) {
+            .split => {
+                clearSubtree(tree, leftChild(idx));
+                clearSubtree(tree, rightChild(idx));
+            },
+            .leaf => {},
+        }
+        tree[idx] = null;
+    }
+}
+
+/// Split a leaf node into a split node with:
+///   - original leaf as left child (at 2*node_idx+1)
+///   - new_slot as right child (at 2*node_idx+2)
+/// Enforces MAX_TREE_DEPTH and TreeFull.
+pub fn splitLeaf(
+    tree: *[MAX_TREE_NODES]?SplitNodeData,
+    node_idx: u8,
+    orientation: Orientation,
+    ratio: f32,
+    new_slot: PaneSlot,
+) (TreeFull || MaxDepthExceeded)!void {
+    // Get the original leaf value before mutating.
+    const orig_leaf = switch (tree[node_idx].?) {
+        .leaf => |s| s,
+        .split => unreachable, // Caller must pass a leaf index.
+    };
+
+    // Depth check: after split, children will be at depth+1.
+    const current_depth = depth(node_idx);
+    if (current_depth + 1 > MAX_TREE_DEPTH) return error.MaxDepthExceeded;
+
+    // Check that child indices fit within the tree array.
+    const left_idx = leftChild(node_idx);
+    const right_idx = rightChild(node_idx);
+    if (right_idx >= MAX_TREE_NODES) return error.TreeFull;
+
+    // Children must be empty (heap property).
+    if (tree[left_idx] != null or tree[right_idx] != null) return error.TreeFull;
+
+    // Write children.
+    tree[left_idx] = .{ .leaf = orig_leaf };
+    tree[right_idx] = .{ .leaf = new_slot };
+
+    // Convert node_idx from leaf to split.
+    tree[node_idx] = .{ .split = .{
+        .orientation = orientation,
+        .ratio = ratio,
+    } };
+}
+
+/// Remove a leaf node. Find its parent split via heap-index arithmetic,
+/// promote the sibling subtree to replace the parent's position.
+/// Returns error.CannotRemoveRoot if node_idx == 0 and root is a leaf.
+pub fn removeLeaf(
+    tree: *[MAX_TREE_NODES]?SplitNodeData,
+    node_idx: u8,
+) CannotRemoveRoot!void {
+    const par_idx = parentIndex(node_idx) orelse return error.CannotRemoveRoot;
+
+    // Determine sibling index.
+    const sibling_idx: u8 = if (leftChild(par_idx) == node_idx)
+        rightChild(par_idx)
+    else
+        leftChild(par_idx);
+
+    // Clear the removed leaf.
+    tree[node_idx] = null;
+
+    // Copy sibling subtree into parent position.
+    // First clear the parent, then copy the sibling subtree there.
+    tree[par_idx] = null;
+    copySubtree(tree, par_idx, sibling_idx);
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
-test "initSingleLeaf creates tree with 1 leaf and 30 empty nodes" {
+test "initSingleLeaf: creates tree with 1 leaf and 30 null nodes" {
     const tree = initSingleLeaf(0);
-    try std.testing.expectEqual(@as(u5, 1), leafCount(&tree));
-    // Root is leaf
-    try std.testing.expect(tree[0] == .leaf);
-    // All others empty
-    var i: usize = 1;
+    try std.testing.expectEqual(@as(u8, 1), leafCount(&tree));
+    // Root is leaf.
+    try std.testing.expect(tree[0] != null);
+    try std.testing.expect(tree[0].? == .leaf);
+    // All others null.
+    var i: u32 = 1;
     while (i < MAX_TREE_NODES) : (i += 1) {
-        try std.testing.expect(tree[i] == .empty);
+        try std.testing.expect(tree[i] == null);
     }
 }
 
-test "leafCount returns 1 for single leaf tree" {
+test "leafCount: returns 1 for single leaf tree" {
     const tree = initSingleLeaf(5);
-    try std.testing.expectEqual(@as(u5, 1), leafCount(&tree));
+    try std.testing.expectEqual(@as(u8, 1), leafCount(&tree));
 }
 
-test "splitLeaf on root yields 1 split and 2 leaves, leafCount = 2" {
+test "splitLeaf: on root yields 1 split and 2 leaves, leafCount = 2" {
     var tree = initSingleLeaf(0);
     try splitLeaf(&tree, 0, .horizontal, 0.5, 1);
-    // Root should now be a split
-    try std.testing.expect(tree[0] == .split);
-    try std.testing.expectEqual(@as(u5, 2), leafCount(&tree));
+    // Root should now be a split.
+    try std.testing.expect(tree[0].? == .split);
+    try std.testing.expectEqual(@as(u8, 2), leafCount(&tree));
+    // Children at heap positions 1 and 2.
+    try std.testing.expect(tree[1] != null);
+    try std.testing.expect(tree[1].? == .leaf);
+    try std.testing.expectEqual(@as(PaneSlot, 0), tree[1].?.leaf);
+    try std.testing.expect(tree[2] != null);
+    try std.testing.expect(tree[2].? == .leaf);
+    try std.testing.expectEqual(@as(PaneSlot, 1), tree[2].?.leaf);
 }
 
-test "splitLeaf twice yields 2 splits and 3 leaves" {
+test "splitLeaf: twice yields 2 splits and 3 leaves" {
     var tree = initSingleLeaf(0);
     try splitLeaf(&tree, 0, .horizontal, 0.5, 1);
-    // Find one of the leaf children and split it again
-    const left_idx = tree[0].split.left;
-    try splitLeaf(&tree, left_idx, .vertical, 0.5, 2);
-    try std.testing.expectEqual(@as(u5, 3), leafCount(&tree));
-    // Count split nodes
-    var split_count: usize = 0;
-    var i: usize = 0;
+    // Split the left child (index 1).
+    try splitLeaf(&tree, 1, .vertical, 0.5, 2);
+    try std.testing.expectEqual(@as(u8, 3), leafCount(&tree));
+    // Count split nodes.
+    var split_count: u32 = 0;
+    var i: u32 = 0;
     while (i < MAX_TREE_NODES) : (i += 1) {
-        if (tree[i] == .split) split_count += 1;
+        if (tree[i]) |node| {
+            if (node == .split) split_count += 1;
+        }
     }
-    try std.testing.expectEqual(@as(usize, 2), split_count);
+    try std.testing.expectEqual(@as(u32, 2), split_count);
 }
 
-test "splitLeaf at max depth returns MaxDepthExceeded" {
+test "splitLeaf: at max depth returns MaxDepthExceeded" {
     var tree = initSingleLeaf(0);
-    // Build a chain of depth MAX_TREE_DEPTH (4) by always splitting the left child
+    // Build a chain of depth MAX_TREE_DEPTH by always splitting the left child.
     var slot: PaneSlot = 1;
-    var current: u5 = 0;
-    var d: u5 = 0;
+    var current: u8 = 0;
+    var d: u32 = 0;
     while (d < MAX_TREE_DEPTH) : (d += 1) {
         try splitLeaf(&tree, current, .horizontal, 0.5, slot);
         slot += 1;
-        current = tree[current].split.left;
+        current = leftChild(current);
     }
-    // Now current is at depth MAX_TREE_DEPTH; splitting it should fail
+    // Now current is at depth MAX_TREE_DEPTH; splitting it should fail.
     const result = splitLeaf(&tree, current, .horizontal, 0.5, slot);
     try std.testing.expectError(error.MaxDepthExceeded, result);
 }
 
-test "splitLeaf when tree full returns TreeFull" {
-    // MAX_TREE_NODES = 31. A full binary tree of 16 leaves has 31 nodes.
-    // We need to fill the tree and then attempt one more split.
-    // Fill: split until we have 16 leaves (15 internal + 16 leaves = 31 nodes).
-    // Strategy: BFS-fill, splitting leaf nodes one by one.
-    var tree = initSingleLeaf(0);
-    var next_slot: PaneSlot = 1;
-
-    // We'll do a BFS-like fill: always split the first available leaf
-    var filled_leaves: usize = 1;
-    while (filled_leaves < MAX_PANES) {
-        // Find first leaf node
-        var leaf_idx: u5 = 0;
-        var found = false;
-        var i: u5 = 0;
-        while (i < MAX_TREE_NODES) : (i += 1) {
-            if (tree[i] == .leaf) {
-                // Only split if depth allows
-                const d = depth(&tree, i);
-                if (d < MAX_TREE_DEPTH) {
-                    leaf_idx = i;
-                    found = true;
-                    break;
-                }
-            }
-            if (i == MAX_TREE_NODES - 1) break;
-        }
-        if (!found) break;
-
-        try splitLeaf(&tree, leaf_idx, .horizontal, 0.5, next_slot);
-        next_slot +%= 1;
-        filled_leaves += 1;
-    }
-
-    // Tree now has 16 leaves, all 31 slots used. Any further split should fail
-    // (either TreeFull or MaxDepthExceeded depending on which leaf is picked).
-    // Find a leaf at depth 4 and try to split it.
-    var leaf_at_max: ?u5 = null;
-    var i: u5 = 0;
-    while (i < MAX_TREE_NODES) : (i += 1) {
-        if (tree[i] == .leaf) {
-            leaf_at_max = i;
-            break;
-        }
-        if (i == MAX_TREE_NODES - 1) break;
-    }
-    if (leaf_at_max) |li| {
-        const result = splitLeaf(&tree, li, .horizontal, 0.5, 0);
-        // Either MaxDepthExceeded (if at depth 4) or TreeFull
-        const is_expected_error = (result == error.MaxDepthExceeded or result == error.TreeFull);
-        try std.testing.expect(is_expected_error);
-    }
-}
-
-test "findLeafBySlot finds existing leaf" {
+test "findLeafBySlot: finds existing leaf" {
     var tree = initSingleLeaf(3);
     try splitLeaf(&tree, 0, .horizontal, 0.5, 7);
     const idx = findLeafBySlot(&tree, 3);
     try std.testing.expect(idx != null);
-    try std.testing.expect(tree[idx.?] == .leaf);
-    try std.testing.expectEqual(@as(PaneSlot, 3), tree[idx.?].leaf);
+    try std.testing.expect(tree[idx.?].? == .leaf);
+    try std.testing.expectEqual(@as(PaneSlot, 3), tree[idx.?].?.leaf);
 }
 
-test "findLeafBySlot returns null for non-existent slot" {
+test "findLeafBySlot: returns null for non-existent slot" {
     const tree = initSingleLeaf(0);
     const idx = findLeafBySlot(&tree, 5);
     try std.testing.expect(idx == null);
 }
 
-test "removeLeaf promotes sibling to parent position" {
+test "removeLeaf: promotes sibling to parent position" {
     var tree = initSingleLeaf(0);
     try splitLeaf(&tree, 0, .horizontal, 0.5, 1);
-    // Root (0) is now split; left child has slot 0, right child has slot 1
-    const left_idx = tree[0].split.left;
-    const right_idx = tree[0].split.right;
+    // Root (0) is split; left child (1) has slot 0, right child (2) has slot 1.
 
-    // Remove the right leaf → sibling (left, slot 0) should be promoted to root
-    try removeLeaf(&tree, right_idx);
+    // Remove the right leaf (index 2) -> sibling (left, slot 0) promoted to root.
+    try removeLeaf(&tree, 2);
 
-    // Root should now be a leaf again with slot 0
-    try std.testing.expect(tree[0] == .leaf);
-    try std.testing.expectEqual(@as(PaneSlot, 0), tree[0].leaf);
-    // Old child slots should be empty
-    try std.testing.expect(tree[left_idx] == .empty);
-    try std.testing.expect(tree[right_idx] == .empty);
-    try std.testing.expectEqual(@as(u5, 1), leafCount(&tree));
+    // Root should now be a leaf again with slot 0.
+    try std.testing.expect(tree[0] != null);
+    try std.testing.expect(tree[0].? == .leaf);
+    try std.testing.expectEqual(@as(PaneSlot, 0), tree[0].?.leaf);
+    // Old child slots should be null.
+    try std.testing.expect(tree[1] == null);
+    try std.testing.expect(tree[2] == null);
+    try std.testing.expectEqual(@as(u8, 1), leafCount(&tree));
 }
 
-test "removeLeaf on single-pane root returns CannotRemoveRoot" {
+test "removeLeaf: on single-pane root returns CannotRemoveRoot" {
     var tree = initSingleLeaf(0);
     const result = removeLeaf(&tree, 0);
     try std.testing.expectError(error.CannotRemoveRoot, result);
 }
 
-test "depth returns correct values" {
-    var tree = initSingleLeaf(0);
-    try std.testing.expectEqual(@as(u5, 0), depth(&tree, 0));
+test "depth: returns correct values via heap-index arithmetic" {
+    try std.testing.expectEqual(@as(u8, 0), depth(0));
+    try std.testing.expectEqual(@as(u8, 1), depth(1));
+    try std.testing.expectEqual(@as(u8, 1), depth(2));
+    try std.testing.expectEqual(@as(u8, 2), depth(3));
+    try std.testing.expectEqual(@as(u8, 2), depth(4));
+    try std.testing.expectEqual(@as(u8, 2), depth(5));
+    try std.testing.expectEqual(@as(u8, 2), depth(6));
+    try std.testing.expectEqual(@as(u8, 3), depth(7));
+    try std.testing.expectEqual(@as(u8, 4), depth(15));
+}
 
-    try splitLeaf(&tree, 0, .horizontal, 0.5, 1);
-    const left = tree[0].split.left;
-    const right = tree[0].split.right;
-    try std.testing.expectEqual(@as(u5, 1), depth(&tree, left));
-    try std.testing.expectEqual(@as(u5, 1), depth(&tree, right));
+test "parentIndex: returns correct parent via heap-index arithmetic" {
+    try std.testing.expect(parentIndex(0) == null);
+    try std.testing.expectEqual(@as(u8, 0), parentIndex(1).?);
+    try std.testing.expectEqual(@as(u8, 0), parentIndex(2).?);
+    try std.testing.expectEqual(@as(u8, 1), parentIndex(3).?);
+    try std.testing.expectEqual(@as(u8, 1), parentIndex(4).?);
+    try std.testing.expectEqual(@as(u8, 2), parentIndex(5).?);
+    try std.testing.expectEqual(@as(u8, 2), parentIndex(6).?);
+}
 
-    // Split one of the children to go to depth 2
-    try splitLeaf(&tree, left, .vertical, 0.5, 2);
-    const grandchild_left = tree[left].split.left;
-    try std.testing.expectEqual(@as(u5, 2), depth(&tree, grandchild_left));
+test "leftChild and rightChild: heap-index arithmetic" {
+    try std.testing.expectEqual(@as(u8, 1), leftChild(0));
+    try std.testing.expectEqual(@as(u8, 2), rightChild(0));
+    try std.testing.expectEqual(@as(u8, 3), leftChild(1));
+    try std.testing.expectEqual(@as(u8, 4), rightChild(1));
+    try std.testing.expectEqual(@as(u8, 5), leftChild(2));
+    try std.testing.expectEqual(@as(u8, 6), rightChild(2));
 }
 
 test "round-trip: split then remove returns to original state" {
     var tree = initSingleLeaf(0);
-    const orig_tree = tree;
 
     try splitLeaf(&tree, 0, .horizontal, 0.5, 1);
-    try std.testing.expectEqual(@as(u5, 2), leafCount(&tree));
+    try std.testing.expectEqual(@as(u8, 2), leafCount(&tree));
 
-    // Remove the right child (slot 1)
-    const right_idx = tree[0].split.right;
-    try removeLeaf(&tree, right_idx);
+    // Remove the right child (slot 1).
+    try removeLeaf(&tree, rightChild(0));
 
-    // Tree should have 1 leaf again at root
-    try std.testing.expectEqual(@as(u5, 1), leafCount(&tree));
-    try std.testing.expect(tree[0] == .leaf);
-    try std.testing.expectEqual(orig_tree[0].leaf, tree[0].leaf);
+    // Tree should have 1 leaf again at root.
+    try std.testing.expectEqual(@as(u8, 1), leafCount(&tree));
+    try std.testing.expect(tree[0] != null);
+    try std.testing.expect(tree[0].? == .leaf);
+    try std.testing.expectEqual(@as(PaneSlot, 0), tree[0].?.leaf);
+}
+
+test "removeLeaf: with subtree sibling promotes entire subtree" {
+    var tree = initSingleLeaf(0);
+    // Split root: left=1(slot0), right=2(slot1).
+    try splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    // Split right child: left=5(slot1), right=6(slot2).
+    try splitLeaf(&tree, 2, .vertical, 0.5, 2);
+    try std.testing.expectEqual(@as(u8, 3), leafCount(&tree));
+
+    // Remove left child of root (index 1, slot 0).
+    // Sibling is right child of root (index 2, which is a split with children at 5, 6).
+    try removeLeaf(&tree, 1);
+
+    // Root should now be the split that was at index 2.
+    try std.testing.expect(tree[0] != null);
+    try std.testing.expect(tree[0].? == .split);
+    // Its children should now be at heap positions 1 and 2.
+    try std.testing.expect(tree[1] != null);
+    try std.testing.expect(tree[1].? == .leaf);
+    try std.testing.expect(tree[2] != null);
+    try std.testing.expect(tree[2].? == .leaf);
+    try std.testing.expectEqual(@as(u8, 2), leafCount(&tree));
 }

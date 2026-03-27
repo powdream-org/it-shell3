@@ -61,7 +61,7 @@ pub const SignalOps = struct {
     pub const SignalError = error{SignalSetupFailed};
 };
 
-test "PtyOps vtable can be constructed with function pointers" {
+test "PtyOps: vtable can be constructed with function pointers" {
     const stub_fork = struct {
         fn f(_: u16, _: u16) PtyOps.ForkPtyError!PtyOps.ForkPtyResult {
             return .{ .master_fd = 3, .child_pid = 100 };
@@ -97,7 +97,7 @@ test "PtyOps vtable can be constructed with function pointers" {
     try std.testing.expectEqual(@as(std.posix.pid_t, 100), result.child_pid);
 }
 
-test "EventLoopOps Event struct has correct defaults" {
+test "EventLoopOps.Event: struct has correct defaults" {
     const event = EventLoopOps.Event{
         .fd = 5,
         .filter = .read,
@@ -107,7 +107,7 @@ test "EventLoopOps Event struct has correct defaults" {
     try std.testing.expectEqual(@as(i64, 0), event.data);
 }
 
-test "SignalOps WaitResult struct layout" {
+test "SignalOps.WaitResult: struct layout" {
     const result = SignalOps.WaitResult{ .pid = 1234, .exit_status = 0 };
     try std.testing.expectEqual(@as(std.posix.pid_t, 1234), result.pid);
     try std.testing.expectEqual(@as(u8, 0), result.exit_status);

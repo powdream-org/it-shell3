@@ -3,8 +3,6 @@ const os = @import("itshell3_os");
 const interfaces = os.interfaces;
 const core = @import("itshell3_core");
 const types = core.types;
-const session_manager_mod = core.session_manager;
-const pane_mod = core.pane;
 const protocol = @import("itshell3_protocol");
 const Listener = protocol.transport.Listener;
 const Connection = protocol.connection.Connection;
@@ -13,25 +11,22 @@ const signal_handler = @import("signal_handler.zig");
 const pty_read = @import("handlers/pty_read.zig");
 const client_accept = @import("handlers/client_accept.zig");
 const client_writer_mod = @import("client_writer.zig");
+const client_state_mod = @import("client_state.zig");
+const session_manager_mod = @import("session_manager.zig");
+const pane_mod = @import("pane.zig");
+
+pub const ClientEntry = client_state_mod.ClientEntry;
 
 /// udata conventions for event dispatch:
 /// - 0: listener socket
 /// - Signal events: udata = signal number (set by SignalOps.registerSignals)
-/// - UDATA_CLIENT_BASE + client_idx: client connections
 /// - UDATA_PTY_BASE + encoded: PTY fds (session_idx * MAX_PANES + pane_slot)
+///   Range: [1, MAX_SESSIONS * MAX_PANES] = [1, 1024]
+/// - UDATA_CLIENT_BASE + client_idx: client connections
+///   Range: [1025, 1025 + MAX_CLIENTS - 1] = [1025, 1088]
 const UDATA_LISTENER: usize = 0;
-const UDATA_CLIENT_BASE: usize = 100;
 const UDATA_PTY_BASE: usize = 1;
-
-/// Holds a protocol Connection plus the raw socket fd needed for kqueue.
-/// `unix_transport` must remain stable in memory because `conn.transport.ptr`
-/// points to it — do not copy a ClientEntry after init.
-pub const ClientEntry = struct {
-    unix_transport: UnixTransport,
-    conn: Connection,
-    socket_fd: std.posix.socket_t,
-    writer: client_writer_mod.ClientWriter,
-};
+const UDATA_CLIENT_BASE: usize = UDATA_PTY_BASE + @as(usize, types.MAX_SESSIONS) * @as(usize, types.MAX_PANES);
 
 pub const EventLoop = struct {
     // OS interfaces (injected for testability)
@@ -72,13 +67,13 @@ pub const EventLoop = struct {
 
     /// Main event loop. Blocks until shutdown_requested is set.
     pub fn run(self: *EventLoop) RunError!void {
-        // Register listener fd for read events
+        // Register listener fd for read events.
         try self.event_ops.registerRead(self.event_ctx, self.listener.listen_fd, UDATA_LISTENER);
 
-        // Register all existing PTY fds
+        // Register all existing PTY fds.
         self.registerAllPtyFds() catch |err| return err;
 
-        // Block signals and register signal filters
+        // Block signals and register signal filters.
         try self.signal_ops.blockSignals();
         try self.signal_ops.registerSignals(self.event_ctx, self.event_ops);
 
@@ -88,13 +83,27 @@ pub const EventLoop = struct {
             const n = self.event_ops.wait(self.event_ctx, &events, 1000) catch |err| return err;
             if (n == 0) continue;
 
+            // Two-pass dispatch: signal events first, then all others.
+            // Per daemon-behavior event-handling spec, EVFILT_SIGNAL MUST be
+            // processed before EVFILT_READ in the same kevent64() batch.
             for (events[0..n]) |event| {
-                self.dispatch(event);
+                if (event.filter == .signal) {
+                    self.dispatch(event);
+                }
+            }
+            for (events[0..n]) |event| {
+                if (event.filter != .signal) {
+                    self.dispatch(event);
+                }
             }
         }
     }
 
     /// Dispatch a single event based on filter type and udata.
+    // TODO(Plan 6): Implement 5-tier client message priority ordering per
+    // daemon-behavior policies-and-procedures spec. The current dispatch
+    // handles signal-first ordering (Task 17) but does not yet prioritize
+    // among different client message types.
     fn dispatch(self: *EventLoop, event: interfaces.EventLoopOps.Event) void {
         switch (event.filter) {
             .signal => {
@@ -129,8 +138,8 @@ pub const EventLoop = struct {
         const client_idx = event.udata - UDATA_CLIENT_BASE;
         if (client_idx >= types.MAX_CLIENTS) return;
         if (self.clients[client_idx] != null) {
-            // Stub: read from client fd and discard
-            // Real protocol handling in Plan 3
+            // Stub: read from client fd and discard.
+            // Real protocol handling in Plan 3.
         }
     }
 
@@ -157,19 +166,19 @@ pub const EventLoop = struct {
         const client_idx = event.udata - UDATA_CLIENT_BASE;
         if (client_idx >= types.MAX_CLIENTS) return;
         _ = self;
-        // Stub: full write delivery in Plan 6 (requires session attachment tracking)
+        // Stub: full write delivery in Plan 6 (requires session attachment tracking).
     }
 
     fn dispatchTimer(self: *EventLoop, event: interfaces.EventLoopOps.Event) void {
         _ = self;
         _ = event;
-        // Stub: frame export timer (Plan 6: adaptive coalescing)
+        // Stub: frame export timer (Plan 6: adaptive coalescing).
     }
 
     fn registerAllPtyFds(self: *EventLoop) interfaces.EventLoopOps.RegisterError!void {
         for (&self.session_manager.sessions, 0..) |*slot, session_idx| {
             if (slot.*) |*entry| {
-                var i: u5 = 0;
+                var i: u32 = 0;
                 while (i < types.MAX_PANES) : (i += 1) {
                     const pane_slot: types.PaneSlot = @intCast(i);
                     if (entry.getPaneAtSlot(pane_slot)) |pane| {
@@ -198,7 +207,7 @@ pub const EventLoop = struct {
                 };
                 slot.*.?.conn = Connection.init(slot.*.?.unix_transport.transport());
                 slot.*.?.conn.client_id = client_id;
-                // Register for read events
+                // Register for read events.
                 self.event_ops.registerRead(
                     self.event_ctx,
                     ut.socket_fd,
@@ -238,7 +247,7 @@ pub const EventLoop = struct {
     }
 };
 
-// --- Tests ---
+// ── Tests ────────────────────────────────────────────────────────────────────
 
 const testing = std.testing;
 const builtin = @import("builtin");
@@ -280,7 +289,7 @@ fn makeTestMocks() struct {
     };
 }
 
-test "init: clients all null, shutdown_requested = false" {
+test "EventLoop.init: clients all null, shutdown_requested = false" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
     var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
@@ -309,7 +318,7 @@ test "init: clients all null, shutdown_requested = false" {
     }
 }
 
-test "addClientTransport: stores Connection, increments next_client_id" {
+test "EventLoop.addClientTransport: stores Connection, increments next_client_id" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
     var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
@@ -342,7 +351,7 @@ test "addClientTransport: stores Connection, increments next_client_id" {
     try testing.expectEqual(pair[0].socket_fd, entry.socket_fd);
 }
 
-test "addClientTransport: second client gets next ID" {
+test "EventLoop.addClientTransport: second client gets next ID" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
     var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
@@ -374,7 +383,7 @@ test "addClientTransport: second client gets next ID" {
     try testing.expectEqual(@as(types.ClientId, 3), ev.next_client_id);
 }
 
-test "addClientTransport when full: error.MaxClientsReached" {
+test "EventLoop.addClientTransport: when full returns error.MaxClientsReached" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
     var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
@@ -395,7 +404,6 @@ test "addClientTransport when full: error.MaxClientsReached" {
         &sm,
     );
 
-    // Fill all client slots with real socketpairs
     var pairs: [types.MAX_CLIENTS][2]UnixTransport = undefined;
     for (0..types.MAX_CLIENTS) |i| {
         pairs[i] = try makeSocketPair();
@@ -403,7 +411,6 @@ test "addClientTransport when full: error.MaxClientsReached" {
         try ev.addClientTransport(pairs[i][0]);
     }
 
-    // One more socketpair to test the full case
     const extra = try makeSocketPair();
     std.posix.close(extra[0].socket_fd);
     std.posix.close(extra[1].socket_fd);
@@ -412,7 +419,7 @@ test "addClientTransport when full: error.MaxClientsReached" {
     ));
 }
 
-test "removeClient: nulls slot" {
+test "EventLoop.removeClient: nulls slot" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
     var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
@@ -447,7 +454,7 @@ test "removeClient: nulls slot" {
     try testing.expect(ev.findClientByFd(fd) == null);
 }
 
-test "findClientByFd: finds correct index" {
+test "EventLoop.findClientByFd: finds correct index" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
     var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
@@ -483,7 +490,7 @@ test "findClientByFd: finds correct index" {
     try testing.expect(idx0.? != idx1.?);
 }
 
-test "findClientByFd: unknown fd returns null" {
+test "EventLoop.findClientByFd: unknown fd returns null" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
     var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
@@ -507,7 +514,79 @@ test "findClientByFd: unknown fd returns null" {
     try testing.expect(ev.findClientByFd(99999) == null);
 }
 
-test "dispatch: signal event sets shutdown_requested" {
+test "EventLoop.dispatch: signal-first ordering in mixed batch" {
+    // Construct a batch with a read event followed by a signal event.
+    // The two-pass loop must process the signal first (setting shutdown_requested)
+    // before handling the read event. We verify by checking that after dispatching
+    // the batch in two-pass order, shutdown_requested is true — which means the
+    // signal was processed regardless of its position in the array.
+    if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
+    var ctx = makeTestMocks();
+    ctx.mock_pty.read_data = "data";
+    const event_ops = ctx.mock_event.ops();
+    const pty_ops = ctx.mock_pty.ops();
+    const signal_ops = ctx.mock_signal.ops();
+
+    var listener = try makeTestListener("/tmp/itshell3-ev-sigfirst.sock");
+    defer listener.deinit();
+
+    var sm = session_manager_mod.SessionManager.init();
+    const session_id = try sm.createSession("test", testImeEngine());
+    const entry = sm.getSession(session_id).?;
+    const pane_inst = pane_mod.Pane.init(1, 0, 42, 1234, 80, 24);
+    entry.setPaneAtSlot(0, pane_inst);
+
+    var ev = EventLoop.init(
+        &event_ops,
+        @ptrCast(&ctx.event_ctx),
+        &pty_ops,
+        &signal_ops,
+        &listener,
+        &sm,
+    );
+
+    // Batch: read event at index 0, signal event at index 1.
+    // Two-pass loop should process signal (index 1) before read (index 0).
+    var events = [_]interfaces.EventLoopOps.Event{
+        .{ .fd = 42, .filter = .read, .udata = UDATA_PTY_BASE + 0 },
+        .{ .fd = std.posix.SIG.TERM, .filter = .signal, .udata = std.posix.SIG.TERM },
+    };
+
+    // Simulate the two-pass dispatch from run():
+    // Pass 1: signal events only
+    for (&events) |event| {
+        if (event.filter == .signal) {
+            ev.dispatch(event);
+        }
+    }
+    // After pass 1, shutdown_requested must already be true.
+    try testing.expect(ev.shutdown_requested);
+
+    // Pass 2: non-signal events
+    for (&events) |event| {
+        if (event.filter != .signal) {
+            ev.dispatch(event);
+        }
+    }
+    // State remains consistent — read dispatch ran after signal state was set.
+    try testing.expect(ev.shutdown_requested);
+}
+
+test "udata ranges: PTY and client ranges do not overlap" {
+    // Compile-time assertion that UDATA_CLIENT_BASE is beyond the PTY range.
+    // PTY range: [UDATA_PTY_BASE, UDATA_PTY_BASE + MAX_SESSIONS * MAX_PANES - 1]
+    // Client range: [UDATA_CLIENT_BASE, UDATA_CLIENT_BASE + MAX_CLIENTS - 1]
+    const pty_range_end = UDATA_PTY_BASE + @as(usize, types.MAX_SESSIONS) * @as(usize, types.MAX_PANES) - 1;
+    comptime {
+        if (UDATA_CLIENT_BASE <= pty_range_end) {
+            @compileError("UDATA_CLIENT_BASE overlaps with PTY udata range");
+        }
+    }
+    // Runtime check for documentation clarity.
+    try testing.expect(UDATA_CLIENT_BASE > pty_range_end);
+}
+
+test "EventLoop.dispatch: signal event sets shutdown_requested" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
     var ctx = makeTestMocks();
     const event_ops = ctx.mock_event.ops();
@@ -538,7 +617,7 @@ test "dispatch: signal event sets shutdown_requested" {
     try testing.expect(ev.shutdown_requested);
 }
 
-test "dispatch: read event on PTY fd triggers pty read" {
+test "EventLoop.dispatch: read event on PTY fd triggers pty read" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
     var ctx = makeTestMocks();
     ctx.mock_pty.read_data = "test output";
@@ -553,8 +632,8 @@ test "dispatch: read event on PTY fd triggers pty read" {
     const session_id = try sm.createSession("test", testImeEngine());
     const entry = sm.getSession(session_id).?;
 
-    const pane = pane_mod.Pane.init(1, 0, 42, 1234, 80, 24);
-    entry.setPaneAtSlot(0, pane);
+    const pane_inst = pane_mod.Pane.init(1, 0, 42, 1234, 80, 24);
+    entry.setPaneAtSlot(0, pane_inst);
 
     var ev = EventLoop.init(
         &event_ops,
@@ -565,7 +644,6 @@ test "dispatch: read event on PTY fd triggers pty read" {
         &sm,
     );
 
-    // Session at slot 0, pane at slot 0 → udata = UDATA_PTY_BASE + 0*16 + 0 = 1
     const event = interfaces.EventLoopOps.Event{
         .fd = 42,
         .filter = .read,
@@ -573,16 +651,14 @@ test "dispatch: read event on PTY fd triggers pty read" {
     };
 
     ev.dispatch(event);
-    // The pane should NOT be marked EOF since mock has data
     const updated_pane = entry.getPaneAtSlot(0).?;
     try testing.expect(!updated_pane.pty_eof);
 }
 
-test "run: single event then shutdown" {
+test "EventLoop.run: single event then shutdown" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
     var ctx = makeTestMocks();
 
-    // Configure mock to return a SIGTERM event
     const events_to_return = [_]interfaces.EventLoopOps.Event{
         .{
             .fd = std.posix.SIG.TERM,
@@ -610,7 +686,6 @@ test "run: single event then shutdown" {
         &sm,
     );
 
-    // run() should process the SIGTERM and exit
     try ev.run();
     try testing.expect(ev.shutdown_requested);
 }

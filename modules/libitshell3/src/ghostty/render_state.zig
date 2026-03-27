@@ -1,5 +1,5 @@
 //! Thin helper functions for ghostty RenderState lifecycle and dirty tracking.
-//! These are free functions, NOT wrapper types — per design spec §1.2/§4.5.
+//! These are free functions, NOT wrapper types — per design spec module-structure.
 const std = @import("std");
 const ghostty = @import("ghostty");
 const Allocator = std.mem.Allocator;
@@ -38,14 +38,14 @@ pub fn isFullDirty(rs: *const RenderState) bool {
 
 const terminal_mod = @import("terminal.zig");
 
-test "initRenderState creates empty state" {
+test "initRenderState: creates empty state" {
     var rs = initRenderState();
     try std.testing.expectEqual(@as(ghostty.size.CellCountInt, 0), rs.rows);
     try std.testing.expectEqual(@as(ghostty.size.CellCountInt, 0), rs.cols);
     try std.testing.expect(!isDirty(&rs));
 }
 
-test "updateRenderState after feed marks dirty" {
+test "updateRenderState: after feed marks dirty" {
     var t = try terminal_mod.initTerminal(std.testing.allocator, 80, 24);
     defer terminal_mod.deinitTerminal(&t, std.testing.allocator);
 
@@ -61,7 +61,7 @@ test "updateRenderState after feed marks dirty" {
     try std.testing.expect(isFullDirty(&rs));
 }
 
-test "updateRenderState reflects terminal dimensions" {
+test "updateRenderState: reflects terminal dimensions" {
     var t = try terminal_mod.initTerminal(std.testing.allocator, 80, 24);
     defer terminal_mod.deinitTerminal(&t, std.testing.allocator);
 

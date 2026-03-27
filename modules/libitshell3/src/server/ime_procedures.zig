@@ -258,7 +258,7 @@ test "onMouseClick: flushes composition before mouse event" {
 
 test "onInputMethodSwitch: commit_current=true flushes atomically" {
     var mock = mock_ime.MockImeEngine{
-        .set_aim_result = .{ .committed_text = "committed", .preedit_changed = true },
+        .set_active_input_method_result = .{ .committed_text = "committed", .preedit_changed = true },
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.setPreedit("composing");
@@ -267,7 +267,7 @@ test "onInputMethodSwitch: commit_current=true flushes atomically" {
 
     onInputMethodSwitch(&session, "direct", true, 10, &pty_ops);
 
-    try std.testing.expectEqual(@as(usize, 1), mock.set_aim_count);
+    try std.testing.expectEqual(@as(usize, 1), mock.set_active_input_method_count);
     try std.testing.expectEqualSlices(u8, "committed", mock_pty.written());
     try std.testing.expect(session.current_preedit == null);
 }
@@ -284,7 +284,7 @@ test "onInputMethodSwitch: commit_current=false resets and switches" {
 
     try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
     try std.testing.expectEqual(@as(usize, 0), mock.flush_count);
-    try std.testing.expectEqual(@as(usize, 1), mock.set_aim_count);
+    try std.testing.expectEqual(@as(usize, 1), mock.set_active_input_method_count);
     try std.testing.expect(session.current_preedit == null);
     try std.testing.expect(session.preedit.owner == null);
     try std.testing.expectEqual(@as(u32, 1), session.preedit.session_id);

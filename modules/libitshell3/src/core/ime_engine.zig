@@ -7,7 +7,7 @@ pub const KeyEvent = struct {
     /// Represents the PHYSICAL key position, not the character produced.
     /// e.g., 0x04 = 'a' position, 0x28 = Enter, 0x4F = Right Arrow
     /// Valid range: 0x00-HID_KEYCODE_MAX (0xE7).
-    hid_keycode: u8,
+    hid_keycode: u16,
 
     /// Modifier key state (excluding Shift -- see `shift` field).
     modifiers: Modifiers,
@@ -20,10 +20,10 @@ pub const KeyEvent = struct {
     /// Key press action.
     action: Action,
 
-    pub const Action = enum {
-        press,
-        release,
-        repeat,
+    pub const Action = enum(u8) {
+        press = 0,
+        release = 1,
+        repeat = 2,
     };
 
     pub const Modifiers = packed struct(u8) {
@@ -38,7 +38,7 @@ pub const KeyEvent = struct {
     /// The server MUST NOT pass keycodes above HID_KEYCODE_MAX to processKey().
     /// Keycodes above this value bypass the IME engine entirely and are
     /// routed directly to ghostty.
-    pub const HID_KEYCODE_MAX: u8 = 0xE7;
+    pub const HID_KEYCODE_MAX: u16 = 0xE7;
 
     /// Returns true if any composition-breaking modifier is held.
     pub fn hasCompositionBreakingModifier(self: KeyEvent) bool {
@@ -374,8 +374,14 @@ test "KeyEvent.isPrintablePosition: above 0x38 excluded" {
     try std.testing.expect(!key.isPrintablePosition());
 }
 
-test "KeyEvent.HID_KEYCODE_MAX is 0xE7" {
-    try std.testing.expectEqual(@as(u8, 0xE7), KeyEvent.HID_KEYCODE_MAX);
+test "KeyEvent.HID_KEYCODE_MAX: is 0xE7 with u16 type" {
+    try std.testing.expectEqual(@as(u16, 0xE7), KeyEvent.HID_KEYCODE_MAX);
+}
+
+test "KeyEvent.Action: has explicit integer tags per protocol spec" {
+    try std.testing.expectEqual(@as(u8, 0), @intFromEnum(KeyEvent.Action.press));
+    try std.testing.expectEqual(@as(u8, 1), @intFromEnum(KeyEvent.Action.release));
+    try std.testing.expectEqual(@as(u8, 2), @intFromEnum(KeyEvent.Action.repeat));
 }
 
 test "ImeResult: default is all null/false" {

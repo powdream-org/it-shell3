@@ -16,10 +16,10 @@ pub const FrameMeta = struct {
 };
 
 /// Per-client read cursor into the ring buffer.
-/// Spec §4.5: cursor tracks read position + last I-frame position.
+/// Per daemon-architecture state-and-types spec: cursor tracks read position + last I-frame position.
 pub const RingCursor = struct {
-    /// Monotonic byte offset. Ring position = total_read % capacity.
-    total_read: usize = 0,
+    /// Monotonic byte offset. Ring position = position % capacity.
+    position: usize = 0,
     /// Monotonic byte offset of the last I-frame delivered to this client.
     ///
     /// The daemon uses this for recovery decisions: if the ring has overwritten
@@ -35,7 +35,7 @@ pub const RingCursor = struct {
     ///
     /// Updated only on seekToLatestIFrame(). During normal sequential delivery
     /// the daemon does not parse frame boundaries (delivery is byte-granular
-    /// per spec §5.4), so it cannot detect I-frame passage. This is correct:
+    /// per daemon-behavior policies spec), so it cannot detect I-frame passage. This is correct:
     /// the client handles I-frame tracking from the wire format, and the daemon
     /// only needs this field for its own "is recovery needed?" check.
     last_i_frame: usize = 0,
@@ -48,7 +48,7 @@ pub const RingCursor = struct {
 /// Two iovecs covering all pending bytes from cursor to write_pos.
 /// When pending range does not wrap: iov[0] is valid, iov[1].len == 0.
 /// When pending range wraps the ring: both iov[0] and iov[1] are valid.
-/// Spec §4.6 / §5.4: caller passes these directly to writev() — zero copy.
+/// Per daemon-architecture state-and-types and daemon-behavior policies spec: caller passes these directly to writev() — zero copy.
 pub const PendingIovecs = struct {
     iov: [2]std.posix.iovec_const,
     count: usize, // 1 or 2
@@ -154,22 +154,22 @@ pub const RingBuffer = struct {
     /// corrupted data — the caller MUST call seekToLatestIFrame before
     /// attempting delivery.
     ///
-    /// The `total_read > total_written` guard catches impossible states
+    /// The `position > total_written` guard catches impossible states
     /// (cursor ahead of writer), which can only happen via direct struct
     /// mutation — defensive, not expected in production.
     pub fn isCursorOverwritten(self: *const RingBuffer, cursor: *const RingCursor) bool {
-        if (cursor.total_read > self.total_written) return true;
-        return (self.total_written - cursor.total_read) > self.capacity;
+        if (cursor.position > self.total_written) return true;
+        return (self.total_written - cursor.position) > self.capacity;
     }
 
     pub fn available(self: *const RingBuffer, cursor: *const RingCursor) usize {
         if (self.isCursorOverwritten(cursor)) return 0;
-        if (cursor.total_read >= self.total_written) return 0;
-        return self.total_written - cursor.total_read;
+        if (cursor.position >= self.total_written) return 0;
+        return self.total_written - cursor.position;
     }
 
     /// Return iovecs covering ALL pending bytes from cursor to write_pos.
-    /// Spec §4.6 / §5.4: iovecs point DIRECTLY into self.buf — zero copy.
+    /// Per daemon-architecture state-and-types and daemon-behavior policies spec: iovecs point DIRECTLY into self.buf — zero copy.
     /// When range does not wrap: count=1, iov[0] covers the full range.
     /// When range wraps the ring: count=2, iov[0] = tail segment, iov[1] = head segment.
     /// Returns null when no pending bytes (available == 0 or cursor overwritten).
@@ -177,7 +177,7 @@ pub const RingBuffer = struct {
         const avail = self.available(cursor);
         if (avail == 0) return null;
 
-        const read_pos = cursor.total_read % self.capacity;
+        const read_pos = cursor.position % self.capacity;
         const tail_len = self.capacity - read_pos; // bytes from read_pos to end of buf
 
         if (avail <= tail_len) {
@@ -201,17 +201,17 @@ pub const RingBuffer = struct {
     }
 
     /// Advance cursor by exactly n bytes.
-    /// Spec §5.4: "advance client cursor by n bytes".
+    /// Per daemon-behavior policies spec: "advance client cursor by n bytes".
     /// n must not exceed available(cursor). Asserts in debug builds.
     pub fn advanceCursor(self: *const RingBuffer, cursor: *RingCursor, n: usize) void {
         std.debug.assert(n <= self.available(cursor));
-        cursor.total_read += n;
+        cursor.position += n;
     }
 
     /// Advance cursor to the latest I-frame position in the ring.
     ///
     /// This is the universal recovery operation — all recovery scenarios
-    /// collapse into this single call (spec §4.8, §5.5):
+    /// collapse into this single call (per daemon-architecture and daemon-behavior specs):
     ///   - Slow client: cursor overwritten by ring wrap → seek to I-frame
     ///   - ContinuePane after PausePane → seek to I-frame
     ///   - Stale client recovery → seek to I-frame
@@ -232,13 +232,13 @@ pub const RingBuffer = struct {
         if (!self.has_i_frame) return;
         const meta = self.frame_index[self.latest_i_frame_idx];
         if (self.total_written - meta.total_offset <= self.capacity) {
-            cursor.total_read = meta.total_offset;
+            cursor.position = meta.total_offset;
             cursor.last_i_frame = meta.total_offset;
         }
     }
 
     /// Returns true if the ring contains at least one I-frame that hasn't
-    /// been overwritten. Used to check the ring invariant (spec §4.1:
+    /// been overwritten. Used to check the ring invariant (per daemon-architecture state-and-types spec:
     /// "ring MUST always contain at least one complete I-frame").
     ///
     /// When this returns false and the ring is actively being written to,
@@ -254,7 +254,7 @@ pub const RingBuffer = struct {
 
 // --- Tests ---
 
-test "init: zero state with correct capacity" {
+test "RingBuffer.init: zero state with correct capacity" {
     var backing: [4096]u8 = @splat(0);
     const rb = RingBuffer.init(&backing);
     try std.testing.expectEqual(@as(usize, 4096), rb.capacity);
@@ -264,20 +264,20 @@ test "init: zero state with correct capacity" {
     try std.testing.expect(!rb.hasValidIFrame());
 }
 
-test "RingCursor: last_i_frame field present and zero-initialized (spec §4.5)" {
+test "RingCursor.init: last_i_frame field zero-initialized" {
     const cursor = RingCursor.init();
-    try std.testing.expectEqual(@as(usize, 0), cursor.total_read);
+    try std.testing.expectEqual(@as(usize, 0), cursor.position);
     try std.testing.expectEqual(@as(usize, 0), cursor.last_i_frame);
 }
 
-test "pendingIovecs: null when ring is empty" {
+test "RingBuffer.pendingIovecs: null when ring is empty" {
     var backing: [1024]u8 = @splat(0);
     const rb = RingBuffer.init(&backing);
     const cursor = RingCursor.init();
     try std.testing.expect(rb.pendingIovecs(&cursor) == null);
 }
 
-test "pendingIovecs: single iovec, no wrap (spec §4.6 zero-copy)" {
+test "RingBuffer.pendingIovecs: single iovec no wrap" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     const cursor = RingCursor.init();
@@ -296,7 +296,7 @@ test "pendingIovecs: single iovec, no wrap (spec §4.6 zero-copy)" {
     try std.testing.expectEqual(rb.available(&cursor), p.totalLen());
 }
 
-test "pendingIovecs: two iovecs when pending range wraps ring (spec §4.6)" {
+test "RingBuffer.pendingIovecs: two iovecs when pending range wraps ring" {
     // 32-byte ring. Write 3 frames of 10 bytes each (entry = 10).
     // After reading 2 frames (20 bytes), write_pos = 20.
     // Third frame at 20..30 fits, but let's use 12-byte frames to force wrap.
@@ -337,7 +337,7 @@ test "pendingIovecs: two iovecs when pending range wraps ring (spec §4.6)" {
     try std.testing.expectEqualSlices(u8, &f, combined[0..11]);
 }
 
-test "advanceCursor: byte-granular advancement (spec §5.4)" {
+test "RingBuffer.advanceCursor: byte-granular advancement" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -348,28 +348,28 @@ test "advanceCursor: byte-granular advancement (spec §5.4)" {
 
     // Partial advance: 5 bytes
     rb.advanceCursor(&cursor, 5);
-    try std.testing.expectEqual(@as(usize, 5), cursor.total_read);
+    try std.testing.expectEqual(@as(usize, 5), cursor.position);
     try std.testing.expectEqual(@as(usize, 5), rb.available(&cursor));
 
     // Advance remaining
     rb.advanceCursor(&cursor, 5);
-    try std.testing.expectEqual(@as(usize, 10), cursor.total_read);
+    try std.testing.expectEqual(@as(usize, 10), cursor.position);
     try std.testing.expectEqual(@as(usize, 0), rb.available(&cursor));
     try std.testing.expect(rb.pendingIovecs(&cursor) == null);
 }
 
-test "advanceCursor: zero advance is no-op" {
+test "RingBuffer.advanceCursor: zero advance is no-op" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
 
     try rb.writeFrame("data", false, 1);
-    const before = cursor.total_read;
+    const before = cursor.position;
     rb.advanceCursor(&cursor, 0);
-    try std.testing.expectEqual(before, cursor.total_read);
+    try std.testing.expectEqual(before, cursor.position);
 }
 
-test "pendingIovecs: iovec total equals available() (spec §5.4)" {
+test "RingBuffer.pendingIovecs: iovec total equals available" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -382,7 +382,7 @@ test "pendingIovecs: iovec total equals available() (spec §5.4)" {
     try std.testing.expectEqual(avail, p.totalLen());
 }
 
-test "independent cursors: advancing A does not affect B (spec §4.5)" {
+test "RingBuffer: independent cursors advancing A does not affect B" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var c1 = RingCursor.init();
@@ -398,7 +398,7 @@ test "independent cursors: advancing A does not affect B (spec §4.5)" {
     try std.testing.expectEqual(@as(usize, 0), rb.available(&c1));
 }
 
-test "monotonic counters advance correctly" {
+test "RingBuffer: monotonic counters advance correctly" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
 
@@ -410,14 +410,14 @@ test "monotonic counters advance correctly" {
     try std.testing.expectEqual(@as(usize, 8), rb.total_written);
 }
 
-test "rejects frame larger than half capacity" {
+test "RingBuffer.writeFrame: rejects frame larger than half capacity" {
     var backing: [64]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     const big = [_]u8{0} ** 33; // 33 > 32 (capacity/2)
     try std.testing.expectError(error.FrameTooLarge, rb.writeFrame(&big, false, 1));
 }
 
-test "isCursorOverwritten: detects when cursor data is gone" {
+test "RingBuffer.isCursorOverwritten: detects when cursor data is gone" {
     var backing: [32]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -433,7 +433,7 @@ test "isCursorOverwritten: detects when cursor data is gone" {
     try std.testing.expect(rb.isCursorOverwritten(&cursor));
 }
 
-test "isCursorOverwritten: caught-up cursor is never overwritten" {
+test "RingBuffer.isCursorOverwritten: caught-up cursor is never overwritten" {
     var backing: [64]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -444,7 +444,7 @@ test "isCursorOverwritten: caught-up cursor is never overwritten" {
     try std.testing.expect(!rb.isCursorOverwritten(&cursor));
 }
 
-test "available: exact pending bytes" {
+test "RingBuffer.available: exact pending bytes" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -457,7 +457,7 @@ test "available: exact pending bytes" {
     try std.testing.expectEqual(@as(usize, 11), rb.available(&cursor));
 }
 
-test "available: returns 0 for overwritten cursor" {
+test "RingBuffer.available: returns 0 for overwritten cursor" {
     var backing: [32]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -469,7 +469,7 @@ test "available: returns 0 for overwritten cursor" {
     try std.testing.expectEqual(@as(usize, 0), rb.available(&cursor));
 }
 
-test "I-frame tracking: latest_i_frame_idx tracks most recent" {
+test "RingBuffer: I-frame tracking latest_i_frame_idx tracks most recent" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
 
@@ -487,7 +487,7 @@ test "I-frame tracking: latest_i_frame_idx tracks most recent" {
     try std.testing.expectEqual(@as(u64, 4), rb.frame_index[rb.latest_i_frame_idx].frame_sequence);
 }
 
-test "seekToLatestIFrame: cursor reads I-frame then subsequent frames via iovecs" {
+test "RingBuffer.seekToLatestIFrame: cursor reads I-frame then subsequent frames via iovecs" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -501,7 +501,7 @@ test "seekToLatestIFrame: cursor reads I-frame then subsequent frames via iovecs
 
     rb.seekToLatestIFrame(&cursor);
     // cursor.last_i_frame should be updated
-    try std.testing.expect(cursor.last_i_frame > 0 or cursor.total_read == 0);
+    try std.testing.expect(cursor.last_i_frame > 0 or cursor.position == 0);
 
     // Verify iovecs start from I-frame: the first bytes read via iovec
     // are the I-frame data itself ("THE-I-FRAME").
@@ -516,7 +516,7 @@ test "seekToLatestIFrame: cursor reads I-frame then subsequent frames via iovecs
     try std.testing.expectEqualSlices(u8, "THE-I-FRAME", combined[0..11]);
 }
 
-test "seekToLatestIFrame: recovers overwritten cursor" {
+test "RingBuffer.seekToLatestIFrame: recovers overwritten cursor" {
     var backing: [96]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();
@@ -543,7 +543,7 @@ test "seekToLatestIFrame: recovers overwritten cursor" {
     try std.testing.expect(!rb.isCursorOverwritten(&cursor));
 }
 
-test "hasValidIFrame: false with no I-frames, true after I-frame" {
+test "RingBuffer.hasValidIFrame: false with no I-frames, true after I-frame" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
 
@@ -555,7 +555,7 @@ test "hasValidIFrame: false with no I-frames, true after I-frame" {
     try std.testing.expect(rb.hasValidIFrame());
 }
 
-test "multiple independent cursors: iovecs span same ring memory (spec §4.1 §4.11)" {
+test "RingBuffer: multiple independent cursors iovecs span same ring memory" {
     var backing: [1024]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var c1 = RingCursor.init();
@@ -588,7 +588,7 @@ test "multiple independent cursors: iovecs span same ring memory (spec §4.1 §4
     try std.testing.expectEqual(p2.totalLen(), rb.available(&c2));
 }
 
-test "wrap-around: data integrity via iovecs across ring boundary" {
+test "RingBuffer: wrap-around data integrity via iovecs across ring boundary" {
     var backing: [64]u8 = @splat(0);
     var rb = RingBuffer.init(&backing);
     var cursor = RingCursor.init();

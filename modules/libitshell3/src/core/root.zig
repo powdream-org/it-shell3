@@ -1,9 +1,11 @@
+//! Core domain types for the it-shell3 daemon. Contains Session, SplitTree,
+//! ImeEngine vtable, PreeditState, and shared type definitions. No OS, protocol,
+//! or ghostty dependencies — pure domain logic.
+
 pub const types = @import("types.zig");
 pub const preedit_state = @import("preedit_state.zig");
 pub const split_tree = @import("split_tree.zig");
-pub const pane = @import("pane.zig");
 pub const session = @import("session.zig");
-pub const session_manager = @import("session_manager.zig");
 pub const navigation = @import("navigation.zig");
 pub const ime_engine = @import("ime_engine.zig");
 
@@ -25,10 +27,7 @@ pub const ImeEngine = ime_engine.ImeEngine;
 pub const KeyEvent = ime_engine.KeyEvent;
 pub const ImeResult = ime_engine.ImeResult;
 
-pub const Pane = pane.Pane;
 pub const Session = session.Session;
-pub const SessionEntry = session.SessionEntry;
-pub const SessionManager = session_manager.SessionManager;
 pub const PreeditState = preedit_state.PreeditState;
 pub const SplitNodeData = split_tree.SplitNodeData;
 

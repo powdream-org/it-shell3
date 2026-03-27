@@ -1,3 +1,6 @@
+//! Root module for the libitshell3 library. Re-exports all named sub-modules
+//! for use by the daemon binary and test discovery.
+
 pub const core = @import("itshell3_core");
 pub const os_mod = @import("itshell3_os");
 pub const server = @import("itshell3_server");

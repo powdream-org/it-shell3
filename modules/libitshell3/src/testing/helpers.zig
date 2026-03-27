@@ -1,13 +1,13 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const mock_os = @import("mock_os.zig");
-const mock_ime = @import("mock_ime_engine.zig");
+const mock_os = @import("mocks/mock_os.zig");
+const mock_ime = @import("mocks/mock_ime_engine.zig");
 const os = @import("itshell3_os");
 const interfaces = os.interfaces;
 const core = @import("itshell3_core");
-const session_manager_mod = core.session_manager;
 const session_mod = core.session;
-const pane_mod = core.pane;
+const server = @import("itshell3_server");
+const session_manager_mod = server.session_manager;
 const protocol = @import("itshell3_protocol");
 const Listener = protocol.transport.Listener;
 const UnixTransport = protocol.transport.UnixTransport;
@@ -34,7 +34,7 @@ pub fn tempSocketPath(allocator: std.mem.Allocator) ![]u8 {
     );
 }
 
-test "tempSocketPath generates valid unique paths" {
+test "tempSocketPath: generates valid unique paths" {
     const allocator = std.testing.allocator;
     const path1 = try tempSocketPath(allocator);
     defer allocator.free(path1);
@@ -52,7 +52,7 @@ test "tempSocketPath generates valid unique paths" {
 // ── Integration Tests ─────────────────────────────────────────────────────────
 
 // Integration test: full daemon lifecycle using real sockets + mock PTY/event.
-test "integration: daemon lifecycle with mocks" {
+test "spec: daemon lifecycle — full lifecycle with mock OS ops and real sockets" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
 
     // 1. Create mock OS ops (no MockSocketOps — protocol owns the socket)
@@ -137,7 +137,7 @@ const c_pty = @cImport({
 // Integration test: real PTY fork and read using /bin/echo.
 // Uses /bin/echo (not a shell) so the child exits immediately.
 // Uses poll() with a timeout to prevent hanging.
-test "integration: real PTY fork and read" {
+test "spec: PTY integration — real PTY fork and read with echo" {
     var master_fd: std.posix.fd_t = undefined;
     var slave_fd: std.posix.fd_t = undefined;
 
