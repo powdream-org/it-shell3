@@ -80,11 +80,18 @@ jobs:
           done
 
       # --- coverage (Linux-x86_64 only) ---
+      - name: Configure kcov paths
+        if: matrix.coverage
+        id: kcov
+        run: |
+          KCOV_DIR="${RUNNER_TOOL_CACHE}/kcov"
+          echo "dir=$KCOV_DIR" >> "$GITHUB_OUTPUT"
+
       - name: Cache kcov
         if: matrix.coverage
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
-          path: ${{ env.RUNNER_TOOL_CACHE }}/kcov
+          path: ${{ steps.kcov.outputs.dir }}
           key: kcov-${{ runner.os }}-${{ runner.arch }}-v42
 
       - name: Install kcov
