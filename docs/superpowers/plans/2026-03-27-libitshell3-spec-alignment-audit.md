@@ -445,44 +445,43 @@ format.
 - No test name starts with a bare description without a function/type prefix
   (for inline tests) or without `"spec: "` (for spec tests)
 
-### Task 16: Convention Fixes — Arbitrary-Width Integer Replacement
+### Task 16: Convention Fixes — Integer Width Alignment
 
 **Files:** `src/core/types.zig` (modify), `src/core/split_tree.zig` (modify),
 `src/core/session_manager.zig` (modify), `src/core/navigation.zig` (modify),
-`src/server/event_loop.zig` (modify), and any other files using non-standard
-integer widths for loop counters, indices, or constants
+`src/server/event_loop.zig` (modify), `src/ghostty/preedit_overlay.zig`
+(modify), and any other files with integer width violations
 
-**Spec:** docs/conventions/zig-coding.md — standard-width integers only (u8,
-u16, u32, u64). No arbitrary-width integers except packed struct fields, extern
-struct ABI fields, and `u21` Unicode codepoints.
+**Spec:** docs/conventions/zig-coding.md — 5 rules for integer type selection:
+public symbols (tight but future-proof), locals (register-friendly), array
+indices (match capacity), loop counters (u32/usize), sparse returns (enum).
 
 **Known violations:**
 
-- `types.zig`: `MAX_PANES: u5`, `MAX_TREE_NODES: u5`, `MAX_TREE_DEPTH: u3` → all
-  `u8`
-- `types.zig`: `slotShift` loop counter `var i: u5` → `u8`
-- `split_tree.zig`: loop counters and indices using `u5` → `u8`
-- `navigation.zig`: loop counters using `u5` → `u8`
-- `event_loop.zig`: loop counters using `u5` → `u8`
-- `preedit_overlay.zig`: `bit_idx: u6` → `u8` (intermediate local variable, no
-  reason for u6)
-- `preedit_overlay.zig`: `codepointWidth` return `u2` → `enum` (discrete values
-  1 or 2 should be a semantic enum, not a bare integer)
+- `types.zig`: `MAX_PANES: u5`, `MAX_TREE_NODES: u5`, `MAX_TREE_DEPTH: u3` →
+  `u8` (Rule 1: public constants, future-proof width)
+- `types.zig`, `split_tree.zig`, `navigation.zig`, `event_loop.zig`: loop
+  counters `var i: u5` → `u32` (Rule 4: loop counters always u32 or usize)
+- `preedit_overlay.zig`: `bit_idx: u6` → `u8` (Rule 2: local variable,
+  register-friendly)
+- `preedit_overlay.zig`: `codepointWidth` return `u2` → `enum(u2)` with named
+  variants (Rule 5: sparse discrete values use enum)
 
-**Allowed exceptions (do NOT change):**
+**Allowed (do NOT change):**
 
 - `u21` for Unicode codepoints (Zig std convention)
-- Packed struct fields in `ime_engine.zig` Modifiers (wire protocol layout)
-- `u16` for `PaneSlot` type alias (if spec defines it as u16)
+- Packed struct fields (wire protocol layout)
+- Array index types matching array capacity (Rule 3)
 
 **Depends on:** Task 1 (SplitNodeData redesign already touches these files)
 
 **Verification:**
 
-- No `u3`, `u4`, `u5`, `u6` types remain in non-packed-struct, non-extern
-  contexts
-- All constants use standard-width types (u8, u16, u32, u64)
-- All loop counters and array indices use standard-width types
+- All public constants use future-proof standard widths (u8 for small constants)
+- All loop counters use u32 or usize
+- All narrow-scope locals use register-friendly widths (u8/u16/u32/u64)
+- `codepointWidth` returns a named enum, not bare u2
+- Packed struct fields and array-capacity indices are unchanged
 - Build succeeds and all tests pass
 
 ## Dependency Graph
