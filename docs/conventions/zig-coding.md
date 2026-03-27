@@ -53,15 +53,19 @@ fn codepointWidth(cp: u21) u2 {
 }
 ```
 
-**Right — use an enum for discrete semantic values:**
+**Right — use an enum with explicit backing values:**
 
 ```zig
-const CharWidth = enum { narrow, wide };
+const CharWidth = enum(u2) { narrow = 1, wide = 2 };
 
 fn codepointWidth(cp: u21) CharWidth {
     // returns .narrow or .wide
 }
 ```
+
+Arbitrary-width backing types are allowed on enums when the enum itself provides
+the semantic meaning — the `u2` is an implementation detail of the enum, not a
+bare integer leaking into the API.
 
 ### Rationale
 
