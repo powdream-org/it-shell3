@@ -1,5 +1,5 @@
 const std = @import("std");
-const interfaces = @import("../os/interfaces.zig");
+const interfaces = @import("itshell3_os").interfaces;
 
 /// Thread-local mock state pointer. Safe because Zig tests are single-threaded.
 threadlocal var global_mock_pty: ?*MockPtyOps = null;

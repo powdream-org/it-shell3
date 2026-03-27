@@ -6,3 +6,8 @@ pub const decomposeWireEvent = wire_decompose.decomposeWireEvent;
 pub const routeKeyEvent = key_router.routeKeyEvent;
 pub const RouteResult = key_router.RouteResult;
 pub const ToggleBinding = key_router.ToggleBinding;
+
+const std = @import("std");
+test {
+    std.testing.refAllDecls(@This());
+}

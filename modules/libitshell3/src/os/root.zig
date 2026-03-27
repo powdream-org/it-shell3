@@ -8,3 +8,8 @@ pub const PtyOps = interfaces.PtyOps;
 pub const EventLoopOps = interfaces.EventLoopOps;
 pub const SignalOps = interfaces.SignalOps;
 pub const KqueueContext = kqueue.KqueueContext;
+
+const std = @import("std");
+test {
+    std.testing.refAllDecls(@This());
+}

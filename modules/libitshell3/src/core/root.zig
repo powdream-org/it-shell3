@@ -31,3 +31,8 @@ pub const SessionEntry = session.SessionEntry;
 pub const SessionManager = session_manager.SessionManager;
 pub const PreeditState = preedit_state.PreeditState;
 pub const SplitNodeData = split_tree.SplitNodeData;
+
+const std = @import("std");
+test {
+    std.testing.refAllDecls(@This());
+}

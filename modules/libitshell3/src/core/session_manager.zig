@@ -96,7 +96,7 @@ pub const SessionManager = struct {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-const mock_ime = @import("../testing/mock_ime_engine.zig");
+const mock_ime = @import("itshell3_testing").mock_ime_engine;
 
 // File-scope static mock engine. Persists across tests so the vtable pointer
 // stored in sessions remains valid.

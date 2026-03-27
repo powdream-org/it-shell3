@@ -1,8 +1,8 @@
 const std = @import("std");
-const ime_engine_mod = @import("../core/ime_engine.zig");
-const ImeEngine = ime_engine_mod.ImeEngine;
-const KeyEvent = ime_engine_mod.KeyEvent;
-const ImeResult = ime_engine_mod.ImeResult;
+const core = @import("itshell3_core");
+const ImeEngine = core.ImeEngine;
+const KeyEvent = core.KeyEvent;
+const ImeResult = core.ImeResult;
 
 /// MockImeEngine implements the ImeEngine vtable for daemon-side tests.
 /// Supports configurable responses and call history tracking.

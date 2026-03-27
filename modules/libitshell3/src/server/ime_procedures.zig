@@ -1,13 +1,10 @@
 const std = @import("std");
-const ime_engine_mod = @import("../core/ime_engine.zig");
-const ImeEngine = ime_engine_mod.ImeEngine;
-const ImeResult = ime_engine_mod.ImeResult;
-const KeyEvent = ime_engine_mod.KeyEvent;
-const session_mod = @import("../core/session.zig");
-const types = @import("../core/types.zig");
+const core = @import("itshell3_core");
+const session_mod = core.session;
+const types = core.types;
 const ime_consumer = @import("ime_consumer.zig");
 
-/// Section 8.1: Ownership transfer (reference procedure).
+/// Ownership transfer (reference procedure, see ime-procedures spec).
 /// Flush-and-transfer sequence: flush -> consume result -> clear preedit ->
 /// send PreeditEnd (stub) -> incrementSessionId -> update owner.
 ///
@@ -38,7 +35,7 @@ pub fn ownershipTransfer(
     session.preedit.owner = new_owner;
 }
 
-/// Section 8.2: Resolve preedit ownership before client teardown.
+/// Resolve preedit ownership before client teardown (see ime-procedures spec).
 /// If the departing client is the preedit owner, flush and transfer to null.
 /// Used by disconnect, detach, and eviction — identical from preedit perspective.
 fn handlePreeditOwnerDisconnect(
@@ -58,7 +55,7 @@ pub const onClientDisconnect = handlePreeditOwnerDisconnect;
 pub const onClientDetach = handlePreeditOwnerDisconnect;
 pub const onClientEviction = handlePreeditOwnerDisconnect;
 
-/// Section 8.3: Intra-session pane focus change.
+/// Intra-session pane focus change (see ime-procedures spec).
 /// Flush composition to OLD pane before updating focused_pane.
 pub fn onFocusChange(
     session: *session_mod.Session,
@@ -76,7 +73,7 @@ pub fn onFocusChange(
     // TODO(Plan 6): Send LayoutChanged with new focused pane to all clients
 }
 
-/// Section 8.3: Pane close (non-last pane).
+/// Pane close for non-last pane (see ime-procedures spec).
 /// Reset (NOT flush) — composition is discarded; the PTY is being closed.
 pub fn onPaneClose(session: *session_mod.Session) void {
     // Step 1: Discard composition (do NOT commit to PTY)
@@ -95,7 +92,7 @@ pub fn onPaneClose(session: *session_mod.Session) void {
     session.preedit.incrementSessionId();
 }
 
-/// Section 8.3: Alternate screen switch.
+/// Alternate screen switch (see ime-procedures spec).
 /// Flush + commit before screen switch.
 pub fn onAlternateScreenSwitch(
     session: *session_mod.Session,
@@ -109,7 +106,7 @@ pub fn onAlternateScreenSwitch(
     // and sends FrameUpdate with frame_type=1 (I-frame), screen=alternate.
 }
 
-/// Section 8.4: Mouse click during composition.
+/// Mouse click during composition (see ime-procedures spec).
 /// Flush before mouse event forwarding. Only for MouseButton events;
 /// MouseScroll and MouseMove do NOT trigger this.
 pub fn onMouseClick(
@@ -120,7 +117,7 @@ pub fn onMouseClick(
     ownershipTransfer(session, pty_fd, pty_writer, null);
 }
 
-/// Section 8.4: InputMethodSwitch during active preedit.
+/// InputMethodSwitch during active preedit (see ime-procedures spec).
 ///
 /// When commit_current=true:
 ///   setActiveInputMethod (atomically flushes) -> consume committed_text -> write to PTY
@@ -176,7 +173,7 @@ pub fn onInputMethodSwitch(
     }
 }
 
-/// Section 8.5: Error recovery.
+/// Error recovery (see ime-procedures spec).
 /// Best-effort commit + reset to known-good state.
 pub fn errorRecovery(
     session: *session_mod.Session,
@@ -203,8 +200,9 @@ pub fn errorRecovery(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const mock_ime = @import("../testing/mock_ime_engine.zig");
-const MockPtyWriter = @import("../testing/mock_pty_writer.zig").MockPtyWriter;
+const test_mod = @import("itshell3_testing");
+const mock_ime = test_mod.mock_ime_engine;
+const MockPtyWriter = test_mod.mock_pty_writer.MockPtyWriter;
 
 test "ownershipTransfer: flushes, clears preedit, increments session_id, sets owner" {
     var mock = mock_ime.MockImeEngine{

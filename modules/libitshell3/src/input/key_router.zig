@@ -1,8 +1,8 @@
 const std = @import("std");
-const ime_engine_mod = @import("../core/ime_engine.zig");
-const ImeEngine = ime_engine_mod.ImeEngine;
-const KeyEvent = ime_engine_mod.KeyEvent;
-const ImeResult = ime_engine_mod.ImeResult;
+const core = @import("itshell3_core");
+const ImeEngine = core.ImeEngine;
+const KeyEvent = core.KeyEvent;
+const ImeResult = core.ImeResult;
 
 /// Result of key routing through Phase 0 and Phase 1.
 pub const RouteResult = union(enum) {
@@ -39,7 +39,7 @@ pub const ToggleBinding = struct {
 /// 2. HID keycode > HID_KEYCODE_MAX -> bypass IME entirely.
 /// 3. Otherwise -> Phase 1: engine.processKey.
 ///
-/// TODO(Plan 7): Spec §5.2 Phase 0 step 2 defines "Check global daemon shortcuts
+/// TODO(Plan 7): Spec integration-boundaries Phase 0 step 2 defines "Check global daemon shortcuts
 /// -> STOP." Not yet implemented — daemon keybinding system is not designed.
 /// Add a shortcut binding parameter when keybinding design is done.
 pub fn routeKeyEvent(
@@ -79,7 +79,7 @@ pub fn routeKeyEvent(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const mock_ime = @import("../testing/mock_ime_engine.zig");
+const mock_ime = @import("itshell3_testing").mock_ime_engine;
 
 test "routeKeyEvent: normal key goes to Phase 1 processKey" {
     var mock = mock_ime.MockImeEngine{

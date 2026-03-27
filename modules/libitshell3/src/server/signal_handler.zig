@@ -1,7 +1,9 @@
 const std = @import("std");
-const interfaces = @import("../os/interfaces.zig");
-const session_manager_mod = @import("../core/session_manager.zig");
-const types = @import("../core/types.zig");
+const os = @import("itshell3_os");
+const interfaces = os.interfaces;
+const core = @import("itshell3_core");
+const session_manager_mod = core.session_manager;
+const types = core.types;
 
 pub const SessionManager = session_manager_mod.SessionManager;
 
@@ -55,10 +57,11 @@ fn markPaneExited(sm: *SessionManager, pid: std.posix.pid_t, exit_status: u8) vo
 // --- Tests ---
 
 const testing = std.testing;
-const mock_os = @import("../testing/mock_os.zig");
-const test_helpers = @import("../testing/helpers.zig");
-const pane_mod = @import("../core/pane.zig");
-const session_mod = @import("../core/session.zig");
+const test_mod = @import("itshell3_testing");
+const mock_os = test_mod.mock_os;
+const test_helpers = test_mod.helpers;
+const pane_mod = core.pane;
+const session_mod = core.session;
 
 // File-scope statics for tests.
 var test_sm = SessionManager.init();

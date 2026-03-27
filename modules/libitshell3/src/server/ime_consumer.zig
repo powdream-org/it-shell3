@@ -1,9 +1,8 @@
 const std = @import("std");
-const ime_engine_mod = @import("../core/ime_engine.zig");
-const ImeResult = ime_engine_mod.ImeResult;
-const KeyEvent = ime_engine_mod.KeyEvent;
-const session_mod = @import("../core/session.zig");
-const types = @import("../core/types.zig");
+const core = @import("itshell3_core");
+const ImeResult = core.ImeResult;
+const KeyEvent = core.KeyEvent;
+const session_mod = core.session;
 
 /// Interface for PTY write operations, enabling mock injection for tests.
 pub const PtyWriter = struct {
@@ -44,7 +43,8 @@ pub const KeyEncoder = struct {
 /// - preedit cleared (preedit_text=null, preedit_changed=true) -> clear session.current_preedit
 ///
 /// NEVER uses ghostty_surface_text() for committed text (Korean doubling bug).
-/// ImeResult MUST be consumed BEFORE any subsequent engine call (invariant from spec section 5.5).
+/// ImeResult MUST be consumed BEFORE any subsequent engine call
+/// (see integration-boundaries critical runtime invariant).
 ///
 /// Returns true if preedit state changed (caller should mark pane dirty).
 pub fn consumeImeResult(
@@ -81,8 +81,9 @@ pub fn consumeImeResult(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const mock_ime = @import("../testing/mock_ime_engine.zig");
-const MockPtyWriter = @import("../testing/mock_pty_writer.zig").MockPtyWriter;
+const test_mod = @import("itshell3_testing");
+const mock_ime = test_mod.mock_ime_engine;
+const MockPtyWriter = test_mod.mock_pty_writer.MockPtyWriter;
 
 /// Mock key encoder that returns a fixed string.
 const MockKeyEncoder = struct {

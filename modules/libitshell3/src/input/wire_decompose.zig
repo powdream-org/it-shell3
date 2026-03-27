@@ -1,10 +1,9 @@
 const std = @import("std");
-const ime_engine_mod = @import("../core/ime_engine.zig");
-const KeyEvent = ime_engine_mod.KeyEvent;
+const KeyEvent = @import("itshell3_core").KeyEvent;
 
 /// Decompose a wire modifier byte and HID keycode into a KeyEvent.
 ///
-/// Wire modifier bitmask layout (from protocol doc 04 Section 2.1):
+/// Wire modifier bitmask layout (from protocol input-and-renderstate spec):
 ///   Bit 0: Shift     -> KeyEvent.shift
 ///   Bit 1: Ctrl      -> KeyEvent.modifiers.ctrl
 ///   Bit 2: Alt       -> KeyEvent.modifiers.alt

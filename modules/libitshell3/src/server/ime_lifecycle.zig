@@ -1,14 +1,12 @@
 const std = @import("std");
-const ime_engine_mod = @import("../core/ime_engine.zig");
-const ImeEngine = ime_engine_mod.ImeEngine;
-const ImeResult = ime_engine_mod.ImeResult;
-const session_mod = @import("../core/session.zig");
+const core = @import("itshell3_core");
+const session_mod = core.session;
 const ime_consumer = @import("ime_consumer.zig");
 
 /// Tracks the number of attached clients per session and determines when to
 /// call activate/deactivate on the session's IME engine.
 ///
-/// Per spec ime-procedures section 4.3:
+/// Per ime-procedures eager activate/deactivate spec:
 /// - activate() is called only when the count goes from 0 to 1.
 /// - deactivate() is called only when the count drops to 0.
 /// - A single client detaching while others remain does NOT trigger deactivate.
@@ -52,7 +50,7 @@ pub fn activateSessionIme(session: *session_mod.Session) void {
 
 /// Handle session losing its last client (attached-client count drops to 0).
 /// Calls deactivate() on the session's IME engine.
-/// Per spec section 4.3: deactivate() flushes pending composition.
+/// Per ime-procedures eager activate/deactivate spec: deactivate() flushes pending composition.
 ///
 /// Returns true if preedit state changed (caller should mark pane dirty).
 pub fn deactivateSessionIme(
@@ -70,7 +68,7 @@ pub fn deactivateSessionIme(
 
 /// Handle intra-session pane focus change.
 /// Flushes composition to the OLD pane's PTY before the focus switch.
-/// Per spec section 4.4 and section 8.3:
+/// Per ime-procedures intra-session pane focus change spec:
 /// 1. engine.flush() -> ImeResult
 /// 2. Consume result (write committed text to old PTY, clear preedit)
 /// 3. Caller then updates session.focused_pane
@@ -87,8 +85,9 @@ pub fn flushOnPaneFocusChange(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const mock_ime = @import("../testing/mock_ime_engine.zig");
-const MockPtyWriter = @import("../testing/mock_pty_writer.zig").MockPtyWriter;
+const test_mod = @import("itshell3_testing");
+const mock_ime = test_mod.mock_ime_engine;
+const MockPtyWriter = test_mod.mock_pty_writer.MockPtyWriter;
 
 test "activateSessionIme: calls activate on engine" {
     var mock = mock_ime.MockImeEngine{};

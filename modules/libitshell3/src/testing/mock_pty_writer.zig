@@ -1,5 +1,5 @@
 const std = @import("std");
-const ime_consumer = @import("../server/ime_consumer.zig");
+const ime_consumer = @import("itshell3_server").ime_consumer;
 
 /// Mock PTY writer that records writes into a fixed buffer for test verification.
 /// Shared across ime_consumer, ime_lifecycle, and ime_procedures tests.

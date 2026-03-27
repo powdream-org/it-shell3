@@ -1,8 +1,10 @@
 const std = @import("std");
-const interfaces = @import("../os/interfaces.zig");
-const types = @import("../core/types.zig");
-const session_manager_mod = @import("../core/session_manager.zig");
-const pane_mod = @import("../core/pane.zig");
+const os = @import("itshell3_os");
+const interfaces = os.interfaces;
+const core = @import("itshell3_core");
+const types = core.types;
+const session_manager_mod = core.session_manager;
+const pane_mod = core.pane;
 const protocol = @import("itshell3_protocol");
 const Listener = protocol.transport.Listener;
 const Connection = protocol.connection.Connection;
@@ -240,8 +242,9 @@ pub const EventLoop = struct {
 
 const testing = std.testing;
 const builtin = @import("builtin");
-const mock_os = @import("../testing/mock_os.zig");
-const test_helpers = @import("../testing/helpers.zig");
+const test_mod = @import("itshell3_testing");
+const mock_os = test_mod.mock_os;
+const test_helpers = test_mod.helpers;
 const protocol_transport = protocol.transport;
 
 const testImeEngine = test_helpers.testImeEngine;

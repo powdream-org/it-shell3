@@ -25,3 +25,8 @@ pub const ring_buffer_spec_compliance_test = @import("ring_buffer_spec_complianc
 pub const EventLoop = event_loop.EventLoop;
 pub const ClientEntry = event_loop.ClientEntry;
 pub const ClientTracker = ime_lifecycle.ClientTracker;
+
+const std = @import("std");
+test {
+    std.testing.refAllDecls(@This());
+}

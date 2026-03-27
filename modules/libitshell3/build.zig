@@ -4,7 +4,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // --- ghostty dependency (vendored) ---
+    // --- External dependencies ---
     const ghostty_simd = b.option(bool, "ghostty-simd", "Enable ghostty SIMD (disable for kcov)") orelse true;
     const ghostty_dep = b.dependency("ghostty", .{
         .target = target,
@@ -14,23 +14,75 @@ pub fn build(b: *std.Build) void {
     });
     const ghostty_vt = ghostty_dep.module("ghostty-vt");
 
-    // --- Protocol dependency ---
     const protocol_dep = b.dependency("itshell3-protocol", .{
         .target = target,
         .optimize = optimize,
     });
     const protocol_mod = protocol_dep.module("itshell3-protocol");
 
-    // --- Named imports ---
-    // Only external dependencies use named imports. Internal sub-modules use
-    // relative path imports so all files belong to the single root module,
-    // enabling refAllDecls test discovery.
-    const named_imports: []const std.Build.Module.Import = &.{
+    // --- Internal named modules ---
+    const core_mod = b.createModule(.{
+        .root_source_file = b.path("src/core/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const os_mod = b.createModule(.{
+        .root_source_file = b.path("src/os/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const server_mod = b.createModule(.{
+        .root_source_file = b.path("src/server/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const input_mod = b.createModule(.{
+        .root_source_file = b.path("src/input/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const testing_mod = b.createModule(.{
+        .root_source_file = b.path("src/testing/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const ghostty_helpers_mod = b.createModule(.{
+        .root_source_file = b.path("src/ghostty/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+
+    // --- Wire cross-module dependencies ---
+    const all_internal = [_]struct { name: []const u8, mod: *std.Build.Module }{
+        .{ .name = "itshell3_core", .mod = core_mod },
+        .{ .name = "itshell3_os", .mod = os_mod },
+        .{ .name = "itshell3_server", .mod = server_mod },
+        .{ .name = "itshell3_input", .mod = input_mod },
+        .{ .name = "itshell3_testing", .mod = testing_mod },
+        .{ .name = "itshell3_ghostty", .mod = ghostty_helpers_mod },
+    };
+    for (all_internal) |entry| {
+        for (all_internal) |dep| {
+            entry.mod.addImport(dep.name, dep.mod);
+        }
+        entry.mod.addImport("itshell3_protocol", protocol_mod);
+        entry.mod.addImport("ghostty", ghostty_vt);
+    }
+
+    // --- Root module (library) ---
+    const root_imports: []const std.Build.Module.Import = &.{
         .{ .name = "ghostty", .module = ghostty_vt },
         .{ .name = "itshell3_protocol", .module = protocol_mod },
+        .{ .name = "itshell3_core", .module = core_mod },
+        .{ .name = "itshell3_os", .module = os_mod },
+        .{ .name = "itshell3_server", .module = server_mod },
+        .{ .name = "itshell3_input", .module = input_mod },
+        .{ .name = "itshell3_testing", .module = testing_mod },
+        .{ .name = "itshell3_ghostty", .module = ghostty_helpers_mod },
     };
-
-    // --- libitshell3 static library ---
     const lib = b.addLibrary(.{
         .name = "itshell3",
         .root_module = b.createModule(.{
@@ -38,23 +90,16 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
-            .imports = named_imports,
+            .imports = root_imports,
         }),
     });
     b.installArtifact(lib);
 
-    // --- Tests ---
-    const tests = b.addTest(.{
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/root.zig"),
-            .target = target,
-            .optimize = optimize,
-            .link_libc = true,
-            .imports = named_imports,
-        }),
-    });
-
-    const run_tests = b.addRunArtifact(tests);
+    // --- Per-module test steps ---
     const test_step = b.step("test", "Run all unit tests");
-    test_step.dependOn(&run_tests.step);
+
+    for (all_internal) |entry| {
+        const t = b.addTest(.{ .root_module = entry.mod });
+        test_step.dependOn(&b.addRunArtifact(t).step);
+    }
 }

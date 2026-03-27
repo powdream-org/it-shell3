@@ -1,5 +1,5 @@
 const std = @import("std");
-const types = @import("../core/types.zig");
+const types = @import("itshell3_core").types;
 const ring_buffer_mod = @import("ring_buffer.zig");
 const frame_serializer_mod = @import("frame_serializer.zig");
 const RingBuffer = ring_buffer_mod.RingBuffer;

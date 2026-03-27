@@ -1,10 +1,12 @@
 const std = @import("std");
-const interfaces = @import("../../os/interfaces.zig");
-const pane_mod = @import("../../core/pane.zig");
-const session_mod = @import("../../core/session.zig");
-const types = @import("../../core/types.zig");
+const os = @import("itshell3_os");
+const interfaces = os.interfaces;
+const core = @import("itshell3_core");
+const pane_mod = core.pane;
+const session_mod = core.session;
+const types = core.types;
 const event_loop_mod = @import("../event_loop.zig");
-const terminal_mod = @import("../../ghostty/terminal.zig");
+const terminal_mod = @import("itshell3_ghostty").terminal;
 
 /// Handle PTY read event: drain all available PTY output, feed to ghostty
 /// terminal, mark pane dirty after reading, and mark EOF when done.
@@ -53,8 +55,9 @@ pub fn handlePtyRead(
 // --- Tests ---
 
 const testing = std.testing;
-const mock_os = @import("../../testing/mock_os.zig");
-const test_helpers = @import("../../testing/helpers.zig");
+const test_mod = @import("itshell3_testing");
+const mock_os = test_mod.mock_os;
+const test_helpers = test_mod.helpers;
 
 const testImeEngine = test_helpers.testImeEngine;
 
