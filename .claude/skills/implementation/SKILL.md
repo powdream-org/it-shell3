@@ -117,6 +117,29 @@ Three documents govern each implementation cycle with strict precedence:
 Every agent — implementer, QA reviewer, principal architect — must verify their
 work against the spec, not the plan.
 
+## Cross-Cutting Rules
+
+These apply to ALL steps, not just one:
+
+- **Use skills for artifacts.** CTRs use `/cross-team-request`. ADRs use `/adr`.
+  Plans use `/writing-impl-plan`. Do not manually create these files — skills
+  handle placement, naming, and format automatically.
+- **Team leader is a facilitator, not a doer.** Never write code, plans, or CTRs
+  directly. Delegate to subagents or skills. Describe WHAT needs to change, not
+  HOW to change each line.
+- **Spec is the authority.** When code disagrees with spec and there is no ADR
+  or design resolution, the spec wins. Specific rules:
+  - Do not dismiss divergences as "out of scope." Every divergence must be
+    investigated — "out of scope for this plan" is a conclusion AFTER
+    investigation, not a reason to skip it.
+  - Do not treat "the plan covers it" as investigation. The plan fixing a
+    divergence does not explain WHY the code diverges.
+  - Do not infer "intentional deferral" from circumstantial evidence (git
+    timestamps, plan scope, ROADMAP). Only explicit decision documents (ADR,
+    design resolution, owner instruction) justify divergence from spec.
+- **Model selection.** Writing tasks (plans, CTRs, ADRs, spec tests) use opus.
+  Verification tasks (spec checking, compliance review) may use sonnet.
+
 ## Continuous Improvement Log
 
 When you encounter a procedural problem at any step, run `/sip <description>`
