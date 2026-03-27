@@ -72,9 +72,12 @@ jobs:
       - name: Install tools
         run: mise trust && mise install
 
+      - name: Load mise environment
+        run: mise env -s bash | grep -v '^export PATH=' | sed 's/^export //' >> "$GITHUB_ENV"
+
       - name: Test
         run: |
-          for dir in modules/libitshell3-protocol modules/libitshell3-ime modules/libitshell3; do
+          for dir in $TEST_MODULES; do
             echo "=== $(basename $dir) ==="
             (cd $dir && zig build test --summary all)
           done
