@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  ci:
+  test:
     strategy:
       fail-fast: false
       matrix:
@@ -15,21 +15,17 @@ jobs:
           - name: macOS-x86_64
             runner: mac-mini
             install_mise: false
-            coverage: false
           - name: macOS-aarch64
             runner: macos-latest
             install_mise: true
-            coverage: false
           - name: Linux-aarch64
             runner: korea-pi5
             install_mise: false
-            coverage: false
           - name: Linux-x86_64
             runner: ubuntu-latest
             install_mise: true
-            coverage: true
 
-    name: ${{ matrix.name }}
+    name: test (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
 
     steps:
@@ -38,7 +34,6 @@ jobs:
       - name: Init submodules
         run: git submodule update --init --recursive vendors/ghostty vendors/libhangul
 
-      # --- mise setup (GitHub-hosted only) ---
       - name: Configure mise paths
         if: matrix.install_mise
         id: mise
@@ -68,7 +63,6 @@ jobs:
           echo "$(dirname "$MISE_INSTALL_PATH")" >> "$GITHUB_PATH"
           echo "$MISE_DATA_DIR/shims" >> "$GITHUB_PATH"
 
-      # --- 공통 ---
       - name: Install tools
         run: mise trust && mise install
 
@@ -82,19 +76,35 @@ jobs:
             (cd $dir && zig build test --summary all)
           done
 
-      # --- coverage (Linux-x86_64 only) ---
-      - name: Install kcov
-        if: matrix.coverage
-        run: sudo apt-get update && sudo apt-get install -y kcov
+  coverage:
+    runs-on: ubuntu-latest
+    container: kcov/kcov
+    needs: test
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Init submodules
+        run: git submodule update --init --recursive vendors/ghostty vendors/libhangul
+
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
+
+      - name: Install tools
+        run: mise trust && mise install
+
+      - name: Load mise environment
+        run: mise env -s bash | grep -v '^export PATH=' | sed "s/^export //; s/='\(.*\)'$/=\1/" >> "$GITHUB_ENV"
 
       - name: Measure coverage
-        if: matrix.coverage
         run: bash scripts/coverage.sh
         env:
           WORKSPACE_DIR: ${{ github.workspace }}
 
       - name: Find coverage report
-        if: matrix.coverage
         id: coverage
         run: |
           COBERTURA=$(find coverage -name "cobertura.xml" | head -1)
@@ -102,7 +112,7 @@ jobs:
           echo "Found: $COBERTURA"
 
       - name: Upload to Coveralls
-        if: matrix.coverage && steps.coverage.outputs.file != ''
+        if: steps.coverage.outputs.file != ''
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
         with:
           file: ${{ steps.coverage.outputs.file }}
