@@ -33,9 +33,10 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Init submodules
+        run: git submodule update --init --recursive vendors/ghostty vendors/libhangul
 
       # --- mise setup (GitHub-hosted only) ---
       - name: Configure mise paths
@@ -51,7 +52,7 @@ jobs:
 
       - name: Cache mise
         if: matrix.install_mise
-        uses: actions/cache@v4
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ${{ steps.mise.outputs.base }}
           key: mise-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml') }}
@@ -81,7 +82,7 @@ jobs:
       # --- coverage (Linux-x86_64 only) ---
       - name: Cache kcov
         if: matrix.coverage
-        uses: actions/cache@v4
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ${{ env.RUNNER_TOOL_CACHE }}/kcov
           key: kcov-${{ runner.os }}-${{ runner.arch }}-v42
@@ -105,7 +106,7 @@ jobs:
 
       - name: Upload to Coveralls
         if: matrix.coverage
-        uses: coverallsapp/github-action@v2
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
         with:
           file: coverage/merged/kcov-merged/cobertura.xml
           format: cobertura
