@@ -33,18 +33,18 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 
 ## Plan Index
 
-| #   | Name                              | Plan File                                           | Target Module        | Status      |
-| --- | --------------------------------- | --------------------------------------------------- | -------------------- | ----------- |
-| 1   | Foundation                        | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**    |
-| 2   | ghostty Integration               | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**    |
-| 3   | Wire Protocol                     | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
-| 4   | Ring Buffer + Frame Delivery      | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**    |
-| 5   | IME Integration                   | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | In progress |
-| 5.5 | Spec Alignment Audit              | (not yet written)                                   | libitshell3          | Not started |
-| 6   | Runtime Policies                  | (not yet written)                                   | libitshell3          | Not started |
-| 7   | Cascades                          | (not yet written)                                   | libitshell3          | Not started |
-| 8   | SSH Transport                     | (not yet written)                                   | libitshell3-protocol | Not started |
-| 9   | Debug Subsystem + `it-shell3-ctl` | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started |
+| #   | Name                              | Plan File                                           | Target Module        | Status                                               |
+| --- | --------------------------------- | --------------------------------------------------- | -------------------- | ---------------------------------------------------- |
+| 1   | Foundation                        | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**                                             |
+| 2   | ghostty Integration               | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**                                             |
+| 3   | Wire Protocol                     | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**                                             |
+| 4   | Ring Buffer + Frame Delivery      | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**                                             |
+| 5   | IME Integration                   | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done** (Step 11 partial — SIP processing deferred) |
+| 5.5 | Spec Alignment Audit              | (not yet written)                                   | libitshell3          | Not started                                          |
+| 6   | Runtime Policies                  | (not yet written)                                   | libitshell3          | Not started                                          |
+| 7   | Cascades                          | (not yet written)                                   | libitshell3          | Not started                                          |
+| 8   | SSH Transport                     | (not yet written)                                   | libitshell3-protocol | Not started                                          |
+| 9   | Debug Subsystem + `it-shell3-ctl` | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started                                          |
 
 ---
 
