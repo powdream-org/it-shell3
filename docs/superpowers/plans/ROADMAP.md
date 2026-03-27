@@ -221,8 +221,10 @@ The first step of this plan is a **full audit** covering two dimensions:
 1. **Spec-vs-code**: Systematically walk every type, field, function, and module
    boundary in every spec document and verify the corresponding code matches.
 2. **Convention compliance**: Check all existing Zig code against
-   `docs/conventions/zig-naming.md`, `docs/conventions/zig-documentation.md`,
-   and `docs/conventions/zig-testing.md`. This includes field naming (`_length`
+   `docs/conventions/zig-coding.md`, `docs/conventions/zig-naming.md`,
+   `docs/conventions/zig-documentation.md`, and
+   `docs/conventions/zig-testing.md`. This includes integer width rules (public
+   symbols, locals, loop counters, derived constants), field naming (`_length`
    not `_len`), doc comment format (no spec section numbers), test organization
    (inline vs spec, mock placement), and buffer constant patterns (`MAX_*` per
    ADR 00058).
