@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS-x86_64
+            runner: mac-mini
+            install_mise: false
+            coverage: false
+          - name: macOS-aarch64
+            runner: macos-latest
+            install_mise: true
+            coverage: false
+          - name: Linux-aarch64
+            runner: korea-pi5
+            install_mise: false
+            coverage: false
+          - name: Linux-x86_64
+            runner: ubuntu-latest
+            install_mise: true
+            coverage: true
+
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # --- mise setup (GitHub-hosted only) ---
+      - name: Configure mise paths
+        if: matrix.install_mise
+        id: mise
+        run: |
+          MISE_BASE="${RUNNER_TOOL_CACHE}/mise"
+          echo "base=$MISE_BASE" >> "$GITHUB_OUTPUT"
+          echo "MISE_INSTALL_PATH=$MISE_BASE/bin/mise" >> "$GITHUB_ENV"
+          echo "MISE_DATA_DIR=$MISE_BASE/data" >> "$GITHUB_ENV"
+          echo "MISE_CACHE_DIR=$MISE_BASE/cache" >> "$GITHUB_ENV"
+          echo "MISE_CONFIG_DIR=$MISE_BASE/config" >> "$GITHUB_ENV"
+
+      - name: Cache mise
+        if: matrix.install_mise
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.mise.outputs.base }}
+          key: mise-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml') }}
+          restore-keys: |
+            mise-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install mise
+        if: matrix.install_mise
+        run: |
+          if [ ! -f "$MISE_INSTALL_PATH" ]; then
+            curl https://mise.run | sh
+          fi
+          echo "$(dirname "$MISE_INSTALL_PATH")" >> "$GITHUB_PATH"
+          echo "$MISE_DATA_DIR/shims" >> "$GITHUB_PATH"
+
+      # --- 공통 ---
+      - name: Install tools
+        run: mise trust && mise install
+
+      - name: Test
+        run: |
+          for dir in modules/libitshell3-protocol modules/libitshell3-ime modules/libitshell3; do
+            echo "=== $(basename $dir) ==="
+            (cd $dir && zig build test --summary all)
+          done
+
+      # --- coverage (Linux-x86_64 only) ---
+      - name: Cache kcov
+        if: matrix.coverage
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.RUNNER_TOOL_CACHE }}/kcov
+          key: kcov-${{ runner.os }}-${{ runner.arch }}-v42
+
+      - name: Install kcov
+        if: matrix.coverage
+        run: |
+          KCOV_DIR="${RUNNER_TOOL_CACHE}/kcov"
+          if [ ! -f "$KCOV_DIR/usr/local/bin/kcov" ]; then
+            mkdir -p "$KCOV_DIR"
+            curl -fsSL -L https://github.com/SimonKagstrom/kcov/releases/download/v42/kcov-amd64.tar.gz \
+              | tar xz -C "$KCOV_DIR"
+          fi
+          echo "$KCOV_DIR/usr/local/bin" >> "$GITHUB_PATH"
+
+      - name: Measure coverage
+        if: matrix.coverage
+        run: bash scripts/coverage.sh
+        env:
+          WORKSPACE_DIR: ${{ github.workspace }}
+
+      - name: Upload to Coveralls
+        if: matrix.coverage
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage/merged/kcov-merged/cobertura.xml
+          format: cobertura

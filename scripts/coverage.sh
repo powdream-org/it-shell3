@@ -4,6 +4,8 @@
 # Outputs: coverage/<module>/index.html per module, coverage/merged/index.html
 set -e
 
+WORKSPACE_DIR="${WORKSPACE_DIR:-/workspace}"
+
 COVERAGE_DIR=coverage
 rm -rf $COVERAGE_DIR && mkdir -p $COVERAGE_DIR
 
@@ -35,7 +37,7 @@ for MODULE_DIR in $TEST_MODULES; do
   BIN_IDX=0
   for TEST_BIN in $TEST_BINS; do
     echo "=== $MODULE: running kcov on binary $BIN_IDX ==="
-    kcov --include-path=/workspace/$MODULE_DIR/src/ \
+    kcov --include-path=$WORKSPACE_DIR/$MODULE_DIR/src/ \
       $COVERAGE_DIR/${MODULE}_part_${BIN_IDX} "$TEST_BIN" 2>/dev/null || true
     BIN_IDX=$((BIN_IDX + 1))
   done
@@ -81,7 +83,7 @@ for dir in $TEST_MODULES; do
 done
 COVERAGE_NAMES="$COVERAGE_NAMES merged"
 export COVERAGE_NAMES
-deno run --allow-read --allow-env /workspace/scripts/coverage-summary.ts
+deno run --allow-read --allow-env $WORKSPACE_DIR/scripts/coverage-summary.ts
 
 echo
 echo "HTML report: coverage/merged/index.html"

@@ -1,5 +1,8 @@
 # it-shell3
 
+[![CI](https://github.com/powdream-org/it-shell3/actions/workflows/ci.yml/badge.svg)](https://github.com/powdream-org/it-shell3/actions/workflows/ci.yml)
+[![Coverage](https://coveralls.io/repos/github/powdream-org/it-shell3/badge.svg?branch=main)](https://coveralls.io/github/powdream-org/it-shell3?branch=main)
+
 A terminal ecosystem providing multiplexer session management with first-class
 CJK input support, built on libghostty.
 
