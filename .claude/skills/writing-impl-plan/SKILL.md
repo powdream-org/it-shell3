@@ -18,6 +18,33 @@ to build and WHERE to look — not HOW to write it.
   the issue list, then fix the plan. Do not rewrite from scratch — address each
   issue.
 
+## Delegation
+
+Plan writing is research-heavy (reading specs, analyzing code, cross-referencing
+types and field names). The team leader does not write plans — they delegate to
+a subagent and review the result.
+
+**Create mode:**
+
+1. Team leader spawns a general-purpose subagent with:
+   - This skill's instructions (the subagent reads this SKILL.md)
+   - Spec paths, source directory, ROADMAP entry, and any owner constraints
+2. The subagent reads the specs and source, writes the plan per the format below
+3. Team leader reviews the result — checks scope, task granularity, spec
+   coverage, and red flags
+
+**Revise mode:**
+
+1. Team leader spawns a general-purpose subagent with:
+   - This skill's instructions
+   - The existing plan path and the numbered issue list from verifiers
+2. The subagent reads the plan and issues, applies targeted fixes (not a full
+   rewrite)
+3. Team leader reviews the changes
+
+The team leader provides paths and constraints. The subagent does the research
+and writing.
+
 ## Document Authority
 
 The plan is the **second-lowest authority** in the implementation cycle:

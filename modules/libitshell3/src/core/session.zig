@@ -70,6 +70,9 @@ pub const Session = struct {
             .active_keyboard_layout_length = kl.len,
             .tree_nodes = split_tree.initSingleLeaf(initial_pane_slot),
             .focused_pane = initial_pane_slot,
+            // TODO(Plan 7): Caller must pass real timestamp (e.g., std.time.milliTimestamp()).
+            // Session.init() is in core/ which has no OS dependency, so the server layer
+            // must provide the value when creating sessions from CreateSessionRequest.
             .creation_timestamp = 0,
             .ime_engine = ime_eng,
             .current_preedit = null,

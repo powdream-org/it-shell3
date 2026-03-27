@@ -202,8 +202,8 @@ TODO comments MUST include a plan reference indicating when the work will be
 done:
 
 ```zig
-// TODO(Plan 6): Add silence detection timer.
-// TODO(Plan 7): Implement daemon shortcut keybinding system.
+// TODO(Plan 7): Add silence detection timer.
+// TODO(Plan 8): Implement daemon shortcut keybinding system.
 ```
 
 Bare `// TODO:` without a plan reference is not allowed — it creates unbounded

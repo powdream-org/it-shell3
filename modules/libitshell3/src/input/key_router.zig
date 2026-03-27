@@ -39,7 +39,7 @@ pub const ToggleBinding = struct {
 /// 2. HID keycode > HID_KEYCODE_MAX -> bypass IME entirely.
 /// 3. Otherwise -> Phase 1: engine.processKey.
 ///
-/// TODO(Plan 7): Spec integration-boundaries Phase 0 step 2 defines "Check global daemon shortcuts
+/// TODO(Plan 8): Spec integration-boundaries Phase 0 step 2 defines "Check global daemon shortcuts
 /// -> STOP." Not yet implemented — daemon keybinding system is not designed.
 /// Add a shortcut binding parameter when keybinding design is done.
 pub fn routeKeyEvent(

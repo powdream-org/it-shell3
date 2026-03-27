@@ -24,7 +24,7 @@ pub fn ownershipTransfer(
 
     session.setPreedit(null);
 
-    // TODO(Plan 6): Send PreeditEnd with appropriate reason and preedit_session_id
+    // TODO(Plan 8): Send PreeditEnd with appropriate reason and preedit_session_id
 
     session.preedit.incrementSessionId();
     session.preedit.owner = new_owner;
@@ -60,7 +60,7 @@ pub fn onFocusChange(
 ) void {
     ownershipTransfer(session, old_pane_pty_fd, pty_ops, null);
     session.focused_pane = new_pane_slot;
-    // TODO(Plan 6): Send LayoutChanged with new focused pane to all clients
+    // TODO(Plan 8): Send LayoutChanged with new focused pane to all clients
 }
 
 /// Pane close for non-last pane (see ime-procedures spec).
@@ -69,7 +69,7 @@ pub fn onPaneClose(session: *session_mod.Session) void {
     session.ime_engine.reset();
     session.setPreedit(null);
     session.preedit.owner = null;
-    // TODO(Plan 6): Send PreeditEnd
+    // TODO(Plan 8): Send PreeditEnd
     session.preedit.incrementSessionId();
 }
 
@@ -114,7 +114,7 @@ pub fn onInputMethodSwitch(
         };
         // consumeImeResult handles preedit clearing when preedit_changed=true.
         _ = ime_consumer.consumeImeResult(result, session, pty_fd, pty_ops, null);
-        // TODO(Plan 6): Send PreeditEnd, InputMethodAck
+        // TODO(Plan 8): Send PreeditEnd, InputMethodAck
     } else {
         session.ime_engine.reset();
         session.setPreedit(null);
@@ -122,9 +122,9 @@ pub fn onInputMethodSwitch(
         _ = session.ime_engine.setActiveInputMethod(new_method) catch {
             return;
         };
-        // TODO(Plan 6): Send PreeditEnd
+        // TODO(Plan 8): Send PreeditEnd
         session.preedit.incrementSessionId();
-        // TODO(Plan 6): Send InputMethodAck
+        // TODO(Plan 8): Send InputMethodAck
     }
 }
 
@@ -141,7 +141,7 @@ pub fn errorRecovery(
     session.ime_engine.reset();
     session.setPreedit(null);
     session.preedit.owner = null;
-    // TODO(Plan 6): Send PreeditEnd
+    // TODO(Plan 8): Send PreeditEnd
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

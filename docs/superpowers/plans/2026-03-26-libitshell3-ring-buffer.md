@@ -262,10 +262,10 @@ These should be added to `TODO.md` Spec Gap Log during implementation:
 
 **Deferred to later plans (unchanged):**
 
-- Coalescing timer logic (Plan 6)
+- Coalescing timer logic (Plan 9)
 - IME preedit overlay (Plan 5)
-- Session attachment tracking (Plan 5/6)
-- EVFILT_WRITE management (Plan 6)
-- Ring I-frame invariant enforcement — write-time check (Plan 6, requires
+- Session attachment tracking (Plan 7)
+- EVFILT_WRITE management (Plan 9)
+- Ring I-frame invariant enforcement — write-time check (Plan 9, requires
   knowing when the next frame would overwrite the only I-frame)
-- Smooth degradation thresholds (Plan 6, §4.4)
+- Smooth degradation thresholds (Plan 9)

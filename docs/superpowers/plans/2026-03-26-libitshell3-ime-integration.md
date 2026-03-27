@@ -51,15 +51,16 @@ without libhangul.
 **Out of scope:**
 
 - Korean composition algorithms (already in libitshell3-ime v0.7.0)
-- Adaptive coalescing / frame coalescing (Plan 6 — Runtime Policies)
-- Pane exit cascade / session destroy cascade (Plan 7 — Cascades). Only the IME
-  steps within those cascades (reset/deactivate) are in scope here.
-- PreeditStart/PreeditEnd/PreeditUpdate wire message sending (requires protocol
-  message dispatch from Plan 3 + direct queue from Plan 4). This plan implements
-  the engine-side logic; protocol message emission is stubbed with comments
-  noting where wire messages will be sent.
+- Adaptive coalescing / frame coalescing (Plan 9 — Frame Delivery & Runtime
+  Policies)
+- Pane exit cascade / session destroy cascade (Plan 10 — Cascades & Shutdown).
+  Only the IME steps within those cascades (reset/deactivate) are in scope here.
+- PreeditStart/PreeditEnd/PreeditUpdate wire message sending (Plan 8 — Input
+  Pipeline & Preedit Wire Messages). This plan implements the engine-side logic;
+  protocol message emission is stubbed with comments noting where wire messages
+  will be sent.
 - Client-side preedit rendering (client app, not daemon)
-- EVFILT_WRITE management for preedit messages (Plan 6)
+- EVFILT_WRITE management for preedit messages (Plan 9)
 
 ## File Structure
 

@@ -33,20 +33,28 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 
 ## Plan Index
 
-| #   | Name                              | Plan File                                           | Target Module        | Status                                               |
-| --- | --------------------------------- | --------------------------------------------------- | -------------------- | ---------------------------------------------------- |
-| 1   | Foundation                        | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**                                             |
-| 2   | ghostty Integration               | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**                                             |
-| 3   | Wire Protocol                     | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**                                             |
-| 4   | Ring Buffer + Frame Delivery      | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**                                             |
-| 5   | IME Integration                   | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done** (Step 11 partial — SIP processing deferred) |
-| 5.5 | Spec Alignment Audit              | (not yet written)                                   | libitshell3          | Not started                                          |
-| 6   | Runtime Policies                  | (not yet written)                                   | libitshell3          | Not started                                          |
-| 7   | Cascades                          | (not yet written)                                   | libitshell3          | Not started                                          |
-| 8   | SSH Transport                     | (not yet written)                                   | libitshell3-protocol | Not started                                          |
-| 9   | Debug Subsystem + `it-shell3-ctl` | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started                                          |
-| 10  | Design Doc CTR Resolution         | (not yet written)                                   | multi-module         | Not started                                          |
-| 11  | Post-Design Code Alignment        | (not yet written)                                   | multi-module         | Not started                                          |
+| #    | Name                                          | Plan File                                           | Target Module        | Status      |
+| ---- | --------------------------------------------- | --------------------------------------------------- | -------------------- | ----------- |
+| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**    |
+| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**    |
+| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
+| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**    |
+| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done**    |
+| 5.5  | Spec Alignment Audit                          | (not yet written)                                   | libitshell3          | Not started |
+| 6    | Message Infrastructure & Connection Lifecycle | (not yet written)                                   | libitshell3          | Not started |
+| 7    | Session & Pane Operations                     | (not yet written)                                   | libitshell3          | Not started |
+| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                   | libitshell3          | Not started |
+| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                   | libitshell3          | Not started |
+| 10   | Cascades & Shutdown                           | (not yet written)                                   | libitshell3          | Not started |
+| 11   | SSH Transport                                 | (not yet written)                                   | libitshell3-protocol | Not started |
+| 12.1 | Daemon CLI — Design                           | (not yet written)                                   | daemon               | Not started |
+| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                   | daemon               | Not started |
+| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started |
+| 14.1 | macOS Client PoC — Design                     | (not yet written)                                   | app/macos            | Not started |
+| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                   | app/macos            | Not started |
+| 15   | Design Doc CTR Resolution                     | (not yet written)                                   | multi-module         | Not started |
+| 16   | Post-Design Code Alignment                    | (not yet written)                                   | multi-module         | Not started |
+| 17+  | Deferred Features                             | —                                                   | various              | Not started |
 
 ---
 
@@ -60,16 +68,21 @@ graph TD
     P3 --> P4
     P4 --> P5["Plan 5: IME Integration ✅"]
     P5 --> P5_5["Plan 5.5: Spec Alignment Audit"]
-    P5_5 --> P6["Plan 6: Runtime Policies"]
-    P4 --> P6
-    P5 --> P7["Plan 7: Cascades"]
-    P6 --> P7
-    P7 --> P9["Plan 9: Debug Subsystem"]
-    P3 --> P8["Plan 8: SSH Transport"]
-    P5_5 --> P8
-    P8 --> P10["Plan 10: Design Doc CTR Resolution"]
-    P9 --> P10
-    P10 --> P11["Plan 11: Post-Design Code Alignment"]
+    P5_5 --> P6["Plan 6: Message Infrastructure"]
+    P6 --> P7["Plan 7: Session & Pane Ops"]
+    P7 --> P8["Plan 8: Input Pipeline"]
+    P8 --> P9["Plan 9: Frame Delivery & Policies"]
+    P5_5 --> P9
+    P9 --> P10["Plan 10: Cascades & Shutdown"]
+    P5_5 --> P11["Plan 11: SSH Transport"]
+    P3 --> P11
+    P10 --> P12_1["Plan 12.1: Daemon CLI Design"]
+    P12_1 --> P12_2["Plan 12.2: Daemon CLI Impl"]
+    P12_2 --> P13["Plan 13: Debug Subsystem"]
+    P13 --> P14_1["Plan 14.1: macOS Client Design"]
+    P14_1 --> P14_2["Plan 14.2: macOS Client Impl"]
+    P14_2 --> P15["Plan 15: CTR Resolution"]
+    P15 --> P16["Plan 16: Post-Design Code Alignment"]
 ```
 
 ---
@@ -152,7 +165,7 @@ timer resets on any I-frame)
 own via wire-level frame_sequence), FlatCell/CellData field order divergence
 (spec says identical, code differs — flagged for spec revision)
 
-### Plan 5: IME Integration (Not Started)
+### Plan 5: IME Integration (Done)
 
 **Scope:** Wire libitshell3-ime (v0.7.0, already implemented) into the daemon
 event loop. Per-session IME engine lifecycle (create/destroy), preedit routing
@@ -171,7 +184,7 @@ before ring insertion)
 
 ### Plan 5.5: Spec Alignment Audit (Not Started)
 
-**Scope:** Systematic audit and fix of Plan 1-2 technical debt. Plans 1-2 were
+**Scope:** Systematic audit and fix of Plan 1-5 technical debt. Plans 1-2 were
 implemented before the verification chain (Steps 5-8) existed, resulting in
 accumulated spec violations discovered during Plan 5. This plan closes the gap
 between the design spec and the existing implementation.
@@ -223,59 +236,98 @@ conventions that this plan applies retroactively)
 existing code with existing spec. All changes must pass the same verification
 chain (Steps 5-8) as feature plans.
 
-### Plan 6: Runtime Policies (Not Started)
+### Plan 6: Message Infrastructure & Connection Lifecycle (Not Started)
 
-**Scope:** Adaptive coalescing (4-tier model with hysteresis), health escalation
-timeline (T=0 → T=300s eviction), flow control (PausePane/ContinuePane), resize
-debounce (250ms per pane, 5s hysteresis), frame export pipeline
-(`frame_builder.zig` for FlatCell→CellData conversion + dirty bitmap → DirtyRow
-assembly), I-frame scheduling timer, EVFILT_WRITE management.
+**Scope:** Message dispatch router, connection state machine implementation
+(HANDSHAKING→READY→OPERATING→DISCONNECTING), handshake flow (ClientHello /
+ServerHello, capability negotiation), handshake timeouts (4 stages), UID
+verification, socket tuning (SO_SNDBUF/SO_RCVBUF, RLIMIT_NOFILE), heartbeat (30s
+interval / 90s timeout), Disconnect/Error messages, event priority ordering
+(SIGNAL > TIMER > READ > WRITE), per-client sequence numbers, multi-client
+broadcast infrastructure.
 
 **Design spec refs:**
 
-- `daemon-behavior/.../03-policies-and-procedures.md` §1-7
-- `daemon-behavior/.../impl-constraints/policies.md` (all sections)
+- `server-client-protocols/.../02-handshake.md`
+- `server-client-protocols/.../01-protocol-overview.md` (connection lifecycle)
+- `daemon-behavior/.../02-event-handling.md` (event priority)
 
-**ADRs to apply:**
+**Depends on:** Plan 5.5 (ClientState type must be finalized before building
+connection lifecycle on top of it)
 
-- ADR-00055: Ring cursor lag formula — pre-computed byte thresholds for smooth
-  degradation (50%/75%/90%). Use `rb.available(&cursor)` against pre-computed
-  `threshold_50`, `threshold_75`, `threshold_90` at ring init. No per-frame
-  multiply/divide.
-- ADR-00056: FrameEntry is prose, not a code type. Introduce
-  `server/frame_builder.zig` for FlatCell→CellData conversion (field order
-  differs — no bitcast). Pipeline calls serializer unidirectionally. No
-  FrameEntry struct needed.
-- ADR-00057: I-frame timer resets on any I-frame production (timer, attach,
-  recovery, resize). Track `last_i_frame_time` per pane; timer check is
-  `now - last_i_frame_time >= keyframe_interval and has_changes`.
+### Plan 7: Session & Pane Operations (Not Started)
 
-**Depends on:** Plan 4 (ring buffer + frame delivery for coalescing tiers and
-backpressure)
-
-**Note (from Plan 5.5 audit):** Wire message sending for IME procedures:
-PreeditEnd, PreeditStart, InputMethodAck, LayoutChanged. Code has `TODO(Plan 6)`
-in `ime_procedures.zig` but was not previously listed in Plan 6 scope.
+**Scope:** Session CRUD (Create / List / Attach / Detach / Destroy / Rename /
+AttachOrCreate), Pane CRUD (Split / Close / Focus / Navigate / Resize / Equalize
+/ Zoom / Swap / LayoutGet), session attachment tracking, pane metadata
+extraction (title via OSC 0/2, CWD via OSC 7), basic always-sent notifications
+(LayoutChanged, SessionListChanged, PaneMetadataChanged, ClientAttached /
+ClientDetached).
 
 **Note (from Plan 5.5 audit):** `Session.creation_timestamp` is hardcoded to 0.
 `core/` cannot call OS time functions; the server layer must pass a real
-timestamp when creating sessions (from CreateSessionRequest or default session
-creation). TODO comment in `session.zig`.
+timestamp when creating sessions. TODO comment in `session.zig`.
 
-**Note (from Plan 5):** Add Pane fields `foreground_process`, `foreground_pid`,
-`silence_subscriptions`, `silence_deadline` per spec `state-and-types.md`.
-Requires `SilenceSubscription` type definition. TODO comments in `pane.zig`.
+**Note (from Plan 5.5 audit):** Add Pane fields `foreground_process`,
+`foreground_pid`, `silence_subscriptions`, `silence_deadline` per spec
+`state-and-types.md`. TODO comments in `pane.zig`.
 
-### Plan 7: Cascades (Not Started)
+**Depends on:** Plan 6 (message dispatch + connection lifecycle required to
+route session/pane requests and send notifications)
 
-**Scope:** Atomic multi-step cascades that must complete within a single event
-loop iteration:
+### Plan 8: Input Pipeline & Preedit Wire Messages (Not Started)
+
+**Scope:** KeyEvent handler (wire → IME → PTY), TextInput handler (bypass IME),
+PasteData handler, FocusEvent handler, preedit broadcasting (PreeditStart /
+PreeditUpdate / PreeditEnd / PreeditSync, InputMethodAck), AmbiguousWidthConfig,
+preedit inactivity timeout (30s), input processing priority (5-tier).
+
+**Note (from Plan 5.5 audit):** Wire message sending for IME procedures
+(PreeditEnd, PreeditStart, InputMethodAck, LayoutChanged) — code has TODO(Plan
+8) in `ime_procedures.zig`.
+
+**Note (from Plan 5):** Implement daemon shortcut keybinding system. The key
+routing hook point exists in `key_router.zig` — add a shortcut binding parameter
+when keybinding design is done. TODO comment in `key_router.zig`.
+
+**Depends on:** Plan 7 (input must target a focused pane in an attached session)
+
+### Plan 9: Frame Delivery & Runtime Policies (Not Started)
+
+**Scope:** Frame export pipeline (FlatCell → CellData → ring), adaptive
+coalescing (4-tier model with hysteresis), per-client cursor tracking,
+EVFILT_WRITE delivery management, JSON metadata blob, health escalation timeline
+(T=0 → T=300s eviction), flow control (PausePane / ContinuePane), resize
+debounce (250ms per pane, 5s hysteresis), I-frame scheduling timer.
+
+**ADRs to apply:**
+
+- ADR 00055: Ring cursor lag formula — pre-computed byte thresholds for smooth
+  degradation (50%/75%/90%).
+- ADR 00056: FrameEntry is prose, not a code type. Introduce
+  `server/frame_builder.zig` for FlatCell → CellData conversion.
+- ADR 00057: I-frame timer resets on any I-frame production.
+
+**Design spec refs:**
+
+- `daemon-behavior/.../03-policies-and-procedures.md`
+- `daemon-behavior/.../impl-constraints/policies.md`
+
+**Depends on:** Plan 8 (coalescing tiers respond to input activity) + Plan 5.5
+(spec alignment for frame types)
+
+### Plan 10: Cascades & Shutdown (Not Started)
+
+**Scope:** Atomic multi-step cascades within a single event loop iteration:
 
 - Pane exit 12-step cascade (frame flush → metadata → IME cleanup → PTY close →
   Terminal.deinit → tree compact → new focus → layout notify)
 - Session destroy 4-phase cascade (IME deactivate → resource cleanup → protocol
   notifications → free state)
 - Client disconnect cascade
+- Graceful shutdown 6-step sequence
+- "No sessions remain" shutdown trigger
+- Notification subscription cleanup
 
 **Design spec refs:**
 
@@ -283,21 +335,14 @@ loop iteration:
 - `daemon-behavior/.../impl-constraints/pane-exit-cascade.md`
 - `daemon-behavior/.../impl-constraints/session-destroy-cascade.md`
 
-**Depends on:** Plan 5 (IME deactivate/flush in cascade) + Plan 6 (health/flow
-state cleanup in cascade)
+**Depends on:** Plan 9 (health/flow state cleanup in cascade, frame flush before
+pane exit)
 
-**Note (from Plan 5):** Implement daemon shortcut keybinding system. Spec §5.2
-Phase 0 step 2 defines "Check global daemon shortcuts → STOP" but no keybinding
-design exists. Cascade actions (pane close, session switch) need shortcut
-triggers. The key routing hook point exists in `key_router.zig` — add a shortcut
-binding parameter when keybinding design is done.
+### Plan 11: SSH Transport (Not Started)
 
-### Plan 8: SSH Transport (Not Started)
-
-**Scope:** libssh2-based SSH client transport for libitshell3-protocol. Enables
-remote connections from client apps to daemons on remote hosts. Implements the
-same `Transport` vtable as `UnixTransport` so the rest of the protocol stack is
-transport-agnostic.
+**Scope:** libssh2-based SSH client transport for libitshell3-protocol.
+Implements the same `Transport` vtable as `UnixTransport` so the protocol stack
+is transport-agnostic.
 
 Key components:
 
@@ -306,21 +351,36 @@ Key components:
 - `direct-streamlocal@openssh.com` channel forwarding to daemon's Unix socket
 - SSH channel multiplexing (one TCP connection, multiple sessions)
 - Remote daemon auto-start via SSH exec (`fork+exec` without LaunchAgent)
-- `libssh2-wrapper` module (real + mock per ADR 00052 pattern, if adopted)
 
 **Design spec refs:**
 
 - `server-client-protocols/.../01-protocol-overview.md` §2.2 (SSH Tunneling)
-- `server-client-protocols/.../01-protocol-overview.md` §5.5.2 (SSH Channel
-  Multiplexing)
 - `server-client-protocols/.../06-flow-control-and-auxiliary.md` §7.2 (Heartbeat
   over SSH)
 - ADR 00010 (SSH tunneling over custom TCP/TLS)
 
-**Depends on:** Plan 3 (Transport vtable interface). Can run in parallel with
-Plans 4-7 (no daemon-side changes needed — SSH is client-side transport only).
+**Depends on:** Plan 5.5 + Plan 3 (Transport vtable). Can run in parallel with
+Plans 6-10 (SSH is client-side transport only).
 
-### Plan 9: Debug Subsystem + `it-shell3-ctl` (Not Started)
+### Plan 12.1: Daemon CLI — Design (Not Started)
+
+**Scope:** Design docs for the daemon binary: startup orchestration (7-step per
+ADR 00048), LaunchAgent integration, version conflict handling, CLI argument
+parsing, per-instance socket directory (ADR 00054), stale socket detection,
+inherited fd check, default session creation.
+
+**Depends on:** Plan 10 (shutdown sequence must be designed with cascade
+guarantees)
+
+### Plan 12.2: Daemon CLI — Implementation (Not Started)
+
+**Scope:** Implement daemon binary from Plan 12.1 design: `main.zig`
+orchestration, LaunchAgent plist, stale socket detection, inherited fd check,
+default session creation, CLI argument parsing, version conflict handling.
+
+**Depends on:** Plan 12.1 (design must be complete before implementation)
+
+### Plan 13: Debug Subsystem + `it-shell3-ctl` (Not Started)
 
 **Scope:** Unix socket debug interface for logging, inspection, and control of
 the daemon. Tag-based JSONL logging to file, state inspection (dump-sessions,
@@ -332,10 +392,7 @@ Key components:
 - `daemon/src/debug/` — listener, command parser, inspector, controller, log
   emitter, format helpers
 - `it-shell3-ctl` — thin CLI client with `-w`/`--workspace` for multi-instance
-- Per-instance socket directory (ADR 00054): `<server_id>/daemon.sock` +
-  `debug.sock` + `daemon.pid`
-- Key spec format: `modifier+key_name` with macOS aliases (`cmd`, `opt`)
-- Press/release/repeat/hold key injection matching protocol's KeyEvent action
+- Per-instance socket directory (ADR 00054)
 
 **Design spec:**
 `docs/superpowers/specs/2026-03-26-daemon-debug-subsystem-design.md`
@@ -343,28 +400,39 @@ Key components:
 **ADRs:** ADR 00053 (daemon-embedded debug subsystem), ADR 00054 (per-instance
 socket directory)
 
-**CTRs:** server-client-protocols v1.0-r12 (socket path format),
-daemon-architecture v1.0-r8 (startup sequence + debug listener)
+**Depends on:** Plan 12.2 (daemon binary must exist to embed the debug
+subsystem)
 
-**Depends on:** Plans 1-7 (all daemon features must exist to
-debug/inspect/control them). Plan 8 (SSH) is independent — SSH transport is not
-debugged via this subsystem.
+### Plan 14.1: macOS Client PoC — Design (Not Started)
 
-### Plan 10: Design Doc CTR Resolution (Not Started)
+**Scope:** Design docs for a minimal macOS client: Swift/AppKit + libghostty
+Metal GPU rendering, Unix socket connection to daemon, frame rendering from
+FrameUpdate messages, basic key input forwarding. Proof-of-concept to validate
+the daemon-client architecture end-to-end.
+
+**Depends on:** Plan 13 (debug subsystem enables testing/debugging the client
+connection)
+
+### Plan 14.2: macOS Client PoC — Implementation (Not Started)
+
+**Scope:** Implement the minimal macOS client from Plan 14.1 design. End-to-end
+validation: connect to daemon, receive frames, render via Metal, forward
+keyboard input.
+
+**Depends on:** Plan 14.1 (design must be complete before implementation)
+
+### Plan 15: Design Doc CTR Resolution (Not Started)
 
 **Scope:** Apply all open CTRs to their target design docs via
-design-doc-revision cycles. This is a documentation-only plan — no source code
-changes.
+design-doc-revision cycles. Documentation-only plan — no source code changes.
 
 **Known CTRs to resolve:**
 
 - daemon-architecture v1.0-r8:
   - `01-daemon-per-instance-socket-directory.md` (ADR 00054)
-  - `02-daemon-fixed-size-session-fields.md` (ADR 00052, 00058 — Session/Pane
-    inline buffers, SessionManager fixed array)
+  - `02-daemon-fixed-size-session-fields.md` (ADR 00052, 00058)
 - daemon-behavior v1.0-r8:
-  - `01-impl-static-allocation-connection-limit.md` (ADR 00052 — connection
-    limit policy)
+  - `01-impl-static-allocation-connection-limit.md` (ADR 00052)
 - server-client-protocols v1.0-r12:
   - `01-daemon-per-instance-socket-directory.md` (ADR 00054)
   - `02-daemon-field-length-validation.md` (ADR 00058)
@@ -376,59 +444,34 @@ changes.
 - app (inbox):
   - `01-protocol-client-rendering-pipeline-from-v1.0.md`
 
-**Depends on:** Plan 5.5 (produces the final set of CTRs). Can run in parallel
-with Plans 6-9.
+**Depends on:** Plan 14.2 (end-to-end validation may surface additional CTRs)
 
-### Plan 11: Post-Design Code Alignment (Not Started)
+### Plan 16: Post-Design Code Alignment (Not Started)
 
-**Scope:** Code changes that were blocked on spec updates during Plan 5.5. These
-changes require the design docs to be updated first (Plan 10) before the code
-can be modified.
+**Scope:** Code changes blocked on spec updates. Requires design docs to be
+updated first (Plan 15) before code can be modified.
 
 **Known items (by CTR source):**
 
-- **ADR 00059** (CapsLock/NumLock in KeyEvent): After IME interface-contract +
-  protocol specs are revised:
-  - `core/ime_engine.zig`: add `caps_lock`, `num_lock` to `Modifiers` packed
-    struct
-  - `input/wire_decompose.zig`: preserve bits 4-5 instead of dropping
-  - `libitshell3-ime` engine: implement CapsLock-aware character resolution and
-    NumLock-aware numpad key classification
-- **ADR 00052** (static allocation): After daemon-behavior spec revises
-  connection limit policy:
-  - Review `MAX_CLIENTS` value (currently 64) against revised spec minimum
-- **ADR 00054** (per-instance socket directory): After daemon-architecture +
-  protocol specs are revised:
-  - `os/socket_path.zig`: implement per-instance directory layout
-- **ADR 00058** (inline buffers): After daemon-architecture spec revises field
-  representations:
-  - Verify code matches revised spec (most already aligned, confirm edge cases)
-- **MAX_TREE_DEPTH correction**: After protocol spec changes "16 levels" to "4":
-  - No code change needed (code already correct)
-- **preedit_session_id scope**: After protocol spec changes "per pane" to "per
-  session":
-  - No code change needed (code already correct)
+- **ADR 00059** (CapsLock/NumLock in KeyEvent): update `core/ime_engine.zig`
+  Modifiers, `input/wire_decompose.zig`, libitshell3-ime engine
+- **ADR 00052** (static allocation): review `MAX_CLIENTS` value against revised
+  spec minimum
+- **ADR 00054** (per-instance socket directory): `os/socket_path.zig`
+- **ADR 00058** (inline buffers): verify code matches revised spec
 
-**Depends on:** Plan 10 (specs must be updated before code follows)
+**Depends on:** Plan 15 (specs must be updated before code follows)
 
----
+### Plan 17+: Deferred Features
 
-## AGENTS.md Phase Mapping
+Features deferred beyond the initial implementation scope:
 
-| AGENTS.md Phase     | Plans                             | Status                               |
-| ------------------- | --------------------------------- | ------------------------------------ |
-| 1. Core daemon      | Plans 1-2                         | Done                                 |
-| 2. Wire protocol    | Plan 3                            | Done                                 |
-| 3. Frame pipeline   | Plan 4                            | Done                                 |
-| 4. IME integration  | Plan 5 + libitshell3-ime (v0.7.0) | Engine done, integration not started |
-| 5. Runtime policies | Plan 6                            | Not started                          |
-| 6. Cascades         | Plan 7                            | Not started                          |
-| 7. SSH transport    | Plan 8                            | Not started                          |
-| 8. macOS client app | (no plan yet)                     | Not started                          |
-| 9. iOS client       | (no plan yet)                     | Not started                          |
-| 10. Polish          | (no plan yet)                     | Not started                          |
-
-Session persistence deferred post-v1 per ADR 00036.
+- Clipboard (OSC 52)
+- Mouse (encode + handlers)
+- Scroll/Search
+- Extension negotiation
+- Opt-in notification subscriptions (Subscribe/Unsubscribe)
+- Silence detection timer
 
 ---
 

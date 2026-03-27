@@ -122,22 +122,9 @@ auto memory):
 
 ## Development Phases
 
-See `docs/superpowers/plans/ROADMAP.md` for the detailed implementation roadmap
-(Plans 1-7+), dependency graph, per-plan status, and test/coverage commands.
-
-High-level phases (updated to reflect actual implementation order):
-
-1. **Core daemon** — Types, event loop, PTY, socket, ghostty integration (Done)
-2. **Wire protocol** — Message types, framing, handshake, local transport (Done)
-3. **Frame pipeline** — Ring buffer, I/P-frame delivery, dirty tracking
-4. **IME integration** — Wire libitshell3-ime into daemon event loop
-5. **Runtime policies** — Adaptive coalescing, health escalation, flow control
-6. **Cascades** — Pane exit, session destroy, client disconnect atomics
-7. **SSH transport** — libssh2 client in libitshell3-protocol (spec §2.2,
-   §5.5.2)
-8. **macOS client app** — Swift/AppKit + libghostty Metal GPU
-9. **iOS client** — UIKit adaptation + SSH-only connectivity
-10. **Polish** — Config, theming, 3-set Korean, session persistence
+See [`docs/superpowers/plans/ROADMAP.md`](docs/superpowers/plans/ROADMAP.md) for
+the detailed implementation roadmap (Plans 1-16+), dependency graph, per-plan
+status, and test/coverage commands.
 
 ## Conventions
 
