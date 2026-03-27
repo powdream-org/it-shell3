@@ -14,8 +14,6 @@
 - **Don't use `= undefined` for buffers.** Zig's `= undefined` is genuine UB
   (unlike C's indeterminate value). Use `@splat(0)` or zero-initialization for
   buffers that may be read before full initialization. (Lesson Z3)
-- **Don't let the QA reviewer wait for all files.** They can test completed
-  files as they become available.
 - **Don't let agents invent behavior for spec gaps.** When a spec gap is
   discovered, the implementer must STOP work on that area, report the gap to the
   team leader, and wait for an owner decision. Implementing a guess violates the
@@ -24,12 +22,20 @@
   spec is the architectural authority (see Document Authority in SKILL.md). When
   spawning agents, state explicitly: "If the plan contradicts the design spec,
   the spec wins."
+- **Don't spawn implementer and QA concurrently in the same workspace.** QA spec
+  tests were silently lost when both agents wrote to `testing/` at the same
+  time. Sequence them: implementer first, QA after implementer commits.
+- **Don't trust Plan 1-4 code as spec-compliant.** Plans 1-4 predate the current
+  verification chain. Existing code may contain spec violations (wrong types,
+  field names, missing fields). Verify existing code against the spec — do not
+  assume prior plans got it right.
 
 ## Action
 
 ### 3a. Check context budget
 
-If context window ≤ 25%, ask the owner to `/compact` before spawning agents.
+Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
+`/compact` before spawning agents.
 
 ### 3b. Prepare spawn context
 
@@ -50,49 +56,67 @@ Gather these for each agent:
 - Coverage approach (instrumented or scenario-matrix)
 - Module source path: `<target>/src/`
 
-### 3c. Spawn both agents
+### 3c. Spawn agents sequentially
 
-Use two-phase spawn to prevent first-agent-starts-alone:
+Spawn agents from `.claude/agents/impl-team/` in sequence — implementer first,
+QA after the implementer commits all source files.
 
-**Phase 1 — Registration:**
-
-Spawn both agents from `.claude/agents/impl-team/`:
+**Phase 1 — Implementer:**
 
 ```
-Implementer: "You are implementing module <module>. Wait for my signal before
-writing any code. Spec: <paths>. Plan: <path>. PoC: <paths or 'none'>.
-Source dir: <target>/src/. CRITICAL: The design spec is the architectural
-authority, not the plan. If the plan's descriptions contradict the spec, the
-spec wins. Verify every public API against the spec section that defines it.
-Read the spec and plan, then confirm ready."
-
-QA Reviewer: "You are QA for module <module>. Wait for my signal before writing
-any tests. Spec: <paths>. Test matrix: <path or inline>. Coverage approach:
-<instrumented/scenario-matrix>. Source dir: <target>/src/. CRITICAL: Your test
-cases MUST be derived from the design spec, not from the implementation or the
-plan. Each test should verify a spec requirement. A test that confirms 'the code
-does what the code does' is not a spec compliance test.
-Read the spec and test matrix, then confirm ready."
+You are implementing module <module>. Spec: <paths>. Plan: <path>.
+PoC: <paths or 'none'>. Source dir: <target>/src/.
+CRITICAL: The design spec is the architectural authority, not the plan. If the
+plan's descriptions contradict the spec, the spec wins. Verify every public API
+against the spec section that defines it.
+Read the spec and plan, then begin implementation. Report when all source files
+and inline unit tests are complete.
 ```
 
-Wait for both to confirm ready.
+Wait for the implementer to report completion and verify their files compile:
 
-**Phase 2 — Begin:**
+```bash
+mise run test:macos
+```
 
-Send to both: "Begin implementation. Communicate directly with each other as
-needed."
+**Phase 2 — QA Reviewer (after implementer completes):**
+
+```
+You are QA for module <module>. The implementer has completed source files.
+Spec: <paths>. Test matrix: <path or inline>. Coverage approach:
+<instrumented/scenario-matrix>. Source dir: <target>/src/.
+CRITICAL: Your test cases MUST be derived from the design spec, not from the
+implementation or the plan. Each test should verify a spec requirement. A test
+that confirms 'the code does what the code does' is not a spec compliance test.
+Read the spec and test matrix, then begin writing tests. Report when all
+integration tests are complete.
+```
+
+Wait for the QA reviewer to report completion.
+
+**Phase 3 — Post-completion verification:**
+
+After both agents complete, verify:
+
+1. **File existence**: Every file listed in both agents' completion reports
+   actually exists on disk. Run `ls` on each reported path.
+2. **Test count**: Run tests and verify the total test count matches the sum of
+   implementer-reported unit tests plus QA-reported integration tests.
+
+If any files are missing or counts do not match, investigate immediately — do
+not proceed.
 
 ### 3d. Monitor progress
 
-Wait for both agents to report completion. During this time:
+During each agent's active phase:
 
-- Answer questions from either agent (relay to owner if beyond your scope)
+- Answer questions from the agent (relay to owner if beyond your scope)
 - Log any spec gaps discovered to TODO.md's "Spec Gap Log" section
 - Do NOT intervene unless asked or unless you observe clear spec violations
 
 ### 3e. Verify tests and formatting
 
-Once both report complete:
+Once both agents are complete and post-completion verification passes:
 
 ```bash
 mise run test:macos
@@ -108,13 +132,14 @@ proceed until all pass.
 
 ### 3f. Keep team alive
 
-Do NOT disband the team. The implementer and QA reviewer continue into Steps 4–8
+Do NOT disband the team. The implementer and QA reviewer continue into Steps 4-8
 (simplify + verification chain). They are disbanded in Step 9.
 
 ## Gate
 
 - [ ] Implementer reports all source files complete with inline unit tests
 - [ ] QA reviewer reports all integration tests complete
+- [ ] Post-completion verification passed (all files exist, test counts match)
 - [ ] `mise run test:macos` passes (all unit + integration tests)
 - [ ] `mise run test:macos:release-safe` passes (optimization-sensitive bugs)
 - [ ] `zig fmt --check src/` passes (no formatting issues)

@@ -23,10 +23,13 @@ ALL of these must be true:
 - [ ] All tests pass in ReleaseSafe (`mise run test:macos:release-safe`)
 - [ ] Code formatted (`(cd <target> && zig fmt --check src/)`)
 - [ ] Library builds without warnings (`zig build` with no diagnostics)
-- [ ] Coverage targets met (line ≥ 95%, branch ≥ 90%, function = 100%) — or
+- [ ] Coverage targets met (line >= 95%, branch >= 90%, function = 100%) — or
       module-level exemption granted
 - [ ] Over-engineering review: clean pass (no open findings)
 - [ ] Spec compliance review: clean pass (no open issues)
+- [ ] Test count matches expected total from implementer + QA reports (verify
+      the actual count from `mise run test:macos` against the sum of both
+      agents' reported test counts — missing tests indicate lost files)
 
 If any gate fails, return to the appropriate step.
 

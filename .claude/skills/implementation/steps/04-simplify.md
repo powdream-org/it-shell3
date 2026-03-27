@@ -14,8 +14,9 @@
 
 ### 4a. Check context budget
 
-If context window ≤ 25%, ask the owner to `/compact` before proceeding. Step 4
-spawns 3 new agents while the implementer + QA are still alive (5 agents total).
+Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
+`/compact` before proceeding. Step 4 spawns 3 new agents while the implementer +
+QA are still alive (5 agents total).
 
 ### 4b. Run the `/simplify` skill
 
@@ -24,7 +25,7 @@ current diff:
 
 1. **Code Reuse** — finds duplicated logic that could use existing utilities
 2. **Code Quality** — flags redundant state, copy-paste, leaky abstractions,
-   unnecessary comments
+   unnecessary comments, circular import patterns
 3. **Efficiency** — catches unnecessary work, missed concurrency, hot-path
    bloat, memory issues
 

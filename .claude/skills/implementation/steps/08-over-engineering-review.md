@@ -14,9 +14,9 @@
 
 ### 8a. Check context budget
 
-If context window ≤ 25%, ask the owner to `/compact` before spawning the
-over-engineering reviewer. This step may trigger a regression loop back to Step
-5, which further accumulates context.
+Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
+`/compact` before spawning the over-engineering reviewer. This step may trigger
+a regression loop back to Step 5, which further accumulates context.
 
 ### 8b. Spawn the over-engineering reviewer
 
@@ -36,11 +36,16 @@ Check for:
 - Helper functions or utilities for one-time operations (premature abstraction)
 - Buffer sizes not justified by spec or measurement
 - Unnecessary build steps, targets, or dependencies
+- Import dependency direction — grep for ../ imports and verify they flow
+  downward (handler -> shared types, not handler -> parent module). Cross-module
+  references must use named imports, not relative paths. Flag any bidirectional
+  import chains as dependency violations.
 
 For each finding, report:
 - file:line reference
 - What the code does
-- Which principle it violates (spec scope / KISS / YAGNI / dead code / etc.)
+- Which principle it violates (spec scope / KISS / YAGNI / dead code /
+  dependency direction / etc.)
 - Suggested fix (simplification or removal)
 
 If no findings: report "Clean pass."
@@ -48,8 +53,8 @@ If no findings: report "Clean pass."
 
 ### 8c. Process findings
 
-- **If clean pass** → Proceed to Step 9.
-- **If findings exist** → Send to the implementer for fixing.
+- **If clean pass** -> Proceed to Step 9.
+- **If findings exist** -> Send to the implementer for fixing.
 
 ### 8d. Fix findings (if any)
 
@@ -69,10 +74,10 @@ After the implementer fixes, the over-engineering reviewer re-validates.
 
 **Critical decision point:**
 
-- If any code was changed during this step → **return to Step 5**. The full
-  verification chain (Compliance → Coverage → Over-Engineering) must pass clean
-  in a single run before commit.
-- If no code was changed (clean pass on first review) → proceed to Step 9.
+- If any code was changed during this step -> **return to Step 5**. The full
+  verification chain (Compliance -> Coverage -> Over-Engineering) must pass
+  clean in a single run before commit.
+- If no code was changed (clean pass on first review) -> proceed to Step 9.
 
 **Why:** Over-engineering fixes remove or simplify code. This can break spec
 compliance or reduce coverage. Only a clean end-to-end pass guarantees
@@ -107,5 +112,5 @@ before proceeding to Step 5.
 
 ## Next
 
-- If clean → Read `steps/09-commit-and-report.md`.
-- If code changed → Read `steps/05-spec-compliance.md`.
+- If clean -> Read `steps/09-commit-and-report.md`.
+- If code changed -> Read `steps/05-spec-compliance.md`.

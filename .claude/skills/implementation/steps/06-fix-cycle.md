@@ -11,14 +11,17 @@
 - **Don't let the implementer "improve" while fixing.** Fixes address the
   specific issue — no scope creep. If the implementer thinks something should be
   improved, they report it as a spec gap.
+- **Don't edit code directly.** All fixes go through the implementer, not the
+  team leader. The team leader describes what needs to change; the implementer
+  makes the edits.
 
 ## Action
 
 ### 6a. Check context budget
 
-If context window ≤ 25%, ask the owner to `/compact` before continuing. Fix
-cycles accumulate context with each iteration — especially if multiple rounds of
-5 → 6 → 5 have occurred.
+Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
+`/compact` before continuing. Fix cycles accumulate context with each iteration
+— especially if multiple rounds of 5 -> 6 -> 5 have occurred.
 
 ### 6b. Hand issues to the implementer
 
@@ -37,25 +40,25 @@ Issues:
 
 The implementer and QA reviewer work peer-to-peer:
 
-1. Implementer fixes an issue → notifies QA reviewer
-2. QA reviewer verifies the fix + checks for regressions → confirms or reopens
+1. Implementer fixes an issue -> notifies QA reviewer
+2. QA reviewer verifies the fix + checks for regressions -> confirms or reopens
 3. Repeat until all issues resolved
 
 You (team leader) monitor but do NOT intervene unless:
 
-- An issue reveals a spec gap → log in TODO.md, report to owner
-- The agents are stuck in a loop (same issue reopened 3+ times) → escalate to
+- An issue reveals a spec gap -> log in TODO.md, report to owner
+- The agents are stuck in a loop (same issue reopened 3+ times) -> escalate to
   owner for decision
 - The owner needs to make a decision
 
-**Round limit:** The 5 → 6 → 5 loop runs automatically for up to **3 rounds**.
+**Round limit:** The 5 -> 6 -> 5 loop runs automatically for up to **3 rounds**.
 If Step 5 still finds issues after Round 3, STOP and escalate to the owner. The
 owner decides: (a) continue with another round, (b) accept remaining issues as
 known limitations, or (c) trigger a spec revision.
 
 Track the current round in TODO.md's `Review Round` field.
 
-### 6c. Verify all tests pass
+### 6d. Verify all tests pass
 
 Once all issues are resolved:
 
@@ -86,5 +89,5 @@ Update TODO.md:
 ## Next
 
 Read `steps/05-spec-compliance.md` — the QA reviewer does another full review to
-catch any issues introduced by the fixes. This loop (5 → 6 → 5) continues until
-Step 5 produces a clean pass.
+catch any issues introduced by the fixes. This loop (5 -> 6 -> 5) continues
+until Step 5 produces a clean pass.

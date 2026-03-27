@@ -13,6 +13,9 @@
   independently. "It works" is not compliance — a working implementation can
   still violate the spec's delivery mechanism or API contract. Verify against
   the SPEC, not the plan or the code's apparent intent.
+- **Don't edit code directly.** The team leader delegates fixes to the
+  implementer. If the QA reviewer finds issues, they go through Step 6 — the
+  team leader never edits source files.
 
 ## Action
 
@@ -35,6 +38,9 @@ Check:
   implementation matches the SPEC — not the plan
 - For delivery/performance-critical paths, verify the mechanism matches the
   spec (e.g., zero-copy vs copy, writev vs write)
+- Check for ../ imports crossing module boundaries. Flag bidirectional import
+  chains as dependency violations. Cross-module references must use named
+  imports (see the target's CLAUDE.md for the import table).
 
 Report either:
 (a) "Clean pass — no issues found", or
@@ -45,8 +51,8 @@ Report either:
 
 Wait for the QA reviewer to report.
 
-- **If clean pass** → Proceed to Step 7 (Coverage Audit).
-- **If issues found** → Proceed to Step 6 (Fix Cycle).
+- **If clean pass** -> Proceed to Step 7 (Coverage Audit).
+- **If issues found** -> Proceed to Step 6 (Fix Cycle).
 
 ## Gate
 
@@ -63,5 +69,5 @@ Update TODO.md:
 
 ## Next
 
-- If clean → Read `steps/07-coverage-audit.md`.
-- If issues found → Read `steps/06-fix-cycle.md`.
+- If clean -> Read `steps/07-coverage-audit.md`.
+- If issues found -> Read `steps/06-fix-cycle.md`.

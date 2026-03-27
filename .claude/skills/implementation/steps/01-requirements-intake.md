@@ -9,6 +9,37 @@
   module-specific context.
 - **Don't start coding.** This step is setup only. No source code is written
   until Step 2 (scaffold) passes.
+- **Don't dismiss divergences as "out of scope."** During Plan 5, verifiers
+  reported 4 pre-existing spec-code divergences (PaneSlot u4 vs u8,
+  keyboard_layout naming, default "us" vs "qwerty", missing fields). The team
+  leader dismissed all 4 as "out of scope for this plan" without investigating.
+  Every spec-code divergence must be investigated — "out of scope for this plan"
+  is a valid conclusion AFTER investigation, not a reason to skip it.
+- **Don't treat "the plan covers it" as investigation.** A verifier reported
+  missing IME fields as a divergence. The team leader said "Plan Task 2 covers
+  this" and moved on. Knowing the plan will fix the divergence does not answer
+  WHY the code diverges — was it intentional deferral, a prior plan's bug, or a
+  spec update the code hasn't caught up to? The answer affects whether a simple
+  fix suffices or deeper issues exist.
+- **Don't infer "intentional deferral" from circumstantial evidence.** Git
+  timestamps, plan scope statements, and ROADMAP entries do not prove a
+  divergence was intentional. The owner's rule: spec is authoritative unless an
+  explicit decision document (ADR, design resolution, or owner instruction) says
+  otherwise. Code that diverges from spec without such a document is a bug.
+- **Don't write the plan yourself.** The team leader is a facilitator. Plan
+  writing is research-heavy work (reading specs, analyzing code,
+  cross-referencing) that belongs to a subagent. Provide paths and constraints,
+  not prose.
+- **Don't edit the plan yourself.** When verifiers find issues, delegate fixes to
+  a subagent via `/writing-impl-plan` in Revise mode. The team leader describes
+  required changes — a subagent applies them.
+- **Don't bypass the `/writing-impl-plan` skill.** During Plan 5, plan revisions
+  were made via ad-hoc Edit calls instead of re-invoking the skill. The skill
+  ensures format consistency and completeness. Ad-hoc edits skip validation.
+- **Don't create CTR files manually.** Always use the `/cross-team-request`
+  skill. It handles placement rules, naming conventions, and format
+  automatically. Manual creation causes convention violations (wrong directory,
+  wrong filename, wrong metadata).
 
 ## Action
 
@@ -58,8 +89,14 @@ ls docs/superpowers/plans/*<module>* 2>/dev/null
 
 - **If a plan exists** → Read it and confirm it covers directory structure, file
   list, task dependencies, and test categories.
-- **If no plan exists** → Write one now. Invoke the `/writing-impl-plan` skill
-  with the spec paths discovered in 1b as context.
+- **If no plan exists** → Delegate plan writing to a subagent via the
+  `/writing-impl-plan` skill. The team leader provides the subagent with:
+  - Spec paths discovered in 1b
+  - Source directory path
+  - ROADMAP entry for the target
+  - Any owner-provided constraints
+
+  The team leader reviews the result, not writes it.
 
 Record the plan path in TODO.md.
 
@@ -88,16 +125,31 @@ Check:
 Report: clean pass, or numbered issue list.
 ```
 
-This is a convergence loop driven autonomously by the team leader:
+This is an **autonomous convergence loop**. Do NOT ask the owner for permission
+to re-verify. Keep iterating (fix → re-verify) until clean pass. **EXCEPTION**:
+if investigation reveals a divergence requiring owner judgment (e.g., spec may
+need updating), escalate that specific item and continue fixing other issues in
+parallel.
 
 1. Spawn verifiers with paths above
 2. If issues found:
-   - **Plan-vs-spec gap** → re-invoke `/writing-impl-plan` with the issue list
-   - **Spec-code divergence** → investigate: read the spec's rationale, check
-     for ADRs, understand why the code differs. Determine which side is wrong.
-     If the team leader cannot determine, escalate to owner.
-   - **Plan-vs-code redundancy** (plan re-adds existing code) → re-invoke
-     `/writing-impl-plan` with the issue list
+   - **Plan-vs-spec gap** → Delegate to a subagent: re-invoke
+     `/writing-impl-plan` in Revise mode with the issue list. The team leader
+     provides the issue list and plan path; the subagent reads the plan, applies
+     fixes, and reports back. All plan fixes MUST go through the skill — do NOT
+     make ad-hoc edits.
+   - **Spec-code divergence** → Investigate: read the spec's rationale, check
+     for ADRs, understand why the code differs. Spec wins by default.
+     "Intentional deferral" requires explicit documentation (ADR, design
+     resolution, or owner instruction). A plan's out-of-scope list does not
+     count. Without explicit documentation, report the divergence as a bug. If
+     the fix belongs to a different plan, log it in TODO.md's Spec Gap Log with
+     the investigation result. If unable to determine which side is correct,
+     escalate to owner before proceeding.
+   - **Plan-vs-code redundancy** (plan re-adds existing code) → Delegate to a
+     subagent: re-invoke `/writing-impl-plan` in Revise mode with the issue list
+   - **Cross-team request needed** → Always use the `/cross-team-request` skill.
+     Do NOT manually create CTR files.
 3. Re-spawn verifiers after plan update
 4. Repeat until clean pass
 
@@ -193,8 +245,10 @@ Wait for owner approval before proceeding.
 ## Gate
 
 - [ ] Design spec identified and version(s) recorded
-- [ ] Implementation plan exists (found or written via `/writing-impl-plan`)
-- [ ] Plan verified against design spec (convergence loop, clean pass)
+- [ ] Implementation plan exists (found or written via `/writing-impl-plan`
+      through a subagent)
+- [ ] Plan verified against design spec (autonomous convergence loop, clean pass)
+- [ ] All spec-code divergences investigated (not dismissed)
 - [ ] Agent definitions verified
 - [ ] TODO.md created in `<target>/`
 - [ ] Owner has approved
