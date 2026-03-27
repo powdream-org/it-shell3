@@ -7,10 +7,14 @@ pub const Pane = struct {
     pty_fd: std.posix.fd_t,
     child_pid: std.posix.pid_t,
 
-    // ghostty pointers — opaque, null until server/ initializes these.
-    // server/ casts to real types (*Terminal, *RenderState, *ReadonlyStream).
+    /// ghostty pointers — opaque, null until server/ initializes these.
+    /// server/ casts to real types (*Terminal, *RenderState, *ReadonlyStream).
     terminal: ?*anyopaque = null,
     render_state: ?*anyopaque = null,
+    /// Persistent ghostty VT parser stream. Held for the pane's lifetime so
+    /// that split escape sequences spanning multiple PTY reads are parsed
+    /// correctly. Creating a new vtStream per feedTerminal call would lose
+    /// mid-sequence parser state. (See implementation-learnings.md G3.)
     vt_stream: ?*anyopaque = null,
 
     // Dimensions
@@ -18,14 +22,19 @@ pub const Pane = struct {
     rows: u16,
 
     // Metadata (updated via OSC sequences)
-    title: [256]u8 = [_]u8{0} ** 256,
-    title_len: u16 = 0,
-    cwd: [4096]u8 = [_]u8{0} ** 4096,
-    cwd_len: u16 = 0,
+    title: [types.MAX_PANE_TITLE]u8 = [_]u8{0} ** types.MAX_PANE_TITLE,
+    title_length: u16 = 0,
+    cwd: [types.MAX_PANE_CWD]u8 = [_]u8{0} ** types.MAX_PANE_CWD,
+    cwd_length: u16 = 0,
 
     // Process state
     is_running: bool = true,
     exit_status: ?u8 = null,
+
+    // TODO(Plan 6): Add foreground_process: []const u8, foreground_pid: posix.pid_t
+    //               per spec state-and-types.md
+    // TODO(Plan 6): Add silence_subscriptions: BoundedArray(SilenceSubscription, MAX),
+    //               silence_deadline: ?i64 — requires SilenceSubscription type definition
 
     // Two-phase exit flags
     pane_exited: bool = false, // set by SIGCHLD handler after waitpid()
@@ -66,18 +75,18 @@ pub const Pane = struct {
         self.pty_eof = true;
     }
 
-    /// Copies up to 256 bytes from title into the internal buffer.
+    /// Copies up to MAX_PANE_TITLE bytes from title into the internal buffer.
     pub fn setTitle(self: *Pane, title: []const u8) void {
         const len = @min(title.len, self.title.len);
         @memcpy(self.title[0..len], title[0..len]);
-        self.title_len = @intCast(len);
+        self.title_length = @intCast(len);
     }
 
-    /// Copies up to 4096 bytes from cwd into the internal buffer.
+    /// Copies up to MAX_PANE_CWD bytes from cwd into the internal buffer.
     pub fn setCwd(self: *Pane, cwd: []const u8) void {
         const len = @min(cwd.len, self.cwd.len);
         @memcpy(self.cwd[0..len], cwd[0..len]);
-        self.cwd_len = @intCast(len);
+        self.cwd_length = @intCast(len);
     }
 };
 
@@ -155,26 +164,26 @@ test "two-phase: markPtyEof then markExited -> isFullyDead true (reverse order)"
     try std.testing.expect(p.isFullyDead());
 }
 
-test "setTitle copies bytes and updates title_len" {
+test "setTitle copies bytes and updates title_length" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     const title = "my terminal";
     p.setTitle(title);
-    try std.testing.expectEqual(@as(u16, title.len), p.title_len);
-    try std.testing.expectEqualSlices(u8, title, p.title[0..p.title_len]);
+    try std.testing.expectEqual(@as(u16, title.len), p.title_length);
+    try std.testing.expectEqualSlices(u8, title, p.title[0..p.title_length]);
 }
 
-test "setTitle truncates if longer than 256" {
+test "setTitle truncates if longer than MAX_PANE_TITLE" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     const long_title = "a" ** 300;
     p.setTitle(long_title);
-    try std.testing.expectEqual(@as(u16, 256), p.title_len);
-    try std.testing.expectEqualSlices(u8, long_title[0..256], p.title[0..256]);
+    try std.testing.expectEqual(@as(u16, types.MAX_PANE_TITLE), p.title_length);
+    try std.testing.expectEqualSlices(u8, long_title[0..types.MAX_PANE_TITLE], p.title[0..types.MAX_PANE_TITLE]);
 }
 
-test "setCwd copies bytes and updates cwd_len" {
+test "setCwd copies bytes and updates cwd_length" {
     var p = Pane.init(1, 0, 5, 100, 80, 24);
     const cwd = "/home/user/project";
     p.setCwd(cwd);
-    try std.testing.expectEqual(@as(u16, cwd.len), p.cwd_len);
-    try std.testing.expectEqualSlices(u8, cwd, p.cwd[0..p.cwd_len]);
+    try std.testing.expectEqual(@as(u16, cwd.len), p.cwd_length);
+    try std.testing.expectEqualSlices(u8, cwd, p.cwd[0..p.cwd_length]);
 }

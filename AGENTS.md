@@ -146,6 +146,8 @@ High-level phases (updated to reflect actual implementation order):
 
 - [**Zig Naming**](docs/conventions/zig-naming.md) — No abbreviations, buffer
   size constants, getter patterns. Applies to all Zig source.
+- [**Zig Documentation**](docs/conventions/zig-documentation.md) — Doc comment
+  rules, spec reference policy (no section numbers), TODO format.
 - [**Commit Messages**](docs/conventions/commit-messages.md) — Conventional
   commits format. **English only.**
 - [**Document Artifact Conventions**](docs/conventions/artifacts/documents/01-overview.md)

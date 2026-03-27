@@ -2,11 +2,11 @@
 
 ## Current State
 
-- **Step**: 3 (Implementation Phase)
+- **Step**: 8 (Over-Engineering Review)
 - **Cycle Type**: modification
-- **Review Round**: 0
-- **Active Team**: (none)
-- **Team Directory**: (none)
+- **Review Round**: 1
+- **Active Team**: impl-team
+- **Team Directory**: .claude/agents/impl-team/
 
 ## Spec
 
@@ -34,21 +34,28 @@
   convention says no abbreviations
 - Slice vs inline buffer representation — ADR 00058 accepts inline buffers, CTR
   filed to update spec
+- Pane fields foreground_process, foreground_pid, silence_subscriptions,
+  silence_deadline — spec defines them but not IME-related; likely Plan 6/7
+- Phase 0 daemon shortcut handling — spec §5.2 step 2 defines it but shortcut
+  keybinding system not yet designed; cannot implement without keybinding spec
+- Pane vt_stream field — ghostty implementation detail (opaque pointer like
+  terminal/render_state), not a spec-level concern; QA #15 was false positive
 
 ## Fix Cycle State
 
-- **Fix Iteration**: 0
-- **Active Issues**: (none)
+- **Fix Iteration**: 1
+- **Active Issues**: #1, #2, #8, #9, #10, #12, #13 (7 issues from Step 5 R1)
 
 ## Progress — Round 1
 
 - [x] Step 1: Requirements Intake
 - [x] Step 2: Scaffold & Build Verification
-- [ ] Step 3: Implementation Phase
-- [ ] Step 4: Code Simplify
-- [ ] Step 5: Spec Compliance Review
-- [ ] Step 6: Fix Cycle
-- [ ] Step 7: Coverage Audit
+- [x] Step 3: Implementation Phase
+- [x] Step 4: Code Simplify
+- [x] Step 5: Spec Compliance Review (R1: 9 issues, 3 spec gaps logged, 1
+      skipped)
+- [x] Step 6: Fix Cycle (R1: 7 fixed, 3 spec gaps, R2 clean)
+- [x] Step 7: Coverage Audit (95.25% line, 100% function Plan 5)
 - [ ] Step 8: Over-Engineering Review
 - [ ] Step 9: Commit & Report
 - [ ] Step 10: Owner Review

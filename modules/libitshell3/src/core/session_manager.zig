@@ -21,7 +21,7 @@ pub const SessionManager = struct {
         };
     }
 
-    pub fn createSession(self: *SessionManager, name: []const u8) error{MaxSessionsReached}!SessionId {
+    pub fn createSession(self: *SessionManager, name: []const u8, ime_eng: session_mod.ImeEngine) error{MaxSessionsReached}!SessionId {
         // Find a free slot
         for (&self.sessions) |*slot| {
             if (slot.* == null) {
@@ -30,7 +30,7 @@ pub const SessionManager = struct {
 
                 // Allocate the initial pane slot (slot 0) for the session.
                 // The Pane itself is NOT created here — caller fills it in later.
-                const s = Session.init(session_id, name, 0);
+                const s = Session.init(session_id, name, 0, ime_eng);
                 var entry = SessionEntry.init(s);
                 // Reserve slot 0 (the initial pane slot) in free_mask.
                 _ = entry.allocPaneSlot() catch unreachable; // slot 0 is always free at init
@@ -96,6 +96,16 @@ pub const SessionManager = struct {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+const mock_ime = @import("../testing/mock_ime_engine.zig");
+
+// File-scope static mock engine. Persists across tests so the vtable pointer
+// stored in sessions remains valid.
+var test_mock_engine = mock_ime.MockImeEngine{};
+
+fn testImeEngine() session_mod.ImeEngine {
+    return test_mock_engine.engine();
+}
+
 // File-scope static — placed in .bss segment, not on the stack.
 // Each test calls test_sm.reset() to return to a clean initial state.
 var test_sm = SessionManager.init();
@@ -109,15 +119,15 @@ test "init has 0 sessions, next IDs start at 1" {
 
 test "createSession returns valid ID, sessionCount = 1" {
     test_sm.reset();
-    const id = try test_sm.createSession("main");
+    const id = try test_sm.createSession("main", testImeEngine());
     try std.testing.expectEqual(@as(SessionId, 1), id);
     try std.testing.expectEqual(@as(u32, 1), test_sm.sessionCount());
 }
 
 test "createSession twice returns two different IDs" {
     test_sm.reset();
-    const id1 = try test_sm.createSession("first");
-    const id2 = try test_sm.createSession("second");
+    const id1 = try test_sm.createSession("first", testImeEngine());
+    const id2 = try test_sm.createSession("second", testImeEngine());
     try std.testing.expect(id1 != id2);
     try std.testing.expectEqual(@as(SessionId, 1), id1);
     try std.testing.expectEqual(@as(SessionId, 2), id2);
@@ -126,7 +136,7 @@ test "createSession twice returns two different IDs" {
 
 test "getSession finds by ID" {
     test_sm.reset();
-    const id = try test_sm.createSession("mysession");
+    const id = try test_sm.createSession("mysession", testImeEngine());
     const entry = test_sm.getSession(id);
     try std.testing.expect(entry != null);
     try std.testing.expectEqual(id, entry.?.session.session_id);
@@ -135,14 +145,14 @@ test "getSession finds by ID" {
 
 test "getSession returns null for nonexistent ID" {
     test_sm.reset();
-    _ = try test_sm.createSession("x");
+    _ = try test_sm.createSession("x", testImeEngine());
     const entry = test_sm.getSession(999);
     try std.testing.expect(entry == null);
 }
 
 test "destroySession removes and returns old entry" {
     test_sm.reset();
-    const id = try test_sm.createSession("to-destroy");
+    const id = try test_sm.createSession("to-destroy", testImeEngine());
     try std.testing.expectEqual(@as(u32, 1), test_sm.sessionCount());
 
     const old = test_sm.destroySession(id);
@@ -161,8 +171,8 @@ test "destroySession returns null for nonexistent ID" {
 
 test "sessionCount decrements after destroy" {
     test_sm.reset();
-    const id1 = try test_sm.createSession("a");
-    const id2 = try test_sm.createSession("b");
+    const id1 = try test_sm.createSession("a", testImeEngine());
+    const id2 = try test_sm.createSession("b", testImeEngine());
     _ = id2;
     try std.testing.expectEqual(@as(u32, 2), test_sm.sessionCount());
     _ = test_sm.destroySession(id1);
@@ -171,12 +181,12 @@ test "sessionCount decrements after destroy" {
 
 test "createSession after destroy reuses the array slot" {
     test_sm.reset();
-    const id1 = try test_sm.createSession("first");
+    const id1 = try test_sm.createSession("first", testImeEngine());
     _ = test_sm.destroySession(id1);
     try std.testing.expectEqual(@as(u32, 0), test_sm.sessionCount());
 
     // Should succeed — the slot is free again
-    const id2 = try test_sm.createSession("second");
+    const id2 = try test_sm.createSession("second", testImeEngine());
     try std.testing.expectEqual(@as(u32, 1), test_sm.sessionCount());
     try std.testing.expect(id2 != id1); // IDs are still monotonically increasing
 }
@@ -185,10 +195,10 @@ test "MAX_SESSIONS creates, next returns error.MaxSessionsReached" {
     test_sm.reset();
     var i: usize = 0;
     while (i < MAX_SESSIONS) : (i += 1) {
-        _ = try test_sm.createSession("s");
+        _ = try test_sm.createSession("s", testImeEngine());
     }
     try std.testing.expectEqual(@as(u32, MAX_SESSIONS), test_sm.sessionCount());
-    const result = test_sm.createSession("overflow");
+    const result = test_sm.createSession("overflow", testImeEngine());
     try std.testing.expectError(error.MaxSessionsReached, result);
 }
 
@@ -204,7 +214,7 @@ test "allocPaneId returns incrementing IDs" {
 
 test "findSessionBySlot returns entry at valid occupied index" {
     test_sm.reset();
-    _ = try test_sm.createSession("slot0");
+    _ = try test_sm.createSession("slot0", testImeEngine());
     // The session was placed in the first free slot (index 0)
     const entry = test_sm.findSessionBySlot(0);
     try std.testing.expect(entry != null);
@@ -212,7 +222,7 @@ test "findSessionBySlot returns entry at valid occupied index" {
 
 test "findSessionBySlot returns null for empty slot" {
     test_sm.reset();
-    _ = try test_sm.createSession("s");
+    _ = try test_sm.createSession("s", testImeEngine());
     // Slot 1 is still empty
     const entry = test_sm.findSessionBySlot(1);
     try std.testing.expect(entry == null);
@@ -226,7 +236,7 @@ test "findSessionBySlot returns null for out-of-bounds index" {
 
 test "reset returns to init state" {
     test_sm.reset();
-    _ = try test_sm.createSession("temp");
+    _ = try test_sm.createSession("temp", testImeEngine());
     try std.testing.expectEqual(@as(u32, 1), test_sm.sessionCount());
     test_sm.reset();
     try std.testing.expectEqual(@as(u32, 0), test_sm.sessionCount());

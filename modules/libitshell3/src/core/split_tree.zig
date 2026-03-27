@@ -213,7 +213,7 @@ test "splitLeaf twice yields 2 splits and 3 leaves" {
 test "splitLeaf at max depth returns MaxDepthExceeded" {
     var tree = initSingleLeaf(0);
     // Build a chain of depth MAX_TREE_DEPTH (4) by always splitting the left child
-    var slot: u4 = 1;
+    var slot: PaneSlot = 1;
     var current: u5 = 0;
     var d: u5 = 0;
     while (d < MAX_TREE_DEPTH) : (d += 1) {
@@ -232,7 +232,7 @@ test "splitLeaf when tree full returns TreeFull" {
     // Fill: split until we have 16 leaves (15 internal + 16 leaves = 31 nodes).
     // Strategy: BFS-fill, splitting leaf nodes one by one.
     var tree = initSingleLeaf(0);
-    var next_slot: u4 = 1;
+    var next_slot: PaneSlot = 1;
 
     // We'll do a BFS-like fill: always split the first available leaf
     var filled_leaves: usize = 1;

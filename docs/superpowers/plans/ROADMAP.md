@@ -209,6 +209,10 @@ assembly), I-frame scheduling timer, EVFILT_WRITE management.
 **Depends on:** Plan 4 (ring buffer + frame delivery for coalescing tiers and
 backpressure)
 
+**Note (from Plan 5):** Add Pane fields `foreground_process`, `foreground_pid`,
+`silence_subscriptions`, `silence_deadline` per spec `state-and-types.md`.
+Requires `SilenceSubscription` type definition. TODO comments in `pane.zig`.
+
 ### Plan 7: Cascades (Not Started)
 
 **Scope:** Atomic multi-step cascades that must complete within a single event
@@ -228,6 +232,12 @@ loop iteration:
 
 **Depends on:** Plan 5 (IME deactivate/flush in cascade) + Plan 6 (health/flow
 state cleanup in cascade)
+
+**Note (from Plan 5):** Implement daemon shortcut keybinding system. Spec §5.2
+Phase 0 step 2 defines "Check global daemon shortcuts → STOP" but no keybinding
+design exists. Cascade actions (pane close, session switch) need shortcut
+triggers. The key routing hook point exists in `key_router.zig` — add a shortcut
+binding parameter when keybinding design is done.
 
 ### Plan 8: SSH Transport (Not Started)
 

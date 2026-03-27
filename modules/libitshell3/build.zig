@@ -21,20 +21,13 @@ pub fn build(b: *std.Build) void {
     });
     const protocol_mod = protocol_dep.module("itshell3-protocol");
 
-    // --- Named sub-modules (available via @import in all source files) ---
+    // --- Named imports ---
+    // Only external dependencies use named imports. Internal sub-modules use
+    // relative path imports so all files belong to the single root module,
+    // enabling refAllDecls test discovery.
     const named_imports: []const std.Build.Module.Import = &.{
         .{ .name = "ghostty", .module = ghostty_vt },
         .{ .name = "itshell3_protocol", .module = protocol_mod },
-        .{ .name = "itshell3_core", .module = b.createModule(.{
-            .root_source_file = b.path("src/core/root.zig"),
-            .target = target,
-            .optimize = optimize,
-        }) },
-        .{ .name = "itshell3_os", .module = b.createModule(.{
-            .root_source_file = b.path("src/os/root.zig"),
-            .target = target,
-            .optimize = optimize,
-        }) },
     };
 
     // --- libitshell3 static library ---

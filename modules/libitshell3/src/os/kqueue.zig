@@ -413,4 +413,3 @@ test "event loop: EOF detection when write end is closed" {
     const bytes_read = try std.posix.read(read_fd, &buf);
     try testing.expectEqual(@as(usize, 0), bytes_read);
 }
-

@@ -11,10 +11,6 @@ pub const PreeditState = struct {
         return .{ .owner = null, .session_id = 0 };
     }
 
-    pub fn clear(self: *PreeditState) void {
-        self.owner = null;
-    }
-
     pub fn incrementSessionId(self: *PreeditState) void {
         self.session_id += 1;
     }
@@ -24,15 +20,6 @@ test "init returns null owner and session_id 0" {
     const ps = PreeditState.init();
     try std.testing.expectEqual(@as(?ClientId, null), ps.owner);
     try std.testing.expectEqual(@as(u32, 0), ps.session_id);
-}
-
-test "clear sets owner to null but preserves session_id" {
-    var ps = PreeditState.init();
-    ps.owner = 42;
-    ps.session_id = 7;
-    ps.clear();
-    try std.testing.expectEqual(@as(?ClientId, null), ps.owner);
-    try std.testing.expectEqual(@as(u32, 7), ps.session_id);
 }
 
 test "incrementSessionId increments by 1" {

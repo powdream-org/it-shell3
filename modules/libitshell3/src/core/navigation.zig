@@ -124,7 +124,7 @@ pub fn findPaneInDirection(
     // Collect direct neighbors: edge touching in `direction` with overlap.
     var slot: u5 = 0;
     while (slot < types.MAX_PANES) : (slot += 1) {
-        const candidate_slot: types.PaneSlot = @truncate(slot);
+        const candidate_slot: types.PaneSlot = @intCast(slot);
         if (candidate_slot == focused_slot) continue;
         const candidate_rect = rects[candidate_slot] orelse continue;
 
@@ -179,7 +179,7 @@ pub fn findPaneInDirection(
 
     var s2: u5 = 0;
     while (s2 < types.MAX_PANES) : (s2 += 1) {
-        const candidate_slot: types.PaneSlot = @truncate(s2);
+        const candidate_slot: types.PaneSlot = @intCast(s2);
         if (candidate_slot == focused_slot) continue;
         const candidate_rect = rects[candidate_slot] orelse continue;
 

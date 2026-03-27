@@ -56,16 +56,18 @@ fn markPaneExited(sm: *SessionManager, pid: std.posix.pid_t, exit_status: u8) vo
 
 const testing = std.testing;
 const mock_os = @import("../testing/mock_os.zig");
+const test_helpers = @import("../testing/helpers.zig");
 const pane_mod = @import("../core/pane.zig");
 const session_mod = @import("../core/session.zig");
 
-// File-scope static — placed in .bss segment, not on the stack.
-// Each test calls test_sm.reset() to return to a clean initial state.
+// File-scope statics for tests.
 var test_sm = SessionManager.init();
+
+const testImeEngine = test_helpers.testImeEngine;
 
 test "handleSignalEvent: SIGCHLD with matching pane -> pane marked exited" {
     test_sm.reset();
-    const session_id = try test_sm.createSession("test");
+    const session_id = try test_sm.createSession("test", testImeEngine());
     const entry = test_sm.getSession(session_id).?;
 
     // The session already allocated slot 0 in createSession; put a pane there
@@ -97,7 +99,7 @@ test "handleSignalEvent: SIGCHLD with matching pane -> pane marked exited" {
 
 test "handleSignalEvent: SIGCHLD with no children -> no change" {
     test_sm.reset();
-    const session_id = try test_sm.createSession("test");
+    const session_id = try test_sm.createSession("test", testImeEngine());
     const entry = test_sm.getSession(session_id).?;
 
     const pane_slot: types.PaneSlot = 0;

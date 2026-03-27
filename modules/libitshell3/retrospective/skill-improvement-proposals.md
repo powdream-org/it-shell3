@@ -251,3 +251,23 @@ workflow step that produces CTRs (implementation, design-doc-revision, ROADMAP)
    NOT manually create CTR files. The skill handles placement rules, naming
    conventions, and format automatically — bypassing it causes convention
    violations."
+
+## SIP-10: Context budget check misread — used% vs remaining%
+
+**Discovered during**: Step 3a (Check context budget)
+
+**What happened**: Step 3a says "If context window ≤ 25%, ask the owner to
+compact." The team leader interpreted this as "if used tokens ≥ 25%, compact"
+and incorrectly requested compact when 25% was used (75% remaining). The correct
+reading is "if remaining free space ≤ 25%, compact."
+
+**Root cause**: The step text "context window ≤ 25%" is ambiguous — it could
+mean "25% of window used" or "25% of window remaining." The team leader chose
+the wrong interpretation.
+
+**Affected steps**: `steps/03-implementation.md` (Step 3a)
+
+**Proposed changes**:
+
+1. Reword Step 3a: "If **remaining** context window ≤ 25% (i.e., ≥ 75% used),
+   ask the owner to `/compact` before spawning agents."

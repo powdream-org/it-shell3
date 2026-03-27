@@ -241,7 +241,10 @@ pub const EventLoop = struct {
 const testing = std.testing;
 const builtin = @import("builtin");
 const mock_os = @import("../testing/mock_os.zig");
+const test_helpers = @import("../testing/helpers.zig");
 const protocol_transport = protocol.transport;
+
+const testImeEngine = test_helpers.testImeEngine;
 
 /// Build a fake protocol Listener backed by a real socket for tests.
 fn makeTestListener(socket_path: []const u8) !Listener {
@@ -544,7 +547,7 @@ test "dispatch: read event on PTY fd triggers pty read" {
     defer listener.deinit();
 
     var sm = session_manager_mod.SessionManager.init();
-    const session_id = try sm.createSession("test");
+    const session_id = try sm.createSession("test", testImeEngine());
     const entry = sm.getSession(session_id).?;
 
     const pane = pane_mod.Pane.init(1, 0, 42, 1234, 80, 24);

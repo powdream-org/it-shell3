@@ -1,13 +1,23 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const mock_os = @import("mock_os.zig");
+const mock_ime = @import("mock_ime_engine.zig");
 const interfaces = @import("../os/interfaces.zig");
 const session_manager_mod = @import("../core/session_manager.zig");
+const session_mod = @import("../core/session.zig");
 const pane_mod = @import("../core/pane.zig");
 const protocol = @import("itshell3_protocol");
 const Listener = protocol.transport.Listener;
 const UnixTransport = protocol.transport.UnixTransport;
 const EventLoop = @import("../server/event_loop.zig").EventLoop;
+
+// File-scope static mock engine. Persists across tests so the vtable pointer
+// stored in sessions remains valid. Exported for use by other test files.
+pub var test_mock_engine = mock_ime.MockImeEngine{};
+
+pub fn testImeEngine() session_mod.ImeEngine {
+    return test_mock_engine.engine();
+}
 
 /// Generate a unique temporary socket path for testing.
 /// Caller owns the returned slice and must free it with the provided allocator.
@@ -56,7 +66,7 @@ test "integration: daemon lifecycle with mocks" {
 
     // 2. Create SessionManager and create a session
     var sm = session_manager_mod.SessionManager.init();
-    const session_id = try sm.createSession("integration-test");
+    const session_id = try sm.createSession("integration-test", testImeEngine());
     try std.testing.expectEqual(@as(u32, 1), sm.sessionCount());
 
     // Verify the session exists

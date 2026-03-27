@@ -2,7 +2,7 @@ const std = @import("std");
 
 // Identifier types
 pub const PaneId = u32; // Monotonically increasing, assigned at pane creation
-pub const PaneSlot = u4; // 0..15 index into pane_slots array
+pub const PaneSlot = u8; // 0..15 index into pane_slots array (u8 per spec)
 pub const SessionId = u32; // Monotonically increasing
 pub const ClientId = u32; // Monotonically increasing, assigned at accept()
 
@@ -12,6 +12,14 @@ pub const MAX_TREE_NODES: u5 = 31;
 pub const MAX_TREE_DEPTH: u3 = 4;
 pub const MAX_SESSIONS: u8 = 64;
 pub const MAX_CLIENTS: u8 = 64;
+
+// Fixed-size inline buffer sizes (per ADR 00058)
+pub const MAX_SESSION_NAME: u8 = 64;
+pub const MAX_INPUT_METHOD_NAME: u8 = 32;
+pub const MAX_KEYBOARD_LAYOUT_NAME: u8 = 32;
+pub const MAX_PREEDIT_BUF: u8 = 64;
+pub const MAX_PANE_TITLE: u16 = 256;
+pub const MAX_PANE_CWD: u16 = 4096;
 
 // Layout enums
 pub const Orientation = enum { horizontal, vertical };
@@ -29,12 +37,21 @@ test "constants have expected values" {
     try std.testing.expectEqual(@as(u8, 64), MAX_CLIENTS);
 }
 
+test "buffer size constants have expected values" {
+    try std.testing.expectEqual(@as(u8, 64), MAX_SESSION_NAME);
+    try std.testing.expectEqual(@as(u8, 32), MAX_INPUT_METHOD_NAME);
+    try std.testing.expectEqual(@as(u8, 32), MAX_KEYBOARD_LAYOUT_NAME);
+    try std.testing.expectEqual(@as(u8, 64), MAX_PREEDIT_BUF);
+    try std.testing.expectEqual(@as(u16, 256), MAX_PANE_TITLE);
+    try std.testing.expectEqual(@as(u16, 4096), MAX_PANE_CWD);
+}
+
 test "PaneSlot fits values 0..15" {
     const min_slot: PaneSlot = 0;
     const max_slot: PaneSlot = 15;
     try std.testing.expectEqual(@as(PaneSlot, 0), min_slot);
     try std.testing.expectEqual(@as(PaneSlot, 15), max_slot);
-    // u4 max is 15, which matches MAX_PANES - 1
+    // u8 can hold 0..15 which matches MAX_PANES - 1
     try std.testing.expectEqual(@as(u5, 16), MAX_PANES);
 }
 

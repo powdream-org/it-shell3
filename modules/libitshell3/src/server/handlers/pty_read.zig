@@ -2,8 +2,8 @@ const std = @import("std");
 const interfaces = @import("../../os/interfaces.zig");
 const pane_mod = @import("../../core/pane.zig");
 const session_mod = @import("../../core/session.zig");
-const event_loop_mod = @import("../event_loop.zig");
 const types = @import("../../core/types.zig");
+const event_loop_mod = @import("../event_loop.zig");
 const terminal_mod = @import("../../ghostty/terminal.zig");
 
 /// Handle PTY read event: drain all available PTY output, feed to ghostty
@@ -54,6 +54,9 @@ pub fn handlePtyRead(
 
 const testing = std.testing;
 const mock_os = @import("../../testing/mock_os.zig");
+const test_helpers = @import("../../testing/helpers.zig");
+
+const testImeEngine = test_helpers.testImeEngine;
 
 test "handlePtyRead: reads data from PTY and marks pane dirty" {
     var mock_pty = mock_os.MockPtyOps{
@@ -61,7 +64,7 @@ test "handlePtyRead: reads data from PTY and marks pane dirty" {
     };
     const pty_ops = mock_pty.ops();
 
-    const s = session_mod.Session.init(1, "test", 0);
+    const s = session_mod.Session.init(1, "test", 0, testImeEngine());
     var entry = session_mod.SessionEntry.init(s);
     const slot = try entry.allocPaneSlot();
     var pane = pane_mod.Pane.init(1, slot, 10, 1234, 80, 24);
@@ -82,7 +85,7 @@ test "handlePtyRead: EOF marks pane pty_eof, not dirty" {
     };
     const pty_ops = mock_pty.ops();
 
-    const s = session_mod.Session.init(1, "test", 0);
+    const s = session_mod.Session.init(1, "test", 0, testImeEngine());
     var entry = session_mod.SessionEntry.init(s);
     const slot = try entry.allocPaneSlot();
     var pane = pane_mod.Pane.init(1, slot, 10, 1234, 80, 24);
@@ -102,7 +105,7 @@ test "handlePtyRead: isFullyDead when both flags set" {
     };
     const pty_ops = mock_pty.ops();
 
-    const s = session_mod.Session.init(1, "test", 0);
+    const s = session_mod.Session.init(1, "test", 0, testImeEngine());
     var entry = session_mod.SessionEntry.init(s);
     const slot = try entry.allocPaneSlot();
     var pane = pane_mod.Pane.init(1, slot, 10, 1234, 80, 24);
@@ -120,7 +123,7 @@ test "handlePtyRead: marks pane dirty after reading data" {
     var mock_pty = mock_os.MockPtyOps{ .read_data = "terminal output" };
     const pty_ops = mock_pty.ops();
 
-    const s = session_mod.Session.init(1, "test", 0);
+    const s = session_mod.Session.init(1, "test", 0, testImeEngine());
     var entry = session_mod.SessionEntry.init(s);
     const slot = try entry.allocPaneSlot();
     entry.setPaneAtSlot(slot, pane_mod.Pane.init(1, slot, 10, 1234, 80, 24));
@@ -135,7 +138,7 @@ test "handlePtyRead: does not mark dirty on EOF" {
     var mock_pty = mock_os.MockPtyOps{ .read_data = null };
     const pty_ops = mock_pty.ops();
 
-    const s = session_mod.Session.init(1, "test", 0);
+    const s = session_mod.Session.init(1, "test", 0, testImeEngine());
     var entry = session_mod.SessionEntry.init(s);
     const slot = try entry.allocPaneSlot();
     entry.setPaneAtSlot(slot, pane_mod.Pane.init(1, slot, 10, 1234, 80, 24));

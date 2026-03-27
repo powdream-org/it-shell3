@@ -620,7 +620,7 @@ test "wrap-around: data integrity via iovecs across ring boundary" {
     const frame_e = "EEEEEEEEEE";
     try rb.writeFrame(frame_e, false, 5); // pos 40..50
     try rb.writeFrame(frame_e, false, 6); // pos 50..60
-    try rb.writeFrame(frame_e, true, 7);  // pos 60..70 — wraps at 64
+    try rb.writeFrame(frame_e, true, 7); // pos 60..70 — wraps at 64
     const avail = rb.available(&cursor);
     try std.testing.expectEqual(@as(usize, 30), avail); // 3 * 10
 
