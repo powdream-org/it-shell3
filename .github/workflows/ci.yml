@@ -110,6 +110,7 @@ jobs:
         run: bash scripts/coverage.sh
         env:
           WORKSPACE_DIR: ${{ github.workspace }}
+          TEST_MODULES: modules/libitshell3-protocol modules/libitshell3-ime modules/libitshell3
 
       - name: Upload to Coveralls
         if: matrix.coverage
