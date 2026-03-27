@@ -334,3 +334,30 @@ architect checks for over-engineering, not dependency cycles.
    the correct direction (handler → shared types, not handler → parent).
 4. Add to Step 4 (Simplify): Code quality agent checks for circular import
    patterns as part of "leaky abstractions" review.
+
+## SIP-13: Plan 1 accumulated spec violations uncaught until Plan 5
+
+**Discovered during**: Plan 5 Step 10 (Owner Review)
+
+**What happened**: Plan 1 (Foundation) was implemented without spec compliance
+verification. 8+ spec violations accumulated and were only discovered during
+Plan 5's verification loop: PaneSlot u4 (spec u8), keyboard_layout naming,
+default "us", _len abbreviations, non-nullable focused_pane, ClientEntry instead
+of spec's ClientState, PtyOps missing write, handlers/signal.zig unnecessary
+wrapper. Each subsequent plan inherited these violations.
+
+**Root cause**: Plan 1 ran before the implementation skill had spec compliance
+review (Step 5), over-engineering review (Step 8), or verification loops. There
+was no QA reviewer checking code against spec. The implementer treated "compiles
+and tests pass" as sufficient.
+
+**Affected steps**: The entire implementation skill was immature during Plan 1.
+Plans 1-4 predate the current verification chain.
+
+**Proposed changes**:
+
+1. Consider a one-time "spec alignment audit" of Plan 1-4 code — systematically
+   check all existing types, field names, and interfaces against current spec.
+   This can be a dedicated task in a future plan or a standalone cleanup effort.
+2. The current implementation skill (with Steps 5-8 verification chain) should
+   prevent this from recurring for Plans 5+.

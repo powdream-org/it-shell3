@@ -33,17 +33,18 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 
 ## Plan Index
 
-| # | Name                              | Plan File                                           | Target Module        | Status      |
-| - | --------------------------------- | --------------------------------------------------- | -------------------- | ----------- |
-| 1 | Foundation                        | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**    |
-| 2 | ghostty Integration               | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**    |
-| 3 | Wire Protocol                     | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
-| 4 | Ring Buffer + Frame Delivery      | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**    |
-| 5 | IME Integration                   | (not yet written)                                   | libitshell3          | Not started |
-| 6 | Runtime Policies                  | (not yet written)                                   | libitshell3          | Not started |
-| 7 | Cascades                          | (not yet written)                                   | libitshell3          | Not started |
-| 8 | SSH Transport                     | (not yet written)                                   | libitshell3-protocol | Not started |
-| 9 | Debug Subsystem + `it-shell3-ctl` | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started |
+| #   | Name                              | Plan File                                           | Target Module        | Status      |
+| --- | --------------------------------- | --------------------------------------------------- | -------------------- | ----------- |
+| 1   | Foundation                        | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**    |
+| 2   | ghostty Integration               | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**    |
+| 3   | Wire Protocol                     | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
+| 4   | Ring Buffer + Frame Delivery      | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**    |
+| 5   | IME Integration                   | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | In progress |
+| 5.5 | Spec Alignment Audit              | (not yet written)                                   | libitshell3          | Not started |
+| 6   | Runtime Policies                  | (not yet written)                                   | libitshell3          | Not started |
+| 7   | Cascades                          | (not yet written)                                   | libitshell3          | Not started |
+| 8   | SSH Transport                     | (not yet written)                                   | libitshell3-protocol | Not started |
+| 9   | Debug Subsystem + `it-shell3-ctl` | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started |
 
 ---
 
@@ -59,8 +60,13 @@ Plan 1 (Foundation) ────────────────────
     │
     ├── Plan 5 (IME Integration) ──── can parallel with Plan 6
     │    Needs: ring buffer for preedit overlay in frames
-    │
-    ├── Plan 6 (Runtime Policies) ─── can parallel with Plan 5
+    │    │
+    │    Plan 5.5 (Spec Alignment Audit)
+    │    │    Needs: Plan 5 (establishes verification chain + conventions)
+    │    │    Fixes: Plan 1-2 tech debt (ClientState, cyclic refs, naming)
+    │    │
+    ├── Plan 6 (Runtime Policies)
+    │    Needs: Plan 5.5 (clean ClientState, correct interfaces)
     │    Needs: ring buffer + frame delivery for coalescing/flow control
     │         │
     │    Plan 7 (Cascades)
@@ -178,6 +184,60 @@ ime-procedures from impl-constraints.
 
 **Depends on:** Plan 4 (ring buffer — preedit overlay applied to exported frames
 before ring insertion)
+
+### Plan 5.5: Spec Alignment Audit (Not Started)
+
+**Scope:** Systematic audit and fix of Plan 1-2 technical debt. Plans 1-2 were
+implemented before the verification chain (Steps 5-8) existed, resulting in
+accumulated spec violations discovered during Plan 5. This plan closes the gap
+between the design spec and the existing implementation.
+
+**Known gaps (from Plan 5 Spec Gap Log + Owner Review):**
+
+- `ClientEntry` → `ClientState`: Spec defines 8-field `ClientState` (client_id,
+  conn, state, attached_session, capabilities, ring_cursors, display_info,
+  message_reader). Code has 4-field `ClientEntry` (unix_transport, conn,
+  socket_fd, writer) — 3 of which are not in spec. Full type redesign needed.
+- `ClientEntry` location: defined inline in `event_loop.zig`, causing cyclic
+  references with handlers. Extract to `server/client_state.zig`.
+- `handlers/signal.zig`: thin re-export wrapper around `signal_handler.zig`.
+  Remove or justify.
+- `PtyOps` was missing `write` until Plan 5 fixed it. Audit remaining OS
+  interfaces for completeness.
+- Test directory restructuring: apply `docs/conventions/zig-testing.md` (mocks/,
+  spec/ subdirectories) to all existing code.
+- Named import migration: ensure all cross-module imports use named imports per
+  `modules/libitshell3/AGENTS.md`.
+- Full spec-vs-code audit of Plan 1-4 types, field names, and interfaces against
+  daemon-architecture v1.0-r8 and daemon-behavior v1.0-r8.
+
+**Design spec refs:** ALL current spec documents for implemented modules:
+
+- `daemon-architecture/draft/v1.0-r8/` — all 3 docs + impl-constraints
+- `daemon-behavior/draft/v1.0-r8/` — all 3 docs + impl-constraints
+- `libitshell3-ime/interface-contract/draft/v1.0-r10/` — all docs
+- `libitshell3-ime/behavior/draft/v1.0-r2/` — all docs
+- `server-client-protocols/draft/v1.0-r12/` — all 6 docs
+
+The first step of this plan is a **full audit** covering two dimensions:
+
+1. **Spec-vs-code**: Systematically walk every type, field, function, and module
+   boundary in every spec document and verify the corresponding code matches.
+2. **Convention compliance**: Check all existing Zig code against
+   `docs/conventions/zig-naming.md`, `docs/conventions/zig-documentation.md`,
+   and `docs/conventions/zig-testing.md`. This includes field naming (`_length`
+   not `_len`), doc comment format (no spec section numbers), test organization
+   (inline vs spec, mock placement), and buffer constant patterns (`MAX_*` per
+   ADR 00058).
+
+The known gaps above are starting points, not an exhaustive list.
+
+**Depends on:** Plan 5 (IME Integration — establishes verification chain and
+conventions that this plan applies retroactively)
+
+**Note:** This plan has no new features. It is purely structural — aligning
+existing code with existing spec. All changes must pass the same verification
+chain (Steps 5-8) as feature plans.
 
 ### Plan 6: Runtime Policies (Not Started)
 
