@@ -110,7 +110,7 @@ jobs:
       - name: Find coverage report
         id: coverage
         run: |
-          COBERTURA=$(find coverage -name "cobertura.xml" | head -1)
+          COBERTURA=$(find coverage/merged -name "cobertura.xml" | head -1)
           echo "file=$COBERTURA" >> "$GITHUB_OUTPUT"
           echo "Found: $COBERTURA"
 
