@@ -38,6 +38,7 @@ for MODULE_DIR in $TEST_MODULES; do
   for TEST_BIN in $TEST_BINS; do
     echo "=== $MODULE: running kcov on binary $BIN_IDX ==="
     kcov --include-path=$WORKSPACE_DIR/$MODULE_DIR/src/ \
+      --replace-src-path=$WORKSPACE_DIR/$MODULE_DIR/src:$MODULE/src \
       $COVERAGE_DIR/${MODULE}_part_${BIN_IDX} "$TEST_BIN" 2>/dev/null || true
     BIN_IDX=$((BIN_IDX + 1))
   done
