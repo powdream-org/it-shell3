@@ -131,6 +131,8 @@ status, and test/coverage commands.
 > **⚠️ MANDATORY: You MUST read and strictly follow all convention docs under
 > `docs/conventions/` before making any changes. No exceptions.**
 
+- [**Zig Coding**](docs/conventions/zig-coding.md) — Standard-width integers
+  only (no arbitrary u3/u5/u19). Packed struct and Unicode codepoint exceptions.
 - [**Zig Naming**](docs/conventions/zig-naming.md) — No abbreviations, buffer
   size constants, getter patterns. Applies to all Zig source.
 - [**Zig Documentation**](docs/conventions/zig-documentation.md) — Doc comment
