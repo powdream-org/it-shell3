@@ -13,8 +13,7 @@ const KeyEvent = core.KeyEvent;
 const Session = core.Session;
 const consumeImeResult = server.ime_consumer.consumeImeResult;
 const MockImeEngine = test_mod.MockImeEngine;
-const MockPtyWriter = test_mod.MockPtyWriter;
-const PtyWriter = server.ime_consumer.PtyWriter;
+const MockPtyOps = test_mod.MockPtyOps;
 const KeyEncoder = server.ime_consumer.KeyEncoder;
 
 fn makeSession() struct { mock: MockImeEngine, session: Session } {
@@ -24,16 +23,18 @@ fn makeSession() struct { mock: MockImeEngine, session: Session } {
 
 test "ime_consumer: committed_text written to PTY" {
     var ts = makeSession();
-    var pw = MockPtyWriter{};
-    const dirty = consumeImeResult(.{ .committed_text = "han" }, &ts.session, 10, pw.writer(), null);
-    try std.testing.expectEqualStrings("han", pw.written());
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+    const dirty = consumeImeResult(.{ .committed_text = "han" }, &ts.session, 10, &pty_ops, null);
+    try std.testing.expectEqualStrings("han", mock_pty.written());
     try std.testing.expect(!dirty);
 }
 
 test "ime_consumer: preedit_text copied when preedit_changed=true" {
     var ts = makeSession();
-    var pw = MockPtyWriter{};
-    const dirty = consumeImeResult(.{ .preedit_text = "ga", .preedit_changed = true }, &ts.session, 10, pw.writer(), null);
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+    const dirty = consumeImeResult(.{ .preedit_text = "ga", .preedit_changed = true }, &ts.session, 10, &pty_ops, null);
     try std.testing.expect(dirty);
     try std.testing.expectEqualStrings("ga", ts.session.current_preedit.?);
 }
@@ -41,16 +42,18 @@ test "ime_consumer: preedit_text copied when preedit_changed=true" {
 test "ime_consumer: preedit NOT copied when preedit_changed=false" {
     var ts = makeSession();
     ts.session.setPreedit("old");
-    var pw = MockPtyWriter{};
-    _ = consumeImeResult(.{ .preedit_text = "new", .preedit_changed = false }, &ts.session, 10, pw.writer(), null);
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+    _ = consumeImeResult(.{ .preedit_text = "new", .preedit_changed = false }, &ts.session, 10, &pty_ops, null);
     try std.testing.expectEqualStrings("old", ts.session.current_preedit.?);
 }
 
 test "ime_consumer: preedit cleared when preedit_text=null, preedit_changed=true" {
     var ts = makeSession();
     ts.session.setPreedit("old");
-    var pw = MockPtyWriter{};
-    const dirty = consumeImeResult(.{ .preedit_text = null, .preedit_changed = true }, &ts.session, 10, pw.writer(), null);
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+    const dirty = consumeImeResult(.{ .preedit_text = null, .preedit_changed = true }, &ts.session, 10, &pty_ops, null);
     try std.testing.expect(dirty);
     try std.testing.expect(ts.session.current_preedit == null);
 }
@@ -69,16 +72,18 @@ test "ime_consumer: forward_key encoded and written to PTY" {
     };
 
     var ts = makeSession();
-    var pw = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
     var enc = MockKeyEncoder{ .result = "\x03" };
-    _ = consumeImeResult(.{ .forward_key = .{ .hid_keycode = 0x06, .modifiers = .{ .ctrl = true }, .shift = false, .action = .press } }, &ts.session, 10, pw.writer(), enc.enc());
-    try std.testing.expectEqualStrings("\x03", pw.written());
+    _ = consumeImeResult(.{ .forward_key = .{ .hid_keycode = 0x06, .modifiers = .{ .ctrl = true }, .shift = false, .action = .press } }, &ts.session, 10, &pty_ops, enc.enc());
+    try std.testing.expectEqualStrings("\x03", mock_pty.written());
 }
 
 test "ime_consumer: empty ImeResult is no-op" {
     var ts = makeSession();
-    var pw = MockPtyWriter{};
-    const dirty = consumeImeResult(.{}, &ts.session, 10, pw.writer(), null);
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+    const dirty = consumeImeResult(.{}, &ts.session, 10, &pty_ops, null);
     try std.testing.expect(!dirty);
-    try std.testing.expectEqual(@as(usize, 0), pw.written().len);
+    try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
 }

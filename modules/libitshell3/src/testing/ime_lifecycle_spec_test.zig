@@ -10,7 +10,7 @@ const server = @import("itshell3_server");
 const test_mod = @import("itshell3_testing");
 const Session = core.Session;
 const MockImeEngine = test_mod.MockImeEngine;
-const MockPtyWriter = test_mod.MockPtyWriter;
+const MockPtyOps = test_mod.MockPtyOps;
 const ClientTracker = server.ClientTracker;
 
 test "lifecycle: engine created with direct default" {
@@ -41,22 +41,24 @@ test "lifecycle: last detach triggers deactivate" {
     var mock = MockImeEngine{ .deactivate_result = .{ .committed_text = "bye", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine());
     var tracker = ClientTracker{};
-    var pw = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
     tracker.clientAttached(&s);
-    const dirty = tracker.clientDetached(&s, 10, pw.writer());
+    const dirty = tracker.clientDetached(&s, 10, &pty_ops);
     try std.testing.expectEqual(@as(usize, 1), mock.deactivate_count);
     try std.testing.expect(dirty);
-    try std.testing.expectEqualStrings("bye", pw.written());
+    try std.testing.expectEqualStrings("bye", mock_pty.written());
 }
 
 test "lifecycle: detach with remaining clients does NOT deactivate" {
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine());
     var tracker = ClientTracker{};
-    var pw = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
     tracker.clientAttached(&s);
     tracker.clientAttached(&s);
-    const dirty = tracker.clientDetached(&s, 10, pw.writer());
+    const dirty = tracker.clientDetached(&s, 10, &pty_ops);
     try std.testing.expectEqual(@as(usize, 0), mock.deactivate_count);
     try std.testing.expect(!dirty);
 }
@@ -65,9 +67,10 @@ test "lifecycle: language preserved across deactivate/activate" {
     var mock = MockImeEngine{ .active_input_method = "korean_2set", .deactivate_result = .{} };
     var s = Session.init(1, "t", 0, mock.engine());
     var tracker = ClientTracker{};
-    var pw = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
     tracker.clientAttached(&s);
-    _ = tracker.clientDetached(&s, 10, pw.writer());
+    _ = tracker.clientDetached(&s, 10, &pty_ops);
     tracker.clientAttached(&s);
     try std.testing.expectEqualStrings("korean_2set", mock.active_input_method);
 }
@@ -75,8 +78,9 @@ test "lifecycle: language preserved across deactivate/activate" {
 test "lifecycle: deactivate on empty engine returns no-op" {
     var mock = MockImeEngine{ .deactivate_result = .{} };
     var s = Session.init(1, "t", 0, mock.engine());
-    var pw = MockPtyWriter{};
-    const dirty = server.ime_lifecycle.deactivateSessionIme(&s, 10, pw.writer());
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+    const dirty = server.ime_lifecycle.deactivateSessionIme(&s, 10, &pty_ops);
     try std.testing.expect(!dirty);
-    try std.testing.expectEqual(@as(usize, 0), pw.written().len);
+    try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
 }

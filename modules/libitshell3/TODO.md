@@ -2,12 +2,11 @@
 
 ## Current State
 
-- **Step**: 5 (Spec Compliance Review — Round 2, regression after Step 8
-  changes + QA spec tests recovery)
+- **Step**: 10 (Owner Review)
 - **Cycle Type**: modification
 - **Review Round**: 1
-- **Active Team**: impl-team
-- **Team Directory**: .claude/agents/impl-team/
+- **Active Team**: (none — disbanded)
+- **Team Directory**: (none)
 
 ## Spec
 

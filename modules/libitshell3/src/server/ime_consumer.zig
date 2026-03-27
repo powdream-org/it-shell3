@@ -3,22 +3,8 @@ const core = @import("itshell3_core");
 const ImeResult = core.ImeResult;
 const KeyEvent = core.KeyEvent;
 const session_mod = core.session;
-
-/// Interface for PTY write operations, enabling mock injection for tests.
-pub const PtyWriter = struct {
-    ptr: *anyopaque,
-    vtable: *const VTable,
-
-    pub const VTable = struct {
-        write: *const fn (ptr: *anyopaque, fd: std.posix.fd_t, data: []const u8) WriteError!usize,
-    };
-
-    pub const WriteError = error{WriteFailed};
-
-    pub fn write(self: PtyWriter, fd: std.posix.fd_t, data: []const u8) WriteError!usize {
-        return self.vtable.write(self.ptr, fd, data);
-    }
-};
+const os = @import("itshell3_os");
+const PtyOps = os.PtyOps;
 
 /// Interface for key encoding (ghostty key_encode.encode), enabling mock injection.
 pub const KeyEncoder = struct {
@@ -51,14 +37,14 @@ pub fn consumeImeResult(
     result: ImeResult,
     session: *session_mod.Session,
     pty_fd: std.posix.fd_t,
-    pty_writer: PtyWriter,
+    pty_ops: *const PtyOps,
     key_encoder: ?KeyEncoder,
 ) bool {
     var preedit_dirty = false;
 
     // 1. Write committed text to PTY
     if (result.committed_text) |text| {
-        _ = pty_writer.write(pty_fd, text) catch {};
+        _ = pty_ops.write(pty_fd, text) catch {};
     }
 
     // 2. Handle preedit state change
@@ -71,7 +57,7 @@ pub fn consumeImeResult(
     if (result.forward_key) |fwd_key| {
         if (key_encoder) |encoder| {
             if (encoder.encode(fwd_key)) |encoded| {
-                _ = pty_writer.write(pty_fd, encoded) catch {};
+                _ = pty_ops.write(pty_fd, encoded) catch {};
             }
         }
     }
@@ -83,7 +69,7 @@ pub fn consumeImeResult(
 
 const test_mod = @import("itshell3_testing");
 const mock_ime = test_mod.mock_ime_engine;
-const MockPtyWriter = test_mod.mock_pty_writer.MockPtyWriter;
+const MockPtyOps = test_mod.mock_os.MockPtyOps;
 
 /// Mock key encoder that returns a fixed string.
 const MockKeyEncoder = struct {
@@ -114,21 +100,23 @@ fn makeTestSession() struct { engine: mock_ime.MockImeEngine, session: session_m
 
 test "consumeImeResult: committed_text written to PTY" {
     var ts = makeTestSession();
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
     const result = ImeResult{ .committed_text = "han" };
-    const dirty = consumeImeResult(result, &ts.session, 10, mock_writer.writer(), null);
+    const dirty = consumeImeResult(result, &ts.session, 10, &pty_ops, null);
 
-    try std.testing.expectEqualSlices(u8, "han", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "han", mock_pty.written());
     try std.testing.expect(!dirty);
 }
 
 test "consumeImeResult: preedit_text copied to session buffer when preedit_changed" {
     var ts = makeTestSession();
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
     const result = ImeResult{ .preedit_text = "ga", .preedit_changed = true };
-    const dirty = consumeImeResult(result, &ts.session, 10, mock_writer.writer(), null);
+    const dirty = consumeImeResult(result, &ts.session, 10, &pty_ops, null);
 
     try std.testing.expect(dirty);
     try std.testing.expect(ts.session.current_preedit != null);
@@ -138,10 +126,11 @@ test "consumeImeResult: preedit_text copied to session buffer when preedit_chang
 test "consumeImeResult: preedit cleared when preedit_text=null and preedit_changed=true" {
     var ts = makeTestSession();
     ts.session.setPreedit("old");
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
     const result = ImeResult{ .preedit_text = null, .preedit_changed = true };
-    const dirty = consumeImeResult(result, &ts.session, 10, mock_writer.writer(), null);
+    const dirty = consumeImeResult(result, &ts.session, 10, &pty_ops, null);
 
     try std.testing.expect(dirty);
     try std.testing.expect(ts.session.current_preedit == null);
@@ -150,31 +139,33 @@ test "consumeImeResult: preedit cleared when preedit_text=null and preedit_chang
 test "consumeImeResult: preedit NOT updated when preedit_changed=false" {
     var ts = makeTestSession();
     ts.session.setPreedit("old");
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
     const result = ImeResult{ .preedit_text = "new", .preedit_changed = false };
-    const dirty = consumeImeResult(result, &ts.session, 10, mock_writer.writer(), null);
+    const dirty = consumeImeResult(result, &ts.session, 10, &pty_ops, null);
 
     try std.testing.expect(!dirty);
-    // Preedit should still be "old"
     try std.testing.expectEqualSlices(u8, "old", ts.session.current_preedit.?);
 }
 
 test "consumeImeResult: forward_key encoded and written to PTY" {
     var ts = makeTestSession();
-    var mock_writer = MockPtyWriter{};
-    var mock_enc = MockKeyEncoder{ .result = "\x03" }; // Ctrl+C
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+    var mock_enc = MockKeyEncoder{ .result = "\x03" };
     const key = KeyEvent{ .hid_keycode = 0x06, .modifiers = .{ .ctrl = true }, .shift = false, .action = .press };
 
     const result = ImeResult{ .forward_key = key };
-    _ = consumeImeResult(result, &ts.session, 10, mock_writer.writer(), mock_enc.encoder());
+    _ = consumeImeResult(result, &ts.session, 10, &pty_ops, mock_enc.encoder());
 
-    try std.testing.expectEqualSlices(u8, "\x03", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "\x03", mock_pty.written());
 }
 
 test "consumeImeResult: committed_text + forward_key both written in order" {
     var ts = makeTestSession();
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
     var mock_enc = MockKeyEncoder{ .result = "\x03" };
     const key = KeyEvent{ .hid_keycode = 0x06, .modifiers = .{ .ctrl = true }, .shift = false, .action = .press };
 
@@ -184,21 +175,21 @@ test "consumeImeResult: committed_text + forward_key both written in order" {
         .preedit_changed = true,
         .preedit_text = null,
     };
-    const dirty = consumeImeResult(result, &ts.session, 10, mock_writer.writer(), mock_enc.encoder());
+    const dirty = consumeImeResult(result, &ts.session, 10, &pty_ops, mock_enc.encoder());
 
-    // "ha" then "\x03"
-    try std.testing.expectEqualSlices(u8, "ha\x03", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "ha\x03", mock_pty.written());
     try std.testing.expect(dirty);
     try std.testing.expect(ts.session.current_preedit == null);
 }
 
 test "consumeImeResult: empty result is no-op" {
     var ts = makeTestSession();
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
     const result = ImeResult{};
-    const dirty = consumeImeResult(result, &ts.session, 10, mock_writer.writer(), null);
+    const dirty = consumeImeResult(result, &ts.session, 10, &pty_ops, null);
 
     try std.testing.expect(!dirty);
-    try std.testing.expectEqual(@as(usize, 0), mock_writer.written().len);
+    try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
 }

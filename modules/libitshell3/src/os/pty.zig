@@ -27,6 +27,7 @@ pub const real_pty_ops: interfaces.PtyOps = .{
     .resize = realResize,
     .close = realClose,
     .read = realRead,
+    .write = realWrite,
 };
 
 fn realForkPty(cols: u16, rows: u16) interfaces.PtyOps.ForkPtyError!interfaces.PtyOps.ForkPtyResult {
@@ -118,6 +119,11 @@ fn realRead(master_fd: posix.fd_t, buf: []u8) interfaces.PtyOps.ReadError!usize 
     return posix.read(master_fd, buf);
 }
 
+fn realWrite(master_fd: posix.fd_t, data: []const u8) interfaces.PtyOps.WriteError!usize {
+    const n = posix.write(master_fd, data) catch return error.WriteFailed;
+    return n;
+}
+
 // Real PTY integration tests (fork+exec) are deferred to the dedicated
 // integration test suite (Task 14) to avoid fork-related hangs in the
 // unit test runner. The vtable contract is verified via mock tests in
@@ -128,4 +134,5 @@ test "real_pty_ops vtable has all required function pointers" {
     try std.testing.expect(real_pty_ops.resize == realResize);
     try std.testing.expect(real_pty_ops.close == realClose);
     try std.testing.expect(real_pty_ops.read == realRead);
+    try std.testing.expect(real_pty_ops.write == realWrite);
 }

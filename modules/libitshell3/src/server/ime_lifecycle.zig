@@ -1,6 +1,8 @@
 const std = @import("std");
 const core = @import("itshell3_core");
 const session_mod = core.session;
+const os = @import("itshell3_os");
+const PtyOps = os.PtyOps;
 const ime_consumer = @import("ime_consumer.zig");
 
 /// Tracks the number of attached clients per session and determines when to
@@ -30,12 +32,12 @@ pub const ClientTracker = struct {
         self: *ClientTracker,
         session: *session_mod.Session,
         pty_fd: std.posix.fd_t,
-        pty_writer: ime_consumer.PtyWriter,
+        pty_ops: *const PtyOps,
     ) bool {
         if (self.attached_count == 0) return false;
         self.attached_count -= 1;
         if (self.attached_count == 0) {
-            return deactivateSessionIme(session, pty_fd, pty_writer);
+            return deactivateSessionIme(session, pty_fd, pty_ops);
         }
         return false;
     }
@@ -56,14 +58,10 @@ pub fn activateSessionIme(session: *session_mod.Session) void {
 pub fn deactivateSessionIme(
     session: *session_mod.Session,
     pty_fd: std.posix.fd_t,
-    pty_writer: ime_consumer.PtyWriter,
+    pty_ops: *const PtyOps,
 ) bool {
     const result = session.ime_engine.deactivate();
-
-    // Consume the deactivation result:
-    // - If committed text returned, write to the focused pane's PTY.
-    // - If preedit changed, clear session.current_preedit and mark dirty.
-    return ime_consumer.consumeImeResult(result, session, pty_fd, pty_writer, null);
+    return ime_consumer.consumeImeResult(result, session, pty_fd, pty_ops, null);
 }
 
 /// Handle intra-session pane focus change.
@@ -77,17 +75,17 @@ pub fn deactivateSessionIme(
 pub fn flushOnPaneFocusChange(
     session: *session_mod.Session,
     old_pane_pty_fd: std.posix.fd_t,
-    pty_writer: ime_consumer.PtyWriter,
+    pty_ops: *const PtyOps,
 ) bool {
     const result = session.ime_engine.flush();
-    return ime_consumer.consumeImeResult(result, session, old_pane_pty_fd, pty_writer, null);
+    return ime_consumer.consumeImeResult(result, session, old_pane_pty_fd, pty_ops, null);
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 const test_mod = @import("itshell3_testing");
 const mock_ime = test_mod.mock_ime_engine;
-const MockPtyWriter = test_mod.mock_pty_writer.MockPtyWriter;
+const MockPtyOps = test_mod.mock_os.MockPtyOps;
 
 test "activateSessionIme: calls activate on engine" {
     var mock = mock_ime.MockImeEngine{};
@@ -102,28 +100,30 @@ test "deactivateSessionIme: calls deactivate, writes committed text to PTY" {
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.setPreedit("composing");
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    const dirty = deactivateSessionIme(&session, 10, mock_writer.writer());
+    const dirty = deactivateSessionIme(&session, 10, &pty_ops);
 
     try std.testing.expectEqual(@as(usize, 1), mock.deactivate_count);
-    try std.testing.expectEqualSlices(u8, "flushed", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "flushed", mock_pty.written());
     try std.testing.expect(dirty);
     try std.testing.expect(session.current_preedit == null);
 }
 
 test "deactivateSessionIme: empty engine returns no-op" {
     var mock = mock_ime.MockImeEngine{
-        .deactivate_result = .{}, // empty
+        .deactivate_result = .{},
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    const dirty = deactivateSessionIme(&session, 10, mock_writer.writer());
+    const dirty = deactivateSessionIme(&session, 10, &pty_ops);
 
     try std.testing.expectEqual(@as(usize, 1), mock.deactivate_count);
     try std.testing.expect(!dirty);
-    try std.testing.expectEqual(@as(usize, 0), mock_writer.written().len);
+    try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
 }
 
 test "deactivateSessionIme: language state preserved (active_input_method unchanged)" {
@@ -132,11 +132,11 @@ test "deactivateSessionIme: language state preserved (active_input_method unchan
         .deactivate_result = .{},
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    _ = deactivateSessionIme(&session, 10, mock_writer.writer());
+    _ = deactivateSessionIme(&session, 10, &pty_ops);
 
-    // Engine's active_input_method should still be "korean_2set"
     try std.testing.expectEqualSlices(u8, "korean_2set", mock.active_input_method);
 }
 
@@ -146,12 +146,13 @@ test "flushOnPaneFocusChange: flushes composition to old pane PTY" {
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.setPreedit("composing");
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    const dirty = flushOnPaneFocusChange(&session, 42, mock_writer.writer());
+    const dirty = flushOnPaneFocusChange(&session, 42, &pty_ops);
 
     try std.testing.expectEqual(@as(usize, 1), mock.flush_count);
-    try std.testing.expectEqualSlices(u8, "committed", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "committed", mock_pty.written());
     try std.testing.expect(dirty);
     try std.testing.expect(session.current_preedit == null);
 }
@@ -161,12 +162,13 @@ test "flushOnPaneFocusChange: empty engine is no-op" {
         .flush_result = .{},
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    const dirty = flushOnPaneFocusChange(&session, 42, mock_writer.writer());
+    const dirty = flushOnPaneFocusChange(&session, 42, &pty_ops);
 
     try std.testing.expect(!dirty);
-    try std.testing.expectEqual(@as(usize, 0), mock_writer.written().len);
+    try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
 }
 
 test "ClientTracker: first attach triggers activate" {
@@ -198,26 +200,28 @@ test "ClientTracker: last detach triggers deactivate" {
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     var tracker = ClientTracker{};
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
     tracker.clientAttached(&session);
-    const dirty = tracker.clientDetached(&session, 10, mock_writer.writer());
+    const dirty = tracker.clientDetached(&session, 10, &pty_ops);
 
     try std.testing.expectEqual(@as(u32, 0), tracker.attached_count);
     try std.testing.expectEqual(@as(usize, 1), mock.deactivate_count);
     try std.testing.expect(dirty);
-    try std.testing.expectEqualSlices(u8, "bye", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "bye", mock_pty.written());
 }
 
 test "ClientTracker: detach with remaining clients does NOT trigger deactivate" {
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     var tracker = ClientTracker{};
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
     tracker.clientAttached(&session);
     tracker.clientAttached(&session);
-    const dirty = tracker.clientDetached(&session, 10, mock_writer.writer());
+    const dirty = tracker.clientDetached(&session, 10, &pty_ops);
 
     try std.testing.expectEqual(@as(u32, 1), tracker.attached_count);
     try std.testing.expectEqual(@as(usize, 0), mock.deactivate_count);
@@ -228,9 +232,10 @@ test "ClientTracker: detach from zero count is no-op" {
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     var tracker = ClientTracker{};
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    const dirty = tracker.clientDetached(&session, 10, mock_writer.writer());
+    const dirty = tracker.clientDetached(&session, 10, &pty_ops);
 
     try std.testing.expectEqual(@as(u32, 0), tracker.attached_count);
     try std.testing.expectEqual(@as(usize, 0), mock.deactivate_count);

@@ -14,6 +14,8 @@ pub const MockPtyOps = struct {
     resize_cols: u16 = 0,
     resize_rows: u16 = 0,
     close_called: bool = false,
+    write_buf: [1024]u8 = @splat(0),
+    write_len: usize = 0,
 
     /// Install this mock and return a PtyOps vtable pointing to it.
     pub fn ops(self: *MockPtyOps) interfaces.PtyOps {
@@ -23,7 +25,13 @@ pub const MockPtyOps = struct {
             .resize = mockResize,
             .close = mockClose,
             .read = mockRead,
+            .write = mockWrite,
         };
+    }
+
+    /// Return the bytes written so far.
+    pub fn written(self: *const MockPtyOps) []const u8 {
+        return self.write_buf[0..self.write_len];
     }
 
     fn mockForkPty(_: u16, _: u16) interfaces.PtyOps.ForkPtyError!interfaces.PtyOps.ForkPtyResult {
@@ -53,6 +61,15 @@ pub const MockPtyOps = struct {
         @memcpy(buf[0..n], remaining[0..n]);
         self.read_offset += n;
         return n;
+    }
+
+    fn mockWrite(_: std.posix.fd_t, data: []const u8) interfaces.PtyOps.WriteError!usize {
+        const self = global_mock_pty orelse unreachable;
+        const available = self.write_buf.len - self.write_len;
+        const to_copy = @min(data.len, available);
+        @memcpy(self.write_buf[self.write_len..][0..to_copy], data[0..to_copy]);
+        self.write_len += to_copy;
+        return data.len;
     }
 };
 
@@ -110,6 +127,17 @@ test "mock PTY: read returns configured data" {
     // Second read returns 0 (no more data)
     const n2 = try pty_ops.read(5, &buf);
     try std.testing.expectEqual(@as(usize, 0), n2);
+}
+
+test "mock PTY: write records data" {
+    var mock = MockPtyOps{};
+    const pty_ops = mock.ops();
+
+    const n1 = try pty_ops.write(5, "hello");
+    try std.testing.expectEqual(@as(usize, 5), n1);
+    const n2 = try pty_ops.write(5, " world");
+    try std.testing.expectEqual(@as(usize, 6), n2);
+    try std.testing.expectEqualSlices(u8, "hello world", mock.written());
 }
 
 test "mock PTY: read returns 0 when no data configured" {

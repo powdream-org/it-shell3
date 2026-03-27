@@ -11,6 +11,8 @@ pub const PtyOps = struct {
     close: *const fn (master_fd: std.posix.fd_t) void,
     /// Read from PTY master fd.
     read: *const fn (master_fd: std.posix.fd_t, buf: []u8) ReadError!usize,
+    /// Write to PTY master fd.
+    write: *const fn (master_fd: std.posix.fd_t, data: []const u8) WriteError!usize,
 
     pub const ForkPtyResult = struct {
         master_fd: std.posix.fd_t,
@@ -19,6 +21,7 @@ pub const PtyOps = struct {
     pub const ForkPtyError = error{ ForkFailed, PtyOpenFailed, ExecFailed };
     pub const ResizeError = error{IoctlFailed};
     pub const ReadError = std.posix.ReadError;
+    pub const WriteError = error{WriteFailed};
 };
 
 /// Event loop operations interface (kqueue/epoll abstraction).
@@ -75,12 +78,18 @@ test "PtyOps vtable can be constructed with function pointers" {
             return 0;
         }
     }.f;
+    const stub_write = struct {
+        fn f(_: std.posix.fd_t, data: []const u8) PtyOps.WriteError!usize {
+            return data.len;
+        }
+    }.f;
 
     const ops = PtyOps{
         .forkPty = stub_fork,
         .resize = stub_resize,
         .close = stub_close,
         .read = stub_read,
+        .write = stub_write,
     };
 
     const result = try ops.forkPty(80, 24);

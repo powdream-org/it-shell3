@@ -2,6 +2,8 @@ const std = @import("std");
 const core = @import("itshell3_core");
 const session_mod = core.session;
 const types = core.types;
+const os = @import("itshell3_os");
+const PtyOps = os.PtyOps;
 const ime_consumer = @import("ime_consumer.zig");
 
 /// Ownership transfer (reference procedure, see ime-procedures spec).
@@ -13,40 +15,33 @@ const ime_consumer = @import("ime_consumer.zig");
 pub fn ownershipTransfer(
     session: *session_mod.Session,
     pty_fd: std.posix.fd_t,
-    pty_writer: ime_consumer.PtyWriter,
+    pty_ops: *const PtyOps,
     new_owner: ?types.ClientId,
 ) void {
-    // Step 1: Flush composition
     const result = session.ime_engine.flush();
 
-    // Steps 2-3: Consume result (write committed_text to PTY before next engine call)
-    _ = ime_consumer.consumeImeResult(result, session, pty_fd, pty_writer, null);
+    _ = ime_consumer.consumeImeResult(result, session, pty_fd, pty_ops, null);
 
-    // Step 4: Clear preedit (may have been done by consumer, but ensure it)
     session.setPreedit(null);
 
-    // Step 5: Send PreeditEnd to all attached clients (stub — requires wire message dispatch)
     // TODO(Plan 6): Send PreeditEnd with appropriate reason and preedit_session_id
 
-    // Step 6: Increment session_id
     session.preedit.incrementSessionId();
-
-    // Step 7: Update owner
     session.preedit.owner = new_owner;
 }
 
 /// Resolve preedit ownership before client teardown (see ime-procedures spec).
 /// If the departing client is the preedit owner, flush and transfer to null.
-/// Used by disconnect, detach, and eviction — identical from preedit perspective.
+/// Used by disconnect, detach, and eviction -- identical from preedit perspective.
 fn handlePreeditOwnerDisconnect(
     session: *session_mod.Session,
     client_id: types.ClientId,
     pty_fd: std.posix.fd_t,
-    pty_writer: ime_consumer.PtyWriter,
+    pty_ops: *const PtyOps,
 ) void {
     if (session.preedit.owner) |owner| {
         if (owner == client_id) {
-            ownershipTransfer(session, pty_fd, pty_writer, null);
+            ownershipTransfer(session, pty_fd, pty_ops, null);
         }
     }
 }
@@ -60,35 +55,21 @@ pub const onClientEviction = handlePreeditOwnerDisconnect;
 pub fn onFocusChange(
     session: *session_mod.Session,
     old_pane_pty_fd: std.posix.fd_t,
-    pty_writer: ime_consumer.PtyWriter,
+    pty_ops: *const PtyOps,
     new_pane_slot: types.PaneSlot,
 ) void {
-    // Steps 1-7: Flush and transfer ownership to null
-    ownershipTransfer(session, old_pane_pty_fd, pty_writer, null);
-
-    // Step 8: Update focused_pane (caller may also do this, but this is the
-    // canonical place per the procedure)
+    ownershipTransfer(session, old_pane_pty_fd, pty_ops, null);
     session.focused_pane = new_pane_slot;
-
     // TODO(Plan 6): Send LayoutChanged with new focused pane to all clients
 }
 
 /// Pane close for non-last pane (see ime-procedures spec).
-/// Reset (NOT flush) — composition is discarded; the PTY is being closed.
+/// Reset (NOT flush) -- composition is discarded; the PTY is being closed.
 pub fn onPaneClose(session: *session_mod.Session) void {
-    // Step 1: Discard composition (do NOT commit to PTY)
     session.ime_engine.reset();
-
-    // Step 2: Clear current_preedit
     session.setPreedit(null);
-
-    // Step 3: Clear owner
     session.preedit.owner = null;
-
-    // Step 4: Send PreeditEnd with reason "pane_closed" (stub)
     // TODO(Plan 6): Send PreeditEnd
-
-    // Step 5: Increment session_id (after PreeditEnd which carries old session_id)
     session.preedit.incrementSessionId();
 }
 
@@ -97,13 +78,9 @@ pub fn onPaneClose(session: *session_mod.Session) void {
 pub fn onAlternateScreenSwitch(
     session: *session_mod.Session,
     pty_fd: std.posix.fd_t,
-    pty_writer: ime_consumer.PtyWriter,
+    pty_ops: *const PtyOps,
 ) void {
-    // Execute ownership transfer (flush, consume, clear, PreeditEnd, increment)
-    ownershipTransfer(session, pty_fd, pty_writer, null);
-
-    // After this, caller processes the screen switch through ghostty Terminal
-    // and sends FrameUpdate with frame_type=1 (I-frame), screen=alternate.
+    ownershipTransfer(session, pty_fd, pty_ops, null);
 }
 
 /// Mouse click during composition (see ime-procedures spec).
@@ -112,9 +89,9 @@ pub fn onAlternateScreenSwitch(
 pub fn onMouseClick(
     session: *session_mod.Session,
     pty_fd: std.posix.fd_t,
-    pty_writer: ime_consumer.PtyWriter,
+    pty_ops: *const PtyOps,
 ) void {
-    ownershipTransfer(session, pty_fd, pty_writer, null);
+    ownershipTransfer(session, pty_fd, pty_ops, null);
 }
 
 /// InputMethodSwitch during active preedit (see ime-procedures spec).
@@ -129,46 +106,24 @@ pub fn onInputMethodSwitch(
     new_method: []const u8,
     commit_current: bool,
     pty_fd: std.posix.fd_t,
-    pty_writer: ime_consumer.PtyWriter,
+    pty_ops: *const PtyOps,
 ) void {
     if (commit_current) {
-        // Step 1: setActiveInputMethod atomically flushes
         const result = session.ime_engine.setActiveInputMethod(new_method) catch {
-            // UnsupportedInputMethod — should not happen with valid methods
             return;
         };
-
-        // Steps 2-3: Consume committed_text (write to PTY).
         // consumeImeResult handles preedit clearing when preedit_changed=true.
-        _ = ime_consumer.consumeImeResult(result, session, pty_fd, pty_writer, null);
-
-        // Step 4: PreeditEnd with reason "committed" (stub)
-        // TODO(Plan 6): Send PreeditEnd
-
-        // Step 5: InputMethodAck (stub)
-        // TODO(Plan 6): Send InputMethodAck
+        _ = ime_consumer.consumeImeResult(result, session, pty_fd, pty_ops, null);
+        // TODO(Plan 6): Send PreeditEnd, InputMethodAck
     } else {
-        // Step 1: Discard current composition
         session.ime_engine.reset();
-
-        // Step 2: Clear preedit
         session.setPreedit(null);
-
-        // Step 3: Clear owner
         session.preedit.owner = null;
-
-        // Step 4: Switch input method (no flush needed, engine is already empty)
         _ = session.ime_engine.setActiveInputMethod(new_method) catch {
             return;
         };
-
-        // Step 5: PreeditEnd with reason "cancelled" (stub)
         // TODO(Plan 6): Send PreeditEnd
-
-        // Step 6: Increment session_id
         session.preedit.incrementSessionId();
-
-        // Step 7: InputMethodAck (stub)
         // TODO(Plan 6): Send InputMethodAck
     }
 }
@@ -178,23 +133,14 @@ pub fn onInputMethodSwitch(
 pub fn errorRecovery(
     session: *session_mod.Session,
     pty_fd: std.posix.fd_t,
-    pty_writer: ime_consumer.PtyWriter,
+    pty_ops: *const PtyOps,
 ) void {
-    // Step 2: Best-effort commit existing preedit text to PTY
     if (session.current_preedit) |preedit| {
-        _ = pty_writer.write(pty_fd, preedit) catch {};
+        _ = pty_ops.write(pty_fd, preedit) catch {};
     }
-
-    // Step 3: Force composition state to null
     session.ime_engine.reset();
-
-    // Step 4: Clear preedit
     session.setPreedit(null);
-
-    // Step 5: Clear owner
     session.preedit.owner = null;
-
-    // Step 6: PreeditEnd with reason "cancelled" (stub)
     // TODO(Plan 6): Send PreeditEnd
 }
 
@@ -202,7 +148,7 @@ pub fn errorRecovery(
 
 const test_mod = @import("itshell3_testing");
 const mock_ime = test_mod.mock_ime_engine;
-const MockPtyWriter = test_mod.mock_pty_writer.MockPtyWriter;
+const MockPtyOps = test_mod.mock_os.MockPtyOps;
 
 test "ownershipTransfer: flushes, clears preedit, increments session_id, sets owner" {
     var mock = mock_ime.MockImeEngine{
@@ -211,12 +157,13 @@ test "ownershipTransfer: flushes, clears preedit, increments session_id, sets ow
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.preedit.owner = 42;
     session.setPreedit("composing");
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    ownershipTransfer(&session, 10, mock_writer.writer(), 99);
+    ownershipTransfer(&session, 10, &pty_ops, 99);
 
     try std.testing.expectEqual(@as(usize, 1), mock.flush_count);
-    try std.testing.expectEqualSlices(u8, "committed", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "committed", mock_pty.written());
     try std.testing.expect(session.current_preedit == null);
     try std.testing.expectEqual(@as(u32, 1), session.preedit.session_id);
     try std.testing.expectEqual(@as(?types.ClientId, 99), session.preedit.owner);
@@ -228,21 +175,23 @@ test "onClientDisconnect: owner disconnects -> flush and clear owner" {
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.preedit.owner = 5;
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    onClientDisconnect(&session, 5, 10, mock_writer.writer());
+    onClientDisconnect(&session, 5, 10, &pty_ops);
 
     try std.testing.expect(session.preedit.owner == null);
-    try std.testing.expectEqualSlices(u8, "flushed", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "flushed", mock_pty.written());
 }
 
 test "onClientDisconnect: non-owner disconnects -> no-op" {
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.preedit.owner = 5;
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    onClientDisconnect(&session, 99, 10, mock_writer.writer());
+    onClientDisconnect(&session, 99, 10, &pty_ops);
 
     try std.testing.expectEqual(@as(?types.ClientId, 5), session.preedit.owner);
     try std.testing.expectEqual(@as(usize, 0), mock.flush_count);
@@ -254,11 +203,12 @@ test "onFocusChange: flushes to old pane, updates focused_pane" {
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.focused_pane = 0;
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    onFocusChange(&session, 42, mock_writer.writer(), 3);
+    onFocusChange(&session, 42, &pty_ops, 3);
 
-    try std.testing.expectEqualSlices(u8, "text", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "text", mock_pty.written());
     try std.testing.expectEqual(@as(?types.PaneSlot, 3), session.focused_pane);
     try std.testing.expect(session.current_preedit == null);
 }
@@ -284,11 +234,12 @@ test "onAlternateScreenSwitch: flushes and clears" {
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.setPreedit("composing");
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    onAlternateScreenSwitch(&session, 10, mock_writer.writer());
+    onAlternateScreenSwitch(&session, 10, &pty_ops);
 
-    try std.testing.expectEqualSlices(u8, "flushed", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "flushed", mock_pty.written());
     try std.testing.expect(session.current_preedit == null);
 }
 
@@ -297,11 +248,12 @@ test "onMouseClick: flushes composition before mouse event" {
         .flush_result = .{ .committed_text = "click", .preedit_changed = true },
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    onMouseClick(&session, 10, mock_writer.writer());
+    onMouseClick(&session, 10, &pty_ops);
 
-    try std.testing.expectEqualSlices(u8, "click", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "click", mock_pty.written());
 }
 
 test "onInputMethodSwitch: commit_current=true flushes atomically" {
@@ -310,12 +262,13 @@ test "onInputMethodSwitch: commit_current=true flushes atomically" {
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.setPreedit("composing");
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    onInputMethodSwitch(&session, "direct", true, 10, mock_writer.writer());
+    onInputMethodSwitch(&session, "direct", true, 10, &pty_ops);
 
     try std.testing.expectEqual(@as(usize, 1), mock.set_aim_count);
-    try std.testing.expectEqualSlices(u8, "committed", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "committed", mock_pty.written());
     try std.testing.expect(session.current_preedit == null);
 }
 
@@ -324,9 +277,10 @@ test "onInputMethodSwitch: commit_current=false resets and switches" {
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.preedit.owner = 5;
     session.setPreedit("composing");
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    onInputMethodSwitch(&session, "direct", false, 10, mock_writer.writer());
+    onInputMethodSwitch(&session, "direct", false, 10, &pty_ops);
 
     try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
     try std.testing.expectEqual(@as(usize, 0), mock.flush_count);
@@ -341,12 +295,12 @@ test "errorRecovery: best-effort commit + reset to known-good state" {
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
     session.preedit.owner = 7;
     session.setPreedit("broken");
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    errorRecovery(&session, 10, mock_writer.writer());
+    errorRecovery(&session, 10, &pty_ops);
 
-    // Best-effort commit of preedit text
-    try std.testing.expectEqualSlices(u8, "broken", mock_writer.written());
+    try std.testing.expectEqualSlices(u8, "broken", mock_pty.written());
     try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
     try std.testing.expect(session.current_preedit == null);
     try std.testing.expect(session.preedit.owner == null);
@@ -355,10 +309,11 @@ test "errorRecovery: best-effort commit + reset to known-good state" {
 test "errorRecovery: no preedit -> reset only" {
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine());
-    var mock_writer = MockPtyWriter{};
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
 
-    errorRecovery(&session, 10, mock_writer.writer());
+    errorRecovery(&session, 10, &pty_ops);
 
-    try std.testing.expectEqual(@as(usize, 0), mock_writer.written().len);
+    try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
     try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
 }
