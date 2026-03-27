@@ -100,6 +100,7 @@ jobs:
       - name: Install kcov
         if: matrix.coverage
         run: |
+          sudo apt-get update && sudo apt-get install -y libdw1 libcurl4
           KCOV_DIR="${RUNNER_TOOL_CACHE}/kcov"
           if [ ! -f "$KCOV_DIR/usr/local/bin/kcov" ]; then
             mkdir -p "$KCOV_DIR"
@@ -114,6 +115,10 @@ jobs:
         env:
           WORKSPACE_DIR: ${{ github.workspace }}
           TEST_MODULES: modules/libitshell3-protocol modules/libitshell3-ime modules/libitshell3
+
+      - name: List coverage output
+        if: matrix.coverage
+        run: find coverage -name "cobertura.xml" -o -name "coverage.json" 2>/dev/null | head -20
 
       - name: Upload to Coveralls
         if: matrix.coverage
