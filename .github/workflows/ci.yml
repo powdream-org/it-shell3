@@ -83,99 +83,27 @@ jobs:
           done
 
       # --- coverage (Linux-x86_64 only) ---
-      - name: Configure kcov paths
-        if: matrix.coverage
-        id: kcov
-        run: |
-          KCOV_DIR="${RUNNER_TOOL_CACHE}/kcov"
-          echo "dir=$KCOV_DIR" >> "$GITHUB_OUTPUT"
-
-      - name: Cache kcov
-        if: matrix.coverage
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: ${{ steps.kcov.outputs.dir }}
-          key: kcov-${{ runner.os }}-${{ runner.arch }}-v42
-
       - name: Install kcov
         if: matrix.coverage
-        run: |
-          sudo apt-get update && sudo apt-get install -y libdw1 libcurl4
-          KCOV_DIR="${RUNNER_TOOL_CACHE}/kcov"
-          if [ ! -f "$KCOV_DIR/usr/local/bin/kcov" ]; then
-            mkdir -p "$KCOV_DIR"
-            curl -fsSL -L https://github.com/SimonKagstrom/kcov/releases/download/v42/kcov-amd64.tar.gz \
-              | tar xz -C "$KCOV_DIR"
-          fi
-          echo "$KCOV_DIR/usr/local/bin" >> "$GITHUB_PATH"
+        run: sudo apt-get update && sudo apt-get install -y kcov
 
       - name: Measure coverage
         if: matrix.coverage
-        run: |
-          # Debug: verify kcov works
-          kcov --version || true
-          ldd $(which kcov) || true
-
-          # Run coverage with visible errors (no 2>/dev/null)
-          export WORKSPACE_DIR="${{ github.workspace }}"
-          export TEST_MODULES
-
-          COVERAGE_DIR=coverage
-          rm -rf $COVERAGE_DIR && mkdir -p $COVERAGE_DIR
-
-          for MODULE_DIR in $TEST_MODULES; do
-            MODULE=$(basename $MODULE_DIR)
-            echo "=== $MODULE: building tests ==="
-
-            BUILD_ARGS="-Doptimize=ReleaseSafe"
-            if [ "$MODULE" = "libitshell3" ]; then
-              BUILD_ARGS="$BUILD_ARGS -Dghostty-simd=false"
-            fi
-
-            rm -rf $MODULE_DIR/.zig-cache
-            (cd $MODULE_DIR && zig build test $BUILD_ARGS --summary none)
-
-            TEST_BINS=$(find $MODULE_DIR/.zig-cache/o -name test -type f -executable 2>/dev/null)
-            if [ -z "$TEST_BINS" ]; then
-              echo "ERROR: no test binary for $MODULE"
-              continue
-            fi
-
-            BIN_IDX=0
-            for TEST_BIN in $TEST_BINS; do
-              echo "=== $MODULE: running kcov on binary $BIN_IDX ($TEST_BIN) ==="
-              kcov --include-path=$WORKSPACE_DIR/$MODULE_DIR/src/ \
-                $COVERAGE_DIR/${MODULE}_part_${BIN_IDX} "$TEST_BIN" || echo "KCOV FAILED with exit code $?"
-              BIN_IDX=$((BIN_IDX + 1))
-            done
-            echo "=== $MODULE: done ==="
-          done
-
-          # List what was produced
-          echo "=== Coverage files produced ==="
-          find coverage -type f -name "*.xml" -o -name "*.json" | head -30
-
-          # Merge
-          MERGE_ARGS=""
-          for dir in $TEST_MODULES; do
-            MODULE=$(basename $dir)
-            if [ -d "$COVERAGE_DIR/$MODULE" ]; then
-              MERGE_ARGS="$MERGE_ARGS $COVERAGE_DIR/$MODULE"
-            fi
-          done
-          if [ -n "$MERGE_ARGS" ]; then
-            kcov --merge $COVERAGE_DIR/merged $MERGE_ARGS || echo "MERGE FAILED"
-          fi
-
-          echo "=== Final coverage structure ==="
-          find coverage -type f -name "*.xml" | head -10
+        run: bash scripts/coverage.sh
         env:
-          TEST_MODULES: modules/libitshell3-protocol modules/libitshell3-ime modules/libitshell3
+          WORKSPACE_DIR: ${{ github.workspace }}
+
+      - name: Find coverage report
+        if: matrix.coverage
+        id: coverage
+        run: |
+          COBERTURA=$(find coverage -name "cobertura.xml" | head -1)
+          echo "file=$COBERTURA" >> "$GITHUB_OUTPUT"
+          echo "Found: $COBERTURA"
 
       - name: Upload to Coveralls
-        if: matrix.coverage
+        if: matrix.coverage && steps.coverage.outputs.file != ''
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
         with:
-          file: coverage/merged/kcov-merged/cobertura.xml
+          file: ${{ steps.coverage.outputs.file }}
           format: cobertura
-          allow-empty: true
