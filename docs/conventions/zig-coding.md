@@ -104,6 +104,31 @@ fn codepointWidth(cp: u21) CharWidth {
 Arbitrary-width backing types are allowed on enums — the `u2` is encapsulated by
 the enum and does not leak into the calling code.
 
+### 6. Derived constants — comptime over hardcoded
+
+When a constant can be derived from another constant, **always** derive it at
+comptime. Do not hardcode values that have a mathematical relationship — a
+hardcoded value can silently fall out of sync when the source constant changes.
+
+**Wrong:**
+
+```zig
+pub const MAX_PANES: u8 = 16;
+pub const MAX_TREE_NODES: u8 = 31;  // hardcoded 16*2-1
+pub const MAX_TREE_DEPTH: u8 = 4;   // hardcoded log2(16)
+```
+
+**Right:**
+
+```zig
+pub const MAX_PANES: u8 = 16;
+pub const MAX_TREE_NODES: u8 = MAX_PANES * 2 - 1;
+pub const MAX_TREE_DEPTH: u8 = std.math.log2_int(u8, MAX_PANES);
+```
+
+Zig evaluates these at comptime with zero runtime cost. Changing `MAX_PANES`
+automatically propagates to all derived constants.
+
 ### Summary
 
 | Context                                     | Rule                              | Example                             |
