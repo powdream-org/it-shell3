@@ -271,3 +271,66 @@ the wrong interpretation.
 
 1. Reword Step 3a: "If **remaining** context window ≤ 25% (i.e., ≥ 75% used),
    ask the owner to `/compact` before spawning agents."
+
+## SIP-11: QA spec test files lost — concurrent agents sharing workspace
+
+**Discovered during**: Step 8 (Over-Engineering Review, owner review)
+
+**What happened**: QA reviewer reported creating 8 spec test files (102 test
+cases) in `src/testing/`. Implementer ran concurrently in the same workspace and
+wrote inline tests in each source file. After both completed, the QA spec test
+files did not exist on disk and were never committed. 102 spec compliance tests
+were silently lost. The team leader did not verify file existence after QA
+completion — only checked test counts.
+
+**Root cause**: Step 3 spawns implementer and QA in the same workspace without
+file-level coordination. When both agents write to the same directories, one
+agent's files can be overwritten or deleted by the other. There is no mechanism
+to detect this — the team leader only sees final test counts, not whether
+specific expected files exist.
+
+**Affected steps**: `steps/03-implementation.md` (Step 3c — concurrent spawn)
+
+**Proposed changes**:
+
+1. Step 3 should use `isolation: "worktree"` for at least one agent, or sequence
+   them (implementer first, QA second after implementer commits).
+2. After both agents complete, the team leader must verify: (a) all files listed
+   in the QA report actually exist on disk, (b) test count matches the sum of
+   implementer + QA reported tests.
+3. Add anti-pattern: "Don't trust agent completion reports without verifying
+   file existence. Concurrent agents can silently overwrite each other's work."
+
+## SIP-12: Cyclic references not monitored during implementation cycle
+
+**Discovered during**: Step 8 / Owner review
+
+**What happened**: Two within-module cyclic references (event_loop.zig ↔
+handlers/pty_read.zig, event_loop.zig ↔ handlers/client_accept.zig) existed
+since Plan 1 and were never flagged. They were only discovered during owner
+review in Plan 5 when the owner noticed a `../../` import from a handler to its
+parent module. Neither the implementer, QA reviewer, code simplify agents, nor
+the principal architect caught cyclic dependencies during any step.
+
+**Root cause**: No step in the implementation cycle checks for cyclic import
+references. The implementer focuses on "does it compile and pass tests" — Zig
+allows cyclic imports via lazy evaluation, so they don't cause build errors. The
+QA reviewer checks spec compliance, not structural health. The simplify agents
+check for duplication and efficiency, not dependency direction. The principal
+architect checks for over-engineering, not dependency cycles.
+
+**Affected steps**: Steps 3, 4, 5, 8 — all review points in the cycle
+
+**Proposed changes**:
+
+1. Add to Step 3 (Implementation): Implementer MUST NOT create cross-module
+   cyclic imports. Within-module cycles (e.g., handler importing parent) are a
+   code smell — extract shared types to break the cycle.
+2. Add to Step 5 (Spec Compliance): QA reviewer checks for `../../` imports and
+   flags any bidirectional import chains as spec violations (module boundaries
+   from spec should be unidirectional).
+3. Add to Step 8 (Over-Engineering Review): Principal architect runs a
+   dependency direction check — grep for `../` imports and verify they flow in
+   the correct direction (handler → shared types, not handler → parent).
+4. Add to Step 4 (Simplify): Code quality agent checks for circular import
+   patterns as part of "leaky abstractions" review.

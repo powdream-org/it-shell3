@@ -148,6 +148,9 @@ High-level phases (updated to reflect actual implementation order):
   size constants, getter patterns. Applies to all Zig source.
 - [**Zig Documentation**](docs/conventions/zig-documentation.md) — Doc comment
   rules, spec reference policy (no section numbers), TODO format.
+- [**Zig Testing**](docs/conventions/zig-testing.md) — Inline unit tests
+  (implementer) vs spec compliance tests (QA). File naming, test naming,
+  ownership rules.
 - [**Commit Messages**](docs/conventions/commit-messages.md) — Conventional
   commits format. **English only.**
 - [**Document Artifact Conventions**](docs/conventions/artifacts/documents/01-overview.md)

@@ -2,7 +2,8 @@
 
 ## Current State
 
-- **Step**: 8 (Over-Engineering Review)
+- **Step**: 5 (Spec Compliance Review — Round 2, regression after Step 8
+  changes + QA spec tests recovery)
 - **Cycle Type**: modification
 - **Review Round**: 1
 - **Active Team**: impl-team
@@ -56,6 +57,33 @@
       skipped)
 - [x] Step 6: Fix Cycle (R1: 7 fixed, 3 spec gaps, R2 clean)
 - [x] Step 7: Coverage Audit (95.25% line, 100% function Plan 5)
+- [x] Step 8: Over-Engineering Review (code changed → regression to Step 5)
+- [ ] Step 9: Commit & Report
+- [ ] Step 10: Owner Review
+- [ ] Step 11: Retrospective & Cleanup
+
+## Owner Review Notes
+
+- Cyclic references found (Plan 1 legacy): event_loop.zig ↔
+  handlers/pty_read.zig, event_loop.zig ↔ handlers/client_accept.zig. Root
+  cause: ClientEntry defined in event_loop.zig. Fix: extract ClientEntry to
+  server/client_entry.zig.
+- handlers/signal.zig is thin re-export wrapper around signal_handler.zig —
+  consider removing.
+- Test directory restructuring: finalize testing/ layout (helpers.zig at root,
+  mocks/ subdirectory, spec/ subdirectory). Apply consistently to all modules.
+  Convention draft in docs/conventions/zig-testing.md — owner to review and
+  confirm.
+- PtyWriter interface misplaced in server/ime_consumer.zig — is an OS I/O
+  abstraction (same level as PtyOps in os/interfaces.zig). Move to
+  os/interfaces.zig to fix testing→server dependency cycle and enable clean mock
+  placement. Plan 5 implementer dependency error.
+
+## Progress — Round 2
+
+- [ ] Step 5: Spec Compliance Review (regression + QA spec tests recovery)
+- [ ] Step 6: Fix Cycle
+- [ ] Step 7: Coverage Audit
 - [ ] Step 8: Over-Engineering Review
 - [ ] Step 9: Commit & Report
 - [ ] Step 10: Owner Review

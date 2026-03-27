@@ -67,6 +67,7 @@ Follow all conventions from the project root `AGENTS.md`, plus:
 
 - **Zig naming**: See `docs/conventions/zig-naming.md`
 - **Zig documentation**: See `docs/conventions/zig-documentation.md`
+- **Zig testing**: See `docs/conventions/zig-testing.md`
 - **Buffer fields**: Fixed-size inline buffers per ADR 00058 with `MAX_*`
   constants and `_length` suffixes
 - **Static allocation**: SessionManager in `.bss` per ADR 00052
