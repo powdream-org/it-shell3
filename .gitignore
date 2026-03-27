@@ -19,7 +19,6 @@ poc/**/.zig-cache/
 *.dSYM/
 
 # Editor
-.vscode/
 .idea/
 
 # local configs
