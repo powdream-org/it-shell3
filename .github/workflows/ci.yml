@@ -73,7 +73,7 @@ jobs:
         run: mise trust && mise install
 
       - name: Load mise environment
-        run: mise env -s bash | grep -v '^export PATH=' | sed 's/^export //' >> "$GITHUB_ENV"
+        run: mise env -s bash | grep -v '^export PATH=' | sed "s/^export //; s/='\(.*\)'$/=\1/" >> "$GITHUB_ENV"
 
       - name: Test
         run: |
