@@ -1,7 +1,7 @@
 const std = @import("std");
 const core = @import("itshell3_core");
 const session_mod = core.session;
-const os = @import("itshell3_os");
+const os = @import("os/root.zig");
 const PtyOps = os.PtyOps;
 const ime_consumer = @import("ime_consumer.zig");
 

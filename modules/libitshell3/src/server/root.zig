@@ -2,6 +2,7 @@
 //! handling, client management, session/pane management, IME consumer/lifecycle/
 //! procedures, ring buffer frame delivery, and client writer.
 
+pub const os = @import("os/root.zig");
 pub const event_loop = @import("event_loop.zig");
 pub const signal_handler = @import("signal_handler.zig");
 pub const client_writer = @import("client_writer.zig");

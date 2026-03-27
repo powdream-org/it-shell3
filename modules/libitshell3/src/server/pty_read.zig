@@ -1,5 +1,5 @@
 const std = @import("std");
-const os = @import("itshell3_os");
+const os = @import("os/root.zig");
 const interfaces = os.interfaces;
 const core = @import("itshell3_core");
 const session_mod = core.session;

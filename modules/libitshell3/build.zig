@@ -26,11 +26,6 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    const os_mod = b.createModule(.{
-        .root_source_file = b.path("src/os/root.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
     const server_mod = b.createModule(.{
         .root_source_file = b.path("src/server/root.zig"),
         .target = target,
@@ -58,7 +53,6 @@ pub fn build(b: *std.Build) void {
     // --- Wire cross-module dependencies ---
     const all_internal = [_]struct { name: []const u8, mod: *std.Build.Module }{
         .{ .name = "itshell3_core", .mod = core_mod },
-        .{ .name = "itshell3_os", .mod = os_mod },
         .{ .name = "itshell3_server", .mod = server_mod },
         .{ .name = "itshell3_input", .mod = input_mod },
         .{ .name = "itshell3_testing", .mod = testing_mod },
@@ -77,7 +71,6 @@ pub fn build(b: *std.Build) void {
         .{ .name = "ghostty", .module = ghostty_vt },
         .{ .name = "itshell3_protocol", .module = protocol_mod },
         .{ .name = "itshell3_core", .module = core_mod },
-        .{ .name = "itshell3_os", .module = os_mod },
         .{ .name = "itshell3_server", .module = server_mod },
         .{ .name = "itshell3_input", .module = input_mod },
         .{ .name = "itshell3_testing", .module = testing_mod },
