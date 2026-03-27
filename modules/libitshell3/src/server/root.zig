@@ -23,10 +23,6 @@ pub const pty_read = @import("pty_read.zig");
 pub const client_accept = @import("client_accept.zig");
 pub const client_read = @import("client_read.zig");
 
-// Test files (imported for test discovery)
-pub const ring_buffer_integration_test = @import("ring_buffer_integration_test.zig");
-pub const ring_buffer_spec_compliance_test = @import("ring_buffer_spec_compliance_test.zig");
-
 // Re-exports
 pub const EventLoop = event_loop.EventLoop;
 pub const ClientEntry = client_state.ClientEntry;

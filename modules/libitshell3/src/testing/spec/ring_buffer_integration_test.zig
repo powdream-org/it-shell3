@@ -1,4 +1,4 @@
-// server/ring_buffer_integration_test.zig
+// testing/spec/ring_buffer_integration_test.zig
 //
 // Spec-driven integration tests for the ring buffer + frame delivery pipeline.
 // Each test cites the spec section it verifies.
@@ -19,11 +19,12 @@
 const std = @import("std");
 const testing = std.testing;
 
-const ring_buffer_mod = @import("ring_buffer.zig");
-const frame_serializer_mod = @import("frame_serializer.zig");
-const client_writer_mod = @import("client_writer.zig");
-const direct_queue_mod = @import("direct_queue.zig");
-const pane_delivery_mod = @import("pane_delivery.zig");
+const server = @import("itshell3_server");
+const ring_buffer_mod = server.ring_buffer;
+const frame_serializer_mod = server.frame_serializer;
+const client_writer_mod = server.client_writer;
+const direct_queue_mod = server.direct_queue;
+const pane_delivery_mod = server.pane_delivery;
 const protocol = @import("itshell3_protocol");
 
 const RingBuffer = ring_buffer_mod.RingBuffer;
