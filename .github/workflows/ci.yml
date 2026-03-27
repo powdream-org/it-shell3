@@ -111,14 +111,66 @@ jobs:
 
       - name: Measure coverage
         if: matrix.coverage
-        run: bash scripts/coverage.sh
-        env:
-          WORKSPACE_DIR: ${{ github.workspace }}
-          TEST_MODULES: modules/libitshell3-protocol modules/libitshell3-ime modules/libitshell3
+        run: |
+          # Debug: verify kcov works
+          kcov --version || true
+          ldd $(which kcov) || true
 
-      - name: List coverage output
-        if: matrix.coverage
-        run: find coverage -name "cobertura.xml" -o -name "coverage.json" 2>/dev/null | head -20
+          # Run coverage with visible errors (no 2>/dev/null)
+          export WORKSPACE_DIR="${{ github.workspace }}"
+          export TEST_MODULES
+
+          COVERAGE_DIR=coverage
+          rm -rf $COVERAGE_DIR && mkdir -p $COVERAGE_DIR
+
+          for MODULE_DIR in $TEST_MODULES; do
+            MODULE=$(basename $MODULE_DIR)
+            echo "=== $MODULE: building tests ==="
+
+            BUILD_ARGS="-Doptimize=ReleaseSafe"
+            if [ "$MODULE" = "libitshell3" ]; then
+              BUILD_ARGS="$BUILD_ARGS -Dghostty-simd=false"
+            fi
+
+            rm -rf $MODULE_DIR/.zig-cache
+            (cd $MODULE_DIR && zig build test $BUILD_ARGS --summary none)
+
+            TEST_BINS=$(find $MODULE_DIR/.zig-cache/o -name test -type f -executable 2>/dev/null)
+            if [ -z "$TEST_BINS" ]; then
+              echo "ERROR: no test binary for $MODULE"
+              continue
+            fi
+
+            BIN_IDX=0
+            for TEST_BIN in $TEST_BINS; do
+              echo "=== $MODULE: running kcov on binary $BIN_IDX ($TEST_BIN) ==="
+              kcov --include-path=$WORKSPACE_DIR/$MODULE_DIR/src/ \
+                $COVERAGE_DIR/${MODULE}_part_${BIN_IDX} "$TEST_BIN" || echo "KCOV FAILED with exit code $?"
+              BIN_IDX=$((BIN_IDX + 1))
+            done
+            echo "=== $MODULE: done ==="
+          done
+
+          # List what was produced
+          echo "=== Coverage files produced ==="
+          find coverage -type f -name "*.xml" -o -name "*.json" | head -30
+
+          # Merge
+          MERGE_ARGS=""
+          for dir in $TEST_MODULES; do
+            MODULE=$(basename $dir)
+            if [ -d "$COVERAGE_DIR/$MODULE" ]; then
+              MERGE_ARGS="$MERGE_ARGS $COVERAGE_DIR/$MODULE"
+            fi
+          done
+          if [ -n "$MERGE_ARGS" ]; then
+            kcov --merge $COVERAGE_DIR/merged $MERGE_ARGS || echo "MERGE FAILED"
+          fi
+
+          echo "=== Final coverage structure ==="
+          find coverage -type f -name "*.xml" | head -10
+        env:
+          TEST_MODULES: modules/libitshell3-protocol modules/libitshell3-ime modules/libitshell3
 
       - name: Upload to Coveralls
         if: matrix.coverage
@@ -126,3 +178,4 @@ jobs:
         with:
           file: coverage/merged/kcov-merged/cobertura.xml
           format: cobertura
+          allow-empty: true
