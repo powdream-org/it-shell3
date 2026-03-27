@@ -17,13 +17,10 @@ pub const session_entry = @import("session_entry.zig");
 pub const session_manager = @import("session_manager.zig");
 pub const client_state = @import("client_state.zig");
 
-// Handlers
-pub const handlers = struct {
-    pub const pty_read = @import("handlers/pty_read.zig");
-    pub const client_accept = @import("handlers/client_accept.zig");
-    pub const client_read = @import("handlers/client_read.zig");
-    pub const signal = @import("handlers/signal.zig");
-};
+// Handlers (flattened from former handlers/ subdirectory)
+pub const pty_read = @import("pty_read.zig");
+pub const client_accept = @import("client_accept.zig");
+pub const client_read = @import("client_read.zig");
 
 // Test files (imported for test discovery)
 pub const ring_buffer_integration_test = @import("ring_buffer_integration_test.zig");

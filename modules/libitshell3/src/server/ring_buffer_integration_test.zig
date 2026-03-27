@@ -648,7 +648,7 @@ test "spec: frame delivery — frame sequence monotonicity through serializer an
 
     // Read all frames via byte-granular advancement and verify monotonic sequences.
     // Each frame is a complete wire message: [16-byte header][payload].
-    // The protocol header's payload_len tells us the total frame size.
+    // The protocol header's payload_length tells us the total frame size.
     var prev_fseq: u64 = 0;
     var count: usize = 0;
     while (ring.available(&cursor) > 0) {
@@ -659,9 +659,9 @@ test "spec: frame delivery — frame sequence monotonicity through serializer an
         var flat: [8192]u8 = @splat(0);
         _ = flattenIovecs(p, &flat);
 
-        // Parse the protocol header to get payload_len
+        // Parse the protocol header to get payload_length
         const hdr = try Header.decode(flat[0..protocol.header.HEADER_SIZE]);
-        const frame_total = protocol.header.HEADER_SIZE + hdr.payload_len;
+        const frame_total = protocol.header.HEADER_SIZE + hdr.payload_length;
 
         const fh = FrameHeader.decode(
             flat[protocol.header.HEADER_SIZE..][0..protocol.frame_update.FRAME_HEADER_SIZE],

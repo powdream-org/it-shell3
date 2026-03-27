@@ -1,5 +1,5 @@
 const std = @import("std");
-const event_loop_mod = @import("../event_loop.zig");
+const event_loop_mod = @import("event_loop.zig");
 
 /// Handle a new client connection: accept from listener and add to event loop.
 pub fn handleClientAccept(

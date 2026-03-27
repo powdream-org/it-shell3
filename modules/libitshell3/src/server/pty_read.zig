@@ -4,9 +4,9 @@ const interfaces = os.interfaces;
 const core = @import("itshell3_core");
 const session_mod = core.session;
 const types = core.types;
-const pane_mod = @import("../pane.zig");
-const session_entry_mod = @import("../session_entry.zig");
-const event_loop_mod = @import("../event_loop.zig");
+const pane_mod = @import("pane.zig");
+const session_entry_mod = @import("session_entry.zig");
+const client_state_mod = @import("client_state.zig");
 const terminal_mod = @import("itshell3_ghostty").terminal;
 
 /// Handle PTY read event: drain all available PTY output, feed to ghostty
@@ -17,7 +17,7 @@ pub fn handlePtyRead(
     pty_ops: *const interfaces.PtyOps,
     pane: *pane_mod.Pane,
     session_entry: *session_entry_mod.SessionEntry,
-    _: []?event_loop_mod.ClientEntry,
+    _: []?client_state_mod.ClientEntry,
     _: types.SessionId,
 ) void {
     var buf: [4096]u8 = @splat(0);
@@ -70,7 +70,7 @@ test "handlePtyRead: reads data from PTY and marks pane dirty" {
     const slot = try entry.allocPaneSlot();
     entry.setPaneAtSlot(slot, pane_mod.Pane.init(1, slot, 10, 1234, 80, 24));
     const pane = entry.getPaneAtSlot(slot).?;
-    var clients = [_]?event_loop_mod.ClientEntry{null} ** 4;
+    var clients = [_]?client_state_mod.ClientEntry{null} ** 4;
 
     try testing.expect(!entry.isDirty(slot));
     handlePtyRead(&pty_ops, pane, &entry, &clients, 1);
@@ -91,7 +91,7 @@ test "handlePtyRead: EOF marks pane pty_eof, not dirty" {
     const slot = try entry.allocPaneSlot();
     entry.setPaneAtSlot(slot, pane_mod.Pane.init(1, slot, 10, 1234, 80, 24));
     const pane = entry.getPaneAtSlot(slot).?;
-    var clients = [_]?event_loop_mod.ClientEntry{null} ** 4;
+    var clients = [_]?client_state_mod.ClientEntry{null} ** 4;
 
     handlePtyRead(&pty_ops, pane, &entry, &clients, 1);
 
@@ -112,7 +112,7 @@ test "handlePtyRead: isFullyDead when both flags set" {
     entry.setPaneAtSlot(slot, pane_mod.Pane.init(1, slot, 10, 1234, 80, 24));
     const pane = entry.getPaneAtSlot(slot).?;
     pane.markExited(0); // SIGCHLD already handled
-    var clients = [_]?event_loop_mod.ClientEntry{null} ** 4;
+    var clients = [_]?client_state_mod.ClientEntry{null} ** 4;
 
     handlePtyRead(&pty_ops, pane, &entry, &clients, 1);
 
@@ -128,7 +128,7 @@ test "handlePtyRead: marks pane dirty after reading data" {
     var entry = session_entry_mod.SessionEntry.init(s);
     const slot = try entry.allocPaneSlot();
     entry.setPaneAtSlot(slot, pane_mod.Pane.init(1, slot, 10, 1234, 80, 24));
-    var clients = [_]?event_loop_mod.ClientEntry{null} ** 4;
+    var clients = [_]?client_state_mod.ClientEntry{null} ** 4;
 
     try testing.expect(!entry.isDirty(slot));
     handlePtyRead(&pty_ops, entry.getPaneAtSlot(slot).?, &entry, &clients, 1);
@@ -143,7 +143,7 @@ test "handlePtyRead: does not mark dirty on EOF" {
     var entry = session_entry_mod.SessionEntry.init(s);
     const slot = try entry.allocPaneSlot();
     entry.setPaneAtSlot(slot, pane_mod.Pane.init(1, slot, 10, 1234, 80, 24));
-    var clients = [_]?event_loop_mod.ClientEntry{null} ** 4;
+    var clients = [_]?client_state_mod.ClientEntry{null} ** 4;
 
     handlePtyRead(&pty_ops, entry.getPaneAtSlot(slot).?, &entry, &clients, 1);
     try testing.expect(!entry.isDirty(slot));

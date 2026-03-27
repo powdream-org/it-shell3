@@ -58,7 +58,7 @@ pub fn serializeAndWrite(
     const hdr = Header{
         .msg_type = 0x0300,
         .flags = Flags{ .encoding = .binary },
-        .payload_len = @intCast(payload_len),
+        .payload_length = @intCast(payload_len),
         .sequence = @intCast(next_sequence.* & 0xFFFFFFFF),
     };
     hdr.encode(scratch[0..protocol.header.HEADER_SIZE]);
