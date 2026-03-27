@@ -74,13 +74,6 @@ graph TD
     P10 --> P11["Plan 11: Post-Design Code Alignment"]
 ```
 
-**Parallelization opportunities:**
-
-- Plans 2 + 3 ran in parallel (different modules, no file conflicts)
-- Plans 5 + 6 can run in parallel (different subsystems within libitshell3)
-- Plan 8 can run in parallel with Plans 4-7, 9 (different module, only needs
-  Plan 3's Transport interface)
-
 ---
 
 ## Plan Summaries
