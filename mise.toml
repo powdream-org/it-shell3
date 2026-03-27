@@ -2,12 +2,15 @@
 deno = "2.7.5"
 zig = "0.15.2"
 
+[env]
+TEST_MODULES = "modules/libitshell3-protocol modules/libitshell3-ime modules/libitshell3"
+
 [tasks."test:macos"]
 description = "Run all module tests on macOS (Debug)"
 run = """
 #!/usr/bin/env bash
 set -e
-for dir in modules/libitshell3-protocol modules/libitshell3; do
+for dir in $TEST_MODULES; do
   echo "=== $(basename $dir): Debug ==="
   (cd $dir && zig build test --summary all)
 done
@@ -18,7 +21,7 @@ description = "Run all module tests on macOS (ReleaseSafe)"
 run = """
 #!/usr/bin/env bash
 set -e
-for dir in modules/libitshell3-protocol modules/libitshell3; do
+for dir in $TEST_MODULES; do
   echo "=== $(basename $dir): ReleaseSafe ==="
   (cd $dir && zig build test -Doptimize=ReleaseSafe --summary all)
 done
@@ -34,8 +37,9 @@ run = """
 #!/usr/bin/env bash
 set -e
 docker run --rm --security-opt seccomp=unconfined \
+  -e TEST_MODULES="$TEST_MODULES" \
   -v "$(pwd):/workspace" -w /workspace zig-kcov bash -c '
-  for dir in modules/libitshell3-protocol modules/libitshell3; do
+  for dir in $TEST_MODULES; do
     echo "=== $(basename $dir): Debug ==="
     (cd $dir && zig build test --summary all)
   done
@@ -48,8 +52,9 @@ run = """
 #!/usr/bin/env bash
 set -e
 docker run --rm --security-opt seccomp=unconfined \
+  -e TEST_MODULES="$TEST_MODULES" \
   -v "$(pwd):/workspace" -w /workspace zig-kcov bash -c '
-  for dir in modules/libitshell3-protocol modules/libitshell3; do
+  for dir in $TEST_MODULES; do
     echo "=== $(basename $dir): ReleaseSafe ==="
     (cd $dir && zig build test -Doptimize=ReleaseSafe --summary all)
   done
@@ -63,15 +68,16 @@ run = """
 set -e
 rm -rf coverage
 docker run --rm --security-opt seccomp=unconfined \
+  -e TEST_MODULES="$TEST_MODULES" \
   -v "$(pwd):/workspace" -w /workspace zig-kcov bash -c '
   COVERAGE_DIR=coverage
   rm -rf $COVERAGE_DIR && mkdir -p $COVERAGE_DIR
 
-  for MODULE_DIR in modules/libitshell3-protocol modules/libitshell3; do
+  for MODULE_DIR in $TEST_MODULES; do
     MODULE=$(basename $MODULE_DIR)
     echo "=== $MODULE: building tests ==="
     # All modules use ReleaseSafe for kcov — Debug binaries are too large
-    # for kcov's DWARF parser. libitshell3 also needs -Dghostty-simd=false.
+    # for kcov DWARF parser. libitshell3 also needs -Dghostty-simd=false.
     if [ "$MODULE" = "libitshell3" ]; then
       (cd $MODULE_DIR && zig build test -Dghostty-simd=false -Doptimize=ReleaseSafe --summary none)
     else
@@ -84,12 +90,23 @@ docker run --rm --security-opt seccomp=unconfined \
     echo "=== $MODULE: done ==="
   done
 
-  kcov --merge $COVERAGE_DIR/merged $COVERAGE_DIR/libitshell3-protocol $COVERAGE_DIR/libitshell3 2>/dev/null || true
+  MERGE_ARGS=""
+  for dir in $TEST_MODULES; do
+    MERGE_ARGS="$MERGE_ARGS $COVERAGE_DIR/$(basename $dir)"
+  done
+  kcov --merge $COVERAGE_DIR/merged $MERGE_ARGS 2>/dev/null || true
 
   echo
   echo "=== Coverage Summary ==="
+  COVERAGE_NAMES=""
+  for dir in $TEST_MODULES; do
+    COVERAGE_NAMES="$COVERAGE_NAMES $(basename $dir)"
+  done
+  COVERAGE_NAMES="$COVERAGE_NAMES merged"
+  export COVERAGE_NAMES
   deno eval '"'"'
-    for (const name of ["libitshell3-protocol", "libitshell3", "merged"]) {
+    const names = Deno.env.get("COVERAGE_NAMES").trim().split(/ +/);
+    for (const name of names) {
       for (const sub of ["test/coverage.json", "coverage.json"]) {
         try {
           const d = JSON.parse(Deno.readTextFileSync(`coverage/${name}/${sub}`));
