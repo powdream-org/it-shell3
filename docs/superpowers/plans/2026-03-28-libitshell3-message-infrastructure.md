@@ -371,8 +371,10 @@ bidirectional
 - On timer: for each READY/OPERATING client without recent activity, send
   Heartbeat with monotonic ping_id
 - Incoming HeartbeatAck confirms liveness
-- 90s with no message of any kind → disconnect
-- HeartbeatAck does NOT reset stale timeout
+- 90s with no message of any kind → disconnect (HeartbeatAck counts as a message
+  and resets this timeout)
+- HeartbeatAck does NOT reset the flow-control stale health timeout (which
+  tracks ring buffer lag, not connection liveness)
 - Incoming Heartbeat from client responded with HeartbeatAck echoing ping_id
 - ping_id is a monotonic counter
 

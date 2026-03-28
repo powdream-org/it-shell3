@@ -33,28 +33,28 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 
 ## Plan Index
 
-| #    | Name                                          | Plan File                                           | Target Module        | Status      |
-| ---- | --------------------------------------------- | --------------------------------------------------- | -------------------- | ----------- |
-| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**    |
-| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**    |
-| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
-| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**    |
-| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done**    |
-| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3 + docs   | **Done**    |
-| 6    | Message Infrastructure & Connection Lifecycle | (not yet written)                                   | libitshell3          | Not started |
-| 7    | Session & Pane Operations                     | (not yet written)                                   | libitshell3          | Not started |
-| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                   | libitshell3          | Not started |
-| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                   | libitshell3          | Not started |
-| 10   | Cascades & Shutdown                           | (not yet written)                                   | libitshell3          | Not started |
-| 11   | SSH Transport                                 | (not yet written)                                   | libitshell3-protocol | Not started |
-| 12.1 | Daemon CLI — Design                           | (not yet written)                                   | daemon               | Not started |
-| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                   | daemon               | Not started |
-| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started |
-| 14.1 | macOS Client PoC — Design                     | (not yet written)                                   | app/macos            | Not started |
-| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                   | app/macos            | Not started |
-| 15   | Design Doc CTR Resolution                     | (not yet written)                                   | multi-module         | Not started |
-| 16   | Post-Design Code Alignment                    | (not yet written)                                   | multi-module         | Not started |
-| 17+  | Deferred Features                             | —                                                   | various              | Not started |
+| #    | Name                                          | Plan File                                           | Target Module        | Status          |
+| ---- | --------------------------------------------- | --------------------------------------------------- | -------------------- | --------------- |
+| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**        |
+| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**        |
+| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**        |
+| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**        |
+| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done**        |
+| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3 + docs   | **Done**        |
+| 6    | Message Infrastructure & Connection Lifecycle | `2026-03-28-libitshell3-message-infrastructure.md`  | libitshell3          | **In progress** |
+| 7    | Session & Pane Operations                     | (not yet written)                                   | libitshell3          | Not started     |
+| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                   | libitshell3          | Not started     |
+| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                   | libitshell3          | Not started     |
+| 10   | Cascades & Shutdown                           | (not yet written)                                   | libitshell3          | Not started     |
+| 11   | SSH Transport                                 | (not yet written)                                   | libitshell3-protocol | Not started     |
+| 12.1 | Daemon CLI — Design                           | (not yet written)                                   | daemon               | Not started     |
+| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                   | daemon               | Not started     |
+| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started     |
+| 14.1 | macOS Client PoC — Design                     | (not yet written)                                   | app/macos            | Not started     |
+| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                   | app/macos            | Not started     |
+| 15   | Design Doc CTR Resolution                     | (not yet written)                                   | multi-module         | Not started     |
+| 16   | Post-Design Code Alignment                    | (not yet written)                                   | multi-module         | Not started     |
+| 17+  | Deferred Features                             | —                                                   | various              | Not started     |
 
 ---
 
