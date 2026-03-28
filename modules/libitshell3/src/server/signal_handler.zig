@@ -138,7 +138,7 @@ test "handleSignalEvent: SIGCHLD with matching pane -> pane marked exited" {
     const event = interfaces.Event{
         .fd = std.posix.SIG.CHLD,
         .filter = .signal,
-        .target = .{ .signal = .{ .signal_number = 0 } },
+        .target = null,
     };
 
     var test_el = makeTestEventLoop();
@@ -167,7 +167,7 @@ test "handleSignalEvent: SIGCHLD with no children -> no change" {
     const event = interfaces.Event{
         .fd = std.posix.SIG.CHLD,
         .filter = .signal,
-        .target = .{ .signal = .{ .signal_number = 0 } },
+        .target = null,
     };
 
     var test_el = makeTestEventLoop();
@@ -187,7 +187,7 @@ test "handleSignalEvent: SIGTERM -> event loop stopped" {
     const event = interfaces.Event{
         .fd = std.posix.SIG.TERM,
         .filter = .signal,
-        .target = .{ .signal = .{ .signal_number = 0 } },
+        .target = null,
     };
 
     var test_el = makeTestEventLoop();
@@ -203,7 +203,7 @@ test "handleSignalEvent: SIGHUP -> event loop stopped" {
     const event = interfaces.Event{
         .fd = std.posix.SIG.HUP,
         .filter = .signal,
-        .target = .{ .signal = .{ .signal_number = 0 } },
+        .target = null,
     };
 
     var test_el = makeTestEventLoop();
@@ -219,7 +219,7 @@ test "handleSignalEvent: SIGINT -> event loop stopped" {
     const event = interfaces.Event{
         .fd = std.posix.SIG.INT,
         .filter = .signal,
-        .target = .{ .signal = .{ .signal_number = 0 } },
+        .target = null,
     };
 
     var test_el = makeTestEventLoop();
@@ -254,7 +254,7 @@ test "chainHandle: non-signal event forwards to next handler" {
     const read_event = interfaces.Event{
         .fd = 42,
         .filter = .read,
-        .target = .{ .signal = .{ .signal_number = 0 } },
+        .target = null,
     };
 
     chainHandle(@ptrCast(&signal_ctx), read_event, &next);

@@ -41,8 +41,8 @@ const types = core.types;
 /// Number of pane slots per session, derived from the PaneSlot type.
 const PANE_SLOT_RANGE: usize = std.math.maxInt(types.PaneSlot) + 1;
 
-/// Base offset for signal targets in udata encoding.
-const SIGNAL_BASE: usize = 0x0200_0000;
+/// Sentinel value for null target in udata encoding.
+const NULL_TARGET_SENTINEL: usize = 0x0200_0000;
 /// Base offset for client targets in udata encoding.
 const CLIENT_BASE: usize = 0x0400_0000;
 /// Base offset for timer targets in udata encoding.
@@ -52,32 +52,32 @@ const TIMER_BASE: usize = 0x0600_0000;
 // Max PTY udata = 1 + (maxInt(u16) * PANE_SLOT_RANGE) + maxInt(PaneSlot).
 comptime {
     const max_pty_udata = 1 + @as(usize, std.math.maxInt(u16)) * PANE_SLOT_RANGE + std.math.maxInt(types.PaneSlot);
-    if (max_pty_udata >= SIGNAL_BASE) @compileError("PTY udata range overlaps signal range");
+    if (max_pty_udata >= NULL_TARGET_SENTINEL) @compileError("PTY udata range overlaps null target sentinel");
 }
 
-/// Encode an EventTarget into a usize for kevent udata field.
+/// Encode an optional EventTarget into a usize for kevent udata field.
 /// Encoding scheme (internal to kqueue backend):
+///   null: NULL_TARGET_SENTINEL
 ///   listener: 0
-///   signal: SIGNAL_BASE + signal_number
 ///   pty: 1 + session_idx * PANE_SLOT_RANGE + pane_slot
 ///   client: CLIENT_BASE + client_idx
 ///   timer: TIMER_BASE + timer_id
-fn encodeTarget(target: interfaces.EventTarget) usize {
-    return switch (target) {
+fn encodeTarget(target: ?interfaces.EventTarget) usize {
+    const t = target orelse return NULL_TARGET_SENTINEL;
+    return switch (t) {
         .listener => 0,
-        .signal => |s| SIGNAL_BASE + @as(usize, s.signal_number),
         .pty => |p| 1 + @as(usize, p.session_idx) * PANE_SLOT_RANGE + @as(usize, p.pane_slot),
         .client => |c| CLIENT_BASE + @as(usize, c.client_idx),
-        .timer => |t| TIMER_BASE + @as(usize, t.timer_id),
+        .timer => |t_inner| TIMER_BASE + @as(usize, t_inner.timer_id),
     };
 }
 
-/// Decode a usize from kevent udata back to EventTarget.
-fn decodeTarget(udata: usize) interfaces.EventTarget {
+/// Decode a usize from kevent udata back to an optional EventTarget.
+fn decodeTarget(udata: usize) ?interfaces.EventTarget {
+    if (udata == NULL_TARGET_SENTINEL) return null;
     if (udata == 0) return .{ .listener = {} };
     if (udata >= TIMER_BASE) return .{ .timer = .{ .timer_id = @intCast(udata - TIMER_BASE) } };
     if (udata >= CLIENT_BASE) return .{ .client = .{ .client_idx = @intCast(udata - CLIENT_BASE) } };
-    if (udata >= SIGNAL_BASE) return .{ .signal = .{ .signal_number = @intCast(udata - SIGNAL_BASE) } };
     // pty: udata = 1 + session_idx * PANE_SLOT_RANGE + pane_slot
     const encoded = udata - 1;
     return .{ .pty = .{
@@ -86,7 +86,7 @@ fn decodeTarget(udata: usize) interfaces.EventTarget {
     } };
 }
 
-fn kqRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, target: interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
+fn kqRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, target: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
     if (comptime !builtin.os.tag.isBSD()) unreachable;
     const kq = toKqCtx(ctx).kq_fd;
     const udata = encodeTarget(target);
@@ -101,7 +101,7 @@ fn kqRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, target: interfaces.EventT
     _ = std.posix.kevent(kq, &change, &.{}, null) catch return error.EventLoopError;
 }
 
-fn kqRegisterWrite(ctx: *anyopaque, fd: std.posix.fd_t, target: interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
+fn kqRegisterWrite(ctx: *anyopaque, fd: std.posix.fd_t, target: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
     if (comptime !builtin.os.tag.isBSD()) unreachable;
     const kq = toKqCtx(ctx).kq_fd;
     const udata = encodeTarget(target);
@@ -168,10 +168,13 @@ fn kqWait(ctx: *anyopaque, timeout_ms: ?u32) interfaces.EventLoopOps.WaitError!P
             std.c.EVFILT.TIMER => .timer,
             else => continue,
         };
+        // Signal events have no meaningful target — the signal number is
+        // carried in the fd (ident) field.
+        const target: ?interfaces.EventTarget = if (filter == .signal) null else decodeTarget(kev.udata);
         kq_ctx.event_buffer.add(.{
             .fd = @intCast(kev.ident),
             .filter = filter,
-            .target = decodeTarget(kev.udata),
+            .target = target,
             .flags = kev.flags,
             .data = @intCast(kev.data),
         });
@@ -213,10 +216,12 @@ test "KqueueContext: registerRead pipe write event detected and target verified"
     try testing.expect(event != null);
     try testing.expectEqual(read_fd, event.?.fd);
     try testing.expectEqual(interfaces.Filter.read, event.?.filter);
-    switch (event.?.target) {
-        .client => |c| try testing.expectEqual(@as(u16, 42), c.client_idx),
-        else => return error.TestUnexpectedResult,
-    }
+    if (event.?.target) |decoded_target| {
+        switch (decoded_target) {
+            .client => |c| try testing.expectEqual(@as(u16, 42), c.client_idx),
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
 
     var buf: [16]u8 = undefined;
     const bytes_read = try std.posix.read(read_fd, &buf);
@@ -246,10 +251,12 @@ test "KqueueContext: registerWrite immediately writable and write succeeds" {
     try testing.expect(event != null);
     try testing.expectEqual(write_fd, event.?.fd);
     try testing.expectEqual(interfaces.Filter.write, event.?.filter);
-    switch (event.?.target) {
-        .client => |c| try testing.expectEqual(@as(u16, 77), c.client_idx),
-        else => return error.TestUnexpectedResult,
-    }
+    if (event.?.target) |decoded_target| {
+        switch (decoded_target) {
+            .client => |c| try testing.expectEqual(@as(u16, 77), c.client_idx),
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
 
     const bytes_written = try std.posix.write(write_fd, "test");
     try testing.expect(bytes_written > 0);
@@ -324,20 +331,24 @@ test "KqueueContext: multiple fds correct target routing" {
     var found_pipe2 = false;
     while (iter.next()) |event| {
         if (event.fd == pipe1[0]) {
-            switch (event.target) {
-                .pty => |p| {
-                    try testing.expectEqual(@as(u16, 1), p.session_idx);
-                    try testing.expectEqual(@as(u8, 2), p.pane_slot);
-                },
-                else => return error.TestUnexpectedResult,
-            }
+            if (event.target) |target| {
+                switch (target) {
+                    .pty => |p| {
+                        try testing.expectEqual(@as(u16, 1), p.session_idx);
+                        try testing.expectEqual(@as(u8, 2), p.pane_slot);
+                    },
+                    else => return error.TestUnexpectedResult,
+                }
+            } else return error.TestUnexpectedResult;
             found_pipe1 = true;
         }
         if (event.fd == pipe2[0]) {
-            switch (event.target) {
-                .client => |c| try testing.expectEqual(@as(u16, 5), c.client_idx),
-                else => return error.TestUnexpectedResult,
-            }
+            if (event.target) |target| {
+                switch (target) {
+                    .client => |c| try testing.expectEqual(@as(u16, 5), c.client_idx),
+                    else => return error.TestUnexpectedResult,
+                }
+            } else return error.TestUnexpectedResult;
             found_pipe2 = true;
         }
     }
@@ -375,51 +386,109 @@ test "KqueueContext: EOF detection when write end is closed" {
 }
 
 test "encodeTarget and decodeTarget: round-trip all variants" {
+    // null
+    const null_enc = encodeTarget(null);
+    const null_dec = decodeTarget(null_enc);
+    try testing.expect(null_dec == null);
+
     // listener
-    const listener = interfaces.EventTarget{ .listener = {} };
+    const listener: ?interfaces.EventTarget = .{ .listener = {} };
     const listener_enc = encodeTarget(listener);
     const listener_dec = decodeTarget(listener_enc);
-    switch (listener_dec) {
-        .listener => {},
-        else => return error.TestUnexpectedResult,
-    }
-
-    // signal
-    const signal = interfaces.EventTarget{ .signal = .{ .signal_number = 15 } };
-    const signal_enc = encodeTarget(signal);
-    const signal_dec = decodeTarget(signal_enc);
-    switch (signal_dec) {
-        .signal => |s| try testing.expectEqual(@as(u32, 15), s.signal_number),
-        else => return error.TestUnexpectedResult,
-    }
+    if (listener_dec) |dec| {
+        switch (dec) {
+            .listener => {},
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
 
     // pty
-    const pty = interfaces.EventTarget{ .pty = .{ .session_idx = 10, .pane_slot = 3 } };
+    const pty: ?interfaces.EventTarget = .{ .pty = .{ .session_idx = 10, .pane_slot = 3 } };
     const pty_enc = encodeTarget(pty);
     const pty_dec = decodeTarget(pty_enc);
-    switch (pty_dec) {
-        .pty => |p| {
-            try testing.expectEqual(@as(u16, 10), p.session_idx);
-            try testing.expectEqual(@as(u8, 3), p.pane_slot);
-        },
-        else => return error.TestUnexpectedResult,
-    }
+    if (pty_dec) |dec| {
+        switch (dec) {
+            .pty => |p| {
+                try testing.expectEqual(@as(u16, 10), p.session_idx);
+                try testing.expectEqual(@as(u8, 3), p.pane_slot);
+            },
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
 
     // client
-    const client = interfaces.EventTarget{ .client = .{ .client_idx = 63 } };
+    const client: ?interfaces.EventTarget = .{ .client = .{ .client_idx = 63 } };
     const client_enc = encodeTarget(client);
     const client_dec = decodeTarget(client_enc);
-    switch (client_dec) {
-        .client => |c| try testing.expectEqual(@as(u16, 63), c.client_idx),
-        else => return error.TestUnexpectedResult,
-    }
+    if (client_dec) |dec| {
+        switch (dec) {
+            .client => |c| try testing.expectEqual(@as(u16, 63), c.client_idx),
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
 
     // timer
-    const timer = interfaces.EventTarget{ .timer = .{ .timer_id = 999 } };
+    const timer: ?interfaces.EventTarget = .{ .timer = .{ .timer_id = 999 } };
     const timer_enc = encodeTarget(timer);
     const timer_dec = decodeTarget(timer_enc);
-    switch (timer_dec) {
-        .timer => |t| try testing.expectEqual(@as(u16, 999), t.timer_id),
-        else => return error.TestUnexpectedResult,
+    if (timer_dec) |dec| {
+        switch (dec) {
+            .timer => |t| try testing.expectEqual(@as(u16, 999), t.timer_id),
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
+}
+
+test "encodeTarget/decodeTarget: null target round-trip" {
+    const encoded = encodeTarget(null);
+    try testing.expectEqual(NULL_TARGET_SENTINEL, encoded);
+    const decoded = decodeTarget(encoded);
+    try testing.expect(decoded == null);
+}
+
+test "encodeTarget/decodeTarget: null vs listener non-collision" {
+    const null_udata = encodeTarget(null);
+    const listener_udata = encodeTarget(.{ .listener = {} });
+    try testing.expect(null_udata != listener_udata);
+}
+
+test "encodeTarget/decodeTarget: null vs pty boundary non-collision" {
+    const null_udata = encodeTarget(null);
+    const pty_max_udata = encodeTarget(.{ .pty = .{
+        .session_idx = std.math.maxInt(u16),
+        .pane_slot = std.math.maxInt(types.PaneSlot),
+    } });
+    try testing.expect(null_udata != pty_max_udata);
+}
+
+test "encodeTarget/decodeTarget: null vs client boundary non-collision" {
+    const null_udata = encodeTarget(null);
+    const client_max_udata = encodeTarget(.{ .client = .{
+        .client_idx = std.math.maxInt(u16),
+    } });
+    try testing.expect(null_udata != client_max_udata);
+}
+
+test "encodeTarget/decodeTarget: null vs timer boundary non-collision" {
+    const null_udata = encodeTarget(null);
+    const timer_max_udata = encodeTarget(.{ .timer = .{
+        .timer_id = std.math.maxInt(u16),
+    } });
+    try testing.expect(null_udata != timer_max_udata);
+}
+
+test "encodeTarget/decodeTarget: all variants produce distinct udata ranges" {
+    const null_udata = encodeTarget(null);
+    const listener_udata = encodeTarget(.{ .listener = {} });
+    const pty_udata = encodeTarget(.{ .pty = .{ .session_idx = 0, .pane_slot = 0 } });
+    const client_udata = encodeTarget(.{ .client = .{ .client_idx = 0 } });
+    const timer_udata = encodeTarget(.{ .timer = .{ .timer_id = 0 } });
+
+    const all = [_]usize{ null_udata, listener_udata, pty_udata, client_udata, timer_udata };
+    // Verify no two values are the same.
+    for (all, 0..) |a, i| {
+        for (all, 0..) |b, j| {
+            if (i != j) try testing.expect(a != b);
+        }
     }
 }

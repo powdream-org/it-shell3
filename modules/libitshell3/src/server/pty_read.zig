@@ -21,23 +21,25 @@ pub const PtyReadContext = struct {
 /// Matches on event.target == .pty and extracts session_idx and pane_slot
 /// directly (no range arithmetic).
 pub fn chainHandle(context: *anyopaque, event: interfaces.Event, next: ?*const Handler) void {
-    switch (event.target) {
-        .pty => |pty| {
-            const ctx: *PtyReadContext = @ptrCast(@alignCast(context));
-            if (ctx.session_manager.findSessionBySlot(pty.session_idx)) |entry| {
-                if (entry.getPaneAtSlot(pty.pane_slot)) |pane| {
-                    handlePtyRead(
-                        ctx.pty_ops,
-                        pane,
-                        entry,
-                    );
+    if (event.target) |target| {
+        switch (target) {
+            .pty => |pty| {
+                const ctx: *PtyReadContext = @ptrCast(@alignCast(context));
+                if (ctx.session_manager.findSessionBySlot(pty.session_idx)) |entry| {
+                    if (entry.getPaneAtSlot(pty.pane_slot)) |pane| {
+                        handlePtyRead(
+                            ctx.pty_ops,
+                            pane,
+                            entry,
+                        );
+                    }
                 }
-            }
-        },
-        else => {
-            if (next) |n| n.invoke(event);
-        },
+                return;
+            },
+            else => {},
+        }
     }
+    if (next) |n| n.invoke(event);
 }
 
 /// Handle PTY read event: drain all available PTY output, feed to ghostty

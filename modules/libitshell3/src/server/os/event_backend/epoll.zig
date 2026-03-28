@@ -25,7 +25,7 @@ const TAG_LISTENER: u4 = 0;
 const TAG_PTY: u4 = 1;
 const TAG_CLIENT: u4 = 2;
 const TAG_TIMER: u4 = 3;
-const TAG_SIGNAL: u4 = 4;
+const TAG_NULL: u4 = 4;
 
 // ── Linux: epoll ───────────────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ fn toEpCtx(ctx: *anyopaque) *EpollContext {
     return @ptrCast(@alignCast(ctx));
 }
 
-/// Encode an EventTarget into a u64 for epoll_event.data.
+/// Encode an optional EventTarget into a u64 for epoll_event.data.
 /// Encoding scheme (internal to epoll backend):
 ///   Layout: upper 32 bits = tag + type data, lower 32 bits = fd
 ///   Tag in bits[63:60]:
@@ -65,24 +65,24 @@ fn toEpCtx(ctx: *anyopaque) *EpollContext {
 ///     1 = pty (session_idx in [59:44], pane_slot in [43:36])
 ///     2 = client (client_idx in [59:44])
 ///     3 = timer (timer_id in [59:44])
-///     4 = signal (signal_number in [59:44])
+///     4 = null (no target)
 ///   Lower 32 bits = fd (stored so we can reconstruct it on output)
-fn epEncodeTarget(fd: std.posix.fd_t, target: interfaces.EventTarget) u64 {
+fn epEncodeTarget(fd: std.posix.fd_t, target: ?interfaces.EventTarget) u64 {
     const fd_bits: u64 = @as(u64, @intCast(fd)) & FD_MASK;
-    return switch (target) {
+    const t = target orelse return (@as(u64, TAG_NULL) << TAG_SHIFT) | fd_bits;
+    return switch (t) {
         .listener => (@as(u64, TAG_LISTENER) << TAG_SHIFT) | fd_bits,
-        .signal => |s| (@as(u64, TAG_SIGNAL) << TAG_SHIFT) | (@as(u64, s.signal_number) << PRIMARY_SHIFT) | fd_bits,
         .pty => |p| (@as(u64, TAG_PTY) << TAG_SHIFT) | (@as(u64, p.session_idx) << PRIMARY_SHIFT) | (@as(u64, p.pane_slot) << SECONDARY_SHIFT) | fd_bits,
         .client => |c| (@as(u64, TAG_CLIENT) << TAG_SHIFT) | (@as(u64, c.client_idx) << PRIMARY_SHIFT) | fd_bits,
-        .timer => |t| (@as(u64, TAG_TIMER) << TAG_SHIFT) | (@as(u64, t.timer_id) << PRIMARY_SHIFT) | fd_bits,
+        .timer => |t_inner| (@as(u64, TAG_TIMER) << TAG_SHIFT) | (@as(u64, t_inner.timer_id) << PRIMARY_SHIFT) | fd_bits,
     };
 }
 
-/// Decode a u64 from epoll_event.data back to fd + EventTarget.
-fn epDecodeData(raw: u64) struct { fd: std.posix.fd_t, target: interfaces.EventTarget } {
+/// Decode a u64 from epoll_event.data back to fd + optional EventTarget.
+fn epDecodeData(raw: u64) struct { fd: std.posix.fd_t, target: ?interfaces.EventTarget } {
     const tag: u4 = @intCast((raw >> TAG_SHIFT) & 0xF);
     const stored_fd: std.posix.fd_t = @intCast(raw & FD_MASK);
-    const target: interfaces.EventTarget = switch (tag) {
+    const target: ?interfaces.EventTarget = switch (tag) {
         TAG_LISTENER => .{ .listener = {} },
         TAG_PTY => .{ .pty = .{
             .session_idx = @intCast((raw >> PRIMARY_SHIFT) & FIELD_16_MASK),
@@ -90,13 +90,13 @@ fn epDecodeData(raw: u64) struct { fd: std.posix.fd_t, target: interfaces.EventT
         } },
         TAG_CLIENT => .{ .client = .{ .client_idx = @intCast((raw >> PRIMARY_SHIFT) & FIELD_16_MASK) } },
         TAG_TIMER => .{ .timer = .{ .timer_id = @intCast((raw >> PRIMARY_SHIFT) & FIELD_16_MASK) } },
-        TAG_SIGNAL => .{ .signal = .{ .signal_number = @intCast((raw >> PRIMARY_SHIFT) & FIELD_16_MASK) } },
+        TAG_NULL => null,
         else => .{ .listener = {} },
     };
     return .{ .fd = stored_fd, .target = target };
 }
 
-fn epRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, target: interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
+fn epRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, target: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
     if (comptime builtin.os.tag != .linux) unreachable;
     const ep = toEpCtx(ctx).ep_fd;
     var ev = std.os.linux.epoll_event{
@@ -106,7 +106,7 @@ fn epRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, target: interfaces.EventT
     std.posix.epoll_ctl(ep, std.os.linux.EPOLL.CTL_ADD, fd, &ev) catch return error.EventLoopError;
 }
 
-fn epRegisterWrite(ctx: *anyopaque, fd: std.posix.fd_t, target: interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
+fn epRegisterWrite(ctx: *anyopaque, fd: std.posix.fd_t, target: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
     if (comptime builtin.os.tag != .linux) unreachable;
     const ep = toEpCtx(ctx).ep_fd;
     var ev = std.os.linux.epoll_event{
@@ -167,65 +167,69 @@ const testing = std.testing;
 test "epEncodeTarget and epDecodeData: round-trip all variants" {
     // listener
     {
-        const target = interfaces.EventTarget{ .listener = {} };
+        const target: ?interfaces.EventTarget = .{ .listener = {} };
         const encoded = epEncodeTarget(7, target);
         const decoded = epDecodeData(encoded);
         try testing.expectEqual(@as(std.posix.fd_t, 7), decoded.fd);
-        switch (decoded.target) {
-            .listener => {},
-            else => return error.TestUnexpectedResult,
-        }
+        if (decoded.target) |dec| {
+            switch (dec) {
+                .listener => {},
+                else => return error.TestUnexpectedResult,
+            }
+        } else return error.TestUnexpectedResult;
     }
 
     // pty
     {
-        const target = interfaces.EventTarget{ .pty = .{ .session_idx = 10, .pane_slot = 3 } };
+        const target: ?interfaces.EventTarget = .{ .pty = .{ .session_idx = 10, .pane_slot = 3 } };
         const encoded = epEncodeTarget(42, target);
         const decoded = epDecodeData(encoded);
         try testing.expectEqual(@as(std.posix.fd_t, 42), decoded.fd);
-        switch (decoded.target) {
-            .pty => |p| {
-                try testing.expectEqual(@as(u16, 10), p.session_idx);
-                try testing.expectEqual(@as(u8, 3), p.pane_slot);
-            },
-            else => return error.TestUnexpectedResult,
-        }
+        if (decoded.target) |dec| {
+            switch (dec) {
+                .pty => |p| {
+                    try testing.expectEqual(@as(u16, 10), p.session_idx);
+                    try testing.expectEqual(@as(u8, 3), p.pane_slot);
+                },
+                else => return error.TestUnexpectedResult,
+            }
+        } else return error.TestUnexpectedResult;
     }
 
     // client
     {
-        const target = interfaces.EventTarget{ .client = .{ .client_idx = 63 } };
+        const target: ?interfaces.EventTarget = .{ .client = .{ .client_idx = 63 } };
         const encoded = epEncodeTarget(100, target);
         const decoded = epDecodeData(encoded);
         try testing.expectEqual(@as(std.posix.fd_t, 100), decoded.fd);
-        switch (decoded.target) {
-            .client => |c| try testing.expectEqual(@as(u16, 63), c.client_idx),
-            else => return error.TestUnexpectedResult,
-        }
+        if (decoded.target) |dec| {
+            switch (dec) {
+                .client => |c| try testing.expectEqual(@as(u16, 63), c.client_idx),
+                else => return error.TestUnexpectedResult,
+            }
+        } else return error.TestUnexpectedResult;
     }
 
     // timer
     {
-        const target = interfaces.EventTarget{ .timer = .{ .timer_id = 999 } };
+        const target: ?interfaces.EventTarget = .{ .timer = .{ .timer_id = 999 } };
         const encoded = epEncodeTarget(55, target);
         const decoded = epDecodeData(encoded);
         try testing.expectEqual(@as(std.posix.fd_t, 55), decoded.fd);
-        switch (decoded.target) {
-            .timer => |t| try testing.expectEqual(@as(u16, 999), t.timer_id),
-            else => return error.TestUnexpectedResult,
-        }
+        if (decoded.target) |dec| {
+            switch (dec) {
+                .timer => |t| try testing.expectEqual(@as(u16, 999), t.timer_id),
+                else => return error.TestUnexpectedResult,
+            }
+        } else return error.TestUnexpectedResult;
     }
 
-    // signal
+    // null
     {
-        const target = interfaces.EventTarget{ .signal = .{ .signal_number = 15 } };
-        const encoded = epEncodeTarget(200, target);
+        const encoded = epEncodeTarget(200, null);
         const decoded = epDecodeData(encoded);
         try testing.expectEqual(@as(std.posix.fd_t, 200), decoded.fd);
-        switch (decoded.target) {
-            .signal => |s| try testing.expectEqual(@as(u32, 15), s.signal_number),
-            else => return error.TestUnexpectedResult,
-        }
+        try testing.expect(decoded.target == null);
     }
 }
 
@@ -238,13 +242,15 @@ test "epEncodeTarget and epDecodeData: pty boundary values" {
     const encoded = epEncodeTarget(1, target);
     const decoded = epDecodeData(encoded);
     try testing.expectEqual(@as(std.posix.fd_t, 1), decoded.fd);
-    switch (decoded.target) {
-        .pty => |p| {
-            try testing.expectEqual(std.math.maxInt(u16), p.session_idx);
-            try testing.expectEqual(std.math.maxInt(types.PaneSlot), p.pane_slot);
-        },
-        else => return error.TestUnexpectedResult,
-    }
+    if (decoded.target) |dec| {
+        switch (dec) {
+            .pty => |p| {
+                try testing.expectEqual(std.math.maxInt(u16), p.session_idx);
+                try testing.expectEqual(std.math.maxInt(types.PaneSlot), p.pane_slot);
+            },
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
 }
 
 test "epEncodeTarget and epDecodeData: fd preserved in lower 32 bits" {
@@ -254,6 +260,61 @@ test "epEncodeTarget and epDecodeData: fd preserved in lower 32 bits" {
     const encoded = epEncodeTarget(large_fd, target);
     const decoded = epDecodeData(encoded);
     try testing.expectEqual(large_fd, decoded.fd);
+}
+
+test "epEncodeTarget/epDecodeData: null target round-trip" {
+    const encoded = epEncodeTarget(5, null);
+    const decoded = epDecodeData(encoded);
+    try testing.expectEqual(@as(std.posix.fd_t, 5), decoded.fd);
+    try testing.expect(decoded.target == null);
+}
+
+test "epEncodeTarget/epDecodeData: null vs listener non-collision" {
+    const null_encoded = epEncodeTarget(5, null);
+    const listener_encoded = epEncodeTarget(5, .{ .listener = {} });
+    try testing.expect(null_encoded != listener_encoded);
+}
+
+test "epEncodeTarget/epDecodeData: null vs pty boundary non-collision" {
+    const null_encoded = epEncodeTarget(5, null);
+    const pty_max_encoded = epEncodeTarget(5, .{ .pty = .{
+        .session_idx = std.math.maxInt(u16),
+        .pane_slot = std.math.maxInt(types.PaneSlot),
+    } });
+    try testing.expect(null_encoded != pty_max_encoded);
+}
+
+test "epEncodeTarget/epDecodeData: null vs client boundary non-collision" {
+    const null_encoded = epEncodeTarget(5, null);
+    const client_max_encoded = epEncodeTarget(5, .{ .client = .{
+        .client_idx = std.math.maxInt(u16),
+    } });
+    try testing.expect(null_encoded != client_max_encoded);
+}
+
+test "epEncodeTarget/epDecodeData: null vs timer boundary non-collision" {
+    const null_encoded = epEncodeTarget(5, null);
+    const timer_max_encoded = epEncodeTarget(5, .{ .timer = .{
+        .timer_id = std.math.maxInt(u16),
+    } });
+    try testing.expect(null_encoded != timer_max_encoded);
+}
+
+test "epEncodeTarget/epDecodeData: all variants produce distinct udata ranges" {
+    const fd: std.posix.fd_t = 5;
+    const null_val = epEncodeTarget(fd, null);
+    const listener_val = epEncodeTarget(fd, .{ .listener = {} });
+    const pty_val = epEncodeTarget(fd, .{ .pty = .{ .session_idx = 0, .pane_slot = 0 } });
+    const client_val = epEncodeTarget(fd, .{ .client = .{ .client_idx = 0 } });
+    const timer_val = epEncodeTarget(fd, .{ .timer = .{ .timer_id = 0 } });
+
+    const all = [_]u64{ null_val, listener_val, pty_val, client_val, timer_val };
+    // Verify no two values are the same.
+    for (all, 0..) |a, i| {
+        for (all, 0..) |b, j| {
+            if (i != j) try testing.expect(a != b);
+        }
+    }
 }
 
 // ── Linux-only integration tests ───────────────────────────────────────────
@@ -289,10 +350,12 @@ test "EpollContext: registerRead pipe write event detected and target verified" 
     try testing.expect(event != null);
     try testing.expectEqual(read_fd, event.?.fd);
     try testing.expectEqual(interfaces.Filter.read, event.?.filter);
-    switch (event.?.target) {
-        .client => |c| try testing.expectEqual(@as(u16, 42), c.client_idx),
-        else => return error.TestUnexpectedResult,
-    }
+    if (event.?.target) |decoded_target| {
+        switch (decoded_target) {
+            .client => |c| try testing.expectEqual(@as(u16, 42), c.client_idx),
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
 
     var buf: [16]u8 = undefined;
     const bytes_read = try std.posix.read(read_fd, &buf);
@@ -323,10 +386,12 @@ test "EpollContext: registerWrite immediately writable and write succeeds" {
     try testing.expect(event != null);
     try testing.expectEqual(write_fd, event.?.fd);
     try testing.expectEqual(interfaces.Filter.write, event.?.filter);
-    switch (event.?.target) {
-        .client => |c| try testing.expectEqual(@as(u16, 77), c.client_idx),
-        else => return error.TestUnexpectedResult,
-    }
+    if (event.?.target) |decoded_target| {
+        switch (decoded_target) {
+            .client => |c| try testing.expectEqual(@as(u16, 77), c.client_idx),
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
 
     const bytes_written = try std.posix.write(write_fd, "test");
     try testing.expect(bytes_written > 0);
@@ -404,20 +469,24 @@ test "EpollContext: multiple fds correct target routing" {
     var found_pipe2 = false;
     while (iter.next()) |event| {
         if (event.fd == pipe1[0]) {
-            switch (event.target) {
-                .pty => |p| {
-                    try testing.expectEqual(@as(u16, 1), p.session_idx);
-                    try testing.expectEqual(@as(u8, 2), p.pane_slot);
-                },
-                else => return error.TestUnexpectedResult,
-            }
+            if (event.target) |target| {
+                switch (target) {
+                    .pty => |p| {
+                        try testing.expectEqual(@as(u16, 1), p.session_idx);
+                        try testing.expectEqual(@as(u8, 2), p.pane_slot);
+                    },
+                    else => return error.TestUnexpectedResult,
+                }
+            } else return error.TestUnexpectedResult;
             found_pipe1 = true;
         }
         if (event.fd == pipe2[0]) {
-            switch (event.target) {
-                .client => |c| try testing.expectEqual(@as(u16, 5), c.client_idx),
-                else => return error.TestUnexpectedResult,
-            }
+            if (event.target) |target| {
+                switch (target) {
+                    .client => |c| try testing.expectEqual(@as(u16, 5), c.client_idx),
+                    else => return error.TestUnexpectedResult,
+                }
+            } else return error.TestUnexpectedResult;
             found_pipe2 = true;
         }
     }

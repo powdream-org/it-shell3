@@ -22,15 +22,17 @@ pub const ClientAcceptContext = struct {
 /// Matches on event.target == .listener. If the event is not for the listener,
 /// forwards to the next handler in the chain.
 pub fn chainHandle(context: *anyopaque, event: interfaces.Event, next: ?*const Handler) void {
-    switch (event.target) {
-        .listener => {
-            const ctx: *ClientAcceptContext = @ptrCast(@alignCast(context));
-            handleClientAccept(ctx);
-        },
-        else => {
-            if (next) |n| n.invoke(event);
-        },
+    if (event.target) |target| {
+        switch (target) {
+            .listener => {
+                const ctx: *ClientAcceptContext = @ptrCast(@alignCast(context));
+                handleClientAccept(ctx);
+                return;
+            },
+            else => {},
+        }
     }
+    if (next) |n| n.invoke(event);
 }
 
 /// Accept a new client connection from the listener and pass it to the

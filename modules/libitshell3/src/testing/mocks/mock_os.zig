@@ -242,7 +242,7 @@ threadlocal var global_mock_event_loop: ?*MockEventLoopOps = null;
 pub const MockRegistration = struct {
     fd: std.posix.fd_t,
     filter: enum { read, write },
-    target: interfaces.EventTarget,
+    target: ?interfaces.EventTarget,
 };
 
 /// Mock event loop operations for deterministic unit testing.
@@ -271,7 +271,7 @@ pub const MockEventLoopOps = struct {
         };
     }
 
-    fn mockRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, target: interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
+    fn mockRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, target: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
         _ = ctx;
         const self = global_mock_event_loop orelse unreachable;
         if (self.register_error) |err| return err;
@@ -281,7 +281,7 @@ pub const MockEventLoopOps = struct {
         }
     }
 
-    fn mockRegisterWrite(ctx: *anyopaque, fd: std.posix.fd_t, target: interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
+    fn mockRegisterWrite(ctx: *anyopaque, fd: std.posix.fd_t, target: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
         _ = ctx;
         const self = global_mock_event_loop orelse unreachable;
         if (self.register_error) |err| return err;
@@ -325,10 +325,12 @@ test "MockEventLoopOps: registerRead tracks fd with EventTarget" {
     try event_ops.registerRead(ctx, 5, target);
     try std.testing.expectEqual(@as(usize, 1), mock.registered_count);
     try std.testing.expectEqual(@as(std.posix.fd_t, 5), mock.registered[0].?.fd);
-    switch (mock.registered[0].?.target) {
-        .client => |c| try std.testing.expectEqual(@as(u16, 42), c.client_idx),
-        else => return error.TestUnexpectedResult,
-    }
+    if (mock.registered[0].?.target) |decoded_target| {
+        switch (decoded_target) {
+            .client => |c| try std.testing.expectEqual(@as(u16, 42), c.client_idx),
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
 }
 
 test "MockEventLoopOps: registerWrite tracks fd with EventTarget" {
@@ -342,13 +344,15 @@ test "MockEventLoopOps: registerWrite tracks fd with EventTarget" {
     try event_ops.registerWrite(ctx, 7, target);
     try std.testing.expectEqual(@as(usize, 1), mock.registered_count);
     try std.testing.expectEqual(@as(std.posix.fd_t, 7), mock.registered[0].?.fd);
-    switch (mock.registered[0].?.target) {
-        .pty => |p| {
-            try std.testing.expectEqual(@as(u16, 1), p.session_idx);
-            try std.testing.expectEqual(@as(u8, 3), p.pane_slot);
-        },
-        else => return error.TestUnexpectedResult,
-    }
+    if (mock.registered[0].?.target) |decoded_target| {
+        switch (decoded_target) {
+            .pty => |p| {
+                try std.testing.expectEqual(@as(u16, 1), p.session_idx);
+                try std.testing.expectEqual(@as(u8, 3), p.pane_slot);
+            },
+            else => return error.TestUnexpectedResult,
+        }
+    } else return error.TestUnexpectedResult;
 }
 
 test "MockEventLoopOps: unregister increments counter" {

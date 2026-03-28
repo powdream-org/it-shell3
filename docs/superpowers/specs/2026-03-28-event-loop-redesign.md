@@ -88,9 +88,14 @@ pub const EventTarget = union(enum) {
 pub const Event = struct {
     fd: std.posix.fd_t,
     filter: Filter,
-    target: EventTarget,
+    target: ?EventTarget,
 };
 ```
+
+Note: `target` is optional. Signal events (delivered via kqueue `EVFILT_SIGNAL`)
+have no associated target — the signal number is carried in the `fd` (ident)
+field. Handlers dispatch signals via `event.filter == .signal`, not by matching
+on `event.target`.
 
 Handlers match on the variant instead of doing range arithmetic:
 

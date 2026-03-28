@@ -21,7 +21,6 @@ pub const Filter = enum(u2) {
 /// Each OS backend encodes/decodes EventTarget into platform-specific udata.
 pub const EventTarget = union(enum) {
     listener: void,
-    signal: struct { signal_number: u32 },
     pty: struct { session_idx: u16, pane_slot: types.PaneSlot },
     client: struct { client_idx: u16 },
     timer: struct { timer_id: u16 },
@@ -31,7 +30,7 @@ pub const EventTarget = union(enum) {
 pub const Event = struct {
     fd: std.posix.fd_t,
     filter: Filter,
-    target: EventTarget,
+    target: ?EventTarget,
     flags: u16 = 0,
     data: i64 = 0,
 };
@@ -63,9 +62,9 @@ pub const PtyOps = struct {
 /// Event loop operations interface (kqueue/epoll abstraction).
 pub const EventLoopOps = struct {
     /// Register a file descriptor for read events.
-    registerRead: *const fn (ctx: *anyopaque, fd: std.posix.fd_t, target: EventTarget) RegisterError!void,
+    registerRead: *const fn (ctx: *anyopaque, fd: std.posix.fd_t, target: ?EventTarget) RegisterError!void,
     /// Register a file descriptor for write events.
-    registerWrite: *const fn (ctx: *anyopaque, fd: std.posix.fd_t, target: EventTarget) RegisterError!void,
+    registerWrite: *const fn (ctx: *anyopaque, fd: std.posix.fd_t, target: ?EventTarget) RegisterError!void,
     /// Unregister a file descriptor.
     unregister: *const fn (ctx: *anyopaque, fd: std.posix.fd_t) void,
     /// Wait for events. Fills a PriorityEventBuffer and returns its iterator.
@@ -149,17 +148,12 @@ test "Filter: priority ordering and count" {
 
 test "EventTarget: tagged union variants" {
     const listener_target = EventTarget{ .listener = {} };
-    const signal_target = EventTarget{ .signal = .{ .signal_number = 15 } };
     const pty_target = EventTarget{ .pty = .{ .session_idx = 3, .pane_slot = 7 } };
     const client_target = EventTarget{ .client = .{ .client_idx = 10 } };
     const timer_target = EventTarget{ .timer = .{ .timer_id = 5 } };
 
     switch (listener_target) {
         .listener => {},
-        else => return error.TestUnexpectedResult,
-    }
-    switch (signal_target) {
-        .signal => |s| try std.testing.expectEqual(@as(u32, 15), s.signal_number),
         else => return error.TestUnexpectedResult,
     }
     switch (pty_target) {

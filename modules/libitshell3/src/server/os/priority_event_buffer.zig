@@ -12,7 +12,7 @@ pub const PriorityEventBuffer = struct {
     const CAPACITY = interfaces.MAX_EVENTS_PER_BATCH;
 
     buffers: [NUM_PRIORITIES][CAPACITY]Event = [_][CAPACITY]Event{
-        [_]Event{.{ .fd = 0, .filter = .signal, .target = .{ .listener = {} } }} ** CAPACITY,
+        [_]Event{.{ .fd = 0, .filter = .signal, .target = null }} ** CAPACITY,
     } ** NUM_PRIORITIES,
     sizes: [NUM_PRIORITIES]u32 = [_]u32{0} ** NUM_PRIORITIES,
 
