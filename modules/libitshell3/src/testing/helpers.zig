@@ -33,6 +33,24 @@ pub fn tempSocketPath(allocator: std.mem.Allocator) ![]u8 {
     );
 }
 
+/// Create a pipe pair for testing. Returns .{read_fd, write_fd}.
+pub fn createPipe() ![2]std.posix.fd_t {
+    return std.posix.pipe() catch return error.EventLoopError;
+}
+
+test "createPipe: returns valid file descriptors" {
+    const pipe_fds = try createPipe();
+    defer std.posix.close(pipe_fds[0]);
+    defer std.posix.close(pipe_fds[1]);
+
+    // Write to write end, read from read end
+    _ = try std.posix.write(pipe_fds[1], "test");
+    var buf: [4]u8 = undefined;
+    const n = try std.posix.read(pipe_fds[0], &buf);
+    try std.testing.expectEqual(@as(usize, 4), n);
+    try std.testing.expectEqualSlices(u8, "test", buf[0..n]);
+}
+
 test "tempSocketPath: generates valid unique paths" {
     const allocator = std.testing.allocator;
     const path1 = try tempSocketPath(allocator);

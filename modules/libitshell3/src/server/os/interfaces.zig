@@ -31,8 +31,6 @@ pub const Event = struct {
     fd: std.posix.fd_t,
     filter: Filter,
     target: ?EventTarget,
-    flags: u16 = 0,
-    data: i64 = 0,
 };
 
 /// PTY operations interface — vtable for testability.
@@ -128,14 +126,14 @@ test "PtyOps: vtable can be constructed with function pointers" {
     try std.testing.expectEqual(@as(std.posix.pid_t, 100), result.child_pid);
 }
 
-test "Event: struct has correct defaults" {
+test "Event: struct has correct fields" {
     const event = Event{
         .fd = 5,
         .filter = .read,
         .target = .{ .client = .{ .client_idx = 42 } },
     };
-    try std.testing.expectEqual(@as(u16, 0), event.flags);
-    try std.testing.expectEqual(@as(i64, 0), event.data);
+    try std.testing.expectEqual(@as(std.posix.fd_t, 5), event.fd);
+    try std.testing.expectEqual(Filter.read, event.filter);
 }
 
 test "Filter: priority ordering and count" {

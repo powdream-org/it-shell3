@@ -175,8 +175,6 @@ fn kqWait(ctx: *anyopaque, timeout_ms: ?u32) interfaces.EventLoopOps.WaitError!P
             .fd = @intCast(kev.ident),
             .filter = filter,
             .target = target,
-            .flags = kev.flags,
-            .data = @intCast(kev.data),
         });
     }
 
@@ -186,11 +184,7 @@ fn kqWait(ctx: *anyopaque, timeout_ms: ?u32) interfaces.EventLoopOps.WaitError!P
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 const testing = std.testing;
-
-/// Helper: create a pipe pair. Returns .{read_fd, write_fd}.
-fn createPipe() ![2]std.posix.fd_t {
-    return std.posix.pipe() catch return error.EventLoopError;
-}
+const createPipe = @import("itshell3_testing").helpers.createPipe;
 
 test "KqueueContext: registerRead pipe write event detected and target verified" {
     if (comptime !builtin.os.tag.isBSD()) return;
@@ -377,8 +371,6 @@ test "KqueueContext: EOF detection when write end is closed" {
     const event = iter.next();
     try testing.expect(event != null);
     try testing.expectEqual(read_fd, event.?.fd);
-    // Both kqueue (EV_EOF) and epoll (EPOLLHUP) set some flags bit on EOF.
-    try testing.expect(event.?.flags != 0);
 
     var buf: [16]u8 = undefined;
     const bytes_read = try std.posix.read(read_fd, &buf);

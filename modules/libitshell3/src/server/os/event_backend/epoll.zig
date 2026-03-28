@@ -91,7 +91,7 @@ fn epDecodeData(raw: u64) struct { fd: std.posix.fd_t, target: ?interfaces.Event
         TAG_CLIENT => .{ .client = .{ .client_idx = @intCast((raw >> PRIMARY_SHIFT) & FIELD_16_MASK) } },
         TAG_TIMER => .{ .timer = .{ .timer_id = @intCast((raw >> PRIMARY_SHIFT) & FIELD_16_MASK) } },
         TAG_NULL => null,
-        else => .{ .listener = {} },
+        else => unreachable,
     };
     return .{ .fd = stored_fd, .target = target };
 }
@@ -141,19 +141,12 @@ fn epWait(ctx: *anyopaque, timeout_ms: ?u32) interfaces.EventLoopOps.WaitError!P
         else
             .read;
 
-        // Encode HUP/ERR into the flags field (analogous to kqueue EV_EOF / EV_ERROR).
-        var flags: u16 = 0;
-        if ((ev_flags & std.os.linux.EPOLL.HUP) != 0) flags |= 0x8000;
-        if ((ev_flags & std.os.linux.EPOLL.ERR) != 0) flags |= 0x4000;
-
         const decoded = epDecodeData(ep_ev.data.u64);
 
         ep_ctx.event_buffer.add(.{
             .fd = decoded.fd,
             .filter = filter,
             .target = decoded.target,
-            .flags = flags,
-            .data = 0, // epoll does not report bytes available
         });
     }
 
@@ -163,6 +156,7 @@ fn epWait(ctx: *anyopaque, timeout_ms: ?u32) interfaces.EventLoopOps.WaitError!P
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 const testing = std.testing;
+const createPipe = @import("itshell3_testing").helpers.createPipe;
 
 test "epEncodeTarget and epDecodeData: round-trip all variants" {
     // listener
@@ -319,11 +313,6 @@ test "epEncodeTarget/epDecodeData: all variants produce distinct udata ranges" {
 
 // ── Linux-only integration tests ───────────────────────────────────────────
 // These tests exercise EpollContext with real pipes and are skipped on non-Linux.
-
-/// Helper: create a pipe pair. Returns .{read_fd, write_fd}.
-fn createPipe() ![2]std.posix.fd_t {
-    return std.posix.pipe() catch return error.EventLoopError;
-}
 
 test "EpollContext: registerRead pipe write event detected and target verified" {
     if (comptime builtin.os.tag != .linux) return;
@@ -516,8 +505,6 @@ test "EpollContext: EOF detection when write end is closed" {
     const event = iter.next();
     try testing.expect(event != null);
     try testing.expectEqual(read_fd, event.?.fd);
-    // Both kqueue (EV_EOF) and epoll (EPOLLHUP) set some flags bit on EOF.
-    try testing.expect(event.?.flags != 0);
 
     var buf: [16]u8 = undefined;
     const bytes_read = try std.posix.read(read_fd, &buf);
