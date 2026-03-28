@@ -582,36 +582,36 @@ graph LR
 
 ## Summary
 
-| Task                          | Files                                       | Spec Section                                  |
-| ----------------------------- | ------------------------------------------- | --------------------------------------------- |
-| 1. SplitNodeData redesign     | split_tree.zig, session.zig, navigation.zig | daemon-arch state-and-types, ADR 00043        |
-| 2. Direction enum fix         | types.zig                                   | protocol 03-session-pane-management           |
-| 3. Action enum + hid_keycode  | ime_engine.zig                              | protocol 04-input-and-renderstate             |
-| 4. SIGHUP fix + TODO          | signal_handler.zig                          | daemon-behavior daemon-lifecycle              |
-| 5. Pane/SessionEntry move     | core/ -> server/, multiple files            | daemon-arch impl-constraints/state-and-types  |
-| 6. Navigation algorithm       | navigation.zig                              | daemon-arch state-and-types Section 2.2       |
-| 7. ClientEntry extraction     | event_loop.zig, client_state.zig            | daemon-arch module-structure                  |
-| 8. TODO additions             | event_loop.zig, client_accept.zig           | daemon-behavior 03-policies-and-procedures §6 |
-| 9. input/ module moves        | input/ files                                | daemon-arch module-structure                  |
-| 10. Test dir restructure      | testing/ directory, build.zig               | zig-testing convention                        |
-| 11. Module-level docs         | 7 root.zig files                            | zig-documentation convention                  |
-| 12. Section number removal    | 8+ source files                             | zig-documentation convention                  |
-| 13. Compiler test removal     | ring_buffer_spec_compliance_test.zig        | zig-testing convention                        |
-| 14. Naming fixes              | mock_os, mock_ime_engine, session           | zig-naming convention                         |
-| 15. Test naming               | ~20 files                                   | zig-naming + zig-testing conventions          |
-| 16. Integer width fixes       | types.zig, split_tree.zig, navigation.zig+  | zig-coding convention                         |
-| 17. Signal-first dispatch fix | event_loop.zig                              | daemon-behavior 02-event-handling §1.3        |
-| **Part 2**                    |                                             |                                               |
-| 18. EventTarget + Filter      | os/interfaces.zig                           | Spec §2.5, §4.1, §4.3, §7.4                   |
-| 19. PriorityEventBuffer       | os/priority_event_buffer.zig (create)       | Spec §4, §4.1–4.4                             |
-| 20. kqueue EventTarget        | os/kqueue.zig                               | Spec §2.5, §4.3, §4.5                         |
-| 21. EventLoop rewrite         | server/event_loop.zig                       | Spec §3, §5.1–5.2, §6.1, §6.3                 |
-| 22. EventLoop test annot.     | server/event_loop.zig (tests)               | Spec §2.4, §8.2, §8.3                         |
-| 23. signal_handler chain      | server/signal_handler.zig                   | Spec §7.3                                     |
-| 24. client_accept chain       | server/client_accept.zig                    | Spec §7.1                                     |
-| 25. pty_read chain            | server/pty_read.zig                         | Spec §7.2                                     |
-| 26. mock_os vtable update     | testing/mocks/mock_os.zig                   | Spec §7.4                                     |
-| 27. root.zig + ROADMAP        | server/root.zig, ROADMAP.md                 | Spec §6.3; Plan 12.2 test migration note      |
+| Task                          | Files                                                                         | Spec Section                                  |
+| ----------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
+| 1. SplitNodeData redesign     | split_tree.zig, session.zig, navigation.zig                                   | daemon-arch state-and-types, ADR 00043        |
+| 2. Direction enum fix         | types.zig                                                                     | protocol 03-session-pane-management           |
+| 3. Action enum + hid_keycode  | ime_engine.zig                                                                | protocol 04-input-and-renderstate             |
+| 4. SIGHUP fix + TODO          | signal_handler.zig                                                            | daemon-behavior daemon-lifecycle              |
+| 5. Pane/SessionEntry move     | core/ -> server/, multiple files                                              | daemon-arch impl-constraints/state-and-types  |
+| 6. Navigation algorithm       | navigation.zig                                                                | daemon-arch state-and-types Section 2.2       |
+| 7. ClientEntry extraction     | event_loop.zig, client_state.zig                                              | daemon-arch module-structure                  |
+| 8. TODO additions             | event_loop.zig, client_accept.zig                                             | daemon-behavior 03-policies-and-procedures §6 |
+| 9. input/ module moves        | input/ files                                                                  | daemon-arch module-structure                  |
+| 10. Test dir restructure      | testing/ directory, build.zig                                                 | zig-testing convention                        |
+| 11. Module-level docs         | 7 root.zig files                                                              | zig-documentation convention                  |
+| 12. Section number removal    | 8+ source files                                                               | zig-documentation convention                  |
+| 13. Compiler test removal     | ring_buffer_spec_compliance_test.zig                                          | zig-testing convention                        |
+| 14. Naming fixes              | mock_os, mock_ime_engine, session                                             | zig-naming convention                         |
+| 15. Test naming               | ~20 files                                                                     | zig-naming + zig-testing conventions          |
+| 16. Integer width fixes       | types.zig, split_tree.zig, navigation.zig+                                    | zig-coding convention                         |
+| 17. Signal-first dispatch fix | event_loop.zig                                                                | daemon-behavior 02-event-handling §1.3        |
+| **Part 2**                    |                                                                               |                                               |
+| 18. EventTarget + Filter      | os/interfaces.zig                                                             | Spec §2.5, §4.1, §4.3, §7.4                   |
+| 19. PriorityEventBuffer       | os/priority_event_buffer.zig (create)                                         | Spec §4, §4.1–4.4                             |
+| 20. event_backend split       | os/kqueue.zig → event_backend/{kqueue,epoll,platform}.zig; delete os/root.zig | Spec §2.5, §4.3, §4.5                         |
+| 21. EventLoop rewrite         | server/event_loop.zig                                                         | Spec §3, §5.1–5.2, §6.1, §6.3                 |
+| 22. EventLoop test annot.     | server/event_loop.zig (tests)                                                 | Spec §2.4, §8.2, §8.3                         |
+| 23. signal_handler chain      | server/signal_handler.zig                                                     | Spec §7.3                                     |
+| 24. client_accept chain       | server/client_accept.zig                                                      | Spec §7.1                                     |
+| 25. pty_read chain            | server/pty_read.zig                                                           | Spec §7.2                                     |
+| 26. mock_os vtable update     | testing/mocks/mock_os.zig                                                     | Spec §7.4                                     |
+| 27. root.zig + ROADMAP        | server/root.zig, ROADMAP.md                                                   | Spec §6.3; Plan 12.2 test migration note      |
 
 ---
 
@@ -671,31 +671,44 @@ per-tier capacity is `MAX_EVENTS_PER_BATCH`. Section 4.4 — file location.
   four tiers, insertion order preservation within a tier, `reset` effect,
   `isEmpty` states, and silent drop on full tier
 
-### Task 20: Update `os/kqueue.zig` to use `EventTarget` and `PriorityEventBuffer`
+### Task 20: Split `os/kqueue.zig` into `os/event_backend/` and remove `os/root.zig`
 
-**Files:** `src/server/os/kqueue.zig` (modify)
+**Files:**
 
-**Spec:** spec Section 2.5 — kqueue backend is responsible for translating raw
-OS `udata` to `EventTarget` on `wait()` output and translating `EventTarget` to
-raw `udata` when registering FDs. Section 4.5 — the real kqueue implementation
-fills a `PriorityEventBuffer` internally. Section 4.3 — raw kevent buffer size
-is `[MAX_EVENTS_PER_BATCH]Kevent`.
+- `src/server/os/kqueue.zig` (delete)
+- `src/server/os/root.zig` (delete)
+- `src/server/os/event_backend/kqueue.zig` (create — KqueueContext + kq*
+  functions)
+- `src/server/os/event_backend/epoll.zig` (create — EpollContext + ep*
+  functions)
+- `src/server/os/event_backend/platform.zig` (create — PlatformContext alias)
+- All files that import `os/root.zig` (update import paths)
+
+**Spec:** spec Section 2.5 — each backend is responsible for translating raw OS
+`udata` to `EventTarget` on `wait()` output and translating `EventTarget` to raw
+`udata` when registering FDs. Section 4.5 — the real kqueue/epoll implementation
+fills a `PriorityEventBuffer` internally. Section 4.3 — raw event buffer size is
+`[MAX_EVENTS_PER_BATCH]`.
 
 **Depends on:** Task 18, Task 19
 
 **Verification:**
 
-- `kqRegisterRead` and `kqRegisterWrite` accept `EventTarget` and encode it into
-  the kevent `udata` field in a backend-internal way (encoding scheme is
-  internal to kqueue.zig)
-- `kqWait` decodes raw kevent `udata` back to `EventTarget` and fills a
-  `PriorityEventBuffer` (or returns a priority-ordered iterator, matching the
-  `wait` signature chosen in Task 18)
-- `kqUnregister` is updated if its signature is affected
-- The raw kevent buffer in `kqWait` is sized to `MAX_EVENTS_PER_BATCH`
-- All existing kqueue integration tests that verify fd tracking, filter type,
-  and event counts still pass (tests that checked `udata: usize` values are
-  updated to check `target: EventTarget` variants)
+- `os/kqueue.zig` no longer exists — split into `event_backend/kqueue.zig` and
+  `event_backend/epoll.zig`
+- `os/root.zig` no longer exists — files that imported `os/root.zig` now import
+  from `os/interfaces.zig` or `os/event_backend/platform.zig` directly
+- `event_backend/platform.zig` contains the `PlatformContext` comptime alias
+  (kqueue on BSD, epoll on Linux)
+- `kqueue.zig` register functions accept `EventTarget` and encode it into the
+  kevent `udata` field (encoding scheme internal to the file)
+- `epoll.zig` register functions accept `EventTarget` and encode it into the
+  epoll `data.u64` field (encoding scheme internal to the file)
+- Both `wait()` implementations decode raw events back to `EventTarget` and fill
+  a `PriorityEventBuffer`
+- Raw event buffers are sized to `MAX_EVENTS_PER_BATCH`
+- All existing kqueue/epoll integration tests pass (updated to check
+  `target: EventTarget` variants instead of `udata: usize` values)
 
 ### Task 21: Add `Handler` type and rewrite `EventLoop` in `event_loop.zig`
 
@@ -887,18 +900,22 @@ accept `EventTarget`; `wait` signature changes to match the
 
 ### Part 2 File Structure
 
-| File                                      | Action | Responsibility                                                                                                                                                    |
-| ----------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/server/os/interfaces.zig`            | Modify | Add `EventTarget` union, update `Event.udata → target`, update `Filter` enum, add `MAX_EVENTS_PER_BATCH`, update `registerRead`/`registerWrite`/`wait` signatures |
-| `src/server/os/priority_event_buffer.zig` | Create | New `PriorityEventBuffer` struct with `add`, `reset`, `isEmpty`, `iterator`                                                                                       |
-| `src/server/os/kqueue.zig`                | Modify | Encode/decode `EventTarget` in register/wait functions; fill `PriorityEventBuffer` in `kqWait`                                                                    |
-| `src/server/event_loop.zig`               | Modify | Replace struct with minimal fields; rewrite `run`/`stop`; add `Handler` type; delete client/signal/dispatch code; annotate or remove old tests                    |
-| `src/server/signal_handler.zig`           | Modify | Add chain handler entry point wrapper; update `handleSignalEvent` call site                                                                                       |
-| `src/server/client_accept.zig`            | Modify | Add chain handler entry point wrapper; remove `*EventLoop` parameter dependency                                                                                   |
-| `src/server/pty_read.zig`                 | Modify | Add chain handler entry point wrapper; map `(context, event, next)` to existing call pattern                                                                      |
-| `src/server/root.zig`                     | Modify | Update re-exports; remove `ClientEntry` re-export from `event_loop`                                                                                               |
-| `src/testing/mocks/mock_os.zig`           | Modify | Update `MockEventLoopOps` to match new `EventLoopOps` vtable signatures; update `MockRegistration`                                                                |
-| `docs/superpowers/plans/ROADMAP.md`       | Modify | Add note to Plan 12.2 about event_loop test migration (annotated `TODO(Plan 6)` tests)                                                                            |
+| File                                       | Action | Responsibility                                                                                                                                                    |
+| ------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/server/os/interfaces.zig`             | Modify | Add `EventTarget` union, update `Event.udata → target`, update `Filter` enum, add `MAX_EVENTS_PER_BATCH`, update `registerRead`/`registerWrite`/`wait` signatures |
+| `src/server/os/priority_event_buffer.zig`  | Create | New `PriorityEventBuffer` struct with `add`, `reset`, `isEmpty`, `iterator`                                                                                       |
+| `src/server/os/kqueue.zig`                 | Delete | Split into event_backend/ subdirectory                                                                                                                            |
+| `src/server/os/root.zig`                   | Delete | No longer needed; files import interfaces.zig or event_backend/ directly                                                                                          |
+| `src/server/os/event_backend/kqueue.zig`   | Create | KqueueContext + kq* functions; EventTarget encode/decode; fill PriorityEventBuffer                                                                                |
+| `src/server/os/event_backend/epoll.zig`    | Create | EpollContext + ep* functions; EventTarget encode/decode; fill PriorityEventBuffer                                                                                 |
+| `src/server/os/event_backend/platform.zig` | Create | PlatformContext comptime alias (kqueue on BSD, epoll on Linux)                                                                                                    |
+| `src/server/event_loop.zig`                | Modify | Replace struct with minimal fields; rewrite `run`/`stop`; add `Handler` type; delete client/signal/dispatch code; annotate or remove old tests                    |
+| `src/server/signal_handler.zig`            | Modify | Add chain handler entry point wrapper; update `handleSignalEvent` call site                                                                                       |
+| `src/server/client_accept.zig`             | Modify | Add chain handler entry point wrapper; remove `*EventLoop` parameter dependency                                                                                   |
+| `src/server/pty_read.zig`                  | Modify | Add chain handler entry point wrapper; map `(context, event, next)` to existing call pattern                                                                      |
+| `src/server/root.zig`                      | Modify | Update re-exports; remove `ClientEntry` re-export from `event_loop`                                                                                               |
+| `src/testing/mocks/mock_os.zig`            | Modify | Update `MockEventLoopOps` to match new `EventLoopOps` vtable signatures; update `MockRegistration`                                                                |
+| `docs/superpowers/plans/ROADMAP.md`        | Modify | Add note to Plan 12.2 about event_loop test migration (annotated `TODO(Plan 6)` tests)                                                                            |
 
 ### Part 2 Dependency Graph
 
