@@ -11,7 +11,6 @@ const session_manager_mod = server.session_manager;
 const protocol = @import("itshell3_protocol");
 const Listener = protocol.transport.Listener;
 const UnixTransport = protocol.transport.UnixTransport;
-const EventLoop = @import("itshell3_server").event_loop.EventLoop;
 
 // File-scope static mock engine. Persists across tests so the vtable pointer
 // stored in sessions remains valid. Exported for use by other test files.
@@ -51,20 +50,28 @@ test "tempSocketPath: generates valid unique paths" {
 
 // ── Integration Tests ─────────────────────────────────────────────────────────
 
-// Integration test: full daemon lifecycle using real sockets + mock PTY/event.
-test "spec: daemon lifecycle — full lifecycle with mock OS ops and real sockets" {
+// Integration test: EventLoop with handler chain using mock OS ops.
+test "spec: daemon lifecycle — EventLoop with handler chain and mock OS ops" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
 
-    // 1. Create mock OS ops (no MockSocketOps — protocol owns the socket)
+    // 1. Create mock OS ops
     var mock_event = mock_os.MockEventLoopOps{};
     var mock_pty = mock_os.MockPtyOps{
         .fork_result = .{ .master_fd = 42, .child_pid = 1234 },
     };
-    var mock_signal = mock_os.MockSignalOps{};
 
+    _ = mock_pty.ops();
+
+    // Configure mock to return a SIGTERM event that will stop the loop.
+    const events_to_return = [_]interfaces.Event{
+        .{
+            .fd = std.posix.SIG.TERM,
+            .filter = .signal,
+            .target = .{ .listener = {} },
+        },
+    };
+    mock_event.events_to_return = &events_to_return;
     const event_ops = mock_event.ops();
-    const pty_ops = mock_pty.ops();
-    const signal_ops = mock_signal.ops();
 
     // 2. Create SessionManager and create a session
     var sm = session_manager_mod.SessionManager.init();
@@ -76,50 +83,40 @@ test "spec: daemon lifecycle — full lifecycle with mock OS ops and real socket
     try std.testing.expect(entry != null);
     try std.testing.expectEqual(session_id, entry.?.session.session_id);
 
-    // 3. Create Listener using protocol transport (real socket)
-    std.posix.unlink("/tmp/itshell3-integration-test.sock") catch {};
-    var listener = try protocol.transport.listen("/tmp/itshell3-integration-test.sock");
-    defer listener.deinit();
+    // 3. Build a simple handler chain that stops the loop on signal events.
+    const StopOnSignal = struct {
+        event_loop: ?*server.EventLoop = null,
 
-    try std.testing.expect(listener.listen_fd >= 0);
+        fn handle(context: *anyopaque, event: interfaces.Event, next: ?*const server.Handler) void {
+            const self: *@This() = @ptrCast(@alignCast(context));
+            if (event.filter == .signal) {
+                if (self.event_loop) |el| el.stop();
+            }
+            if (next) |n| n.invoke(event);
+        }
+    };
 
-    // 4. Create EventLoop with all mock ops
+    var stop_ctx = StopOnSignal{};
     var event_ctx: u8 = 0;
-    var ev = EventLoop.init(
+    const handler = server.Handler{
+        .handleFn = StopOnSignal.handle,
+        .context = @ptrCast(&stop_ctx),
+        .next = null,
+    };
+    var el = server.EventLoop.init(
         &event_ops,
         @ptrCast(&event_ctx),
-        &pty_ops,
-        &signal_ops,
-        &listener,
-        &sm,
+        &handler,
     );
+    stop_ctx.event_loop = &el;
 
-    try std.testing.expect(!ev.shutdown_requested);
-    try std.testing.expectEqual(@as(usize, 0), ev.clientCount());
+    try std.testing.expect(el.running);
 
-    // 5. Create a real socketpair and add one end as a client
-    var fds: [2]std.posix.socket_t = undefined;
-    const rc = std.c.socketpair(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0, &fds);
-    try std.testing.expectEqual(@as(c_int, 0), rc);
-    defer std.posix.close(fds[1]);
+    // 4. Run the event loop — should process the SIGTERM and stop.
+    try el.run();
 
-    const client_ut = UnixTransport{ .socket_fd = fds[0] };
-    try ev.addClientTransport(client_ut);
-
-    // 6. Verify: session exists, client exists
+    try std.testing.expect(!el.running);
     try std.testing.expectEqual(@as(u32, 1), sm.sessionCount());
-    try std.testing.expectEqual(@as(usize, 1), ev.clientCount());
-
-    const client_idx = ev.findClientByFd(fds[0]);
-    try std.testing.expect(client_idx != null);
-
-    // 7. Set shutdown_requested = true
-    ev.shutdown_requested = true;
-
-    // 8. Verify: clean state (shutdown flag set, session and client intact)
-    try std.testing.expect(ev.shutdown_requested);
-    try std.testing.expectEqual(@as(u32, 1), sm.sessionCount());
-    try std.testing.expectEqual(@as(usize, 1), ev.clientCount());
 }
 
 const c_pty = @cImport({

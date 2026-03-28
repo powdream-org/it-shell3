@@ -382,6 +382,11 @@ default session creation, CLI argument parsing, version conflict handling.
 
 **Depends on:** Plan 12.1 (design must be complete before implementation)
 
+**Note:** `event_loop.zig` contains `TODO(Plan 6)` test stubs for
+`addClientTransport`, `removeClient`, and `findClientByFd` that must be replaced
+with proper Client Manager integration tests. The signal/listener fd
+registration and chain assembly in production belong to this plan.
+
 ### Plan 13: Debug Subsystem + `it-shell3-ctl` (Not Started)
 
 **Scope:** Unix socket debug interface for logging, inspection, and control of

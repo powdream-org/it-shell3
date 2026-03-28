@@ -273,9 +273,9 @@ know the priority scheme.
 
 ```
 Handler = struct {
-    handleFn: *const fn (context: *anyopaque, event: Event, next: ?Handler) void,
+    handleFn: *const fn (context: *anyopaque, event: Event, next: ?*const Handler) void,
     context: *anyopaque,
-    next: ?Handler,
+    next: ?*const Handler,
 
     /// Convenience: calls handleFn with this handler's context and next.
     /// Used by EventLoop.run() and by handlers forwarding to the next in chain.
@@ -303,6 +303,12 @@ A handler MUST do exactly one of:
 
 1. Handle the event (consume it). It may optionally also call `next`.
 2. Skip the event by calling `next.?.invoke(event)`.
+
+**Note on `next` type:** `next` is `?*const Handler` (pointer), not `?Handler`
+(value). Zig does not allow recursive value types — a struct containing an
+optional of itself has infinite size. Using a const pointer resolves this;
+callers allocate Handler structs on the stack or statically and pass addresses
+when assembling the chain.
 
 If `next` is `null` and the handler does not recognize the event, the event is
 silently dropped. This is intentional: unhandled events are a normal condition

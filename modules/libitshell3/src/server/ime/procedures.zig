@@ -2,8 +2,8 @@ const std = @import("std");
 const core = @import("itshell3_core");
 const session_mod = core.session;
 const types = core.types;
-const os = @import("../os/root.zig");
-const PtyOps = os.PtyOps;
+const interfaces = @import("../os/interfaces.zig");
+const PtyOps = interfaces.PtyOps;
 const ime_consumer = @import("consumer.zig");
 
 /// Ownership transfer (reference procedure, see ime-procedures spec).

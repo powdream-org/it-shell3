@@ -18,14 +18,14 @@ pub const session_entry = @import("state/session_entry.zig");
 pub const session_manager = @import("state/session_manager.zig");
 pub const client_state = @import("client_state.zig");
 
-// Handlers (flattened from former handlers/ subdirectory)
+// Handlers (chain pattern)
 pub const pty_read = @import("pty_read.zig");
 pub const client_accept = @import("client_accept.zig");
 pub const client_read = @import("client_read.zig");
 
 // Re-exports
 pub const EventLoop = event_loop.EventLoop;
-pub const ClientEntry = client_state.ClientEntry;
+pub const Handler = event_loop.Handler;
 pub const ClientTracker = ime_lifecycle.ClientTracker;
 pub const Pane = pane.Pane;
 pub const SessionEntry = session_entry.SessionEntry;

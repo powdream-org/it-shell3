@@ -24,7 +24,7 @@ fn realRegisterSignals(ctx: *anyopaque, event_ops: *const interfaces.EventLoopOp
         std.posix.SIG.HUP,
     };
     for (signals) |sig| {
-        event_ops.registerRead(ctx, @intCast(sig), sig) catch return error.SignalSetupFailed;
+        event_ops.registerRead(ctx, @intCast(sig), .{ .signal = .{ .signal_number = sig } }) catch return error.SignalSetupFailed;
     }
 }
 

@@ -3,8 +3,8 @@ const core = @import("itshell3_core");
 const ImeResult = core.ImeResult;
 const KeyEvent = core.KeyEvent;
 const session_mod = core.session;
-const os = @import("../os/root.zig");
-const PtyOps = os.PtyOps;
+const interfaces = @import("../os/interfaces.zig");
+const PtyOps = interfaces.PtyOps;
 
 /// Interface for key encoding (ghostty key_encode.encode), enabling mock injection.
 pub const KeyEncoder = struct {

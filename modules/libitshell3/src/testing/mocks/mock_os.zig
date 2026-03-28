@@ -1,5 +1,6 @@
 const std = @import("std");
 const interfaces = @import("itshell3_server").os.interfaces;
+const PriorityEventBuffer = @import("itshell3_server").os.priority_event_buffer.PriorityEventBuffer;
 
 /// Thread-local mock state pointer. Safe because Zig tests are single-threaded.
 threadlocal var global_mock_pty: ?*MockPtyOps = null;
@@ -241,16 +242,19 @@ threadlocal var global_mock_event_loop: ?*MockEventLoopOps = null;
 pub const MockRegistration = struct {
     fd: std.posix.fd_t,
     filter: enum { read, write },
-    udata: usize,
+    target: interfaces.EventTarget,
 };
 
 /// Mock event loop operations for deterministic unit testing.
 pub const MockEventLoopOps = struct {
     /// Configurable events to return from wait().
-    events_to_return: []const interfaces.EventLoopOps.Event = &.{},
+    events_to_return: []const interfaces.Event = &.{},
     events_index: usize = 0,
     wait_error: ?interfaces.EventLoopOps.WaitError = null,
     register_error: ?interfaces.EventLoopOps.RegisterError = null,
+
+    /// Internal PriorityEventBuffer for wait() to fill and return an iterator from.
+    event_buffer: PriorityEventBuffer = .{},
 
     /// Tracks registered file descriptors.
     registered: [64]?MockRegistration = [_]?MockRegistration{null} ** 64,
@@ -267,22 +271,22 @@ pub const MockEventLoopOps = struct {
         };
     }
 
-    fn mockRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, udata: usize) interfaces.EventLoopOps.RegisterError!void {
+    fn mockRegisterRead(ctx: *anyopaque, fd: std.posix.fd_t, target: interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
         _ = ctx;
         const self = global_mock_event_loop orelse unreachable;
         if (self.register_error) |err| return err;
         if (self.registered_count < self.registered.len) {
-            self.registered[self.registered_count] = .{ .fd = fd, .filter = .read, .udata = udata };
+            self.registered[self.registered_count] = .{ .fd = fd, .filter = .read, .target = target };
             self.registered_count += 1;
         }
     }
 
-    fn mockRegisterWrite(ctx: *anyopaque, fd: std.posix.fd_t, udata: usize) interfaces.EventLoopOps.RegisterError!void {
+    fn mockRegisterWrite(ctx: *anyopaque, fd: std.posix.fd_t, target: interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
         _ = ctx;
         const self = global_mock_event_loop orelse unreachable;
         if (self.register_error) |err| return err;
         if (self.registered_count < self.registered.len) {
-            self.registered[self.registered_count] = .{ .fd = fd, .filter = .write, .udata = udata };
+            self.registered[self.registered_count] = .{ .fd = fd, .filter = .write, .target = target };
             self.registered_count += 1;
         }
     }
@@ -293,43 +297,58 @@ pub const MockEventLoopOps = struct {
         self.unregister_count += 1;
     }
 
-    fn mockWait(ctx: *anyopaque, events: []interfaces.EventLoopOps.Event, _: ?u32) interfaces.EventLoopOps.WaitError!usize {
+    fn mockWait(ctx: *anyopaque, _: ?u32) interfaces.EventLoopOps.WaitError!PriorityEventBuffer.Iterator {
         _ = ctx;
         const self = global_mock_event_loop orelse unreachable;
         if (self.wait_error) |err| return err;
-        if (self.events_index >= self.events_to_return.len) return 0;
-        const n = @min(events.len, self.events_to_return.len - self.events_index);
-        for (0..n) |i| {
-            events[i] = self.events_to_return[self.events_index + i];
+
+        self.event_buffer.reset();
+        if (self.events_index < self.events_to_return.len) {
+            const remaining = self.events_to_return[self.events_index..];
+            for (remaining) |event| {
+                self.event_buffer.add(event);
+            }
+            self.events_index = self.events_to_return.len;
         }
-        self.events_index += n;
-        return n;
+        return self.event_buffer.iterator();
     }
 };
 
-test "MockEventLoopOps: registerRead tracks fd" {
+test "MockEventLoopOps: registerRead tracks fd with EventTarget" {
     var mock = MockEventLoopOps{};
     const event_ops = mock.ops();
 
     var dummy: u8 = 0;
     const ctx: *anyopaque = &dummy;
 
-    try event_ops.registerRead(ctx, 5, 42);
+    const target = interfaces.EventTarget{ .client = .{ .client_idx = 42 } };
+    try event_ops.registerRead(ctx, 5, target);
     try std.testing.expectEqual(@as(usize, 1), mock.registered_count);
     try std.testing.expectEqual(@as(std.posix.fd_t, 5), mock.registered[0].?.fd);
-    try std.testing.expectEqual(@as(usize, 42), mock.registered[0].?.udata);
+    switch (mock.registered[0].?.target) {
+        .client => |c| try std.testing.expectEqual(@as(u16, 42), c.client_idx),
+        else => return error.TestUnexpectedResult,
+    }
 }
 
-test "MockEventLoopOps: registerWrite tracks fd" {
+test "MockEventLoopOps: registerWrite tracks fd with EventTarget" {
     var mock = MockEventLoopOps{};
     const event_ops = mock.ops();
 
     var dummy: u8 = 0;
     const ctx: *anyopaque = &dummy;
 
-    try event_ops.registerWrite(ctx, 7, 99);
+    const target = interfaces.EventTarget{ .pty = .{ .session_idx = 1, .pane_slot = 3 } };
+    try event_ops.registerWrite(ctx, 7, target);
     try std.testing.expectEqual(@as(usize, 1), mock.registered_count);
-    try std.testing.expectEqual(MockRegistration{ .fd = 7, .filter = .write, .udata = 99 }, mock.registered[0].?);
+    try std.testing.expectEqual(@as(std.posix.fd_t, 7), mock.registered[0].?.fd);
+    switch (mock.registered[0].?.target) {
+        .pty => |p| {
+            try std.testing.expectEqual(@as(u16, 1), p.session_idx);
+            try std.testing.expectEqual(@as(u8, 3), p.pane_slot);
+        },
+        else => return error.TestUnexpectedResult,
+    }
 }
 
 test "MockEventLoopOps: unregister increments counter" {
@@ -344,10 +363,10 @@ test "MockEventLoopOps: unregister increments counter" {
     try std.testing.expectEqual(@as(usize, 2), mock.unregister_count);
 }
 
-test "MockEventLoopOps: wait returns configured events" {
-    const evts = [_]interfaces.EventLoopOps.Event{
-        .{ .fd = 3, .filter = .read, .udata = 10 },
-        .{ .fd = 4, .filter = .write, .udata = 20 },
+test "MockEventLoopOps: wait returns configured events in priority order" {
+    const evts = [_]interfaces.Event{
+        .{ .fd = 3, .filter = .read, .target = .{ .listener = {} } },
+        .{ .fd = 4, .filter = .signal, .target = .{ .listener = {} } },
     };
     var mock = MockEventLoopOps{ .events_to_return = &evts };
     const event_ops = mock.ops();
@@ -355,21 +374,23 @@ test "MockEventLoopOps: wait returns configured events" {
     var dummy: u8 = 0;
     const ctx: *anyopaque = &dummy;
 
-    var out: [4]interfaces.EventLoopOps.Event = undefined;
-    const n = try event_ops.wait(ctx, &out, null);
-    try std.testing.expectEqual(@as(usize, 2), n);
-    try std.testing.expectEqual(@as(std.posix.fd_t, 3), out[0].fd);
-    try std.testing.expectEqual(@as(std.posix.fd_t, 4), out[1].fd);
+    var iter = try event_ops.wait(ctx, null);
+    // Signal should come first due to PriorityEventBuffer ordering
+    const first = iter.next();
+    try std.testing.expect(first != null);
+    try std.testing.expectEqual(@as(std.posix.fd_t, 4), first.?.fd);
+    const second = iter.next();
+    try std.testing.expect(second != null);
+    try std.testing.expectEqual(@as(std.posix.fd_t, 3), second.?.fd);
 }
 
-test "MockEventLoopOps: wait returns 0 when no events" {
+test "MockEventLoopOps: wait returns empty iterator when no events" {
     var mock = MockEventLoopOps{};
     const event_ops = mock.ops();
 
     var dummy: u8 = 0;
     const ctx: *anyopaque = &dummy;
 
-    var out: [4]interfaces.EventLoopOps.Event = undefined;
-    const n = try event_ops.wait(ctx, &out, null);
-    try std.testing.expectEqual(@as(usize, 0), n);
+    var iter = try event_ops.wait(ctx, null);
+    try std.testing.expect(iter.next() == null);
 }

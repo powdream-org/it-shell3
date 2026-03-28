@@ -1,8 +1,8 @@
 const std = @import("std");
 const core = @import("itshell3_core");
 const session_mod = core.session;
-const os = @import("../os/root.zig");
-const PtyOps = os.PtyOps;
+const interfaces = @import("../os/interfaces.zig");
+const PtyOps = interfaces.PtyOps;
 const ime_consumer = @import("consumer.zig");
 
 /// Tracks the number of attached clients per session and determines when to
