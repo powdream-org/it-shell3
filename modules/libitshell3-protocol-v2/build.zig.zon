@@ -1,0 +1,7 @@
+.{
+    .name = .libitshell3_protocol_v2,
+    .version = "0.1.0",
+    .fingerprint = 0x109f96ab5a159a85,
+    .paths = .{""},
+    .dependencies = .{},
+}
