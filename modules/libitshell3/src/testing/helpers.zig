@@ -7,7 +7,7 @@ const interfaces = server_os.interfaces;
 const core = @import("itshell3_core");
 const session_mod = core.session;
 const server = @import("itshell3_server");
-const session_manager_mod = server.session_manager;
+const session_manager_mod = server.state.session_manager;
 const protocol = @import("itshell3_protocol");
 const Listener = protocol.transport.Listener;
 const UnixTransport = protocol.transport.UnixTransport;
@@ -103,9 +103,9 @@ test "spec: daemon lifecycle — EventLoop with handler chain and mock OS ops" {
 
     // 3. Build a simple handler chain that stops the loop on signal events.
     const StopOnSignal = struct {
-        event_loop: ?*server.EventLoop = null,
+        event_loop: ?*server.handlers.EventLoop = null,
 
-        fn handle(context: *anyopaque, event: interfaces.Event, next: ?*const server.Handler) void {
+        fn handle(context: *anyopaque, event: interfaces.Event, next: ?*const server.handlers.Handler) void {
             const self: *@This() = @ptrCast(@alignCast(context));
             if (event.filter == .signal) {
                 if (self.event_loop) |el| el.stop();
@@ -116,12 +116,12 @@ test "spec: daemon lifecycle — EventLoop with handler chain and mock OS ops" {
 
     var stop_ctx = StopOnSignal{};
     var event_ctx: u8 = 0;
-    const handler = server.Handler{
+    const handler = server.handlers.Handler{
         .handleFn = StopOnSignal.handle,
         .context = @ptrCast(&stop_ctx),
         .next = null,
     };
-    var el = server.EventLoop.init(
+    var el = server.handlers.EventLoop.init(
         &event_ops,
         @ptrCast(&event_ctx),
         &handler,

@@ -1,5 +1,5 @@
 const std = @import("std");
-const interfaces = @import("os/interfaces.zig");
+const interfaces = @import("../os/interfaces.zig");
 const event_loop_mod = @import("event_loop.zig");
 const protocol = @import("itshell3_protocol");
 const Listener = protocol.transport.Listener;

@@ -20,11 +20,11 @@ const std = @import("std");
 const testing = std.testing;
 
 const server = @import("itshell3_server");
-const ring_buffer_mod = server.ring_buffer;
-const frame_serializer_mod = server.frame_serializer;
-const client_writer_mod = server.client_writer;
-const direct_queue_mod = server.direct_queue;
-const pane_delivery_mod = server.pane_delivery;
+const ring_buffer_mod = server.delivery.ring_buffer;
+const frame_serializer_mod = server.delivery.frame_serializer;
+const client_writer_mod = server.delivery.client_writer;
+const direct_queue_mod = server.delivery.direct_queue;
+const pane_delivery_mod = server.delivery.pane_delivery;
 const protocol = @import("itshell3_protocol");
 
 const RingBuffer = ring_buffer_mod.RingBuffer;

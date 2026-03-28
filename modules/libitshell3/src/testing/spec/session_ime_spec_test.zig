@@ -9,7 +9,7 @@ const core = @import("itshell3_core");
 const types = core.types;
 const Session = core.Session;
 const server = @import("itshell3_server");
-const SessionEntry = server.SessionEntry;
+const SessionEntry = server.state.SessionEntry;
 const test_mod = @import("itshell3_testing");
 const MockImeEngine = test_mod.MockImeEngine;
 

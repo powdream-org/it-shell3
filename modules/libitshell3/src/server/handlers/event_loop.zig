@@ -1,5 +1,5 @@
 const std = @import("std");
-const interfaces = @import("os/interfaces.zig");
+const interfaces = @import("../os/interfaces.zig");
 
 /// Handler chain link for middleware-based event dispatch.
 ///

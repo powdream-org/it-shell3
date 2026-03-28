@@ -11,7 +11,7 @@ const test_mod = @import("itshell3_testing");
 const Session = core.Session;
 const MockImeEngine = test_mod.MockImeEngine;
 const MockPtyOps = test_mod.MockPtyOps;
-const ClientTracker = server.ClientTracker;
+const ClientTracker = server.ime.ClientTracker;
 
 test "spec: IME lifecycle — engine created with direct default" {
     var mock = MockImeEngine{ .active_input_method = "direct" };
@@ -80,7 +80,7 @@ test "spec: IME lifecycle — deactivate on empty engine returns no-op" {
     var s = Session.init(1, "t", 0, mock.engine());
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
-    const dirty = server.ime_lifecycle.deactivateSessionIme(&s, 10, &pty_ops);
+    const dirty = server.ime.lifecycle.deactivateSessionIme(&s, 10, &pty_ops);
     try std.testing.expect(!dirty);
     try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
 }

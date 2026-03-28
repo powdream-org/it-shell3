@@ -11,7 +11,7 @@ const Session = core.Session;
 const types = core.types;
 const MockImeEngine = test_mod.MockImeEngine;
 const MockPtyOps = test_mod.MockPtyOps;
-const procs = server.ime_procedures;
+const procs = server.ime.procedures;
 
 // ---- Ownership transfer ----
 

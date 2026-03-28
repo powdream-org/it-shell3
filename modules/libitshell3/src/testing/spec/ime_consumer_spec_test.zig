@@ -11,10 +11,10 @@ const test_mod = @import("itshell3_testing");
 const ImeResult = core.ImeResult;
 const KeyEvent = core.KeyEvent;
 const Session = core.Session;
-const consumeImeResult = server.ime_consumer.consumeImeResult;
+const consumeImeResult = server.ime.consumer.consumeImeResult;
 const MockImeEngine = test_mod.MockImeEngine;
 const MockPtyOps = test_mod.MockPtyOps;
-const KeyEncoder = server.ime_consumer.KeyEncoder;
+const KeyEncoder = server.ime.consumer.KeyEncoder;
 
 fn makeSession() struct { mock: MockImeEngine, session: Session } {
     var m = MockImeEngine{};

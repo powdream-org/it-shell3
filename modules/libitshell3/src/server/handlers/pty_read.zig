@@ -1,12 +1,12 @@
 const std = @import("std");
-const interfaces = @import("os/interfaces.zig");
+const interfaces = @import("../os/interfaces.zig");
 const event_loop_mod = @import("event_loop.zig");
 const core = @import("itshell3_core");
 const session_mod = core.session;
 const types = core.types;
-const pane_mod = @import("state/pane.zig");
-const session_entry_mod = @import("state/session_entry.zig");
-const session_manager_mod = @import("state/session_manager.zig");
+const pane_mod = @import("../state/pane.zig");
+const session_entry_mod = @import("../state/session_entry.zig");
+const session_manager_mod = @import("../state/session_manager.zig");
 const terminal_mod = @import("itshell3_ghostty").terminal;
 
 const Handler = event_loop_mod.Handler;

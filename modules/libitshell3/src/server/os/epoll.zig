@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const interfaces = @import("../interfaces.zig");
-const PriorityEventBuffer = @import("../priority_event_buffer.zig").PriorityEventBuffer;
+const interfaces = @import("interfaces.zig");
+const PriorityEventBuffer = @import("priority_event_buffer.zig").PriorityEventBuffer;
 const core = @import("itshell3_core");
 const types = core.types;
 

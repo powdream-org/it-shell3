@@ -8,8 +8,8 @@ const std = @import("std");
 const server = @import("itshell3_server");
 const test_mod = @import("itshell3_testing");
 
-const EventLoop = server.EventLoop;
-const Handler = server.Handler;
+const EventLoop = server.handlers.EventLoop;
+const Handler = server.handlers.Handler;
 const interfaces = server.os.interfaces;
 const Event = interfaces.Event;
 const Filter = interfaces.Filter;
