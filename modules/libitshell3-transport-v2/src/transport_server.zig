@@ -1,10 +1,13 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const transport_mod = @import("transport.zig");
-const Transport = transport_mod.Transport;
+const transport = @import("transport.zig");
+const helper = @import("transport_helper.zig");
+const Transport = transport.Transport;
 
-const socket_t = std.posix.socket_t;
-const MAX_SOCKET_PATH: usize = @as(std.posix.sockaddr.un, undefined).path.len;
+const socket_t = helper.socket_t;
+const MAX_SOCKET_PATH = helper.MAX_SOCKET_PATH;
+const newFd = helper.newFd;
+const makeAddr = helper.makeAddr;
 
 // getpeereid is not in std — declare it directly.
 extern "c" fn getpeereid(fd: socket_t, euid: *std.posix.uid_t, egid: *std.posix.gid_t) c_int;
@@ -48,7 +51,7 @@ pub const Listener = struct {
     }
 
     /// Accepts a new client with UID verification, O_NONBLOCK, and buffer tuning.
-    pub fn accept(self: *Listener) AcceptError!transport_mod.SocketConnection {
+    pub fn accept(self: *Listener) AcceptError!transport.SocketConnection {
         _ = self;
         // TODO: implement
         return error.Accept;
@@ -102,10 +105,6 @@ pub fn listen(socket_path: []const u8) ListenError!Listener {
     return result;
 }
 
-fn newFd() !socket_t {
-    return std.posix.socket(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0);
-}
-
 /// Probe whether a prior socket exists and is alive or stale.
 fn probeStaleSocket(socket_path: []const u8) StaleProbeResult {
     // Check if file exists first.
@@ -122,20 +121,17 @@ fn probeStaleSocket(socket_path: []const u8) StaleProbeResult {
     return .daemon_running;
 }
 
-fn makeAddr(socket_path: []const u8) std.posix.sockaddr.un {
-    std.debug.assert(socket_path.len < MAX_SOCKET_PATH);
-    var addr: std.posix.sockaddr.un = .{ .path = undefined };
-    @memset(&addr.path, 0);
-    @memcpy(addr.path[0..socket_path.len], socket_path);
-    return addr;
-}
-
 fn ensureDirectory(socket_path: []const u8, mode: std.posix.mode_t) !void {
     const dir = std.fs.path.dirname(socket_path) orelse return;
     std.posix.mkdir(dir, mode) catch |err| switch (err) {
         error.PathAlreadyExists => {},
         else => return err,
     };
+}
+
+fn setNonBlock(fd: socket_t) void {
+    const flags = std.posix.fcntl(fd, std.posix.F.GETFL, 0) catch return;
+    _ = std.posix.fcntl(fd, std.posix.F.SETFL, flags | @as(u32, @bitCast(std.posix.O{ .NONBLOCK = true }))) catch {};
 }
 
 fn chmodSocket(socket_path: []const u8, mode: std.posix.mode_t) void {
@@ -145,26 +141,10 @@ fn chmodSocket(socket_path: []const u8, mode: std.posix.mode_t) void {
     _ = std.c.chmod(@ptrCast(&path_buf), mode);
 }
 
-fn setNonBlock(fd: socket_t) void {
-    const flags = std.posix.fcntl(fd, std.posix.F.GETFL, 0) catch return;
-    _ = std.posix.fcntl(fd, std.posix.F.SETFL, flags | @as(u32, @bitCast(std.posix.O{ .NONBLOCK = true }))) catch {};
-}
-
 // ── Tests ────────────────────────────────────────────────────────────────
 
 const testing = std.testing;
 
-fn generateTestSocketPath(buf: *[MAX_SOCKET_PATH]u8) []const u8 {
-    // Use a combination of timestamp and random bytes for uniqueness.
-    const timestamp = std.time.nanoTimestamp();
-    const ts_unsigned: u128 = @bitCast(timestamp);
-    const formatted = std.fmt.bufPrint(
-        buf,
-        "/tmp/itshell3-test-listener-{x}.sock",
-        .{ts_unsigned},
-    ) catch unreachable;
-    return formatted;
-}
 
 test "listen: returns PathTooLong when path exceeds MAX_SOCKET_PATH" {
     comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
@@ -179,8 +159,8 @@ test "listen: returns DaemonAlreadyRunning when another listener is active" {
     comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
         @compileError("listen tests require BSD or Linux");
 
-    var path_buf: [MAX_SOCKET_PATH]u8 = undefined;
-    const socket_path = generateTestSocketPath(&path_buf);
+    const test_helpers = @import("testing/helpers.zig");
+    const socket_path = test_helpers.generateTestSocketPath();
 
     // Manually create a listener to occupy the path.
     const first_fd = std.posix.socket(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0) catch
@@ -203,8 +183,8 @@ test "listen: returns StaleSocket when a stale socket file exists" {
     comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
         @compileError("listen tests require BSD or Linux");
 
-    var path_buf: [MAX_SOCKET_PATH]u8 = undefined;
-    const socket_path = generateTestSocketPath(&path_buf);
+    const test_helpers = @import("testing/helpers.zig");
+    const socket_path = test_helpers.generateTestSocketPath();
 
     // Create a socket file by binding, then close without accepting.
     // This leaves a stale socket file on disk.
@@ -225,8 +205,8 @@ test "listen: succeeds on a fresh path and returns a valid Listener" {
     comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
         @compileError("listen tests require BSD or Linux");
 
-    var path_buf: [MAX_SOCKET_PATH]u8 = undefined;
-    const socket_path = generateTestSocketPath(&path_buf);
+    const test_helpers = @import("testing/helpers.zig");
+    const socket_path = test_helpers.generateTestSocketPath();
 
     var listener = try listen(socket_path);
     defer listener.close();
@@ -272,8 +252,8 @@ test "Listener.close: closes fd and unlinks socket file" {
     comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
         @compileError("listen tests require BSD or Linux");
 
-    var path_buf: [MAX_SOCKET_PATH]u8 = undefined;
-    const socket_path = generateTestSocketPath(&path_buf);
+    const test_helpers = @import("testing/helpers.zig");
+    const socket_path = test_helpers.generateTestSocketPath();
 
     // Create a real bound socket so close() has something to unlink.
     const fd = std.posix.socket(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0) catch
