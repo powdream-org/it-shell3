@@ -1,11 +1,13 @@
+pub const IoVector = []const u8;
+
 pub const Transport = struct {
     ptr: *anyopaque,
     vtable: *const VTable,
 
     pub const VTable = struct {
         read: *const fn (ptr: *anyopaque, buf: []u8) ReadError!usize,
-        writeSingle: *const fn (ptr: *anyopaque, data: []const u8) WriteError!void,
-        writeBulk: *const fn (ptr: *anyopaque, dataVector: []const []const u8) WriteError!void,
+        writeSingle: *const fn (ptr: *anyopaque, data: IoVector) WriteError!void,
+        writeBulk: *const fn (ptr: *anyopaque, dataVector: []const IoVector) WriteError!void,
         close: *const fn (ptr: *anyopaque) void,
     };
 
@@ -16,7 +18,7 @@ pub const Transport = struct {
         return self.vtable.read(self.ptr, buf);
     }
 
-    pub fn write(self: *Transport, dataVector: []const []const u8) WriteError!void {
+    pub fn write(self: *Transport, dataVector: []const IoVector) WriteError!void {
         if (dataVector.len == 0) {
             return; // no-op for empty vector
         } else if (dataVector.len == 1) {
@@ -36,7 +38,7 @@ const socket_t = std.posix.socket_t;
 const iovec_const = std.posix.iovec_const;
 const Stream = std.net.Stream;
 
-const UnixTransport = struct {
+pub const UnixTransport = struct {
     socket_fd: socket_t,
 
     const vtable = Transport.VTable{
@@ -46,7 +48,7 @@ const UnixTransport = struct {
         .close = &closeImpl,
     };
 
-    fn transport(self: *UnixTransport) Transport {
+    fn asTransport(self: *UnixTransport) Transport {
         return .{ .ptr = @ptrCast(self), .vtable = &vtable };
     }
 
@@ -58,7 +60,7 @@ const UnixTransport = struct {
         };
     }
 
-    fn writeImpl(ptr: *anyopaque, data: []const u8) Transport.WriteError!void {
+    fn writeImpl(ptr: *anyopaque, data: IoVector) Transport.WriteError!void {
         const stream = Stream{ .handle = cast(ptr).socket_fd };
         stream.writeAll(data) catch |err| switch (err) {
             error.BrokenPipe => return error.BrokenPipe,
@@ -70,11 +72,11 @@ const UnixTransport = struct {
     // []const u8 and iovec_const have identical memory layout (ptr + len).
     // This allows zero-copy reinterpretation via @ptrCast.
     comptime {
-        std.debug.assert(@sizeOf([]const u8) == @sizeOf(iovec_const));
-        std.debug.assert(@alignOf([]const u8) == @alignOf(iovec_const));
+        std.debug.assert(@sizeOf(IoVector) == @sizeOf(iovec_const));
+        std.debug.assert(@alignOf(IoVector) == @alignOf(iovec_const));
     }
 
-    fn writevImpl(ptr: *anyopaque, dataVector: []const []const u8) Transport.WriteError!void {
+    fn writevImpl(ptr: *anyopaque, dataVector: []const IoVector) Transport.WriteError!void {
         const fd = cast(ptr).socket_fd;
         const iovecs: [*]const iovec_const = @ptrCast(dataVector.ptr);
         _ = std.posix.writev(fd, iovecs[0..dataVector.len]) catch |err| switch (err) {
@@ -100,8 +102,8 @@ test "UnixTransport: read and writeSingle round-trip via socketpair" {
     const client_fd, const server_fd = try helpers.createSocketPair();
     var client = UnixTransport{ .socket_fd = client_fd };
     var server = UnixTransport{ .socket_fd = server_fd };
-    var ct = client.transport();
-    var st = server.transport();
+    var ct = client.asTransport();
+    var st = server.asTransport();
     defer ct.close();
     defer st.close();
 
@@ -117,8 +119,8 @@ test "UnixTransport: writeBulk sends multiple segments in order" {
     const client_fd, const server_fd = try helpers.createSocketPair();
     var client = UnixTransport{ .socket_fd = client_fd };
     var server = UnixTransport{ .socket_fd = server_fd };
-    var ct = client.transport();
-    var st = server.transport();
+    var ct = client.asTransport();
+    var st = server.asTransport();
     defer ct.close();
     defer st.close();
 
@@ -150,7 +152,7 @@ test "UnixTransport: read returns 0 on peer close" {
     const helpers = @import("testing/helpers.zig");
     const client_fd, const server_fd = try helpers.createSocketPair();
     var server = UnixTransport{ .socket_fd = server_fd };
-    var st = server.transport();
+    var st = server.asTransport();
 
     // Close client side
     std.posix.close(client_fd);
@@ -167,8 +169,8 @@ test "UnixTransport: bidirectional communication" {
     const fd_a, const fd_b = try helpers.createSocketPair();
     var a = UnixTransport{ .socket_fd = fd_a };
     var b = UnixTransport{ .socket_fd = fd_b };
-    var ta = a.transport();
-    var tb = b.transport();
+    var ta = a.asTransport();
+    var tb = b.asTransport();
     defer ta.close();
     defer tb.close();
 
@@ -189,8 +191,8 @@ test "UnixTransport: writeBulk single segment dispatches to writeSingle path" {
     const client_fd, const server_fd = try helpers.createSocketPair();
     var client = UnixTransport{ .socket_fd = client_fd };
     var server = UnixTransport{ .socket_fd = server_fd };
-    var ct = client.transport();
-    var st = server.transport();
+    var ct = client.asTransport();
+    var st = server.asTransport();
     defer ct.close();
     defer st.close();
 
