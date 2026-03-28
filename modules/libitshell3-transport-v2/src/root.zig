@@ -3,6 +3,7 @@
 //! capability negotiation, and authentication.
 
 pub const transport = @import("transport.zig");
+pub const transport_server = @import("transport_server.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());

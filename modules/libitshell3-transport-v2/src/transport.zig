@@ -48,7 +48,7 @@ pub const UnixTransport = struct {
         .close = &closeImpl,
     };
 
-    fn asTransport(self: *UnixTransport) Transport {
+    pub fn asTransport(self: *UnixTransport) Transport {
         return .{ .ptr = @ptrCast(self), .vtable = &vtable };
     }
 
@@ -140,7 +140,7 @@ test "Transport.write: empty dataVector is no-op" {
     const helpers = @import("testing/helpers.zig");
     const client_fd, const server_fd = try helpers.createSocketPair();
     const client = UnixTransport{ .socket_fd = client_fd };
-    var ct = @constCast(&client).transport();
+    var ct = @constCast(&client).asTransport();
     defer ct.close();
     std.posix.close(server_fd);
 
