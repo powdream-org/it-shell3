@@ -29,7 +29,7 @@ pub fn connect(socket_path: []const u8) ConnectError!transport.SocketConnection 
         else => return error.Unexpected,
     };
 
-    return .{ .socket_fd = fd };
+    return .{ .fd = fd };
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ test "connect: succeeds when a listener is active" {
     defer listener.close();
 
     const conn = try connect(socket_path);
-    std.posix.close(conn.socket_fd);
+    std.posix.close(conn.fd);
 }
 
 test "connect: returns NotFound when no socket file exists" {

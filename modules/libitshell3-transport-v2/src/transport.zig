@@ -1,211 +1,164 @@
+const std = @import("std");
+const posix = std.posix;
+
 /// A single contiguous byte buffer for transport I/O.
-pub const IoVector = []const u8;
+pub const ImmutableIoVector = posix.iovec_const;
 
-/// Bidirectional byte stream interface.
-pub const Transport = struct {
-    ptr: *anyopaque,
-    vtable: *const VTable,
+pub const FileDescriptor = posix.fd_t;
 
-    pub const VTable = struct {
-        read: *const fn (ptr: *anyopaque, buf: []u8) ReadError!usize,
-        writeSingle: *const fn (ptr: *anyopaque, data: IoVector) WriteError!void,
-        writeBulk: *const fn (ptr: *anyopaque, dataVector: []const IoVector) WriteError!void,
-        close: *const fn (ptr: *anyopaque) void,
-    };
+/// Unix socket connection. The `fd` field is public for kqueue/epoll registration.
+pub const SocketConnection = struct {
+    fd: FileDescriptor,
 
-    pub const ReadError = error{ EndOfStream, ConnectionReset, Unexpected };
-    pub const WriteError = error{ BrokenPipe, ConnectionReset, Unexpected };
-
-    /// The number of bytes read, or 0 on peer close.
-    pub fn read(self: *Transport, buf: []u8) ReadError!usize {
-        return self.vtable.read(self.ptr, buf);
+    pub fn recv(self: SocketConnection, buf: []u8) RecvResult {
+        const n = posix.read(self.fd, buf) catch |err| switch (err) {
+            error.WouldBlock => return .would_block,
+            error.ConnectionResetByPeer => return .peer_closed,
+            error.NotOpenForReading => return .peer_closed,
+            else => return .{ .err = err },
+        };
+        if (n == 0) return .peer_closed;
+        return .{ .bytes_read = n };
     }
 
-    /// Sends one or more byte buffers. Empty `dataVector` is a no-op.
-    pub fn write(self: *Transport, dataVector: []const IoVector) WriteError!void {
-        if (dataVector.len == 0) {
-            return; // no-op for empty vector
-        } else if (dataVector.len == 1) {
-            return self.vtable.writeSingle(self.ptr, dataVector[0]);
-        } else {
-            return self.vtable.writeBulk(self.ptr, dataVector);
-        }
+    pub fn send(self: SocketConnection, buf: []const u8) SendResult {
+        const n = posix.write(self.fd, buf) catch |err| switch (err) {
+            error.WouldBlock => return .would_block,
+            error.BrokenPipe => return .peer_closed,
+            error.ConnectionResetByPeer => return .peer_closed,
+            error.NotOpenForWriting => return .peer_closed,
+            else => return .{ .err = err },
+        };
+        return .{ .bytes_written = n };
     }
 
-    pub fn close(self: *Transport) void {
-        self.vtable.close(self.ptr);
+    pub fn sendv(self: SocketConnection, iovecs: []const ImmutableIoVector) SendResult {
+        const n = posix.writev(self.fd, iovecs) catch |err| switch (err) {
+            error.WouldBlock => return .would_block,
+            error.BrokenPipe => return .peer_closed,
+            error.ConnectionResetByPeer => return .peer_closed,
+            error.NotOpenForWriting => return .peer_closed,
+            else => return .{ .err = err },
+        };
+        return .{ .bytes_written = n };
+    }
+
+    pub fn close(self: *SocketConnection) void {
+        posix.close(self.fd);
+        self.fd = -1;
     }
 };
 
-const std = @import("std");
-const socket_t = std.posix.socket_t;
-const iovec_const = std.posix.iovec_const;
-const Stream = std.net.Stream;
+pub const RecvResult = union(enum) {
+    bytes_read: usize,
+    would_block: void,
+    peer_closed: void,
+    err: posix.ReadError,
+};
 
-/// Unix socket connection.
-pub const SocketConnection = struct {
-    socket_fd: socket_t,
-
-    const vtable = Transport.VTable{
-        .read = &readImpl,
-        .writeSingle = &writeImpl,
-        .writeBulk = &writevImpl,
-        .close = &closeImpl,
-    };
-
-    /// The SocketConnection must outlive the returned Transport.
-    pub fn asTransport(self: *SocketConnection) Transport {
-        return .{ .ptr = @ptrCast(self), .vtable = &vtable };
-    }
-
-    fn readImpl(ptr: *anyopaque, buf: []u8) Transport.ReadError!usize {
-        const stream = Stream{ .handle = cast(ptr).socket_fd };
-        return stream.read(buf) catch |err| switch (err) {
-            error.ConnectionResetByPeer => return error.ConnectionReset,
-            else => return error.Unexpected,
-        };
-    }
-
-    fn writeImpl(ptr: *anyopaque, data: IoVector) Transport.WriteError!void {
-        const stream = Stream{ .handle = cast(ptr).socket_fd };
-        stream.writeAll(data) catch |err| switch (err) {
-            error.BrokenPipe => return error.BrokenPipe,
-            error.ConnectionResetByPeer => return error.ConnectionReset,
-            else => return error.Unexpected,
-        };
-    }
-
-    // []const u8 and iovec_const have identical memory layout (ptr + len).
-    // This allows zero-copy reinterpretation via @ptrCast.
-    comptime {
-        std.debug.assert(@sizeOf(IoVector) == @sizeOf(iovec_const));
-        std.debug.assert(@alignOf(IoVector) == @alignOf(iovec_const));
-    }
-
-    fn writevImpl(ptr: *anyopaque, dataVector: []const IoVector) Transport.WriteError!void {
-        const fd = cast(ptr).socket_fd;
-        const iovecs: [*]const iovec_const = @ptrCast(dataVector.ptr);
-        _ = std.posix.writev(fd, iovecs[0..dataVector.len]) catch |err| switch (err) {
-            error.BrokenPipe => return error.BrokenPipe,
-            error.ConnectionResetByPeer => return error.ConnectionReset,
-            else => return error.Unexpected,
-        };
-    }
-
-    fn closeImpl(ptr: *anyopaque) void {
-        std.posix.close(cast(ptr).socket_fd);
-    }
-
-    inline fn cast(ptr: *anyopaque) *SocketConnection {
-        return @ptrCast(@alignCast(ptr));
-    }
+pub const SendResult = union(enum) {
+    bytes_written: usize,
+    would_block: void,
+    peer_closed: void,
+    err: posix.WriteError,
 };
 
 // ── Tests ────────────────────────────────────────────────────────────────
 
-test "SocketConnection: read and writeSingle round-trip via socketpair" {
+test "SocketConnection.recv: round-trip with send" {
     const helpers = @import("testing/helpers.zig");
     const client_fd, const server_fd = try helpers.createSocketPair();
-    var client = SocketConnection{ .socket_fd = client_fd };
-    var server = SocketConnection{ .socket_fd = server_fd };
-    var ct = client.asTransport();
-    var st = server.asTransport();
-    defer ct.close();
-    defer st.close();
+    var client = SocketConnection{ .fd = client_fd };
+    var server = SocketConnection{ .fd = server_fd };
+    defer client.close();
+    defer server.close();
 
-    try ct.write(&.{"hello"});
+    const sent = client.send("hello");
+    try std.testing.expectEqual(@as(usize, 5), sent.bytes_written);
 
     var buf: [64]u8 = undefined;
-    const n = try st.read(&buf);
-    try std.testing.expectEqualSlices(u8, "hello", buf[0..n]);
+    const result = server.recv(&buf);
+    try std.testing.expectEqualSlices(u8, "hello", buf[0..result.bytes_read]);
 }
 
-test "SocketConnection: writeBulk sends multiple segments in order" {
+test "SocketConnection.recv: peer_closed on EOF" {
     const helpers = @import("testing/helpers.zig");
     const client_fd, const server_fd = try helpers.createSocketPair();
-    var client = SocketConnection{ .socket_fd = client_fd };
-    var server = SocketConnection{ .socket_fd = server_fd };
-    var ct = client.asTransport();
-    var st = server.asTransport();
-    defer ct.close();
-    defer st.close();
+    var server = SocketConnection{ .fd = server_fd };
 
-    try ct.write(&.{ "hello", ", ", "world" });
+    posix.close(client_fd);
+
+    var buf: [64]u8 = undefined;
+    const result = server.recv(&buf);
+    try std.testing.expectEqual(RecvResult.peer_closed, result);
+
+    server.close();
+}
+
+test "SocketConnection.sendv: multiple segments" {
+    const helpers = @import("testing/helpers.zig");
+    const client_fd, const server_fd = try helpers.createSocketPair();
+    var client = SocketConnection{ .fd = client_fd };
+    var server = SocketConnection{ .fd = server_fd };
+    defer client.close();
+    defer server.close();
+
+    const iovecs = [_]ImmutableIoVector{
+        .{ .base = "hello", .len = 5 },
+        .{ .base = ", world", .len = 7 },
+    };
+    const sent = client.sendv(&iovecs);
+    try std.testing.expectEqual(@as(usize, 12), sent.bytes_written);
 
     var buf: [64]u8 = undefined;
     var total: usize = 0;
     while (total < 12) {
-        const n = try st.read(buf[total..]);
-        if (n == 0) break;
-        total += n;
+        const r = server.recv(buf[total..]);
+        switch (r) {
+            .bytes_read => |n| total += n,
+            .peer_closed => break,
+            else => break,
+        }
     }
     try std.testing.expectEqualSlices(u8, "hello, world", buf[0..total]);
 }
 
-test "Transport.write: empty dataVector is no-op" {
+test "SocketConnection.send: peer_closed on broken pipe" {
     const helpers = @import("testing/helpers.zig");
     const client_fd, const server_fd = try helpers.createSocketPair();
-    const client = SocketConnection{ .socket_fd = client_fd };
-    var ct = @constCast(&client).asTransport();
-    defer ct.close();
-    std.posix.close(server_fd);
+    var client = SocketConnection{ .fd = client_fd };
 
-    // Should not error or crash
-    try ct.write(&.{});
+    posix.close(server_fd);
+
+    const result = client.send("data");
+    try std.testing.expectEqual(SendResult.peer_closed, result);
+
+    client.close();
 }
 
-test "SocketConnection: read returns 0 on peer close" {
+test "SocketConnection.close: sets fd to -1" {
     const helpers = @import("testing/helpers.zig");
-    const client_fd, const server_fd = try helpers.createSocketPair();
-    var server = SocketConnection{ .socket_fd = server_fd };
-    var st = server.asTransport();
+    const client_fd, _ = try helpers.createSocketPair();
+    var conn = SocketConnection{ .fd = client_fd };
 
-    // Close client side
-    std.posix.close(client_fd);
-
-    var buf: [64]u8 = undefined;
-    const n = try st.read(&buf);
-    try std.testing.expectEqual(@as(usize, 0), n);
-
-    st.close();
+    conn.close();
+    try std.testing.expectEqual(@as(FileDescriptor, -1), conn.fd);
 }
 
 test "SocketConnection: bidirectional communication" {
     const helpers = @import("testing/helpers.zig");
     const fd_a, const fd_b = try helpers.createSocketPair();
-    var a = SocketConnection{ .socket_fd = fd_a };
-    var b = SocketConnection{ .socket_fd = fd_b };
-    var ta = a.asTransport();
-    var tb = b.asTransport();
-    defer ta.close();
-    defer tb.close();
+    var a = SocketConnection{ .fd = fd_a };
+    var b = SocketConnection{ .fd = fd_b };
+    defer a.close();
+    defer b.close();
 
-    // A -> B
-    try ta.write(&.{"from A"});
+    _ = a.send("from A");
     var buf: [64]u8 = undefined;
-    const n1 = try tb.read(&buf);
-    try std.testing.expectEqualSlices(u8, "from A", buf[0..n1]);
+    const r1 = b.recv(&buf);
+    try std.testing.expectEqualSlices(u8, "from A", buf[0..r1.bytes_read]);
 
-    // B -> A
-    try tb.write(&.{"from B"});
-    const n2 = try ta.read(&buf);
-    try std.testing.expectEqualSlices(u8, "from B", buf[0..n2]);
-}
-
-test "SocketConnection: writeBulk single segment dispatches to writeSingle path" {
-    const helpers = @import("testing/helpers.zig");
-    const client_fd, const server_fd = try helpers.createSocketPair();
-    var client = SocketConnection{ .socket_fd = client_fd };
-    var server = SocketConnection{ .socket_fd = server_fd };
-    var ct = client.asTransport();
-    var st = server.asTransport();
-    defer ct.close();
-    defer st.close();
-
-    // Single-element dataVector goes through writeSingle path in Transport.write
-    try ct.write(&.{"single"});
-
-    var buf: [64]u8 = undefined;
-    const n = try st.read(&buf);
-    try std.testing.expectEqualSlices(u8, "single", buf[0..n]);
+    _ = b.send("from B");
+    const r2 = a.recv(&buf);
+    try std.testing.expectEqualSlices(u8, "from B", buf[0..r2.bytes_read]);
 }
