@@ -92,6 +92,13 @@ change to 2-3 files.
 
 Save to: `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 
+**After saving the plan**, update `docs/superpowers/plans/ROADMAP.md`:
+
+- Add the plan to the **Plan Index** table with the plan file path and status
+  `Not started`
+- Add the plan to the **Dependency Graph** if it has dependencies
+- Add a **Plan Summary** section with scope, spec refs, and depends-on
+
 ```markdown
 # <Feature Name> Implementation Plan
 

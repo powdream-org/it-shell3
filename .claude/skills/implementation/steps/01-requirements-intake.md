@@ -30,9 +30,9 @@
   writing is research-heavy work (reading specs, analyzing code,
   cross-referencing) that belongs to a subagent. Provide paths and constraints,
   not prose.
-- **Don't edit the plan yourself.** When verifiers find issues, delegate fixes to
-  a subagent via `/writing-impl-plan` in Revise mode. The team leader describes
-  required changes — a subagent applies them.
+- **Don't edit the plan yourself.** When verifiers find issues, delegate fixes
+  to a subagent via `/writing-impl-plan` in Revise mode. The team leader
+  describes required changes — a subagent applies them.
 - **Don't bypass the `/writing-impl-plan` skill.** During Plan 5, plan revisions
   were made via ad-hoc Edit calls instead of re-invoking the skill. The skill
   ensures format consistency and completeness. Ad-hoc edits skip validation.
@@ -227,10 +227,19 @@ Create `<target>/TODO.md` with this exact format:
 - [ ] Step 8: Over-Engineering Review
 - [ ] Step 9: Commit & Report
 - [ ] Step 10: Owner Review
-- [ ] Step 11: Retrospective & Cleanup
+- [ ] Step 11: Retrospective
+- [ ] Step 12: Cleanup & ROADMAP Update
 ```
 
-### 1h. Present to owner
+### 1h. Update ROADMAP.md
+
+Update `docs/superpowers/plans/ROADMAP.md`:
+
+- Set the plan's Status to `In progress` in the Plan Index table
+- Update the Current Status table with current source file count, test count,
+  and coverage for the target module(s)
+
+### 1i. Present to owner
 
 Show the owner:
 
@@ -247,7 +256,8 @@ Wait for owner approval before proceeding.
 - [ ] Design spec identified and version(s) recorded
 - [ ] Implementation plan exists (found or written via `/writing-impl-plan`
       through a subagent)
-- [ ] Plan verified against design spec (autonomous convergence loop, clean pass)
+- [ ] Plan verified against design spec (autonomous convergence loop, clean
+      pass)
 - [ ] All spec-code divergences investigated (not dismissed)
 - [ ] Agent definitions verified
 - [ ] TODO.md created in `<target>/`

@@ -22,9 +22,9 @@ libhangul, POSIX (kqueue/epoll, forkpty, Unix sockets).
 
 | Module               | Source Files | Tests | Coverage (kcov)            |
 | -------------------- | ------------ | ----- | -------------------------- |
-| libitshell3          | 33           | 274   | 94.54%                     |
-| libitshell3-protocol | 16           | 128   | 97.44%                     |
-| libitshell3-ime      | 10           | 138   | exempted (scenario-matrix) |
+| libitshell3          | 39           | 468   | pending re-measure         |
+| libitshell3-protocol | 22           | 146   | pending re-measure         |
+| libitshell3-ime      | 9            | 139   | exempted (scenario-matrix) |
 | daemon               | 1            | —     | —                          |
 
 Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
@@ -40,7 +40,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
 | 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**    |
 | 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done**    |
-| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3 + docs   | Not started |
+| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3 + docs   | **Done**    |
 | 6    | Message Infrastructure & Connection Lifecycle | (not yet written)                                   | libitshell3          | Not started |
 | 7    | Session & Pane Operations                     | (not yet written)                                   | libitshell3          | Not started |
 | 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                   | libitshell3          | Not started |
@@ -67,7 +67,7 @@ graph TD
     P2 --> P4["Plan 4: Ring Buffer + Frame Delivery ✅"]
     P3 --> P4
     P4 --> P5["Plan 5: IME Integration ✅"]
-    P5 --> P5_5["Plan 5.5: Spec Alignment Audit"]
+    P5 --> P5_5["Plan 5.5: Spec Alignment Audit ✅"]
     P5_5 --> P6["Plan 6: Message Infrastructure"]
     P6 --> P7["Plan 7: Session & Pane Ops"]
     P7 --> P8["Plan 8: Input Pipeline"]
@@ -182,7 +182,7 @@ ime-procedures from impl-constraints.
 **Depends on:** Plan 4 (ring buffer — preedit overlay applied to exported frames
 before ring insertion)
 
-### Plan 5.5: Spec Alignment Audit (Not Started)
+### Plan 5.5: Spec Alignment Audit (Done)
 
 **Scope:** Systematic audit and fix of Plan 1-5 technical debt. Plans 1-2 were
 implemented before the verification chain (Steps 5-8) existed, resulting in
