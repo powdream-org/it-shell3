@@ -2,12 +2,21 @@
 
 **Goal:** Align the libitshell3 implementation with its design specs by fixing
 code bugs, resolving structural divergences, and correcting convention
-violations identified during the Plan 5.5 audit.
+violations identified during the Plan 5.5 audit. Part 2 refactors
+`event_loop.zig` into a minimal event iteration engine with middleware-based
+dispatch and priority-ordered event delivery, removing six spec violations that
+block Plans 6, 7, 10, and 12.2.
 
 **Architecture:** The changes span all libitshell3 named modules (core, server,
 input, ghostty, testing). Structural refactoring moves types to their
 spec-designated modules and redesigns the split tree to use heap-index
-arithmetic. Convention fixes are mechanical and parallelizable.
+arithmetic. Convention fixes are mechanical and parallelizable. Part 2 replaces
+the existing `EventLoop` struct with a minimal dispatcher that holds only an OS
+vtable, a handler chain head, and a `running` flag. A new `PriorityEventBuffer`
+data structure (in `os/`) sorts raw OS events into four priority tiers before
+the loop iterates them. The handler chain pattern replaces the hard-coded
+`dispatch()` routing function, and the `EventTarget` tagged union replaces raw
+integer `udata` encoding.
 
 **Tech Stack:** Zig 0.15+, libitshell3 build system (`build.zig`)
 
@@ -26,6 +35,8 @@ arithmetic. Convention fixes are mechanical and parallelizable.
 - docs/conventions/zig-naming.md
 - docs/conventions/zig-documentation.md
 - docs/conventions/zig-testing.md
+- `docs/superpowers/specs/2026-03-28-event-loop-redesign.md` — full EventLoop
+  redesign spec (9 sections)
 
 ---
 
@@ -45,6 +56,10 @@ arithmetic. Convention fixes are mechanical and parallelizable.
 4. TODO additions: signal_handler, client_accept, event_loop (5-tier client
    message priority)
 5. Structural refactoring: ClientEntry extraction, input/ module function moves
+6. EventLoop redesign: replace EventLoop struct with minimal dispatcher, add
+   Handler chain type, add EventTarget tagged union, create PriorityEventBuffer,
+   update kqueue/epoll backends, refactor signal_handler/client_accept/pty_read
+   to chain handler pattern, update mock_os vtable signatures
 
 **Out of scope:**
 
@@ -537,22 +552,24 @@ checks for it.
 
 ## Dependency Graph
 
-```
-Task 1 (SplitNodeData) ──┬──> Task 5 (Pane/SessionEntry move) ──> Task 9 (input/ moves)
-                          │                                    ──> Task 10 (test restructure)
-                          ├──> Task 6 (navigation fix)                    │
-                          └──> Task 16 (integer widths)                   v
-                                                                Task 15 (test naming)
-Task 2 (Direction enum) ─────────────────────────────────────/
-Task 3 (Action enum + hid_keycode) ────────────────────────/
-Task 4 (SIGHUP fix) ─────────────────────────────────────/
-Task 7 (ClientEntry extraction) ────────────────────────/
-Task 8 (TODO additions) ──────────────────────────────/
-Task 11 (module-level docs) ────────────────────────/
-Task 12 (section number removal) ─────────────────/
-Task 13 (compiler test removal) ────────────────/
-Task 14 (naming fixes) ───────────────────────/
-Task 17 (signal-first dispatch) ─────────────/
+```mermaid
+graph LR
+    T1[Task 1: SplitNodeData] --> T5[Task 5: Pane/SessionEntry move]
+    T1 --> T6[Task 6: Navigation fix]
+    T1 --> T16[Task 16: Integer widths]
+    T5 --> T9[Task 9: input/ moves]
+    T5 --> T10[Task 10: Test restructure]
+    T10 --> T15[Task 15: Test naming]
+    T2[Task 2: Direction enum] --> T15
+    T3[Task 3: Action enum] --> T15
+    T4[Task 4: SIGHUP fix] --> T15
+    T7[Task 7: ClientEntry extraction] --> T15
+    T8[Task 8: TODO additions] --> T15
+    T11[Task 11: Module docs] --> T15
+    T12[Task 12: Section numbers] --> T15
+    T13[Task 13: Compiler tests] --> T15
+    T14[Task 14: Naming fixes] --> T15
+    T17[Task 17: Signal-first dispatch] --> T15
 ```
 
 **Parallelization opportunities:**
@@ -584,3 +601,343 @@ Task 17 (signal-first dispatch) ─────────────/
 | 15. Test naming               | ~20 files                                   | zig-naming + zig-testing conventions          |
 | 16. Integer width fixes       | types.zig, split_tree.zig, navigation.zig+  | zig-coding convention                         |
 | 17. Signal-first dispatch fix | event_loop.zig                              | daemon-behavior 02-event-handling §1.3        |
+| **Part 2**                    |                                             |                                               |
+| 18. EventTarget + Filter      | os/interfaces.zig                           | Spec §2.5, §4.1, §4.3, §7.4                   |
+| 19. PriorityEventBuffer       | os/priority_event_buffer.zig (create)       | Spec §4, §4.1–4.4                             |
+| 20. kqueue EventTarget        | os/kqueue.zig                               | Spec §2.5, §4.3, §4.5                         |
+| 21. EventLoop rewrite         | server/event_loop.zig                       | Spec §3, §5.1–5.2, §6.1, §6.3                 |
+| 22. EventLoop test annot.     | server/event_loop.zig (tests)               | Spec §2.4, §8.2, §8.3                         |
+| 23. signal_handler chain      | server/signal_handler.zig                   | Spec §7.3                                     |
+| 24. client_accept chain       | server/client_accept.zig                    | Spec §7.1                                     |
+| 25. pty_read chain            | server/pty_read.zig                         | Spec §7.2                                     |
+| 26. mock_os vtable update     | testing/mocks/mock_os.zig                   | Spec §7.4                                     |
+| 27. root.zig + ROADMAP        | server/root.zig, ROADMAP.md                 | Spec §6.3; Plan 12.2 test migration note      |
+
+---
+
+## Part 2: EventLoop Redesign
+
+### Task 18: Update `os/interfaces.zig` — EventTarget, Filter, Event, constants, vtable signatures
+
+**Files:** `src/server/os/interfaces.zig` (modify)
+
+**Spec:** spec Section 2.5 — `EventTarget` tagged union definition and field
+names. Section 4.1 — `Filter` enum with explicit `enum(u2)` backing, priority
+ordering, and `pub const count`. Section 4.3 — `MAX_EVENTS_PER_BATCH` constant.
+Section 7.4 — `EventLoopOps.registerRead` and `registerWrite` accept
+`EventTarget`; `wait` signature may change to fill `*PriorityEventBuffer` or
+return an iterator.
+
+**Depends on:** None
+
+**Verification:**
+
+- `EventTarget` is a tagged union with variants `listener`, `pty`, `client`, and
+  `timer` with the field names and types defined in spec Section 2.5
+- `Event.udata: usize` field is replaced by `Event.target: EventTarget`
+- `Filter` is declared `enum(u2)` with values
+  `signal = 0, timer = 1, read = 2,
+  write = 3`
+- `Filter` has `pub const count` that equals 4
+- `MAX_EVENTS_PER_BATCH: usize = 64` is exported from `interfaces.zig`
+- `EventLoopOps.registerRead` and `registerWrite` accept `EventTarget` instead
+  of `udata: usize`
+- The `wait` function signature is updated to match the `PriorityEventBuffer`
+  delivery contract (exact form determined during Task 19)
+- Existing `interfaces.zig` tests are updated or removed where they reference
+  the old `udata` field; remaining tests compile and pass
+
+### Task 19: Create `os/priority_event_buffer.zig`
+
+**Files:** `src/server/os/priority_event_buffer.zig` (create)
+
+**Spec:** spec Section 4 — `PriorityEventBuffer` struct with `buffers`, `sizes`,
+`reset`, `add`, `isEmpty`, and `iterator`. Section 4.2 —
+`@intFromEnum(event.filter)` is used directly as the bucket index. Section 4.3 —
+per-tier capacity is `MAX_EVENTS_PER_BATCH`. Section 4.4 — file location.
+
+**Depends on:** Task 18 (needs `Filter.count` and `MAX_EVENTS_PER_BATCH`)
+
+**Verification:**
+
+- File exists at `src/server/os/priority_event_buffer.zig`
+- `add` places an event into the tier indexed by `@intFromEnum(event.filter)`
+- `add` silently drops events when a tier is full (no crash)
+- `iterator` yields all tier-0 events first (insertion order), then tier-1,
+  tier-2, tier-3
+- `reset` zeroes all `sizes` entries
+- `isEmpty` returns `true` when all sizes are zero, `false` otherwise
+- Inline unit tests cover: correct tier placement, iterator ordering across all
+  four tiers, insertion order preservation within a tier, `reset` effect,
+  `isEmpty` states, and silent drop on full tier
+
+### Task 20: Update `os/kqueue.zig` to use `EventTarget` and `PriorityEventBuffer`
+
+**Files:** `src/server/os/kqueue.zig` (modify)
+
+**Spec:** spec Section 2.5 — kqueue backend is responsible for translating raw
+OS `udata` to `EventTarget` on `wait()` output and translating `EventTarget` to
+raw `udata` when registering FDs. Section 4.5 — the real kqueue implementation
+fills a `PriorityEventBuffer` internally. Section 4.3 — raw kevent buffer size
+is `[MAX_EVENTS_PER_BATCH]Kevent`.
+
+**Depends on:** Task 18, Task 19
+
+**Verification:**
+
+- `kqRegisterRead` and `kqRegisterWrite` accept `EventTarget` and encode it into
+  the kevent `udata` field in a backend-internal way (encoding scheme is
+  internal to kqueue.zig)
+- `kqWait` decodes raw kevent `udata` back to `EventTarget` and fills a
+  `PriorityEventBuffer` (or returns a priority-ordered iterator, matching the
+  `wait` signature chosen in Task 18)
+- `kqUnregister` is updated if its signature is affected
+- The raw kevent buffer in `kqWait` is sized to `MAX_EVENTS_PER_BATCH`
+- All existing kqueue integration tests that verify fd tracking, filter type,
+  and event counts still pass (tests that checked `udata: usize` values are
+  updated to check `target: EventTarget` variants)
+
+### Task 21: Add `Handler` type and rewrite `EventLoop` in `event_loop.zig`
+
+**Files:** `src/server/event_loop.zig` (modify)
+
+**Spec:** spec Section 3 — new `EventLoop` struct fields (`event_ops`,
+`event_ctx`, `chain`, `running`), `init` signature, `run` behavior, `stop`
+semantics. Section 5.1 — `Handler` struct with `handleFn`, `context`, `next`,
+and `invoke`. Section 5.2 — dispatch contract (handler must consume or forward).
+Section 6.1 — what stays in `event_loop.zig`. Section 6.3 — what is deleted.
+
+**Depends on:** Task 18, Task 19, Task 20 (new `run()` calls `wait()` which
+returns `PriorityEventBuffer`-ordered events)
+
+**Verification:**
+
+- `EventLoop` struct has exactly: `event_ops`, `event_ctx`, `chain: Handler`,
+  `running: bool`
+- `EventLoop` does NOT have: `clients`, `next_client_id`, `shutdown_requested`,
+  `listener`, `session_manager`, `pty_ops`, `signal_ops`
+- `Handler` type is defined with `handleFn`, `context`, `next`, and `invoke`
+- `init` stores the vtable, context, and chain head; sets `running = true`; has
+  no side effects (no fd registration, no signal blocking)
+- `run` loops while `running`; calls `wait()`; iterates events in priority order
+  from the buffer; calls `chain.invoke(event)` per event
+- `stop` sets `running = false`
+- `run` does NOT call `registerRead`, `registerAllPtyFds`, `blockSignals`, or
+  `registerSignals`
+- All UDATA constants (`UDATA_LISTENER`, `UDATA_PTY_BASE`, `UDATA_CLIENT_BASE`)
+  are deleted
+- `dispatch`, `dispatchClientRead`, `dispatchClientWrite`, `dispatchPtyRead`,
+  `dispatchTimer` are deleted
+- `addClientTransport`, `removeClient`, `findClientByFd`, `clientCount` are
+  deleted
+- `registerAllPtyFds` is deleted
+- `ClientEntry` re-export (`pub const ClientEntry = ...`) is deleted
+- Direct imports of `signal_handler`, `pty_read`, `client_accept`,
+  `client_writer`, `client_state`, `session_manager`, `pane` are removed
+
+### Task 22: Annotate and rewrite existing `event_loop.zig` tests
+
+**Files:** `src/server/event_loop.zig` (modify)
+
+**Spec:** spec Section 2.4 and 8.3 — annotation policy for existing tests.
+Section 8.2 — new unit tests for the redesigned `EventLoop`. Section 8.3 table —
+exact action per existing test.
+
+**Depends on:** Task 21
+
+**Verification:**
+
+- Test `"EventLoop.init: clients all null, shutdown_requested = false"` is
+  removed (tests deleted fields)
+- Test `"udata ranges: PTY and client ranges do not overlap"` is removed (UDATA
+  constants eliminated)
+- Tests `"EventLoop.addClientTransport: ..."` (3 tests),
+  `"EventLoop.removeClient:
+  nulls slot"`, and
+  `"EventLoop.findClientByFd: ..."` (2 tests) are annotated with `TODO(Plan 6)`
+  and their `test` blocks are commented out or kept as non-compiling stubs with
+  the TODO note visible
+- Tests `"EventLoop.dispatch: signal-first ordering in mixed batch"`,
+  `"EventLoop.dispatch: signal event sets shutdown_requested"`, and
+  `"EventLoop.dispatch: read event on PTY fd triggers pty read"` are rewritten
+  for the handler chain + priority buffer pattern
+- Test `"EventLoop.run: single event then shutdown"` is rewritten for the new
+  `run()` + `stop()` API
+- New tests are added per spec Section 8.2: `run` with single-handler chain
+  calling `stop()`, `run` with multi-handler chain verifying traversal order,
+  `run` with unhandled event (no handler consumes it), `stop` mid-batch behavior
+- All remaining and new tests compile and pass
+
+### Task 23: Refactor `signal_handler.zig` to chain handler pattern
+
+**Files:** `src/server/signal_handler.zig` (modify)
+
+**Spec:** spec Section 7.3 — `signal_handler` becomes a chain handler whose
+context includes a stop callback (or pointer to `event_loop.running`). Entry
+point changes from
+`handleSignalEvent(event, signal_ops, session_manager,
+*bool)` to the chain
+handler signature `(context: *anyopaque, event: Event, next:
+?Handler)`.
+Internal logic of `handleSignalEvent` is unchanged.
+
+**Depends on:** Task 21 (needs `Handler` type and `EventTarget`)
+
+**Verification:**
+
+- A chain-compatible entry point function exists with signature
+  `(context: *anyopaque, event: Event, next: ?Handler) void`
+- The entry point matches on `event.target` or `event.filter` to decide whether
+  to handle or forward
+- The internal `handleSignalEvent` logic (SIGCHLD drain, SIGTERM/SIGINT/SIGHUP
+  shutdown) is preserved
+- The context struct for this handler contains what it needs to call `stop()` on
+  the event loop (e.g., a `stop_fn` callback or a pointer to `running`)
+- `signal_handler` no longer takes `*EventLoop` as a parameter
+- All existing `signal_handler.zig` unit tests still pass (they test
+  `handleSignalEvent` internal logic, which is unchanged)
+
+### Task 24: Refactor `client_accept.zig` to chain handler pattern
+
+**Files:** `src/server/client_accept.zig` (modify)
+
+**Spec:** spec Section 7.1 — `client_accept` becomes a chain handler with its
+own context struct containing the listener reference and a client-add callback
+(placeholder until Plan 6 provides `*ClientManager`). Entry point changes from
+`handleClientAccept(ev: *EventLoop)` to the chain handler signature.
+
+**Depends on:** Task 21 (needs `Handler` type and `EventTarget`)
+
+**Verification:**
+
+- A chain-compatible entry point function exists with signature
+  `(context: *anyopaque, event: Event, next: ?Handler) void`
+- The entry point matches on `event.target == .listener` to decide whether to
+  handle or forward
+- The context struct contains the listener reference and a client-add callback
+- `client_accept.zig` no longer imports `event_loop.zig`
+- `client_accept.zig` no longer takes `*EventLoop` as a parameter
+- Existing TODO comments for Plan 6 (UID verification, socket buffer config) are
+  preserved
+
+### Task 25: Update `pty_read.zig` chain handler wrapper
+
+**Files:** `src/server/pty_read.zig` (modify)
+
+**Spec:** spec Section 7.2 — `pty_read` becomes a chain handler with a context
+struct containing `pty_ops` and `session_manager`. The `handlePtyRead` signature
+already takes decomposed parameters; the chain wrapper maps from
+`(context, event, next)` to the existing call pattern, matching on
+`event.target == .pty`.
+
+**Depends on:** Task 21 (needs `Handler` type and `EventTarget`)
+
+**Verification:**
+
+- A chain-compatible entry point function exists with signature
+  `(context: *anyopaque, event: Event, next: ?Handler) void`
+- The entry point matches on `event.target == .pty` and extracts `session_idx`
+  and `pane_slot` from `event.target.pty` directly (no range arithmetic)
+- The context struct contains `pty_ops` and `session_manager`
+- The internal `handlePtyRead` function signature and logic are unchanged
+- `pty_read.zig` no longer receives or decodes raw `udata` integers
+- All existing `pty_read.zig` unit tests still pass
+
+### Task 26: Update `mock_os.zig` to match new vtable signatures
+
+**Files:** `src/testing/mocks/mock_os.zig` (modify)
+
+**Spec:** spec Section 7.4 — `EventLoopOps.registerRead` and `registerWrite`
+accept `EventTarget`; `wait` signature changes to match the
+`PriorityEventBuffer` contract chosen in Task 18.
+
+**Depends on:** Task 18, Task 19
+
+**Verification:**
+
+- `MockEventLoopOps.mockRegisterRead` and `mockRegisterWrite` accept
+  `EventTarget` instead of `udata: usize`
+- `MockRegistration` stores `target: EventTarget` instead of `udata: usize`
+- `MockEventLoopOps.mockWait` matches the updated `wait` signature (returns
+  events in priority order via `PriorityEventBuffer` or fills one)
+- All existing `mock_os.zig` tests that verify registration tracking are updated
+  to check `EventTarget` variants
+- The mock compiles and all its own unit tests pass
+
+### Task 27: Update `server/root.zig` and ROADMAP.md
+
+**Files:** `src/server/root.zig` (modify), `docs/superpowers/plans/ROADMAP.md`
+(modify)
+
+**Spec:** spec Section 6.3 — `ClientEntry` re-export from EventLoop is deleted.
+
+**Depends on:** Task 21, Task 24
+
+**Verification:**
+
+- `server/root.zig` no longer re-exports `ClientEntry` via `event_loop`
+- `server/root.zig` exports the `Handler` type from `event_loop`
+- ROADMAP.md Plan 12.2 entry contains a note that `event_loop.zig` has
+  `TODO(Plan 6)` test stubs (for `addClientTransport`, `removeClient`,
+  `findClientByFd`) that must be replaced with proper Client Manager integration
+  tests in Plan 12.2
+- The module builds without errors
+
+---
+
+### Part 2 File Structure
+
+| File                                      | Action | Responsibility                                                                                                                                                    |
+| ----------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/server/os/interfaces.zig`            | Modify | Add `EventTarget` union, update `Event.udata → target`, update `Filter` enum, add `MAX_EVENTS_PER_BATCH`, update `registerRead`/`registerWrite`/`wait` signatures |
+| `src/server/os/priority_event_buffer.zig` | Create | New `PriorityEventBuffer` struct with `add`, `reset`, `isEmpty`, `iterator`                                                                                       |
+| `src/server/os/kqueue.zig`                | Modify | Encode/decode `EventTarget` in register/wait functions; fill `PriorityEventBuffer` in `kqWait`                                                                    |
+| `src/server/event_loop.zig`               | Modify | Replace struct with minimal fields; rewrite `run`/`stop`; add `Handler` type; delete client/signal/dispatch code; annotate or remove old tests                    |
+| `src/server/signal_handler.zig`           | Modify | Add chain handler entry point wrapper; update `handleSignalEvent` call site                                                                                       |
+| `src/server/client_accept.zig`            | Modify | Add chain handler entry point wrapper; remove `*EventLoop` parameter dependency                                                                                   |
+| `src/server/pty_read.zig`                 | Modify | Add chain handler entry point wrapper; map `(context, event, next)` to existing call pattern                                                                      |
+| `src/server/root.zig`                     | Modify | Update re-exports; remove `ClientEntry` re-export from `event_loop`                                                                                               |
+| `src/testing/mocks/mock_os.zig`           | Modify | Update `MockEventLoopOps` to match new `EventLoopOps` vtable signatures; update `MockRegistration`                                                                |
+| `docs/superpowers/plans/ROADMAP.md`       | Modify | Add note to Plan 12.2 about event_loop test migration (annotated `TODO(Plan 6)` tests)                                                                            |
+
+### Part 2 Dependency Graph
+
+```mermaid
+graph TD
+    T18[Task 18: interfaces.zig] --> T19[Task 19: PriorityEventBuffer]
+    T18 --> T20[Task 20: kqueue.zig]
+    T19 --> T20
+    T20 --> T21[Task 21: event_loop.zig]
+    T21 --> T22[Task 22: Test annotation]
+    T21 --> T23[Task 23: signal_handler]
+    T21 --> T24[Task 24: client_accept]
+    T21 --> T25[Task 25: pty_read]
+    T18 --> T26[Task 26: mock_os.zig]
+    T19 --> T26
+    T25 --> T27[Task 27: root.zig + ROADMAP]
+    T24 --> T27
+```
+
+**Part 2 parallelization opportunities:**
+
+- Task 18 is the root dependency for Part 2
+- Task 19 depends only on Task 18
+- Task 20 depends on Task 18 and Task 19
+- Task 26 depends on Task 18 and Task 19 — can run in parallel with Task 20
+- Task 21 depends on Tasks 18, 19, and 20
+- Tasks 22, 23, 24, 25 all depend on Task 21 and can run in parallel with each
+  other
+- Task 27 depends on Tasks 21 and 24
+
+**Part 2 out of scope:**
+
+- Client Manager / `ClientState` redesign — Plan 6
+- Dynamic PTY fd registration — Plan 7
+- Graceful shutdown state machine — Plan 10
+- Daemon orchestrator, chain assembly in production, signal/listener fd
+  registration — Plan 12.2
+- `SignalOps.blockSignals` and `SignalOps.registerSignals` removal from
+  `interfaces.zig` — Plan 12.2 will recreate them
+- epoll backend full implementation (signal/timer support) — epoll currently
+  handles only read/write; this refactor extends to match kqueue where epoll
+  already has coverage
