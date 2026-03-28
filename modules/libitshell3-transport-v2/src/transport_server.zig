@@ -15,6 +15,7 @@ pub const ListenError = error{
     Bind,
     Listen,
     DaemonAlreadyRunning,
+    StaleSocket,
     DirectoryCreate,
 };
 
@@ -26,7 +27,7 @@ pub const AcceptError = error{
 
 pub const StaleProbeResult = enum {
     no_prior_socket,
-    stale_cleaned,
+    stale_socket,
     daemon_running,
 };
 
@@ -47,7 +48,7 @@ pub const Listener = struct {
     /// Accept a new client connection.
     /// Performs UID verification, sets O_NONBLOCK and SO_SNDBUF/SO_RCVBUF on the
     /// accepted fd.
-    pub fn accept(self: *Listener) AcceptError!socket_t {
+    pub fn accept(self: *Listener) AcceptError!transport_mod.SocketConnection {
         _ = self;
         // TODO: implement
         return error.Accept;
@@ -74,28 +75,23 @@ pub fn listen(socket_path: []const u8) ListenError!Listener {
     // Stale socket detection — report result to caller per spec §1.5.5.
     switch (probeStaleSocket(socket_path)) {
         .daemon_running => return error.DaemonAlreadyRunning,
-        .stale_cleaned, .no_prior_socket => {},
+        .stale_socket => return error.StaleSocket,
+        .no_prior_socket => {},
     }
 
-    // Ensure directory exists with 0700 permissions.
-    ensureDirectory(socket_path) catch return error.DirectoryCreate;
+    ensureDirectory(socket_path, 0o700) catch return error.DirectoryCreate;
 
-    const fd = std.posix.socket(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0) catch
-        return error.SocketCreate;
+    const fd = newFd() catch return error.SocketCreate;
     errdefer std.posix.close(fd);
 
-    // Bind
-    var addr: std.posix.sockaddr.un = .{ .path = undefined };
-    @memset(&addr.path, 0);
-    @memcpy(addr.path[0..socket_path.len], socket_path);
+    const addr = makeAddr(socket_path);
     std.posix.bind(fd, @ptrCast(&addr), @sizeOf(std.posix.sockaddr.un)) catch
         return error.Bind;
 
     // listen
     std.posix.listen(fd, 16) catch return error.Listen;
 
-    // chmod 0600 on socket file (defense-in-depth; directory is 0700).
-    chmodSocket(socket_path);
+    chmodSocket(socket_path, 0o600);
 
     // O_NONBLOCK on listen fd
     setNonBlock(fd);
@@ -109,39 +105,44 @@ pub fn listen(socket_path: []const u8) ListenError!Listener {
     return result;
 }
 
+fn newFd() !socket_t {
+    return std.posix.socket(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0);
+}
+
 /// Probe whether a prior socket exists and is alive or stale.
 fn probeStaleSocket(socket_path: []const u8) StaleProbeResult {
-    const probe_fd = std.posix.socket(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0) catch
-        return .no_prior_socket;
-    defer std.posix.close(probe_fd);
+    const fd = newFd() catch return .no_prior_socket;
+    defer std.posix.close(fd);
 
-    var addr: std.posix.sockaddr.un = .{ .path = undefined };
-    @memset(&addr.path, 0);
-    if (socket_path.len >= addr.path.len) return .no_prior_socket;
-    @memcpy(addr.path[0..socket_path.len], socket_path);
-
-    std.posix.connect(probe_fd, @ptrCast(&addr), @sizeOf(std.posix.sockaddr.un)) catch {
-        // Connection failed — stale socket, clean it up.
-        std.posix.unlink(socket_path) catch {};
-        return .stale_cleaned;
+    const addr = makeAddr(socket_path);
+    std.posix.connect(fd, @ptrCast(&addr), @sizeOf(std.posix.sockaddr.un)) catch {
+        return .stale_socket;
     };
     // Connection succeeded — daemon is already running.
     return .daemon_running;
 }
 
-fn ensureDirectory(socket_path: []const u8) !void {
+fn makeAddr(socket_path: []const u8) std.posix.sockaddr.un {
+    std.debug.assert(socket_path.len < MAX_SOCKET_PATH);
+    var addr: std.posix.sockaddr.un = .{ .path = undefined };
+    @memset(&addr.path, 0);
+    @memcpy(addr.path[0..socket_path.len], socket_path);
+    return addr;
+}
+
+fn ensureDirectory(socket_path: []const u8, mode: std.posix.mode_t) !void {
     const dir = std.fs.path.dirname(socket_path) orelse return;
-    std.posix.mkdir(dir, 0o700) catch |err| switch (err) {
+    std.posix.mkdir(dir, mode) catch |err| switch (err) {
         error.PathAlreadyExists => {},
         else => return err,
     };
 }
 
-fn chmodSocket(socket_path: []const u8) void {
+fn chmodSocket(socket_path: []const u8, mode: std.posix.mode_t) void {
     var path_buf: [MAX_SOCKET_PATH + 1]u8 = undefined;
     @memcpy(path_buf[0..socket_path.len], socket_path);
     path_buf[socket_path.len] = 0;
-    _ = std.c.chmod(@ptrCast(&path_buf), 0o600);
+    _ = std.c.chmod(@ptrCast(&path_buf), mode);
 }
 
 fn setNonBlock(fd: socket_t) void {

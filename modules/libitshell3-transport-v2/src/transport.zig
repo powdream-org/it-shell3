@@ -38,7 +38,7 @@ const socket_t = std.posix.socket_t;
 const iovec_const = std.posix.iovec_const;
 const Stream = std.net.Stream;
 
-pub const UnixTransport = struct {
+pub const SocketConnection = struct {
     socket_fd: socket_t,
 
     const vtable = Transport.VTable{
@@ -48,7 +48,7 @@ pub const UnixTransport = struct {
         .close = &closeImpl,
     };
 
-    pub fn asTransport(self: *UnixTransport) Transport {
+    pub fn asTransport(self: *SocketConnection) Transport {
         return .{ .ptr = @ptrCast(self), .vtable = &vtable };
     }
 
@@ -90,18 +90,18 @@ pub const UnixTransport = struct {
         std.posix.close(cast(ptr).socket_fd);
     }
 
-    inline fn cast(ptr: *anyopaque) *UnixTransport {
+    inline fn cast(ptr: *anyopaque) *SocketConnection {
         return @ptrCast(@alignCast(ptr));
     }
 };
 
 // ── Tests ────────────────────────────────────────────────────────────────
 
-test "UnixTransport: read and writeSingle round-trip via socketpair" {
+test "SocketConnection: read and writeSingle round-trip via socketpair" {
     const helpers = @import("testing/helpers.zig");
     const client_fd, const server_fd = try helpers.createSocketPair();
-    var client = UnixTransport{ .socket_fd = client_fd };
-    var server = UnixTransport{ .socket_fd = server_fd };
+    var client = SocketConnection{ .socket_fd = client_fd };
+    var server = SocketConnection{ .socket_fd = server_fd };
     var ct = client.asTransport();
     var st = server.asTransport();
     defer ct.close();
@@ -114,11 +114,11 @@ test "UnixTransport: read and writeSingle round-trip via socketpair" {
     try std.testing.expectEqualSlices(u8, "hello", buf[0..n]);
 }
 
-test "UnixTransport: writeBulk sends multiple segments in order" {
+test "SocketConnection: writeBulk sends multiple segments in order" {
     const helpers = @import("testing/helpers.zig");
     const client_fd, const server_fd = try helpers.createSocketPair();
-    var client = UnixTransport{ .socket_fd = client_fd };
-    var server = UnixTransport{ .socket_fd = server_fd };
+    var client = SocketConnection{ .socket_fd = client_fd };
+    var server = SocketConnection{ .socket_fd = server_fd };
     var ct = client.asTransport();
     var st = server.asTransport();
     defer ct.close();
@@ -139,7 +139,7 @@ test "UnixTransport: writeBulk sends multiple segments in order" {
 test "Transport.write: empty dataVector is no-op" {
     const helpers = @import("testing/helpers.zig");
     const client_fd, const server_fd = try helpers.createSocketPair();
-    const client = UnixTransport{ .socket_fd = client_fd };
+    const client = SocketConnection{ .socket_fd = client_fd };
     var ct = @constCast(&client).asTransport();
     defer ct.close();
     std.posix.close(server_fd);
@@ -148,10 +148,10 @@ test "Transport.write: empty dataVector is no-op" {
     try ct.write(&.{});
 }
 
-test "UnixTransport: read returns 0 on peer close" {
+test "SocketConnection: read returns 0 on peer close" {
     const helpers = @import("testing/helpers.zig");
     const client_fd, const server_fd = try helpers.createSocketPair();
-    var server = UnixTransport{ .socket_fd = server_fd };
+    var server = SocketConnection{ .socket_fd = server_fd };
     var st = server.asTransport();
 
     // Close client side
@@ -164,11 +164,11 @@ test "UnixTransport: read returns 0 on peer close" {
     st.close();
 }
 
-test "UnixTransport: bidirectional communication" {
+test "SocketConnection: bidirectional communication" {
     const helpers = @import("testing/helpers.zig");
     const fd_a, const fd_b = try helpers.createSocketPair();
-    var a = UnixTransport{ .socket_fd = fd_a };
-    var b = UnixTransport{ .socket_fd = fd_b };
+    var a = SocketConnection{ .socket_fd = fd_a };
+    var b = SocketConnection{ .socket_fd = fd_b };
     var ta = a.asTransport();
     var tb = b.asTransport();
     defer ta.close();
@@ -186,11 +186,11 @@ test "UnixTransport: bidirectional communication" {
     try std.testing.expectEqualSlices(u8, "from B", buf[0..n2]);
 }
 
-test "UnixTransport: writeBulk single segment dispatches to writeSingle path" {
+test "SocketConnection: writeBulk single segment dispatches to writeSingle path" {
     const helpers = @import("testing/helpers.zig");
     const client_fd, const server_fd = try helpers.createSocketPair();
-    var client = UnixTransport{ .socket_fd = client_fd };
-    var server = UnixTransport{ .socket_fd = server_fd };
+    var client = SocketConnection{ .socket_fd = client_fd };
+    var server = SocketConnection{ .socket_fd = server_fd };
     var ct = client.asTransport();
     var st = server.asTransport();
     defer ct.close();
