@@ -12,7 +12,11 @@
 
 ## Action
 
-### 4a. Check context budget
+### 4a. Update TODO.md
+
+Update TODO.md: set **Step** to 4 (Code Simplify), mark Step 3 as `[x]`.
+
+### 4b. Check context budget
 
 Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
 `/compact` before proceeding. Step 4 spawns 3 new agents while the implementer +

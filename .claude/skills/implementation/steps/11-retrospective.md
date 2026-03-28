@@ -9,6 +9,9 @@
   wait for approval, then apply.
 - **Don't clean up before the retrospective.** TODO.md contains the cycle
   history needed for review. Delete it after, not before.
+- **Don't batch-delete TODO.md files across modules.** Each module may be in a
+  different cycle stage. Verify the cycle status of each TODO.md before deletion
+  — only delete files belonging to the cycle being cleaned up.
 
 ## Action
 

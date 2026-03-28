@@ -232,6 +232,16 @@ matrix. See the `libitshell3` daemon design docs for details. See the
 `libitshell3-protocol` server-client-protocols docs for details.
 ```
 
+## CRITICAL: Never Overwrite Working Tree with Git Checkout
+
+**NEVER use `git checkout <ref> -- <path>` to compare or restore files in a
+dirty working tree.** This overwrites uncommitted changes and can destroy agent
+work in progress. Use non-destructive alternatives:
+
+- `git show <ref>:<path>` — view a file at a specific commit
+- `git diff <ref>` — compare current state against a commit
+- `git stash` — only if you intend to restore immediately
+
 ## CRITICAL: Never Change the Working Directory
 
 **NEVER use `cd` to change the current directory from the project root.** Almost
