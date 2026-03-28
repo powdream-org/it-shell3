@@ -1,5 +1,7 @@
+/// A single contiguous byte buffer for transport I/O.
 pub const IoVector = []const u8;
 
+/// Bidirectional byte stream interface.
 pub const Transport = struct {
     ptr: *anyopaque,
     vtable: *const VTable,
@@ -14,10 +16,12 @@ pub const Transport = struct {
     pub const ReadError = error{ EndOfStream, ConnectionReset, Unexpected };
     pub const WriteError = error{ BrokenPipe, ConnectionReset, Unexpected };
 
+    /// The number of bytes read, or 0 on peer close.
     pub fn read(self: *Transport, buf: []u8) ReadError!usize {
         return self.vtable.read(self.ptr, buf);
     }
 
+    /// Sends one or more byte buffers. Empty `dataVector` is a no-op.
     pub fn write(self: *Transport, dataVector: []const IoVector) WriteError!void {
         if (dataVector.len == 0) {
             return; // no-op for empty vector
@@ -38,6 +42,7 @@ const socket_t = std.posix.socket_t;
 const iovec_const = std.posix.iovec_const;
 const Stream = std.net.Stream;
 
+/// Unix socket connection.
 pub const SocketConnection = struct {
     socket_fd: socket_t,
 
@@ -48,6 +53,7 @@ pub const SocketConnection = struct {
         .close = &closeImpl,
     };
 
+    /// The SocketConnection must outlive the returned Transport.
     pub fn asTransport(self: *SocketConnection) Transport {
         return .{ .ptr = @ptrCast(self), .vtable = &vtable };
     }

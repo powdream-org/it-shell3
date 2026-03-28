@@ -31,29 +31,30 @@ pub const StaleProbeResult = enum {
     daemon_running,
 };
 
+/// Server-side socket listener.
 pub const Listener = struct {
     listen_fd: socket_t,
     socket_path_storage: [MAX_SOCKET_PATH]u8,
     socket_path_length: usize,
 
-    /// Returns the listen fd for kqueue/epoll registration.
+    /// The listen fd for kqueue/epoll registration.
     pub fn fd(self: *const Listener) socket_t {
         return self.listen_fd;
     }
 
+    /// The bound socket path.
     pub fn socketPath(self: *const Listener) []const u8 {
         return self.socket_path_storage[0..self.socket_path_length];
     }
 
-    /// Accept a new client connection.
-    /// Performs UID verification, sets O_NONBLOCK and SO_SNDBUF/SO_RCVBUF on the
-    /// accepted fd.
+    /// Accepts a new client with UID verification, O_NONBLOCK, and buffer tuning.
     pub fn accept(self: *Listener) AcceptError!transport_mod.SocketConnection {
         _ = self;
         // TODO: implement
         return error.Accept;
     }
 
+    /// Closes the listen fd and unlinks the socket file.
     pub fn close(self: *Listener) void {
         std.posix.close(self.listen_fd);
         const path = self.socketPath();
@@ -61,14 +62,10 @@ pub const Listener = struct {
     }
 };
 
-/// Create a server listener.
+/// Binds and listens on a Unix socket at `socket_path`.
 ///
-/// ```
-///   socket() → stale detection (report to caller) → ensureDirectory(0700) →
-///   bind() → listen() → chmod(0600) → O_NONBLOCK
-/// ```
-///
-/// Returns error.DaemonAlreadyRunning if the socket is alive (not stale).
+/// Returns error.DaemonAlreadyRunning if a daemon is already bound,
+/// or error.StaleSocket if a stale socket file exists.
 pub fn listen(socket_path: []const u8) ListenError!Listener {
     if (socket_path.len > MAX_SOCKET_PATH) return error.PathTooLong;
 
