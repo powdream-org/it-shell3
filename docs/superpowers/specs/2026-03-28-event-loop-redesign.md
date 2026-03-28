@@ -133,7 +133,7 @@ EventLoop {
     // Injected dependencies
     event_ops: *const EventLoopOps,
     event_ctx: *anyopaque,
-    chain: Handler,
+    chain: *const Handler,
     running: bool,
 
     fn init(event_ops, event_ctx, chain) EventLoop

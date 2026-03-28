@@ -18,6 +18,7 @@ pub const ime_procedures_spec_test = @import("spec/ime_procedures_spec_test.zig"
 pub const mock_ime_engine_spec_test = @import("spec/mock_ime_engine_spec_test.zig");
 pub const ring_buffer_spec_compliance_test = @import("spec/ring_buffer_spec_compliance_test.zig");
 pub const ring_buffer_integration_test = @import("spec/ring_buffer_integration_test.zig");
+pub const event_loop_spec_test = @import("spec/event_loop_spec_test.zig");
 
 // Re-exports
 pub const MockImeEngine = mock_ime_engine.MockImeEngine;
