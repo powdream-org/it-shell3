@@ -11,6 +11,7 @@ pub const ImeEngine = struct {
     ptr: *anyopaque,
     vtable: *const VTable,
 
+    /// Function pointer table for IME engine implementations.
     pub const VTable = struct {
         processKey: *const fn (ptr: *anyopaque, key: KeyEvent) ImeResult,
         flush: *const fn (ptr: *anyopaque) ImeResult,

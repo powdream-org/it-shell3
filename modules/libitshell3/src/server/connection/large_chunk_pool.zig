@@ -10,7 +10,6 @@ const client_manager_mod = @import("client_manager.zig");
 const protocol = @import("itshell3_protocol");
 const ChunkPool = protocol.message_reader.ChunkPool;
 
-/// Chunk size derived from the protocol module's canonical chunk capacity.
 pub const CHUNK_SIZE: usize = ChunkPool.Chunk.CHUNK_CAPACITY;
 
 /// Maximum number of pooled chunks (one per possible concurrent client).
@@ -21,7 +20,6 @@ const MAX_CHUNKS: u16 = client_manager_mod.MAX_CLIENTS;
 /// dynamic allocation.
 var static_chunk: [CHUNK_SIZE]u8 = [_]u8{0} ** CHUNK_SIZE;
 
-/// Manages borrowing and returning of 16 MiB chunks.
 pub const LargeChunkPool = struct {
     /// Free list of available chunk pointers. Index 0 is always the static chunk
     /// when available. Dynamic chunks occupy subsequent slots.

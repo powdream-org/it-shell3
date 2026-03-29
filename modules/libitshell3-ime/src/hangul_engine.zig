@@ -10,7 +10,7 @@ const ImeResult = engine_mod.ImeResult;
 const hid_to_ascii = @import("hid_to_ascii.zig");
 const ucs4 = @import("ucs4.zig");
 
-/// HID constants for special keys
+// HID constants for special keys.
 const HID_ENTER: u8 = 0x28;
 const HID_ESCAPE: u8 = 0x29;
 const HID_BACKSPACE: u8 = 0x2A;

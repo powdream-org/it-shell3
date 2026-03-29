@@ -1,3 +1,8 @@
+//! Canonical enum of all protocol message type codes (u16) carried in the
+//! header's msg_type field.
+
+/// All protocol message types, grouped by functional category.
+/// Non-exhaustive to allow forward-compatible handling of unknown types.
 pub const MessageType = enum(u16) {
     // Handshake & Lifecycle (0x0001-0x00FF)
     client_hello = 0x0001,
@@ -127,7 +132,8 @@ pub const MessageType = enum(u16) {
     extension_message = 0x0A02,
     _,
 
-    /// Returns the expected encoding for this message type.
+    /// The wire encoding for this message type. Currently only frame_update
+    /// uses binary; all others use JSON.
     pub fn expectedEncoding(self: MessageType) Encoding {
         return switch (self) {
             .frame_update => .binary,

@@ -1,3 +1,7 @@
+//! Server-side session wrapper. Bundles a core Session with pane-slot
+//! allocation (bitmask-based), dirty tracking, and typed Pane references
+//! that include ghostty pointers.
+
 const std = @import("std");
 const core = @import("itshell3_core");
 const types = core.types;
@@ -17,9 +21,9 @@ inline fn slotShift(slot: PaneSlot) u4 {
     return @intCast(slot);
 }
 
-/// Server-side wrapper bundling Session with pane-slot management.
-/// Per daemon-architecture spec, SessionEntry lives in server/ because it
-/// references Pane (which has typed ghostty pointers).
+/// Server-side wrapper bundling a core Session with bitmask-based pane-slot
+/// management and per-pane dirty tracking. Lives in server/ because Pane
+/// has typed ghostty pointers not available in core/.
 pub const SessionEntry = struct {
     session: Session,
     pane_slots: [MAX_PANES]?Pane, // null = empty slot

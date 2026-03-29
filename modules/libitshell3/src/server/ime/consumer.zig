@@ -1,3 +1,7 @@
+//! Consumes ImeResult by performing Phase 2 actions: writing committed text
+//! to the PTY, updating session preedit state, and encoding forwarded keys.
+//! See ime-procedures spec for the canonical consumption contract.
+
 const std = @import("std");
 const core = @import("itshell3_core");
 const ImeResult = core.ImeResult;
@@ -6,7 +10,7 @@ const session_mod = core.session;
 const interfaces = @import("../os/interfaces.zig");
 const PtyOps = interfaces.PtyOps;
 
-/// Interface for key encoding (ghostty key_encode.encode), enabling mock injection.
+/// Vtable for key encoding, enabling mock injection in tests.
 pub const KeyEncoder = struct {
     ptr: *anyopaque,
     vtable: *const VTable,
@@ -22,17 +26,11 @@ pub const KeyEncoder = struct {
     }
 };
 
-/// Consume an ImeResult by performing Phase 2 actions:
-/// - committed_text -> write to PTY fd
-/// - preedit_text (when preedit_changed) -> copy to session.preedit_buf
-/// - forward_key -> encode via key encoder + write to PTY fd
-/// - preedit cleared (preedit_text=null, preedit_changed=true) -> clear session.current_preedit
+/// Writes committed text to PTY, updates session preedit state, and encodes
+/// forwarded keys. Returns true if preedit changed (caller marks pane dirty).
 ///
 /// NEVER uses ghostty_surface_text() for committed text (Korean doubling bug).
-/// ImeResult MUST be consumed BEFORE any subsequent engine call
-/// (see integration-boundaries critical runtime invariant).
-///
-/// Returns true if preedit state changed (caller should mark pane dirty).
+/// Must be consumed BEFORE any subsequent engine call (buffer lifetime constraint).
 pub fn consumeImeResult(
     result: ImeResult,
     session: *session_mod.Session,

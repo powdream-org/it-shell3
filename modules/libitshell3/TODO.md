@@ -2,11 +2,11 @@
 
 ## Current State
 
-- **Step**: 8 (Over-Engineering Review)
+- **Step**: 10 (Owner Review)
 - **Cycle Type**: modification (Plan 6 — new features on existing codebase)
 - **Review Round**: 1
-- **Active Team**: impl-team
-- **Team Directory**: `.claude/agents/impl-team/`
+- **Active Team**: (none)
+- **Team Directory**: (none)
 
 ## Spec
 
@@ -43,8 +43,8 @@
 - [x] Step 5: Spec Compliance Review
 - [x] Step 6: Fix Cycle
 - [x] Step 7: Coverage Audit
-- [ ] Step 8: Over-Engineering Review
-- [ ] Step 9: Commit & Report
+- [x] Step 8: Over-Engineering Review
+- [x] Step 9: Commit & Report
 - [ ] Step 10: Owner Review
 - [ ] Step 11: Retrospective
 - [ ] Step 12: Cleanup & ROADMAP Update

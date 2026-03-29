@@ -19,7 +19,6 @@ const client_manager_mod = server.connection.client_manager;
 const ClientManager = client_manager_mod.ClientManager;
 const ClientState = server.connection.client_state.ClientState;
 
-/// Callback for dispatching decoded messages.
 pub const MessageDispatchFn = *const fn (
     client_slot: u16,
     msg_type: MessageType,
@@ -27,10 +26,8 @@ pub const MessageDispatchFn = *const fn (
     payload: []const u8,
 ) void;
 
-/// Callback for handling client disconnect (peer close or error).
 pub const ClientDisconnectFn = *const fn (client_slot: u16) void;
 
-/// Context for the client read chain handler.
 pub const ClientReadContext = struct {
     client_manager: *ClientManager,
     dispatch_fn: MessageDispatchFn,
@@ -39,10 +36,9 @@ pub const ClientReadContext = struct {
     recv_buffer: [RECV_BUFFER_SIZE]u8 = [_]u8{0} ** RECV_BUFFER_SIZE,
 };
 
-/// Size of the shared receive buffer.
 pub const RECV_BUFFER_SIZE: usize = 64 * 1024;
 
-/// Chain handler entry point for client read events.
+/// Matches `.client` events; forwards all others to the next handler.
 pub fn chainHandle(context: *anyopaque, event: interfaces.Event, next: ?*const Handler) void {
     if (event.target) |target| {
         switch (target) {

@@ -1,15 +1,22 @@
+//! Core transport types: socket connection wrapper with non-blocking I/O
+//! result types for the daemon-client communication layer.
+
 const std = @import("std");
 const posix = std.posix;
 
-/// A single contiguous byte buffer for transport I/O.
+/// A single contiguous byte buffer for scatter/gather transport I/O.
 pub const ImmutableIoVector = posix.iovec_const;
 
 pub const FileDescriptor = posix.fd_t;
 
-/// Unix socket connection. The `fd` field is public for kqueue/epoll registration.
+/// Unix socket connection with non-blocking-aware send/recv.
+///
+/// The `fd` field is public so callers can register it with kqueue/epoll.
 pub const SocketConnection = struct {
     fd: FileDescriptor,
 
+    /// Reads available bytes into `buf`, returning a tagged result to
+    /// distinguish partial reads, would-block, and peer disconnection.
     pub fn recv(self: SocketConnection, buf: []u8) RecvResult {
         const n = posix.read(self.fd, buf) catch |err| switch (err) {
             error.WouldBlock => return .would_block,
@@ -21,6 +28,7 @@ pub const SocketConnection = struct {
         return .{ .bytes_read = n };
     }
 
+    /// Writes `buf` to the socket, returning bytes written or a non-blocking/error status.
     pub fn send(self: SocketConnection, buf: []const u8) SendResult {
         const n = posix.write(self.fd, buf) catch |err| switch (err) {
             error.WouldBlock => return .would_block,
@@ -32,6 +40,7 @@ pub const SocketConnection = struct {
         return .{ .bytes_written = n };
     }
 
+    /// Vectored write: sends multiple buffers in a single syscall.
     pub fn sendv(self: SocketConnection, iovecs: []const ImmutableIoVector) SendResult {
         const n = posix.writev(self.fd, iovecs) catch |err| switch (err) {
             error.WouldBlock => return .would_block,
@@ -43,12 +52,14 @@ pub const SocketConnection = struct {
         return .{ .bytes_written = n };
     }
 
+    /// Closes the socket and poisons `fd` to -1 to catch use-after-close.
     pub fn close(self: *SocketConnection) void {
         posix.close(self.fd);
         self.fd = -1;
     }
 };
 
+/// Tagged result from a recv operation, distinguishing success from non-blocking and error states.
 pub const RecvResult = union(enum) {
     bytes_read: usize,
     would_block: void,
@@ -56,6 +67,7 @@ pub const RecvResult = union(enum) {
     err: posix.ReadError,
 };
 
+/// Tagged result from a send/sendv operation.
 pub const SendResult = union(enum) {
     bytes_written: usize,
     would_block: void,

@@ -1,3 +1,6 @@
+//! Binary split tree for pane layout. Uses a heap-indexed flat array
+//! (left = 2*i+1, right = 2*i+2) so the tree requires no heap allocation.
+
 const std = @import("std");
 const types = @import("types.zig");
 
@@ -7,9 +10,9 @@ pub const MAX_TREE_NODES = types.MAX_TREE_NODES;
 pub const MAX_PANES = types.MAX_PANES;
 pub const MAX_TREE_DEPTH = types.MAX_TREE_DEPTH;
 
-/// A node in the binary split tree. Two variants: leaf (holds a PaneSlot)
-/// or split (holds orientation and ratio). Children are computed via
-/// heap-index arithmetic: left = 2*i+1, right = 2*i+2, parent = (i-1)/2.
+/// A node in the binary split tree. Leaf nodes hold a PaneSlot;
+/// split nodes hold orientation and ratio. Children are located via
+/// heap-index arithmetic: left = 2*i+1, right = 2*i+2.
 pub const SplitNodeData = union(enum) {
     leaf: PaneSlot,
     split: struct {
@@ -18,29 +21,32 @@ pub const SplitNodeData = union(enum) {
     },
 };
 
+/// Child indices would exceed the flat array bounds.
 pub const TreeFull = error{TreeFull};
+
+/// Splitting would exceed the configured maximum tree depth.
 pub const MaxDepthExceeded = error{MaxDepthExceeded};
+
+/// Cannot remove the root when it is the only leaf (single-pane session).
 pub const CannotRemoveRoot = error{CannotRemoveRoot};
 
-/// Compute the left child index of node at index i using heap-index arithmetic.
+/// Left child index in heap-indexed layout.
 pub fn leftChild(i: u8) u8 {
     return i * 2 + 1;
 }
 
-/// Compute the right child index of node at index i using heap-index arithmetic.
+/// Right child index in heap-indexed layout.
 pub fn rightChild(i: u8) u8 {
     return i * 2 + 2;
 }
 
-/// Compute the parent index of node at index i using heap-index arithmetic.
-/// Returns null for root (index 0).
+/// Parent index, or null for the root node (index 0).
 pub fn parentIndex(i: u8) ?u8 {
     if (i == 0) return null;
     return (i - 1) / 2;
 }
 
-/// Compute the depth of node at index i using heap-index arithmetic.
-/// Root (index 0) has depth 0. Each level adds 1.
+/// Depth of a node in the heap-indexed tree. Root has depth 0.
 pub fn depth(node_idx: u8) u8 {
     if (node_idx == 0) return 0;
     // depth = floor(log2(i+1))
@@ -90,8 +96,7 @@ pub fn findLeafBySlot(tree: *const [MAX_TREE_NODES]?SplitNodeData, slot: PaneSlo
     return null;
 }
 
-/// Copy a subtree rooted at src_idx to dst_idx within the tree.
-/// Used during split and remove operations to relocate subtrees.
+// Copy a subtree rooted at src_idx to dst_idx within the tree.
 fn copySubtree(
     tree: *[MAX_TREE_NODES]?SplitNodeData,
     dst_idx: u8,
@@ -112,7 +117,7 @@ fn copySubtree(
     }
 }
 
-/// Clear a subtree rooted at idx (set all nodes to null).
+// Clear a subtree rooted at idx (set all nodes to null).
 fn clearSubtree(tree: *[MAX_TREE_NODES]?SplitNodeData, idx: u8) void {
     if (idx >= MAX_TREE_NODES) return;
     if (tree[idx]) |node| {

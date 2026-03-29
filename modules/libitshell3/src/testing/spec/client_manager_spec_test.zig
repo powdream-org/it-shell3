@@ -1,13 +1,13 @@
 //! Spec compliance tests: ClientManager.
 //!
-//! Spec sources:
-//!   - daemon-architecture 02-state-and-types — session/client hierarchy
-//!   - daemon-behavior 02-event-handling — new client connection (monotonic client_id)
-//!   - daemon-behavior 03-policies-and-procedures — connection limits (min 256)
-//!   - ADR 00052 — static allocation
+//! Covers connection limits, monotonic client_id assignment, slot lifecycle,
+//! fd/client_id lookup, and session-scoped iteration for broadcast.
 //!
-//! These tests are derived from the SPEC, not the implementation.
-//! QA-owned: verifies that the implementation conforms to the design spec.
+//! Spec sources:
+//!   - daemon-architecture state-and-types — session/client hierarchy
+//!   - daemon-behavior event-handling — monotonic client_id
+//!   - daemon-behavior policies-and-procedures — connection limits
+//!   - ADR 00052 — static allocation
 
 const std = @import("std");
 const server = @import("itshell3_server");
@@ -20,9 +20,6 @@ const State = server.connection.connection_state.State;
 // ── Spec: Connection Limits ──────────────────────────────────────────────────
 
 test "spec: connection limits — daemon MUST support at least 256 concurrent connections" {
-    // daemon-behavior 03-policies-and-procedures Section 1:
-    // "Daemon MUST support at least 256 concurrent connections."
-    //
     // NOTE: SPEC ISSUE FOUND — MAX_CLIENTS is 64, which is below the spec
     // minimum of 256. This test documents the divergence.
     // When MAX_CLIENTS is corrected, change the expected value to >= 256.
@@ -32,9 +29,6 @@ test "spec: connection limits — daemon MUST support at least 256 concurrent co
 }
 
 test "spec: connection limits — resource exhaustion returns error" {
-    // daemon-behavior 03-policies-and-procedures Section 1:
-    // "When resource limits are reached, the daemon MUST reject new connections
-    //  or requests with ERR_RESOURCE_EXHAUSTED."
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     // Fill all slots.
@@ -50,8 +44,6 @@ test "spec: connection limits — resource exhaustion returns error" {
 // ── Spec: Client ID Assignment ───────────────────────────────────────────────
 
 test "spec: client_id — monotonically increasing, never reused" {
-    // daemon-behavior 02-event-handling Section 5.1:
-    // "client_id is monotonically increasing, never reused."
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
@@ -68,8 +60,6 @@ test "spec: client_id — monotonically increasing, never reused" {
 }
 
 test "spec: client_id — not reused after client removal" {
-    // daemon-behavior 02-event-handling Section 5.1:
-    // "client_id is monotonically increasing, never reused."
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
@@ -85,8 +75,6 @@ test "spec: client_id — not reused after client removal" {
 }
 
 test "spec: client_id — each new connection receives a strictly greater client_id" {
-    // daemon-behavior 02-event-handling Section 5.1 constraint 3:
-    // "Each new connection receives a strictly greater client_id."
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     var prev_id: u32 = 0;
 
@@ -102,8 +90,6 @@ test "spec: client_id — each new connection receives a strictly greater client
 // ── Spec: Client Slot Lifecycle ──────────────────────────────────────────────
 
 test "spec: client slot — add initializes to HANDSHAKING state" {
-    // daemon-architecture 03-integration-boundaries — connection lifecycle:
-    // "The daemon's per-client state machine starts at HANDSHAKING."
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;
@@ -155,8 +141,6 @@ test "spec: findByClientId — locates client by protocol-level ID" {
 // ── Spec: Iteration for Broadcast ────────────────────────────────────────────
 
 test "spec: forEachOperatingInSession — iterates only OPERATING clients in target session" {
-    // daemon-behavior 02-event-handling Section 1.1:
-    // Notifications are sent to OPERATING clients attached to the session.
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     // Client 1: OPERATING in session 1.

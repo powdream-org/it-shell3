@@ -13,7 +13,7 @@ const ClientState = client_state_mod.ClientState;
 const protocol = @import("itshell3_protocol");
 const Disconnect = protocol.handshake.Disconnect;
 
-/// Disconnect reason strings per spec.
+/// Canonical disconnect reason strings for the Disconnect message payload.
 pub const Reason = struct {
     pub const NORMAL = "normal";
     pub const ERROR_REASON = "error";
@@ -25,42 +25,37 @@ pub const Reason = struct {
     pub const REPLACED = "replaced";
 };
 
-/// Maximum size for a serialized Disconnect message payload.
 pub const MAX_DISCONNECT_PAYLOAD: usize = 512;
 
-/// Result of initiating a disconnect.
 pub const DisconnectResult = enum {
-    /// Transition to DISCONNECTING succeeded.
     transitioned,
-    /// Already in DISCONNECTING state.
     already_disconnecting,
 };
 
-/// Initiate a graceful disconnect for a client. Transitions the connection
-/// to DISCONNECTING state. The caller is responsible for sending the Disconnect
-/// message and scheduling teardown.
+/// Transitions to DISCONNECTING. The caller must send the Disconnect message
+/// and schedule teardown.
 pub fn initiateDisconnect(client: *ClientState) DisconnectResult {
     if (client.connection.state == .disconnecting) return .already_disconnecting;
     _ = client.connection.transitionTo(.disconnecting);
     return .transitioned;
 }
 
-/// Process an incoming Disconnect message from a client. Transitions to
-/// DISCONNECTING state and signals that teardown should begin.
+/// Transitions to DISCONNECTING upon receiving a client-initiated Disconnect.
 pub fn processIncomingDisconnect(client: *ClientState) void {
     if (client.connection.state != .disconnecting) {
         _ = client.connection.transitionTo(.disconnecting);
     }
 }
 
-/// Execute connection teardown. Closes the socket fd.
-/// The caller must also unregister the fd from kqueue and remove from ClientManager.
+/// Closes the socket and marks the slot unoccupied. The caller must also
+/// unregister the fd from kqueue/epoll and remove from ClientManager.
 pub fn teardown(client: *ClientState) void {
     client.connection.socket.close();
     client.deinit();
 }
 
-/// Build a Disconnect message payload JSON.
+/// Serializes a Disconnect payload into `buf`. Returns the byte length, or
+/// null if serialization fails.
 pub fn buildDisconnectPayload(
     reason: []const u8,
     detail: []const u8,

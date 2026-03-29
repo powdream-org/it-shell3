@@ -1,3 +1,7 @@
+//! Real PTY operations using POSIX openpty/fork/ioctl. Implements the PtyOps
+//! vtable for production use. Child processes inherit a new session with the
+//! PTY as controlling terminal.
+
 const std = @import("std");
 const builtin = @import("builtin");
 const posix = std.posix;

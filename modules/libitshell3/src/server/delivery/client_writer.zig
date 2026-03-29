@@ -1,3 +1,6 @@
+//! Per-client two-channel writer. Drains the direct queue (priority 1) before
+//! delivering ring buffer frames (priority 2) via zero-copy writev().
+
 const std = @import("std");
 const direct_queue_mod = @import("direct_queue.zig");
 const ring_buffer_mod = @import("ring_buffer.zig");
@@ -5,8 +8,8 @@ const DirectQueue = direct_queue_mod.DirectQueue;
 const RingBuffer = ring_buffer_mod.RingBuffer;
 const RingCursor = ring_buffer_mod.RingCursor;
 
-/// Result of a writePending call.
-/// Matches daemon-behavior policies spec three-branch model exactly.
+/// Outcome of a writePending call, per daemon-behavior policies spec
+/// three-branch model.
 pub const WriteResult = enum {
     fully_caught_up,
     more_pending,
@@ -15,17 +18,6 @@ pub const WriteResult = enum {
     write_error,
 };
 
-/// Per-client two-channel writer: drains direct (priority 1) queue first,
-/// then delivers ring buffer frames (priority 2).
-///
-/// Delivery model per daemon-behavior policies spec:
-///   1. Drain direct queue completely (or until write blocks).
-///   2. Get iovecs for ALL pending ring bytes (cursor to write_pos).
-///   3. Call writev() once — kernel reads directly from ring memory (zero copy).
-///   4. Advance cursor by bytes returned by writev().
-///   5. Partial writes: cursor holds position, next call resumes from there.
-///
-/// No intermediate frame buffer. No ring_frame_sent tracker.
 pub const ClientWriter = struct {
     direct_queue: DirectQueue,
     ring_cursor: RingCursor,
@@ -52,9 +44,7 @@ pub const ClientWriter = struct {
         return !self.direct_queue.isEmpty() or ring.available(&self.ring_cursor) > 0;
     }
 
-    /// Attempt to write pending data to socket fd.
-    /// Priority: direct queue (priority 1) → ring buffer (priority 2).
-    /// Per daemon-architecture state-and-types (two-channel priority) and daemon-behavior policies (delivery pseudocode).
+    /// Writes pending data to `fd`. Drains direct queue first, then ring buffer.
     pub fn writePending(
         self: *ClientWriter,
         fd: std.posix.socket_t,

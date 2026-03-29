@@ -1,3 +1,7 @@
+//! Shared test helpers for libitshell3 spec and integration tests.
+//! Provides mock engine/chunk-pool singletons, socket path generation,
+//! and pipe utilities used across the testing module.
+
 const std = @import("std");
 const builtin = @import("builtin");
 const mock_os = @import("mocks/mock_os.zig");
@@ -46,10 +50,12 @@ pub const NoopChunkPool = struct {
 /// remains valid for the process lifetime.
 pub var noop_chunk_pool = NoopChunkPool.init();
 
+/// Returns a process-lifetime ChunkPool that always returns null on borrow.
 pub fn testChunkPool() *ChunkPool {
     return noop_chunk_pool.chunkPool();
 }
 
+/// Returns an ImeEngine backed by the file-scoped static mock engine.
 pub fn testImeEngine() session_mod.ImeEngine {
     return test_mock_engine.engine();
 }

@@ -10,24 +10,18 @@ const ClientState = client_state_mod.ClientState;
 const client_manager_mod = @import("client_manager.zig");
 const ClientManager = client_manager_mod.ClientManager;
 
-/// Result of a broadcast operation.
 pub const BroadcastResult = struct {
-    /// Number of clients the message was successfully enqueued to.
     sent_count: u16 = 0,
-    /// Number of clients where enqueue failed (queue full).
     failed_count: u16 = 0,
 };
 
-/// Context passed through ClientManager iterator callbacks.
 const BroadcastContext = struct {
     result: BroadcastResult = .{},
     message: []const u8,
     exclude_slot: ?u16,
 };
 
-/// Broadcast a message to all OPERATING clients attached to a session.
-/// Uses the direct queue (priority 1 channel).
-/// Best-effort: individual enqueue failure does not stop broadcast.
+/// Best-effort broadcast to all OPERATING clients in a session.
 pub fn broadcastToSession(
     manager: *ClientManager,
     session_id: u32,
@@ -39,8 +33,7 @@ pub fn broadcastToSession(
     return ctx.result;
 }
 
-/// Broadcast a message to all OPERATING clients (global broadcast).
-/// Uses the direct queue (priority 1 channel).
+/// Best-effort broadcast to all OPERATING clients across all sessions.
 pub fn broadcastGlobal(
     manager: *ClientManager,
     message: []const u8,
@@ -57,7 +50,7 @@ pub fn broadcastGlobal(
     return ctx.result;
 }
 
-/// Broadcast to all READY or OPERATING clients (for session list notifications).
+/// Best-effort broadcast to all READY or OPERATING clients.
 pub fn broadcastToActive(
     manager: *ClientManager,
     message: []const u8,

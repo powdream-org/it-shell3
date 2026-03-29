@@ -1,14 +1,12 @@
-// testing/spec/ring_buffer_spec_compliance_test.zig
-//
-// Spec compliance tests for the ring buffer + frame delivery pipeline.
-// Each test cites the spec section it verifies.
-//
-// Spec authority:
-//   - daemon-architecture/draft/v1.0-r8/02-state-and-types.md (sections 4.1-4.11)
-//   - daemon-behavior/draft/v1.0-r8/impl-constraints/policies.md (sections 5.3-5.5)
-//
-// These tests verify the SPEC, not the implementation. They are derived from
-// spec requirements and will fail if the implementation deviates from the spec.
+//! Spec compliance tests: Ring buffer and frame delivery pipeline.
+//!
+//! Covers per-pane shared ring buffer (write-once, zero-copy), wire format
+//! in ring, two-channel write priority, per-client independent cursors,
+//! I-frame scheduling, slow client recovery, and byte-granular cursor semantics.
+//!
+//! Spec sources:
+//!   - daemon-architecture state-and-types — ring buffer, frame delivery
+//!   - daemon-behavior policies — write-ready, backpressure, slow client recovery
 
 const std = @import("std");
 const testing = std.testing;

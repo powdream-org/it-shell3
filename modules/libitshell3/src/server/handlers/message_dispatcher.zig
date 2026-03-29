@@ -20,11 +20,10 @@ const HeartbeatManager = heartbeat_manager_mod.HeartbeatManager;
 const disconnect_handler = server.connection.disconnect_handler;
 const timer_handler = server.handlers.timer_handler;
 
-/// Duration for READY idle timer (READY to AttachSession).
-/// Per daemon-behavior policies-and-procedures spec (Handshake Timeouts).
+/// Timeout after which a READY client that hasn't attached a session is
+/// disconnected, per daemon-behavior spec.
 pub const READY_IDLE_TIMEOUT_MS: u32 = 60_000;
 
-/// Context for the message dispatcher.
 pub const DispatcherContext = struct {
     client_manager: *ClientManager,
     heartbeat_manager: *HeartbeatManager,
@@ -38,7 +37,8 @@ pub const DispatcherContext = struct {
     allocator: std.mem.Allocator,
 };
 
-/// Dispatch a decoded message to the appropriate handler.
+/// Routes a decoded message by type: handshake, heartbeat, disconnect, or error
+/// messages are handled directly; others are stubs for future plans.
 pub fn dispatch(
     ctx: *DispatcherContext,
     client_slot: u16,

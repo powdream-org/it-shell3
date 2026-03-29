@@ -1,10 +1,19 @@
+//! 16-byte fixed protocol header: magic (0x4954) + version + flags +
+//! msg_type + reserved + payload_length + sequence. Precedes every message
+//! on the wire.
+
 const std = @import("std");
 
+/// Wire size of the protocol header in bytes.
 pub const HEADER_SIZE: usize = 16;
+/// Two-byte magic identifying an it-shell3 protocol frame ("IT").
 pub const MAGIC: [2]u8 = .{ 0x49, 0x54 }; // "IT"
+/// Current protocol version.
 pub const VERSION: u8 = 1;
+/// Maximum allowed payload size (16 MiB).
 pub const MAX_PAYLOAD_SIZE: u32 = 16 * 1024 * 1024; // 16 MiB
 
+/// Per-message flag byte packed into the header at offset 3.
 pub const Flags = packed struct(u8) {
     encoding: enum(u1) { json = 0, binary = 1 } = .json,
     response: bool = false,
@@ -13,6 +22,7 @@ pub const Flags = packed struct(u8) {
     _reserved: u4 = 0,
 };
 
+/// Decoded protocol header. Use `encode`/`decode` for wire conversion.
 pub const Header = struct {
     msg_type: u16,
     flags: Flags,
@@ -53,6 +63,7 @@ pub const Header = struct {
     }
 };
 
+/// Errors returned by `Header.decode` when the wire bytes are malformed.
 pub const HeaderError = error{
     BadMagic,
     UnsupportedVersion,

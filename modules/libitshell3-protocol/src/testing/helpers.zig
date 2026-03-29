@@ -1,16 +1,21 @@
+//! JSON encode/decode helpers shared across protocol unit tests.
+//! Mirrors the production wire format (unknown-field tolerance, null omission).
+
 const std = @import("std");
 
+/// Alias for the parse error type returned by `decode`.
 pub const ParseError = std.json.ParseError(std.json.Scanner);
 
-/// Decode a JSON payload into a struct of type T.
-/// Tolerates unknown fields (forward compatibility).
+/// Decodes a JSON payload into `T`, tolerating unknown fields for forward
+/// compatibility.
 pub fn decode(comptime T: type, allocator: std.mem.Allocator, payload: []const u8) ParseError!std.json.Parsed(T) {
     return std.json.parseFromSlice(T, allocator, payload, .{
         .ignore_unknown_fields = true,
     });
 }
 
-/// Encode a struct to JSON. Null optionals are omitted.
+/// Encodes `value` to JSON, omitting null optional fields to match
+/// the production wire format.
 pub fn encode(allocator: std.mem.Allocator, value: anytype) error{OutOfMemory}![]u8 {
     return std.json.Stringify.valueAlloc(allocator, value, .{
         .emit_null_optional_fields = false,

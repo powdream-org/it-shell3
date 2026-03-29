@@ -1,6 +1,9 @@
+//! Session management messages: create, list, attach, detach, destroy,
+//! rename, and attach-or-create.
+
 const std = @import("std");
 
-/// CreateSessionRequest (0x0100, C->S)
+/// 0x0100, C->S.
 pub const CreateSessionRequest = struct {
     name: ?[]const u8 = null,
     shell: ?[]const u8 = null,
@@ -9,7 +12,7 @@ pub const CreateSessionRequest = struct {
     rows: ?u16 = null,
 };
 
-/// CreateSessionResponse (0x0101, S->C)
+/// 0x0101, S->C.
 pub const CreateSessionResponse = struct {
     status: u32 = 0,
     session_id: u32 = 0,
@@ -17,10 +20,10 @@ pub const CreateSessionResponse = struct {
     @"error": ?[]const u8 = null,
 };
 
-/// ListSessionsRequest (0x0102, C->S) — empty object
+/// 0x0102, C->S. Empty request body.
 pub const ListSessionsRequest = struct {};
 
-/// SessionInfo — used in ListSessionsResponse
+/// Entry within ListSessionsResponse.
 pub const SessionInfo = struct {
     session_id: u32,
     name: []const u8,
@@ -29,13 +32,13 @@ pub const SessionInfo = struct {
     attached_clients: u8 = 0,
 };
 
-/// ListSessionsResponse (0x0103, S->C)
+/// 0x0103, S->C.
 pub const ListSessionsResponse = struct {
     status: u32 = 0,
     sessions: []const SessionInfo = &.{},
 };
 
-/// AttachSessionRequest (0x0104, C->S)
+/// 0x0104, C->S.
 pub const AttachSessionRequest = struct {
     session_id: u32,
     cols: u16 = 80,
@@ -44,7 +47,8 @@ pub const AttachSessionRequest = struct {
     detach_others: bool = false,
 };
 
-/// AttachSessionResponse (0x0105, S->C)
+/// 0x0105, S->C. Includes the current IME and resize policy state so the
+/// client can synchronize immediately after attach.
 pub const AttachSessionResponse = struct {
     status: u32 = 0,
     session_id: u32 = 0,
@@ -56,43 +60,44 @@ pub const AttachSessionResponse = struct {
     @"error": ?[]const u8 = null,
 };
 
-/// DetachSessionRequest (0x0106, C->S)
+/// 0x0106, C->S.
 pub const DetachSessionRequest = struct {
     session_id: u32,
 };
 
-/// DetachSessionResponse (0x0107, S->C)
+/// 0x0107, S->C.
 pub const DetachSessionResponse = struct {
     status: u32 = 0,
     reason: []const u8 = "client_requested",
     @"error": ?[]const u8 = null,
 };
 
-/// DestroySessionRequest (0x0108, C->S)
+/// 0x0108, C->S.
 pub const DestroySessionRequest = struct {
     session_id: u32,
     force: bool = false,
 };
 
-/// DestroySessionResponse (0x0109, S->C)
+/// 0x0109, S->C.
 pub const DestroySessionResponse = struct {
     status: u32 = 0,
     @"error": ?[]const u8 = null,
 };
 
-/// RenameSessionRequest (0x010A, C->S)
+/// 0x010A, C->S.
 pub const RenameSessionRequest = struct {
     session_id: u32,
     name: []const u8,
 };
 
-/// RenameSessionResponse (0x010B, S->C)
+/// 0x010B, S->C.
 pub const RenameSessionResponse = struct {
     status: u32 = 0,
     @"error": ?[]const u8 = null,
 };
 
-/// AttachOrCreateRequest (0x010C, C->S)
+/// 0x010C, C->S. Atomically attaches to an existing session by name, or
+/// creates a new one if none exists.
 pub const AttachOrCreateRequest = struct {
     session_name: []const u8 = "",
     cols: u16 = 80,
@@ -101,7 +106,8 @@ pub const AttachOrCreateRequest = struct {
     cwd: []const u8 = "",
 };
 
-/// AttachOrCreateResponse (0x010D, S->C)
+/// 0x010D, S->C. The `action_taken` field indicates whether the server
+/// attached to an existing session or created a new one.
 pub const AttachOrCreateResponse = struct {
     status: u32 = 0,
     action_taken: []const u8 = "attached",

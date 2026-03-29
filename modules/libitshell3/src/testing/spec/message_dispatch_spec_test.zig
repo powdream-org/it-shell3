@@ -1,15 +1,14 @@
 //! Spec compliance tests: Message dispatch and routing.
 //!
-//! Spec sources:
-//!   - daemon-architecture 01-module-structure — server/ component responsibilities
-//!   - protocol 01-protocol-overview — message type ranges
-//!   - daemon-behavior 02-event-handling — event priority (SIGNAL > TIMER > READ > WRITE)
-//!   - daemon-behavior 03-policies-and-procedures Section 6 — input processing priority
-//!   - daemon-behavior 03-policies-and-procedures Section 12 — client state transitions
-//!   - daemon-behavior 02-event-handling Section 6 — client disconnect
+//! Covers event priority ordering, message type validation per connection state,
+//! client disconnect semantics, disconnect reason codes, and ClientDisplayInfo
+//! state allowances.
 //!
-//! These tests are derived from the SPEC, not the implementation.
-//! QA-owned: verifies that the implementation conforms to the design spec.
+//! Spec sources:
+//!   - daemon-architecture module-structure — server/ component responsibilities
+//!   - protocol protocol-overview — message type ranges
+//!   - daemon-behavior event-handling — event priority, client disconnect
+//!   - daemon-behavior policies-and-procedures — input priority, state transitions
 
 const std = @import("std");
 const server = @import("itshell3_server");
@@ -25,12 +24,8 @@ const Filter = interfaces.Filter;
 // ── Spec: Event Priority Ordering ────────────────────────────────────────────
 
 test "spec: event priority — SIGNAL > TIMER > READ > WRITE" {
-    // daemon-behavior 02-event-handling Section 9:
-    // "Priority 1: EVFILT_SIGNAL, Priority 2: EVFILT_TIMER,
-    //  Priority 3: EVFILT_READ, Priority 4: EVFILT_WRITE"
-    //
-    // The Filter enum encodes this as integer values:
-    // signal=0, timer=1, read=2, write=3
+    // The Filter enum encodes priority as integer values:
+    // signal=0, timer=1, read=2, write=3.
     try std.testing.expect(@intFromEnum(Filter.signal) < @intFromEnum(Filter.timer));
     try std.testing.expect(@intFromEnum(Filter.timer) < @intFromEnum(Filter.read));
     try std.testing.expect(@intFromEnum(Filter.read) < @intFromEnum(Filter.write));
@@ -39,9 +34,6 @@ test "spec: event priority — SIGNAL > TIMER > READ > WRITE" {
 // ── Spec: Message Type Validation Per State ──────────────────────────────────
 
 test "spec: dispatch — operational message ranges accepted in OPERATING state" {
-    // daemon-behavior 03-policies-and-procedures Section 12:
-    // OPERATING allows all operational messages.
-    // Verify the key message type ranges are accepted.
     var conn = ConnectionState.init(.{ .fd = 5 }, 1);
     _ = conn.transitionTo(.ready);
     _ = conn.transitionTo(.operating);
@@ -83,9 +75,6 @@ test "spec: dispatch — operational messages rejected in READY state" {
 }
 
 test "spec: dispatch — READY allows session management for transition to OPERATING" {
-    // daemon-behavior 03-policies-and-procedures Section 12:
-    // "READY -> OPERATING: AttachSessionRequest"
-    // READY must allow the messages that trigger this transition.
     var conn = ConnectionState.init(.{ .fd = 5 }, 1);
     _ = conn.transitionTo(.ready);
 
@@ -98,11 +87,8 @@ test "spec: dispatch — READY allows session management for transition to OPERA
 // ── Spec: Client Disconnect ──────────────────────────────────────────────────
 
 test "spec: disconnect — client disconnect does NOT affect session lifecycle" {
-    // daemon-behavior 02-event-handling Section 6.3:
-    // "Client disconnect MUST NOT affect session lifecycle — sessions persist
-    //  until panes exit or daemon shuts down"
-    // This is a design invariant verified at the structural level:
-    // disconnect_handler only modifies the client's connection state, not sessions.
+    // Sessions persist until panes exit or daemon shuts down;
+    // disconnect_handler only modifies the client's connection state.
     var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
@@ -116,14 +102,8 @@ test "spec: disconnect — client disconnect does NOT affect session lifecycle" 
 }
 
 test "spec: disconnect — unexpected disconnect bypasses DISCONNECTING" {
-    // daemon-behavior 03-policies-and-procedures Section 12:
-    // "Unexpected disconnects (conn.recv() returns peer_closed) go directly
-    //  to [closed] without passing through DISCONNECTING."
-    //
-    // In the implementation, peer_closed triggers the disconnect callback
-    // which calls teardown directly. Verify that processIncomingDisconnect
-    // transitions to DISCONNECTING (for graceful path) — the peer_closed path
-    // uses teardown() which marks the slot as unoccupied.
+    // peer_closed triggers teardown directly. processIncomingDisconnect
+    // transitions to DISCONNECTING for the graceful path.
     var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
@@ -134,9 +114,6 @@ test "spec: disconnect — unexpected disconnect bypasses DISCONNECTING" {
 }
 
 test "spec: disconnect — initiateDisconnect is idempotent for DISCONNECTING state" {
-    // daemon-behavior 02-event-handling Section 2:
-    // "Multiple simultaneous shutdown triggers: The shutdown sequence is
-    //  idempotent" — same principle applies to disconnect.
     var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.disconnecting);
 
@@ -178,16 +155,12 @@ test "spec: disconnect — buildDisconnectPayload produces valid JSON" {
 // ── Spec: ClientDisplayInfo in READY State ───────────────────────────────────
 
 test "spec: dispatch — ClientDisplayInfo allowed in READY state" {
-    // protocol 02-handshake-capability-negotiation:
-    // "ClientDisplayInfo sent after ServerHello (READY state)"
     var conn = ConnectionState.init(.{ .fd = 5 }, 1);
     _ = conn.transitionTo(.ready);
     try std.testing.expect(conn.isMessageAllowed(.client_display_info));
 }
 
 test "spec: dispatch — ClientDisplayInfo allowed in OPERATING state" {
-    // protocol 06-flow-control-and-auxiliary:
-    // "This is a runtime message, not handshake-only — the client may send it at any time."
     var conn = ConnectionState.init(.{ .fd = 5 }, 1);
     _ = conn.transitionTo(.ready);
     _ = conn.transitionTo(.operating);

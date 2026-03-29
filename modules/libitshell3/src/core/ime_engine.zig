@@ -1,7 +1,10 @@
+//! IME engine interface and key event types for the input pipeline.
+//! Defines the vtable-based ImeEngine abstraction that Session holds,
+//! enabling mock injection for tests.
+
 const std = @import("std");
 
 /// A key event from the client, represented as a physical key press.
-/// This is the input to the IME engine's processKey() method.
 pub const KeyEvent = struct {
     /// USB HID usage code (Keyboard page 0x07).
     /// Represents the PHYSICAL key position, not the character produced.
@@ -135,35 +138,44 @@ pub const ImeEngine = struct {
         setActiveInputMethod: *const fn (ptr: *anyopaque, method: []const u8) error{UnsupportedInputMethod}!ImeResult,
     };
 
-    // Convenience wrappers
+    // ── Convenience wrappers ──────────────────────────────────────────────
+
+    /// Dispatch a key event to the underlying engine.
     pub fn processKey(self: ImeEngine, key: KeyEvent) ImeResult {
         return self.vtable.processKey(self.ptr, key);
     }
 
+    /// Flush and commit any in-progress composition.
     pub fn flush(self: ImeEngine) ImeResult {
         return self.vtable.flush(self.ptr);
     }
 
+    /// Discard in-progress composition without committing.
     pub fn reset(self: ImeEngine) void {
         self.vtable.reset(self.ptr);
     }
 
+    /// Whether the composition buffer is empty.
     pub fn isEmpty(self: ImeEngine) bool {
         return self.vtable.isEmpty(self.ptr);
     }
 
+    /// Signal the engine that it is becoming active.
     pub fn activate(self: ImeEngine) void {
         self.vtable.activate(self.ptr);
     }
 
+    /// Signal the engine that it is going idle. Flushes pending composition.
     pub fn deactivate(self: ImeEngine) ImeResult {
         return self.vtable.deactivate(self.ptr);
     }
 
+    /// Current active input method identifier (e.g., "direct", "korean_2set").
     pub fn getActiveInputMethod(self: ImeEngine) []const u8 {
         return self.vtable.getActiveInputMethod(self.ptr);
     }
 
+    /// Switch the active input method, flushing pending composition atomically.
     pub fn setActiveInputMethod(self: ImeEngine, method: []const u8) error{UnsupportedInputMethod}!ImeResult {
         return self.vtable.setActiveInputMethod(self.ptr, method);
     }
@@ -171,7 +183,7 @@ pub const ImeEngine = struct {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-/// Trivial test engine that returns empty results and tracks calls.
+// Trivial test engine that returns empty results and tracks calls.
 const TestEngine = struct {
     process_key_count: usize = 0,
     flush_count: usize = 0,

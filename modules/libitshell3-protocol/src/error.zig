@@ -1,6 +1,8 @@
+//! Error and status code types for protocol responses and error frames.
+
 const std = @import("std");
 
-/// Per-response status codes. See the server-client-protocols session/pane management spec.
+/// Per-response status codes used in session/pane management reply payloads.
 pub const StatusCode = enum(u32) {
     ok = 0,
     not_found = 1,
@@ -14,7 +16,8 @@ pub const StatusCode = enum(u32) {
     _,
 };
 
-/// Protocol-level error codes. See the server-client-protocols handshake spec.
+/// Protocol-level error codes carried in ErrorResponse (0x00FF) frames.
+/// Codes 0x01-0x1FF are fatal (connection must close).
 pub const ErrorCode = enum(u32) {
     // Protocol errors (0x01-0xFF)
     bad_magic = 0x00000001,
@@ -49,6 +52,8 @@ pub const ErrorCode = enum(u32) {
     internal = 0xFFFFFFFF,
     _,
 
+    /// Whether this error code requires the connection to be closed.
+    /// Protocol errors (0x01-0xFF) and handshake errors (0x100-0x1FF) are fatal.
     pub fn isFatal(self: ErrorCode) bool {
         const code = @intFromEnum(self);
         // Protocol errors (0x01-0xFF) and handshake errors (0x100-0x1FF) are fatal
@@ -56,7 +61,7 @@ pub const ErrorCode = enum(u32) {
     }
 };
 
-/// Error message payload (0x00FF)
+/// 0x00FF. Error frame payload sent when a protocol or application error occurs.
 pub const ErrorResponse = struct {
     error_code: u32,
     ref_sequence: u32 = 0,

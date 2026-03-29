@@ -1,3 +1,7 @@
+//! Ring buffer for terminal frame delivery. Stores I-frame and P-frame wire
+//! bytes with zero-copy iovec-based consumer reads. Per-client cursors track
+//! independent read positions, and I-frame seeking provides universal recovery.
+
 const std = @import("std");
 
 pub const DEFAULT_RING_SIZE: usize = 2 * 1024 * 1024; // 2 MB
@@ -15,8 +19,7 @@ pub const FrameMeta = struct {
     frame_sequence: u64 = 0,
 };
 
-/// Per-client read cursor into the ring buffer.
-/// Per daemon-architecture state-and-types spec: cursor tracks read position + last I-frame position.
+/// Tracks a single client's read position and last-delivered I-frame offset.
 pub const RingCursor = struct {
     /// Monotonic byte offset. Ring position = position % capacity.
     position: usize = 0,
@@ -46,9 +49,7 @@ pub const RingCursor = struct {
 };
 
 /// Two iovecs covering all pending bytes from cursor to write_pos.
-/// When pending range does not wrap: iov[0] is valid, iov[1].len == 0.
-/// When pending range wraps the ring: both iov[0] and iov[1] are valid.
-/// Per daemon-architecture state-and-types and daemon-behavior policies spec: caller passes these directly to writev() — zero copy.
+/// Passed directly to writev() for zero-copy delivery.
 pub const PendingIovecs = struct {
     iov: [2]std.posix.iovec_const,
     count: usize, // 1 or 2
@@ -168,11 +169,8 @@ pub const RingBuffer = struct {
         return self.total_written - cursor.position;
     }
 
-    /// Return iovecs covering ALL pending bytes from cursor to write_pos.
-    /// Per daemon-architecture state-and-types and daemon-behavior policies spec: iovecs point DIRECTLY into self.buf — zero copy.
-    /// When range does not wrap: count=1, iov[0] covers the full range.
-    /// When range wraps the ring: count=2, iov[0] = tail segment, iov[1] = head segment.
-    /// Returns null when no pending bytes (available == 0 or cursor overwritten).
+    /// Returns iovecs pointing directly into `self.buf` for zero-copy delivery.
+    /// Returns null when no pending bytes.
     pub fn pendingIovecs(self: *const RingBuffer, cursor: *const RingCursor) ?PendingIovecs {
         const avail = self.available(cursor);
         if (avail == 0) return null;
@@ -200,34 +198,17 @@ pub const RingBuffer = struct {
         }
     }
 
-    /// Advance cursor by exactly n bytes.
-    /// Per daemon-behavior policies spec: "advance client cursor by n bytes".
-    /// n must not exceed available(cursor). Asserts in debug builds.
+    /// Advances cursor by exactly `n` bytes. Asserts `n <= available(cursor)`.
     pub fn advanceCursor(self: *const RingBuffer, cursor: *RingCursor, n: usize) void {
         std.debug.assert(n <= self.available(cursor));
         cursor.position += n;
     }
 
-    /// Advance cursor to the latest I-frame position in the ring.
+    /// Seeks cursor to the latest I-frame for universal recovery (slow client,
+    /// reattach, pause/continue). The I-frame IS the resync — no special
+    /// codepath needed.
     ///
-    /// This is the universal recovery operation — all recovery scenarios
-    /// collapse into this single call (per daemon-architecture and daemon-behavior specs):
-    ///   - Slow client: cursor overwritten by ring wrap → seek to I-frame
-    ///   - ContinuePane after PausePane → seek to I-frame
-    ///   - Stale client recovery → seek to I-frame
-    ///   - Client attach/reattach → seek to I-frame
-    ///
-    /// After seeking, the client receives a complete terminal state
-    /// (I-frame) as its next delivery, then resumes incremental P-frames.
-    /// No special recovery codepath — the I-frame IS the resync.
-    ///
-    /// Also updates cursor.last_i_frame so the daemon can later check
-    /// whether this I-frame is still valid in the ring.
-    ///
-    /// No-op if no I-frame has ever been written to the ring, or if the
-    /// latest I-frame has itself been overwritten (ring too small for the
-    /// write rate). In the latter case the caller should produce a fresh
-    /// I-frame before retrying.
+    /// No-op if no I-frame exists or the latest has been overwritten.
     pub fn seekToLatestIFrame(self: *const RingBuffer, cursor: *RingCursor) void {
         if (!self.has_i_frame) return;
         const meta = self.frame_index[self.latest_i_frame_idx];
@@ -237,14 +218,9 @@ pub const RingBuffer = struct {
         }
     }
 
-    /// Returns true if the ring contains at least one I-frame that hasn't
-    /// been overwritten. Used to check the ring invariant (per daemon-architecture state-and-types spec:
-    /// "ring MUST always contain at least one complete I-frame").
-    ///
-    /// When this returns false and the ring is actively being written to,
-    /// the frame export logic (Plan 9) must force-produce an I-frame
-    /// before any more P-frames — otherwise seekToLatestIFrame will be a
-    /// no-op and slow clients cannot recover.
+    /// Whether the ring contains at least one non-overwritten I-frame.
+    /// When false, frame export must produce a fresh I-frame before any
+    /// more P-frames — otherwise slow clients cannot recover.
     pub fn hasValidIFrame(self: *const RingBuffer) bool {
         if (!self.has_i_frame) return false;
         const meta = self.frame_index[self.latest_i_frame_idx];

@@ -1,3 +1,6 @@
+//! Session state for a single terminal multiplexer session.
+//! Owns the split tree, focused pane, IME engine binding, and preedit cache.
+
 const std = @import("std");
 const types = @import("types.zig");
 const split_tree = @import("split_tree.zig");
@@ -12,6 +15,8 @@ pub const SplitNodeData = split_tree.SplitNodeData;
 pub const PreeditState = preedit_state.PreeditState;
 pub const ImeEngine = ime_engine_mod.ImeEngine;
 
+/// A terminal multiplexer session: one split tree of panes, one IME engine,
+/// and associated metadata (name, input method, keyboard layout).
 pub const Session = struct {
     session_id: SessionId,
     name: [types.MAX_SESSION_NAME]u8,
@@ -72,14 +77,17 @@ pub const Session = struct {
         };
     }
 
+    /// Slice into the inline name buffer.
     pub fn getName(self: *const Session) []const u8 {
         return self.name[0..self.name_length];
     }
 
+    /// Slice into the inline input method buffer (e.g., "direct", "korean_2set").
     pub fn getActiveInputMethod(self: *const Session) []const u8 {
         return self.active_input_method[0..self.active_input_method_length];
     }
 
+    /// Slice into the inline keyboard layout buffer (e.g., "qwerty").
     pub fn getActiveKeyboardLayout(self: *const Session) []const u8 {
         return self.active_keyboard_layout[0..self.active_keyboard_layout_length];
     }

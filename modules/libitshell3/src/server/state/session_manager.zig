@@ -1,3 +1,6 @@
+//! Fixed-size session slot array manager. Creates, destroys, and looks up
+//! sessions by ID or slot index. Statically allocated in .bss per ADR 00052.
+
 const std = @import("std");
 const core = @import("itshell3_core");
 const types = core.types;
@@ -10,6 +13,7 @@ pub const MAX_SESSIONS = types.MAX_SESSIONS;
 pub const SessionEntry = session_entry_mod.SessionEntry;
 pub const Session = session_mod.Session;
 
+/// Fixed-size array of session slots with monotonic ID assignment.
 pub const SessionManager = struct {
     sessions: [MAX_SESSIONS]?SessionEntry,
     next_session_id: SessionId,

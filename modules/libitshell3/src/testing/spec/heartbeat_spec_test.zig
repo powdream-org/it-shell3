@@ -1,13 +1,12 @@
 //! Spec compliance tests: Heartbeat.
 //!
-//! Spec sources:
-//!   - daemon-behavior 03-policies-and-procedures Section 10 — heartbeat policy
-//!   - protocol 01-protocol-overview — 30s interval, 90s timeout, bidirectional
-//!   - daemon-behavior 03-policies-and-procedures Section 3.3 — HeartbeatAck
-//!     does NOT reset stale timeout
+//! Covers 30s interval, 90s timeout, bidirectional heartbeat semantics,
+//! HeartbeatAck activity recording, state-based client skipping, and
+//! ping_id wrapping.
 //!
-//! These tests are derived from the SPEC, not the implementation.
-//! QA-owned: verifies that the implementation conforms to the design spec.
+//! Spec sources:
+//!   - daemon-behavior policies-and-procedures — heartbeat policy
+//!   - protocol protocol-overview — interval, timeout, bidirectional
 
 const std = @import("std");
 const server = @import("itshell3_server");

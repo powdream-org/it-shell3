@@ -1,7 +1,12 @@
+//! Frame writing utility for serializing complete protocol frames
+//! (header + payload) to any std.io writer.
+
 const std = @import("std");
 const header_mod = @import("header.zig");
 
-/// Write a complete frame (header + payload) to a writer.
+/// Writes a complete protocol frame (16-byte header followed by payload) to
+/// `writer`. The caller is responsible for setting `hdr.payload_length` to
+/// match `payload.len`.
 pub fn writeFrame(writer: anytype, hdr: header_mod.Header, payload: []const u8) @TypeOf(writer).Error!void {
     var hdr_buf: [header_mod.HEADER_SIZE]u8 = undefined;
     hdr.encode(&hdr_buf);

@@ -1,6 +1,10 @@
+//! Handshake and lifecycle messages exchanged at connection establishment
+//! and for keepalive/disconnect signaling.
+
 const std = @import("std");
 
-/// ClientHello (0x0001, C->S)
+/// 0x0001, C->S. Initial handshake from client declaring protocol version
+/// range, capabilities, terminal size, and preferred input methods.
 pub const ClientHello = struct {
     protocol_version_min: u8 = 1,
     protocol_version_max: u8 = 1,
@@ -24,7 +28,8 @@ pub const ClientHello = struct {
     };
 };
 
-/// ServerHello (0x0002, S->C)
+/// 0x0002, S->C. Server's handshake response with negotiated capabilities,
+/// coalescing config, and existing session list.
 pub const ServerHello = struct {
     protocol_version: u8 = 1,
     client_id: u32,
@@ -64,17 +69,17 @@ pub const ServerHello = struct {
     };
 };
 
-/// Heartbeat (0x0003, bidirectional)
+/// 0x0003, bidirectional. Keepalive ping.
 pub const Heartbeat = struct {
     ping_id: u32,
 };
 
-/// HeartbeatAck (0x0004, bidirectional)
+/// 0x0004, bidirectional. Keepalive pong.
 pub const HeartbeatAck = struct {
     ping_id: u32,
 };
 
-/// Disconnect (0x0005, bidirectional)
+/// 0x0005, bidirectional. Graceful connection teardown.
 pub const Disconnect = struct {
     reason: []const u8 = "",
     detail: []const u8 = "",

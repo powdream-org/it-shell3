@@ -18,7 +18,6 @@ pub const MAX_CLIENTS: u16 = 64;
 
 pub const AddError = error{MaxClientsReached};
 
-/// Manages a fixed-size array of ClientState slots.
 /// Client IDs are monotonically increasing and never reused within daemon lifetime.
 pub const ClientManager = struct {
     /// Client slots. Only the `occupied` field is meaningful for uninitialized
@@ -41,7 +40,7 @@ pub const ClientManager = struct {
         return result;
     }
 
-    /// Add a new client connection. Returns the slot index.
+    /// Assigns a monotonic client_id and returns the slot index.
     pub fn addClient(self: *ClientManager, socket: SocketConnection) AddError!u16 {
         const slot_idx = self.findFreeSlot() orelse return error.MaxClientsReached;
         const client_id = self.next_client_id;
@@ -51,7 +50,6 @@ pub const ClientManager = struct {
         return slot_idx;
     }
 
-    /// Remove a client by slot index. Marks the slot as unoccupied.
     pub fn removeClient(self: *ClientManager, slot_idx: u16) void {
         if (slot_idx >= MAX_CLIENTS) return;
         if (!self.slots[slot_idx].occupied) return;
@@ -59,21 +57,18 @@ pub const ClientManager = struct {
         self.active_count -= 1;
     }
 
-    /// Look up a client by slot index.
     pub fn getClient(self: *ClientManager, slot_idx: u16) ?*ClientState {
         if (slot_idx >= MAX_CLIENTS) return null;
         if (!self.slots[slot_idx].occupied) return null;
         return &self.slots[slot_idx];
     }
 
-    /// Look up a client by slot index (const version).
     pub fn getClientConst(self: *const ClientManager, slot_idx: u16) ?*const ClientState {
         if (slot_idx >= MAX_CLIENTS) return null;
         if (!self.slots[slot_idx].occupied) return null;
         return &self.slots[slot_idx];
     }
 
-    /// Find a client slot index by client_id.
     pub fn findByClientId(self: *const ClientManager, client_id: u32) ?u16 {
         var i: u32 = 0;
         while (i < MAX_CLIENTS) : (i += 1) {
@@ -85,7 +80,6 @@ pub const ClientManager = struct {
         return null;
     }
 
-    /// Find a client slot index by socket fd.
     pub fn findByFd(self: *const ClientManager, fd: std.posix.fd_t) ?u16 {
         var i: u32 = 0;
         while (i < MAX_CLIENTS) : (i += 1) {
@@ -131,7 +125,6 @@ pub const ClientManager = struct {
         }
     }
 
-    /// Number of currently occupied slots.
     pub fn count(self: *const ClientManager) u16 {
         return self.active_count;
     }

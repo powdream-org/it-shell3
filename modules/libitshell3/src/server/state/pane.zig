@@ -1,3 +1,6 @@
+//! Server-side pane state. Wraps a PTY master fd, child process, ghostty
+//! terminal/render-state pointers, and two-phase exit tracking (SIGCHLD + EOF).
+
 const std = @import("std");
 const core = @import("itshell3_core");
 const types = core.types;
@@ -5,6 +8,9 @@ const ghostty = @import("itshell3_ghostty");
 const terminal_mod = ghostty.terminal;
 const render_state_mod = ghostty.render_state;
 
+/// A single terminal pane within a session. Owns the PTY fd and child PID,
+/// holds optional ghostty terminal/render-state pointers, and tracks
+/// two-phase exit (SIGCHLD + PTY EOF must both arrive before cleanup).
 pub const Pane = struct {
     pane_id: types.PaneId,
     slot_index: types.PaneSlot,

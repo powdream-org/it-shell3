@@ -87,19 +87,16 @@ pub const ExportResult = extern struct {
     _pad: [5]u8,
 };
 
-/// Flatten RenderState cells into a flat FlatCell[] buffer for wire transfer.
-///
-/// The caller must call updateRenderState() before this to snapshot terminal
-/// state. This separation gives server/ explicit control over the
-/// update → dirty-check → export pipeline (per daemon-architecture state-and-types spec).
-///
-/// The returned ExportResult owns the cell buffer. Caller must free via freeExport().
+/// Free the cell buffer owned by an ExportResult returned from bulkExport().
 pub fn freeExport(alloc: Allocator, result: *ExportResult) void {
     const total: usize = @as(usize, result.rows) * @as(usize, result.cols);
     alloc.free(result.cells[0..total]);
     result.* = undefined;
 }
 
+/// Flatten the terminal's current RenderState into a caller-owned FlatCell[]
+/// buffer suitable for wire transfer. Call updateRenderState() first to
+/// snapshot terminal state. Free the result via freeExport().
 pub fn bulkExport(
     alloc: Allocator,
     state: *const RenderState,

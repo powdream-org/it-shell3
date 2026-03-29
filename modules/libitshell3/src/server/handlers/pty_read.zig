@@ -1,3 +1,6 @@
+//! PTY read chain handler. Drains available PTY output, feeds it through the
+//! persistent ghostty VT stream, and marks the pane dirty for frame export.
+
 const std = @import("std");
 const interfaces = @import("../os/interfaces.zig");
 const event_loop_mod = @import("event_loop.zig");
@@ -42,10 +45,9 @@ pub fn chainHandle(context: *anyopaque, event: interfaces.Event, next: ?*const H
     if (next) |n| n.invoke(event);
 }
 
-/// Handle PTY read event: drain all available PTY output, feed to ghostty
-/// terminal, mark pane dirty after reading, and mark EOF when done.
-/// Reads in a loop until EAGAIN/0 to avoid requiring one event-loop round-trip
-/// per read.
+/// Drains all available PTY output in a loop, feeds through the ghostty VT
+/// stream, and marks the pane dirty. Reads until EAGAIN/0 to avoid requiring
+/// one event-loop round-trip per read.
 pub fn handlePtyRead(
     pty_ops: *const interfaces.PtyOps,
     pane: *pane_mod.Pane,

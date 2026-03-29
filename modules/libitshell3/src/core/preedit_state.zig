@@ -1,11 +1,20 @@
+//! Preedit composition ownership tracking. Ensures only one client at a time
+//! can drive IME composition on a given session.
+
 const std = @import("std");
 const types = @import("types.zig");
 
 pub const ClientId = types.ClientId;
 
+/// Tracks which client owns the active IME composition for a session.
+/// The session_id is bumped on each ownership transfer so stale preedit
+/// updates from a previous owner can be detected and discarded.
 pub const PreeditState = struct {
-    owner: ?ClientId, // Which client owns the current composition, or null
-    session_id: u32, // Monotonically increasing sequence counter
+    /// Which client owns the current composition, or null if idle.
+    owner: ?ClientId,
+
+    /// Bumped on each ownership transfer to detect stale updates.
+    session_id: u32,
 
     pub fn init() PreeditState {
         return .{ .owner = null, .session_id = 0 };

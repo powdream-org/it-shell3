@@ -1,29 +1,19 @@
+//! Mock ImeEngine for deterministic daemon-side testing.
+//! Supports configurable responses and call history tracking.
+
 const std = @import("std");
 const core = @import("itshell3_core");
 const ImeEngine = core.ImeEngine;
 const KeyEvent = core.KeyEvent;
 const ImeResult = core.ImeResult;
 
-/// MockImeEngine implements the ImeEngine vtable for daemon-side tests.
-/// Supports configurable responses and call history tracking.
 pub const MockImeEngine = struct {
-    /// Queue of results to return from processKey, in order.
     results: []const ImeResult = &.{},
     call_index: usize = 0,
-
-    /// Result to return from flush().
     flush_result: ImeResult = .{},
-
-    /// Result to return from deactivate().
     deactivate_result: ImeResult = .{},
-
-    /// Current active input method (for getActiveInputMethod).
     active_input_method: []const u8 = "direct",
-
-    /// Result to return from setActiveInputMethod().
     set_active_input_method_result: ImeResult = .{},
-
-    /// Whether the engine is empty (for isEmpty).
     is_empty_val: bool = true,
 
     // --- Call history tracking ---
@@ -106,8 +96,7 @@ pub const MockImeEngine = struct {
         const self: *MockImeEngine = @ptrCast(@alignCast(ptr));
         self.set_active_input_method_count += 1;
         self.last_set_active_input_method = method;
-        // Per interface-contract 03-engine-interface section 2 Case 3:
-        // return error.UnsupportedInputMethod for unrecognized strings.
+        // Per the engine-interface spec: return error for unrecognized strings.
         if (!std.mem.eql(u8, method, "direct") and !std.mem.eql(u8, method, "korean_2set")) {
             return error.UnsupportedInputMethod;
         }

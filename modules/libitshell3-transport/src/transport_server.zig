@@ -30,13 +30,14 @@ pub const AcceptError = error{
     GetPeerCredFailed,
 };
 
+/// Result of probing whether an existing socket file belongs to a live daemon.
 pub const StaleProbeResult = enum {
     no_prior_socket,
     stale_socket,
     daemon_running,
 };
 
-/// Server-side socket listener.
+/// Manages a bound Unix listen socket and accepts UID-verified client connections.
 pub const Listener = struct {
     listen_fd: socket_t,
     socket_path_storage: [MAX_SOCKET_PATH]u8,
@@ -47,7 +48,6 @@ pub const Listener = struct {
         return self.listen_fd;
     }
 
-    /// The bound socket path.
     pub fn socketPath(self: *const Listener) []const u8 {
         return self.socket_path_storage[0..self.socket_path_length];
     }
@@ -103,7 +103,7 @@ pub const Listener = struct {
         std.posix.setsockopt(fd_val, SOL_SOCKET, SO_RCVBUF, &size_bytes) catch {};
     }
 
-    /// Closes the listen fd and unlinks the socket file.
+    /// Releases the listener: closes the fd and removes the socket file from disk.
     pub fn deinit(self: *Listener) void {
         std.posix.close(self.listen_fd);
         const path = self.socketPath();

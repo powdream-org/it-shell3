@@ -76,9 +76,8 @@ pub const SERVER_INPUT_METHODS: []const ServerHello.InputMethodInfo = &.{
     .{ .method = "korean_2set", .layouts = &.{"qwerty"} },
 };
 
-/// Process a ClientHello message and produce a HandshakeResult.
+/// Validates protocol version and negotiates capabilities from a ClientHello.
 /// Does NOT mutate the connection state -- the caller applies the transition.
-/// The `allocator` is used for JSON parsing and serialization scratch space.
 pub fn processClientHello(
     allocator: std.mem.Allocator,
     client_hello_json: []const u8,

@@ -19,7 +19,6 @@ pub const State = enum {
     disconnecting,
 };
 
-/// Server-side connection state machine wrapping a SocketConnection.
 pub const ConnectionState = struct {
     socket: SocketConnection,
     state: State,
@@ -50,7 +49,6 @@ pub const ConnectionState = struct {
         }
     };
 
-    /// Initialize a new connection state in HANDSHAKING.
     pub fn init(socket: SocketConnection, client_id: u32) ConnectionState {
         return .{
             .socket = socket,
@@ -59,8 +57,7 @@ pub const ConnectionState = struct {
         };
     }
 
-    /// Attempt to transition to the given state. Returns true on success.
-    /// Enforces protocol state transition rules.
+    /// Whether the transition succeeded. Returns false for invalid transitions.
     pub fn transitionTo(self: *ConnectionState, target: State) bool {
         const valid = switch (self.state) {
             .handshaking => target == .ready or target == .disconnecting,
@@ -74,15 +71,14 @@ pub const ConnectionState = struct {
         return valid;
     }
 
-    /// Advance the send sequence counter and return the current value.
-    /// Starts at 1, wraps from 0xFFFFFFFF back to 1 (skipping 0).
+    /// Returns the current sequence and increments. Wraps to 1, skipping 0.
     pub fn advanceSendSequence(self: *ConnectionState) u32 {
         const seq = self.send_sequence;
         self.send_sequence = if (self.send_sequence == 0xFFFFFFFF) 1 else self.send_sequence + 1;
         return seq;
     }
 
-    /// Check whether a message type is valid for the current connection state.
+    /// Whether `msg_type` is valid for the current connection state.
     pub fn isMessageAllowed(self: *const ConnectionState, msg_type: MessageType) bool {
         return switch (self.state) {
             .handshaking => switch (msg_type) {
@@ -117,12 +113,10 @@ pub const ConnectionState = struct {
         };
     }
 
-    /// Add a negotiated general capability.
     pub fn addCapability(self: *ConnectionState, name: []const u8) void {
         addCapabilityTo(&self.negotiated_caps, &self.negotiated_caps_count, MAX_CAPABILITIES, name);
     }
 
-    /// Add a negotiated render capability.
     pub fn addRenderCapability(self: *ConnectionState, name: []const u8) void {
         addCapabilityTo(&self.negotiated_render_caps, &self.negotiated_render_caps_count, MAX_RENDER_CAPABILITIES, name);
     }

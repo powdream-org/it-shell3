@@ -7,6 +7,7 @@ const ImeEngine = engine_mod.ImeEngine;
 const KeyEvent = engine_mod.KeyEvent;
 const ImeResult = engine_mod.ImeResult;
 
+/// Test double for ImeEngine that returns pre-configured results without libhangul.
 pub const MockImeEngine = struct {
     /// Queue of results to return from processKey, in order.
     results: []const ImeResult = &.{},

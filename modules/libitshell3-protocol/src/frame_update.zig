@@ -1,25 +1,37 @@
+//! Binary frame update messages (0x0300) carrying RenderState data from
+//! daemon to client. Each frame has a 20-byte FrameHeader followed by
+//! optional dirty-row and JSON metadata sections.
+
 const std = @import("std");
 const cell_mod = @import("cell.zig");
 
 // --- Frame Header (20 bytes binary) ---
 
+/// Wire size of the frame-update-specific header that follows the 16-byte
+/// protocol header.
 pub const FRAME_HEADER_SIZE: usize = 20;
 
+/// Whether this frame is a delta (P-frame) or a full keyframe (I-frame).
 pub const FrameType = enum(u8) {
     p_frame = 0, // Partial (delta)
     i_frame = 1, // Keyframe (full)
 };
 
+/// Which terminal screen buffer this frame targets.
 pub const Screen = enum(u8) {
     primary = 0,
     alternate = 1,
 };
 
+/// Bitmask constants for FrameHeader.section_flags indicating which
+/// optional sections follow the frame header.
 pub const SectionFlags = struct {
     pub const dirty_rows: u16 = 1 << 4;
     pub const json_metadata: u16 = 1 << 7;
 };
 
+/// 20-byte frame-update header identifying the session, pane, sequence,
+/// frame type, screen, and which optional sections are present.
 pub const FrameHeader = struct {
     session_id: u32,
     pane_id: u32,
@@ -59,6 +71,8 @@ pub const FrameHeader = struct {
 
 // --- DirtyRows ---
 
+/// A single row of cell data within the dirty-rows section, along with
+/// optional grapheme and underline color side tables.
 pub const DirtyRow = struct {
     header: cell_mod.RowHeader,
     cells: []const cell_mod.CellData,
@@ -66,7 +80,7 @@ pub const DirtyRow = struct {
     underline_color_entries: []const cell_mod.UnderlineColorEntry = &.{},
 };
 
-/// Encode dirty rows to a writer.
+/// Serializes the dirty-rows section (count-prefixed) to `writer`.
 pub fn encodeDirtyRows(rows: []const DirtyRow, writer: anytype) !void {
     var count_buf: [2]u8 = undefined;
     std.mem.writeInt(u16, &count_buf, @intCast(rows.len), .little);
@@ -88,7 +102,7 @@ pub fn encodeDirtyRows(rows: []const DirtyRow, writer: anytype) !void {
     }
 }
 
-/// Decode dirty rows from a reader. Caller owns returned memory.
+/// Deserializes the dirty-rows section from `reader`. Caller owns returned memory.
 pub fn decodeDirtyRows(reader: anytype, allocator: std.mem.Allocator) ![]DirtyRow {
     var count_buf: [2]u8 = undefined;
     try reader.readNoEof(&count_buf);
@@ -164,7 +178,7 @@ pub fn decodeDirtyRows(reader: anytype, allocator: std.mem.Allocator) ![]DirtyRo
     return rows;
 }
 
-/// Free dirty rows allocated by decodeDirtyRows.
+/// Frees dirty rows allocated by decodeDirtyRows, including nested allocations.
 pub fn freeDirtyRows(rows: []DirtyRow, allocator: std.mem.Allocator) void {
     for (rows) |row| {
         allocator.free(row.cells);
@@ -179,6 +193,8 @@ pub fn freeDirtyRows(rows: []DirtyRow, allocator: std.mem.Allocator) void {
 
 // --- JSON Metadata ---
 
+/// JSON-encoded metadata section of a frame update, carrying cursor position,
+/// terminal dimensions, colors, mouse mode, and terminal mode state.
 pub const FrameMetadata = struct {
     cursor: ?CursorInfo = null,
     dimensions: ?DimensionsInfo = null,
@@ -227,7 +243,8 @@ pub const FrameMetadata = struct {
     };
 };
 
-/// Encode JSON metadata blob: [json_len (u32 LE)] [json_data]
+/// Serializes the JSON metadata section as a length-prefixed blob
+/// (u32 LE length + JSON bytes) to `writer`.
 pub fn encodeJsonMetadata(allocator: std.mem.Allocator, metadata: FrameMetadata, writer: anytype) !void {
     const json_bytes = try std.json.Stringify.valueAlloc(allocator, metadata, .{
         .emit_null_optional_fields = false,
@@ -239,7 +256,7 @@ pub fn encodeJsonMetadata(allocator: std.mem.Allocator, metadata: FrameMetadata,
     try writer.writeAll(json_bytes);
 }
 
-/// Decode JSON metadata blob. Caller must call deinit() on result.
+/// Deserializes a length-prefixed JSON metadata blob. Caller must call deinit() on the result.
 pub fn decodeJsonMetadata(reader: anytype, allocator: std.mem.Allocator) !std.json.Parsed(FrameMetadata) {
     var len_buf: [4]u8 = undefined;
     try reader.readNoEof(&len_buf);
@@ -252,8 +269,8 @@ pub fn decodeJsonMetadata(reader: anytype, allocator: std.mem.Allocator) !std.js
     });
 }
 
-/// Encode a complete FrameUpdate payload (after the 16-byte protocol header).
-/// Returns the payload bytes. Caller owns the memory.
+/// Builds a complete FrameUpdate payload (frame header + optional sections).
+/// The returned bytes go after the 16-byte protocol header. Caller owns the memory.
 pub fn encodeFrameUpdate(
     allocator: std.mem.Allocator,
     frame_header: FrameHeader,

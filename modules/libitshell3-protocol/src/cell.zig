@@ -1,8 +1,10 @@
+//! Binary cell data types for the RenderState frame wire format.
+//! All multi-byte fields are little-endian on the wire.
+
 const std = @import("std");
 
-/// PackedColor (4 bytes)
-/// Byte 0: tag (0x00=default, 0x01=palette, 0x02=rgb)
-/// Bytes 1-3: data (palette index or R,G,B)
+/// 4-byte tagged color: tag byte selects default/palette/RGB, followed by 3
+/// data bytes whose interpretation depends on the tag.
 pub const PackedColor = extern struct {
     tag: u8,
     data: [3]u8,
@@ -22,9 +24,8 @@ pub const PackedColor = extern struct {
     }
 };
 
-/// CellData (16 bytes, extern struct for exact binary layout)
-/// All fields little-endian on wire.
-/// Layout: codepoint(4) wide(1) flags(2) content_tag(1) fg_color(4) bg_color(4) = 16 bytes
+/// 16-byte terminal cell for binary frame transmission (extern struct for
+/// exact layout). Uses little-endian on the wire.
 pub const CellData = extern struct {
     codepoint: u32, // Unicode codepoint (0 = empty)
     wide: u8, // 0=narrow, 1=wide, 2=spacer_tail, 3=spacer_head
@@ -52,7 +53,8 @@ pub const CellData = extern struct {
     };
 };
 
-/// Style flags (u16 LE). See the server-client-protocols RenderState spec.
+/// Bitmask constants for the `CellData.flags` field. See the
+/// server-client-protocols RenderState spec for semantics.
 pub const StyleFlags = struct {
     pub const bold: u16 = 1 << 0;
     pub const italic: u16 = 1 << 1;
@@ -67,9 +69,11 @@ pub const StyleFlags = struct {
     pub const underline_shift: u8 = 8;
 };
 
-/// RowHeader (9 bytes binary)
-/// Cannot use extern struct — C ABI pads after row_flags (u8) to align
-/// selection_start (u16), making it 10 bytes. Use manual encode/decode.
+/// 9-byte row header for binary frame transmission.
+///
+/// Cannot use extern struct because C ABI pads after row_flags (u8) to
+/// align selection_start (u16), inflating the size to 10 bytes. Manual
+/// encode/decode preserves the 9-byte wire layout.
 pub const RowHeader = struct {
     y: u16, // Row index (0=top)
     row_flags: u8, // Bit 0=selection, 1=rle_encoded, 2-3=semantic_prompt, 4=hyperlink
@@ -106,20 +110,20 @@ pub const RowHeader = struct {
     }
 };
 
-/// GraphemeTable entry — variable-length per row
+/// Variable-length grapheme cluster entry appended after cell data for rows
+/// containing multi-codepoint graphemes.
 pub const GraphemeEntry = struct {
     col_index: u16,
     extra_codepoints: []const u32,
 };
 
-/// UnderlineColorTable entry
+/// Per-cell underline color override appended after the grapheme table.
 pub const UnderlineColorEntry = struct {
     col_index: u16,
     underline_color: PackedColor,
 };
 
-/// Encode CellData to exactly 16 bytes (little-endian, portable)
-/// Wire layout matches extern struct: codepoint(0-3) wide(4) flags(5-6) content_tag(7) fg(8-11) bg(12-15)
+/// Serializes a CellData to its 16-byte little-endian wire representation.
 pub fn encodeCellData(cell: CellData, out: *[16]u8) void {
     std.mem.writeInt(u32, out[0..4], cell.codepoint, .little);
     out[4] = cell.wide;
@@ -135,6 +139,7 @@ pub fn encodeCellData(cell: CellData, out: *[16]u8) void {
     out[15] = cell.bg_color.data[2];
 }
 
+/// Deserializes a CellData from its 16-byte little-endian wire representation.
 pub fn decodeCellData(buf: *const [16]u8) CellData {
     return .{
         .codepoint = std.mem.readInt(u32, buf[0..4], .little),
@@ -146,7 +151,7 @@ pub fn decodeCellData(buf: *const [16]u8) CellData {
     };
 }
 
-/// Encode RowHeader to exactly 9 bytes (little-endian)
+/// Serializes a RowHeader to its 9-byte little-endian wire representation.
 pub fn encodeRowHeader(rh: RowHeader, out: *[RowHeader.SIZE]u8) void {
     std.mem.writeInt(u16, out[0..2], rh.y, .little);
     out[2] = rh.row_flags;
@@ -155,6 +160,7 @@ pub fn encodeRowHeader(rh: RowHeader, out: *[RowHeader.SIZE]u8) void {
     std.mem.writeInt(u16, out[7..9], rh.num_cells, .little);
 }
 
+/// Deserializes a RowHeader from its 9-byte little-endian wire representation.
 pub fn decodeRowHeader(buf: *const [RowHeader.SIZE]u8) RowHeader {
     return .{
         .y = std.mem.readInt(u16, buf[0..2], .little),
@@ -165,14 +171,16 @@ pub fn decodeRowHeader(buf: *const [RowHeader.SIZE]u8) RowHeader {
     };
 }
 
-/// RLE run: 2 bytes run_length + 16 bytes CellData = 18 bytes
+/// Wire size of a single RLE run (2-byte run_length + 16-byte CellData).
 pub const RLE_RUN_SIZE: usize = 18;
 
+/// Serializes an RLE run (repeat count + cell) to its 18-byte wire form.
 pub fn encodeRleRun(run_length: u16, cell: CellData, out: *[RLE_RUN_SIZE]u8) void {
     std.mem.writeInt(u16, out[0..2], run_length, .little);
     encodeCellData(cell, out[2..18]);
 }
 
+/// Deserializes an RLE run from its 18-byte wire form.
 pub fn decodeRleRun(buf: *const [RLE_RUN_SIZE]u8) struct { run_length: u16, cell: CellData } {
     return .{
         .run_length = std.mem.readInt(u16, buf[0..2], .little),
@@ -180,7 +188,7 @@ pub fn decodeRleRun(buf: *const [RLE_RUN_SIZE]u8) struct { run_length: u16, cell
     };
 }
 
-/// Encode GraphemeTable entries to a writer.
+/// Serializes a grapheme table (count-prefixed entries) to `writer`.
 pub fn encodeGraphemeTable(entries: []const GraphemeEntry, writer: anytype) !void {
     var count_buf: [2]u8 = undefined;
     std.mem.writeInt(u16, &count_buf, @intCast(entries.len), .little);
@@ -199,7 +207,7 @@ pub fn encodeGraphemeTable(entries: []const GraphemeEntry, writer: anytype) !voi
     }
 }
 
-/// Encode UnderlineColorTable entries to a writer.
+/// Serializes an underline color table (count-prefixed entries) to `writer`.
 pub fn encodeUnderlineColorTable(entries: []const UnderlineColorEntry, writer: anytype) !void {
     var count_buf: [2]u8 = undefined;
     std.mem.writeInt(u16, &count_buf, @intCast(entries.len), .little);

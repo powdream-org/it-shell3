@@ -22,8 +22,6 @@ const direct_queue_mod = server.delivery.direct_queue;
 const DirectQueue = direct_queue_mod.DirectQueue;
 const SessionEntry = server.state.session_entry.SessionEntry;
 
-/// Per-client daemon state. Wraps ConnectionState (which wraps SocketConnection)
-/// plus daemon-specific delivery and tracking fields.
 pub const ClientState = struct {
     connection: ConnectionState,
 
@@ -87,28 +85,23 @@ pub const ClientState = struct {
         self.occupied = false;
     }
 
-    /// Convenience accessor for the connection state.
     pub fn getState(self: *const ClientState) State {
         return self.connection.state;
     }
 
-    /// Convenience accessor for client_id.
     pub fn getClientId(self: *const ClientState) u32 {
         return self.connection.client_id;
     }
 
-    /// Convenience accessor for the socket fd (for kqueue registration).
     pub fn fd(self: *const ClientState) std.posix.fd_t {
         return self.connection.socket.fd;
     }
 
-    /// Record that activity was observed (any message received).
     /// Resets the heartbeat liveness timeout.
     pub fn recordActivity(self: *ClientState) void {
         self.last_activity_timestamp = std.time.milliTimestamp();
     }
 
-    /// Enqueue a message to the direct queue (priority 1 channel).
     pub fn enqueueDirect(self: *ClientState, data: []const u8) !void {
         try self.direct_queue.enqueue(data);
     }

@@ -1,6 +1,10 @@
+//! CJK/IME preedit messages for composition state synchronization between
+//! daemon and client(s). Covers preedit lifecycle, input method switching,
+//! ambiguous width configuration, and IME error reporting.
+
 const std = @import("std");
 
-/// PreeditStart (0x0400, S->C)
+/// 0x0400, S->C. Signals that a preedit composition session has begun.
 pub const PreeditStart = struct {
     pane_id: u32,
     client_id: u32,
@@ -8,14 +12,14 @@ pub const PreeditStart = struct {
     preedit_session_id: u32,
 };
 
-/// PreeditUpdate (0x0401, S->C)
+/// 0x0401, S->C. Updated composition text during an active preedit session.
 pub const PreeditUpdate = struct {
     pane_id: u32,
     preedit_session_id: u32,
     text: []const u8,
 };
 
-/// PreeditEnd (0x0402, S->C)
+/// 0x0402, S->C. Signals composition ended (committed, cancelled, or pane closed).
 pub const PreeditEnd = struct {
     pane_id: u32,
     preedit_session_id: u32,
@@ -23,7 +27,8 @@ pub const PreeditEnd = struct {
     committed_text: []const u8 = "",
 };
 
-/// PreeditSync (0x0403, S->C) — full state snapshot for late-joining client
+/// 0x0403, S->C. Full preedit state snapshot sent to late-joining clients
+/// so they can render the in-progress composition.
 pub const PreeditSync = struct {
     pane_id: u32,
     preedit_session_id: u32,
@@ -32,7 +37,7 @@ pub const PreeditSync = struct {
     text: []const u8,
 };
 
-/// InputMethodSwitch (0x0404, C->S)
+/// 0x0404, C->S. Client requests switching the active input method for a pane.
 pub const InputMethodSwitch = struct {
     pane_id: u32,
     input_method: []const u8,
@@ -40,7 +45,8 @@ pub const InputMethodSwitch = struct {
     commit_current: bool = true,
 };
 
-/// InputMethodAck (0x0405, S->C) — broadcast to all attached clients
+/// 0x0405, S->C. Broadcast to all attached clients confirming the input
+/// method switch.
 pub const InputMethodAck = struct {
     pane_id: u32,
     active_input_method: []const u8,
@@ -48,14 +54,15 @@ pub const InputMethodAck = struct {
     active_keyboard_layout: []const u8,
 };
 
-/// AmbiguousWidthConfig (0x0406, C->S or S->C)
+/// 0x0406, bidirectional. Controls whether East Asian ambiguous-width
+/// characters are treated as single- or double-width.
 pub const AmbiguousWidthConfig = struct {
     pane_id: u32,
     ambiguous_width: u8 = 1, // 1=single-width, 2=double-width
     scope: []const u8 = "per_pane", // "per_pane", "per_session", "global"
 };
 
-/// IMEError (0x04FF, S->C)
+/// 0x04FF, S->C. Reports an IME-specific error to the client.
 pub const IMEError = struct {
     pane_id: u32,
     error_code: u32,

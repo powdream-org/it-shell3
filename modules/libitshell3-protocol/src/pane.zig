@@ -1,23 +1,26 @@
+//! Pane management messages: create, split, close, focus, navigate,
+//! resize, equalize, zoom, swap, layout query, and pane/session notifications.
+
 const std = @import("std");
 
-// Direction: 0=right, 1=down, 2=left, 3=up
+/// Spatial direction for pane navigation and split operations.
 pub const Direction = enum(u8) { right = 0, down = 1, left = 2, up = 3 };
 
-/// CreatePaneRequest (0x0140, C->S)
+/// 0x0140, C->S.
 pub const CreatePaneRequest = struct {
     session_id: u32,
     shell: ?[]const u8 = null,
     cwd: ?[]const u8 = null,
 };
 
-/// CreatePaneResponse (0x0141, S->C)
+/// 0x0141, S->C.
 pub const CreatePaneResponse = struct {
     status: u32 = 0,
     pane_id: u32 = 0,
     @"error": ?[]const u8 = null,
 };
 
-/// SplitPaneRequest (0x0142, C->S)
+/// 0x0142, C->S.
 pub const SplitPaneRequest = struct {
     session_id: u32,
     pane_id: u32,
@@ -28,21 +31,21 @@ pub const SplitPaneRequest = struct {
     focus_new: bool = true,
 };
 
-/// SplitPaneResponse (0x0143, S->C)
+/// 0x0143, S->C.
 pub const SplitPaneResponse = struct {
     status: u32 = 0,
     new_pane_id: u32 = 0,
     @"error": ?[]const u8 = null,
 };
 
-/// ClosePaneRequest (0x0144, C->S)
+/// 0x0144, C->S.
 pub const ClosePaneRequest = struct {
     session_id: u32,
     pane_id: u32,
     force: bool = false,
 };
 
-/// ClosePaneResponse (0x0145, S->C)
+/// 0x0145, S->C.
 pub const ClosePaneResponse = struct {
     status: u32 = 0,
     side_effect: u32 = 0,
@@ -50,31 +53,31 @@ pub const ClosePaneResponse = struct {
     @"error": ?[]const u8 = null,
 };
 
-/// FocusPaneRequest (0x0146, C->S)
+/// 0x0146, C->S.
 pub const FocusPaneRequest = struct {
     session_id: u32,
     pane_id: u32,
 };
 
-/// FocusPaneResponse (0x0147, S->C)
+/// 0x0147, S->C.
 pub const FocusPaneResponse = struct {
     status: u32 = 0,
     previous_pane_id: u32 = 0,
 };
 
-/// NavigatePaneRequest (0x0148, C->S)
+/// 0x0148, C->S.
 pub const NavigatePaneRequest = struct {
     session_id: u32,
     direction: u8 = 0,
 };
 
-/// NavigatePaneResponse (0x0149, S->C)
+/// 0x0149, S->C.
 pub const NavigatePaneResponse = struct {
     status: u32 = 0,
     focused_pane_id: u32 = 0,
 };
 
-/// ResizePaneRequest (0x014A, C->S)
+/// 0x014A, C->S.
 pub const ResizePaneRequest = struct {
     session_id: u32,
     pane_id: u32,
@@ -82,53 +85,54 @@ pub const ResizePaneRequest = struct {
     delta: i16 = 0,
 };
 
-/// ResizePaneResponse (0x014B, S->C)
+/// 0x014B, S->C.
 pub const ResizePaneResponse = struct {
     status: u32 = 0,
     @"error": ?[]const u8 = null,
 };
 
-/// EqualizeSplitsRequest (0x014C, C->S)
+/// 0x014C, C->S.
 pub const EqualizeSplitsRequest = struct {
     session_id: u32,
 };
 
-/// EqualizeSplitsResponse (0x014D, S->C)
+/// 0x014D, S->C.
 pub const EqualizeSplitsResponse = struct {
     status: u32 = 0,
 };
 
-/// ZoomPaneRequest (0x014E, C->S)
+/// 0x014E, C->S.
 pub const ZoomPaneRequest = struct {
     session_id: u32,
     pane_id: u32,
 };
 
-/// ZoomPaneResponse (0x014F, S->C)
+/// 0x014F, S->C.
 pub const ZoomPaneResponse = struct {
     status: u32 = 0,
     zoomed: bool = false,
 };
 
-/// SwapPanesRequest (0x0150, C->S)
+/// 0x0150, C->S.
 pub const SwapPanesRequest = struct {
     session_id: u32,
     pane_a: u32,
     pane_b: u32,
 };
 
-/// SwapPanesResponse (0x0151, S->C)
+/// 0x0151, S->C.
 pub const SwapPanesResponse = struct {
     status: u32 = 0,
     @"error": ?[]const u8 = null,
 };
 
-/// LayoutGetRequest (0x0152, C->S)
+/// 0x0152, C->S.
 pub const LayoutGetRequest = struct {
     session_id: u32,
 };
 
-/// Layout tree node — recursive JSON structure
+/// Recursive binary split tree node representing the pane layout.
+/// Serialized as JSON within LayoutGetResponse and LayoutChanged.
 pub const LayoutNode = struct {
     type: NodeType,
     pane_id: ?u32 = null,
@@ -147,7 +151,7 @@ pub const LayoutNode = struct {
     pub const NodeType = enum { leaf, split };
 };
 
-/// LayoutGetResponse (0x0153, S->C)
+/// 0x0153, S->C.
 pub const LayoutGetResponse = struct {
     session_id: u32,
     active_pane_id: u32,
@@ -158,7 +162,7 @@ pub const LayoutGetResponse = struct {
 
 // ---- Notifications ----
 
-/// LayoutChanged (0x0180, S->C)
+/// 0x0180, S->C. Broadcast when pane layout changes.
 pub const LayoutChanged = struct {
     session_id: u32,
     active_pane_id: u32,
@@ -167,7 +171,7 @@ pub const LayoutChanged = struct {
     layout_tree: ?std.json.Value = null,
 };
 
-/// PaneMetadataChanged (0x0181, S->C)
+/// 0x0181, S->C. Broadcast when pane metadata (title, cwd, process) changes.
 pub const PaneMetadataChanged = struct {
     session_id: u32,
     pane_id: u32,
@@ -179,14 +183,14 @@ pub const PaneMetadataChanged = struct {
     is_running: ?bool = null,
 };
 
-/// SessionListChanged (0x0182, S->C)
+/// 0x0182, S->C. Broadcast when sessions are created, destroyed, or renamed.
 pub const SessionListChanged = struct {
     event: []const u8,
     session_id: u32,
     name: []const u8 = "",
 };
 
-/// ClientAttached (0x0183, S->C)
+/// 0x0183, S->C.
 pub const ClientAttached = struct {
     session_id: u32,
     client_id: u32,
@@ -194,7 +198,7 @@ pub const ClientAttached = struct {
     attached_clients: u32 = 0,
 };
 
-/// ClientDetached (0x0184, S->C)
+/// 0x0184, S->C.
 pub const ClientDetached = struct {
     session_id: u32,
     client_id: u32,
@@ -203,7 +207,8 @@ pub const ClientDetached = struct {
     attached_clients: u32 = 0,
 };
 
-/// ClientHealthChanged (0x0185, S->C)
+/// 0x0185, S->C. Notifies when a client transitions between health states
+/// (healthy, stale, evicted).
 pub const ClientHealthChanged = struct {
     session_id: u32,
     client_id: u32,
@@ -214,7 +219,7 @@ pub const ClientHealthChanged = struct {
     excluded_from_resize: bool = false,
 };
 
-/// WindowResize (0x0190, C->S)
+/// 0x0190, C->S. Client reports new terminal dimensions after window resize.
 pub const WindowResize = struct {
     session_id: u32,
     cols: u16,
@@ -223,7 +228,7 @@ pub const WindowResize = struct {
     pixel_height: ?u16 = null,
 };
 
-/// WindowResizeAck (0x0191, S->C)
+/// 0x0191, S->C.
 pub const WindowResizeAck = struct {
     session_id: u32,
     cols: u16,

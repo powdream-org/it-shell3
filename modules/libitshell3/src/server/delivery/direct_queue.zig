@@ -1,16 +1,14 @@
+//! FIFO byte-buffer queue for direct (priority 1) control messages.
+//! Lazily heap-allocated to avoid inlining 32 KB per client slot on the stack.
+
 const std = @import("std");
 
 /// Total byte budget per client for queued control messages.
 /// 32 KB handles typical bursts of LayoutChanged, PreeditSync, etc.
 pub const QUEUE_CAPACITY: usize = 32 * 1024;
 
-/// FIFO byte-buffer queue for direct (priority 1) messages.
-/// Messages are stored contiguously as [4-byte LE length][data].
-///
-/// The backing buffer is lazily heap-allocated on first enqueue via
-/// `page_allocator`. This avoids inlining 32 KB per client slot in the
-/// EventLoop stack frame (64 slots × 32 KB = 2 MB would cause stack overflow).
-/// The queue is freed by calling `deinit()`.
+/// Messages are stored contiguously as [4-byte LE length][data] in a
+/// circular buffer.
 pub const DirectQueue = struct {
     /// Heap-allocated backing buffer (null until first enqueue).
     buf_storage: ?[]u8,

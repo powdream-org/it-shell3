@@ -1,6 +1,9 @@
+//! Capability enums negotiated during the client-server handshake.
+//! See the server-client-protocols capability spec for semantics.
+
 const std = @import("std");
 
-/// General capability flags. See the server-client-protocols capability spec.
+/// General protocol capability negotiated in ClientHello/ServerHello.
 pub const Capability = enum {
     clipboard_sync,
     mouse,
@@ -15,7 +18,7 @@ pub const Capability = enum {
     notifications,
 };
 
-/// Render capability flags. See the server-client-protocols capability spec.
+/// Render-specific capability negotiated in ClientHello/ServerHello.
 pub const RenderCapability = enum {
     cell_data,
     dirty_tracking,

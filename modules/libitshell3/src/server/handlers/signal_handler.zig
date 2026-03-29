@@ -1,3 +1,6 @@
+//! Signal chain handler. SIGCHLD drains exited children and marks panes;
+//! SIGTERM/SIGINT/SIGHUP stop the event loop for graceful shutdown.
+
 const std = @import("std");
 const interfaces = @import("../os/interfaces.zig");
 const core = @import("itshell3_core");
@@ -27,13 +30,8 @@ pub fn chainHandle(context: *anyopaque, event: interfaces.Event, next: ?*const H
     handleSignalEvent(event, ctx.signal_ops, ctx.session_manager, ctx.event_loop);
 }
 
-/// Handle a signal event delivered via the event loop.
-///
-/// - SIGCHLD: drain waitChild() in a loop, marking matching panes exited.
-/// - SIGTERM/SIGINT/SIGHUP: call event_loop.stop().
-///
-/// Per daemon-behavior daemon-lifecycle spec, SIGHUP is a shutdown trigger
-/// alongside SIGTERM and SIGINT.
+/// Handles SIGCHLD by reaping children and marking panes exited, and
+/// SIGTERM/SIGINT/SIGHUP by stopping the event loop.
 pub fn handleSignalEvent(
     event: interfaces.Event,
     signal_ops: *const interfaces.SignalOps,

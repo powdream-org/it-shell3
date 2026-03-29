@@ -1,11 +1,12 @@
+//! Per-session delivery state. Maps pane slots to ring buffers and frame
+//! sequence counters. Owns the heap-allocated ring backing storage.
+
 const std = @import("std");
 const types = @import("itshell3_core").types;
 const ring_buffer_mod = @import("ring_buffer.zig");
 const frame_serializer_mod = @import("frame_serializer.zig");
 const RingBuffer = ring_buffer_mod.RingBuffer;
 
-/// Per-session delivery state — maps pane slots to ring buffers.
-/// Lives in server/, NOT in core/session.zig.
 pub const SessionDeliveryState = struct {
     /// Per-pane ring buffer backing (heap-allocated via page_allocator).
     /// null = slot not yet allocated.

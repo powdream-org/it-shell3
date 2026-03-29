@@ -1,6 +1,10 @@
+//! Real signal operations. Blocks SIGCHLD/SIGTERM/SIGINT/SIGHUP from default
+//! handling (for kqueue/epoll delivery) and provides WNOHANG child reaping.
+
 const std = @import("std");
 const interfaces = @import("interfaces.zig");
 
+/// Production SignalOps vtable using POSIX sigprocmask and waitpid.
 pub const real_signal_ops: interfaces.SignalOps = .{
     .blockSignals = realBlockSignals,
     .registerSignals = realRegisterSignals,

@@ -1,20 +1,13 @@
-// testing/spec/ring_buffer_integration_test.zig
-//
-// Spec-driven integration tests for the ring buffer + frame delivery pipeline.
-// Each test cites the spec section it verifies.
-//
-// Spec references:
-//   state-and-types per-pane ring buffer  Per-pane shared ring buffer — O(1) memory, write-once
-//   state-and-types wire format  Wire format in ring (pre-serialized frames)
-//   state-and-types two-channel priority  Two-channel socket write priority
-//   state-and-types per-client cursors  Per-client cursors (independent positions, last_i_frame field)
-//   state-and-types frame delivery  Frame delivery — sendv(iovecs) for zero-copy delivery
-//   state-and-types slow client recovery  Slow client recovery (cursor skip to latest I-frame)
-//   state-and-types I-frame scheduling  I-frame scheduling (no-op when unchanged)
-//   state-and-types per-pane ring buffer1 Multi-client ring read (independent cursors, same backing)
-//   policies frame delivery procedure  Frame delivery procedure
-//   policies write-ready and backpressure  Write-ready and backpressure (byte-granular cursor)
-//   policies slow client recovery  Slow client recovery (same as state-and-types slow client recovery)
+//! Integration tests: Ring buffer and frame delivery pipeline.
+//!
+//! End-to-end tests covering the full serialize-to-ring-to-iovec-to-decode
+//! pipeline, including multi-cursor sharing, two-channel priority, slow client
+//! recovery, byte-granular advancement, frame sequence monotonicity,
+//! SessionDeliveryState pane lifecycle, and direct queue FIFO ordering.
+//!
+//! Spec sources:
+//!   - daemon-architecture state-and-types — ring buffer, wire format, cursors
+//!   - daemon-behavior policies — frame delivery, write-ready, backpressure
 
 const std = @import("std");
 const testing = std.testing;

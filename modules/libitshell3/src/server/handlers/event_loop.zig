@@ -1,37 +1,23 @@
+//! Minimal event iteration engine and handler chain types. Collects OS events
+//! via the EventLoopOps vtable, iterates them in priority order, and dispatches
+//! each through a middleware-style handler chain.
+
 const std = @import("std");
 const interfaces = @import("../os/interfaces.zig");
 
-/// Handler chain link for middleware-based event dispatch.
-///
-/// Each handler in the chain receives an event and decides whether to consume
-/// it or forward it to the next handler. The chain is assembled by the caller
-/// (Daemon in Plan 12.2, test harness in interim).
-///
-/// Uses `?*const Handler` for the `next` field because Zig does not permit
-/// recursive value types (a struct containing itself by value would be infinite
-/// size).
+/// Middleware-style chain link. Each handler consumes or forwards the event.
 pub const Handler = struct {
     handleFn: *const fn (context: *anyopaque, event: interfaces.Event, next: ?*const Handler) void,
     context: *anyopaque,
     next: ?*const Handler,
 
-    /// Convenience: calls handleFn with this handler's context and next.
-    /// Used by EventLoop.run() and by handlers forwarding to the next in chain.
     pub fn invoke(self: *const Handler, event: interfaces.Event) void {
         self.handleFn(self.context, event, self.next);
     }
 };
 
-/// Minimal event iteration engine.
-///
-/// Responsibilities:
-/// - Call the OS wait function (via EventLoopOps vtable) to collect ready events
-/// - Iterate returned events in priority order (via PriorityEventBuffer)
-/// - Call the handler chain for each event
-/// - Provide stop() to exit the loop
-///
-/// EventLoop does NOT own client state, session state, signal registration,
-/// listener socket, shutdown state machine, or dispatch routing logic.
+/// Blocks on the OS wait vtable and dispatches events through the handler chain.
+/// Does NOT own client state, session state, or any domain objects.
 pub const EventLoop = struct {
     event_ops: *const interfaces.EventLoopOps,
     event_ctx: *anyopaque,
@@ -53,7 +39,7 @@ pub const EventLoop = struct {
 
     pub const RunError = error{EventLoopError};
 
-    /// Main event loop. Blocks until stop() is called.
+    /// Blocks until stop() is called.
     pub fn run(self: *EventLoop) RunError!void {
         while (self.running) {
             var iter = self.event_ops.wait(self.event_ctx, 1000) catch |err| return err;
@@ -63,8 +49,6 @@ pub const EventLoop = struct {
         }
     }
 
-    /// Sets running = false. The current wait() call completes, the loop
-    /// checks the flag, and run() returns.
     pub fn stop(self: *EventLoop) void {
         self.running = false;
     }

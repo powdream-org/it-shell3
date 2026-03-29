@@ -1,7 +1,11 @@
+//! Test helpers for transport-layer tests: socket pair creation and
+//! temporary socket path generation.
+
 const std = @import("std");
 const builtin = @import("builtin");
 const helper = @import("../transport_helper.zig");
 
+/// Creates a connected pair of Unix stream sockets for in-process testing.
 pub fn createSocketPair() ![2]std.posix.socket_t {
     comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
         @compileError("socketpair requires BSD or Linux");
@@ -14,6 +18,7 @@ pub fn createSocketPair() ![2]std.posix.socket_t {
 
 var path_buf: [helper.MAX_SOCKET_PATH]u8 = undefined;
 
+/// Generates a unique socket path under /tmp using the current nanosecond timestamp.
 pub fn generateTestSocketPath() []const u8 {
     const timestamp = std.time.nanoTimestamp();
     const ts_unsigned: u128 = @bitCast(timestamp);

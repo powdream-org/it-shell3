@@ -1,12 +1,11 @@
 //! Spec compliance tests: Multi-client broadcast infrastructure.
 //!
-//! Spec sources:
-//!   - daemon-behavior 02-event-handling Section 1.1 — response-before-notification
-//!   - daemon-architecture 02-state-and-types Section 4.4 — two-channel write priority
-//!   - daemon-behavior 02-event-handling Section 1.2 — single event-loop-iteration atomicity
+//! Covers response-before-notification ordering, session-scoped and global
+//! broadcast, two-channel write priority, and best-effort delivery semantics.
 //!
-//! These tests are derived from the SPEC, not the implementation.
-//! QA-owned: verifies that the implementation conforms to the design spec.
+//! Spec sources:
+//!   - daemon-behavior event-handling — response-before-notification, atomicity
+//!   - daemon-architecture state-and-types — two-channel write priority
 
 const std = @import("std");
 const server = @import("itshell3_server");
@@ -17,8 +16,6 @@ const broadcast_mod = server.connection.broadcast;
 // ── Spec: Session-Scoped Broadcast ───────────────────────────────────────────
 
 test "spec: broadcast — session-scoped sends to all OPERATING clients in that session" {
-    // daemon-behavior 02-event-handling Section 1.1:
-    // Notifications are sent to clients attached to the affected session.
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     // Two clients OPERATING in session 1.
@@ -96,10 +93,8 @@ test "spec: broadcast — session-scoped skips non-OPERATING clients" {
 // ── Spec: Response-Before-Notification Pattern ───────────────────────────────
 
 test "spec: broadcast — exclude-one variant for response-before-notification" {
-    // daemon-behavior 02-event-handling Section 1.1:
-    // "The response MUST be sent before the notifications."
-    // The exclude_slot parameter enables this pattern: send response to requester
-    // first, then broadcast notification to all others.
+    // The exclude_slot parameter enables the response-before-notification pattern:
+    // send response to requester first, then broadcast notification to all others.
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
@@ -137,8 +132,6 @@ test "spec: broadcast — exclude-one variant for response-before-notification" 
 // ── Spec: Global Broadcast ───────────────────────────────────────────────────
 
 test "spec: broadcast — global sends to all OPERATING clients" {
-    // daemon-behavior 02-event-handling Section 7.2:
-    // "SessionListChanged — broadcast to ALL connected clients"
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
@@ -238,10 +231,7 @@ test "spec: broadcast — best-effort per client (individual failure does not st
 // ── Spec: Two-Channel Write Priority ─────────────────────────────────────────
 
 test "spec: broadcast — messages go via direct queue (priority 1 channel)" {
-    // daemon-architecture 02-state-and-types Section 4.4:
-    // "Priority 1: Direct message queue — Control messages"
-    // "Priority 2: Shared ring buffer — FrameUpdate"
-    // Broadcast uses the direct queue (priority 1).
+    // Broadcast uses the direct queue (priority 1), not the ring buffer.
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx = try mgr.addClient(.{ .fd = 10 });

@@ -1,3 +1,5 @@
+//! Client-side Unix socket connection to the it-shell3 daemon.
+
 const std = @import("std");
 const transport = @import("transport.zig");
 const helper = @import("transport_helper.zig");
@@ -7,6 +9,7 @@ const MAX_SOCKET_PATH = helper.MAX_SOCKET_PATH;
 const newFd = helper.newFd;
 const makeAddr = helper.makeAddr;
 
+/// Errors from attempting to connect to the daemon socket.
 pub const ConnectError = error{
     PathTooLong,
     SocketCreate,

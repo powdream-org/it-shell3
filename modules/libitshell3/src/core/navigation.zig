@@ -1,19 +1,26 @@
+//! Directional pane navigation using bounding-rect geometry.
+//! Computes layout rectangles from the split tree and finds the best
+//! neighbor pane in a given direction, with wrap-around.
+
 const std = @import("std");
 const types = @import("types.zig");
 const split_tree = @import("split_tree.zig");
 
 pub const SplitNodeData = split_tree.SplitNodeData;
 
+/// Axis-aligned bounding rectangle for a pane's screen region.
 pub const Rect = struct {
     x: f32,
     y: f32,
     width: f32,
     height: f32,
 
+    /// Right edge x-coordinate.
     pub fn right(self: Rect) f32 {
         return self.x + self.width;
     }
 
+    /// Bottom edge y-coordinate.
     pub fn bottom(self: Rect) f32 {
         return self.y + self.height;
     }

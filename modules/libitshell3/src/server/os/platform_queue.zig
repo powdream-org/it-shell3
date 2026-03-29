@@ -1,3 +1,6 @@
+//! Compile-time platform selection for the event loop backend.
+//! Resolves to KqueueContext on macOS/BSD and EpollContext on Linux.
+
 const builtin = @import("builtin");
 const kqueue = @import("kqueue.zig");
 const epoll = @import("epoll.zig");

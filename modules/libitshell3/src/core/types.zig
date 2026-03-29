@@ -1,37 +1,76 @@
+//! Shared domain types and capacity constants for the it-shell3 daemon.
+//! All identifier types, limits, and layout enums live here to avoid
+//! circular imports between core modules.
+
 const std = @import("std");
 
-// Identifier types
-pub const PaneId = u32; // Monotonically increasing, assigned at pane creation
-pub const PaneSlot = u8; // 0..15 index into pane_slots array (u8 per spec)
-pub const SessionId = u32; // Monotonically increasing
-pub const ClientId = u32; // Monotonically increasing, assigned at accept()
+// ── Identifier types ────────────────────────────────────────────────────────
 
-// Capacity constants
+/// Monotonically increasing pane identifier, assigned at pane creation.
+pub const PaneId = u32;
+
+/// Index into the fixed-size pane_slots array (0..MAX_PANES-1).
+pub const PaneSlot = u8;
+
+/// Monotonically increasing session identifier.
+pub const SessionId = u32;
+
+/// Monotonically increasing client identifier, assigned at accept().
+pub const ClientId = u32;
+
+// ── Capacity constants ──────────────────────────────────────────────────────
+
+/// Maximum number of panes per session.
 pub const MAX_PANES: u8 = 16;
+
+/// Maximum number of nodes in the binary split tree (2*MAX_PANES - 1).
 pub const MAX_TREE_NODES: u8 = MAX_PANES * 2 - 1;
+
+/// Maximum depth of the binary split tree (log2 of MAX_PANES).
 pub const MAX_TREE_DEPTH: u8 = std.math.log2_int(u8, MAX_PANES);
+
+/// Maximum number of concurrent sessions.
 pub const MAX_SESSIONS: u8 = 64;
+
+/// Maximum number of concurrent client connections.
 pub const MAX_CLIENTS: u8 = 64;
 
-// Fixed-size inline buffer sizes (per ADR 00058)
+// ── Fixed-size inline buffer sizes (per ADR 00058) ──────────────────────────
+
+/// Maximum length of a session name in bytes.
 pub const MAX_SESSION_NAME: u8 = 64;
+
+/// Maximum length of an input method identifier in bytes.
 pub const MAX_INPUT_METHOD_NAME: u8 = 32;
+
+/// Maximum length of a keyboard layout identifier in bytes.
 pub const MAX_KEYBOARD_LAYOUT_NAME: u8 = 32;
+
+/// Maximum length of preedit text in bytes.
 pub const MAX_PREEDIT_BUF: u8 = 64;
+
+/// Maximum length of a pane title in bytes.
 pub const MAX_PANE_TITLE: u16 = 256;
+
+/// Maximum length of a pane current working directory path in bytes.
 pub const MAX_PANE_CWD: u16 = 4096;
 
-// Layout enums
+// ── Layout enums ────────────────────────────────────────────────────────────
+
+/// Split orientation for the binary pane tree.
 pub const Orientation = enum { horizontal, vertical };
 
 /// Directional navigation. Integer tags match protocol wire format
-/// (server-client-protocols session-pane-management spec) and ghostty's
-/// GHOSTTY_SPLIT_DIRECTION: 0=right, 1=down, 2=left, 3=up.
+/// and ghostty's GHOSTTY_SPLIT_DIRECTION: 0=right, 1=down, 2=left, 3=up.
 pub const Direction = enum(u8) { right = 0, down = 1, left = 2, up = 3 };
 
-// Bitmask types (one bit per pane slot, 16 slots total)
-pub const FreeMask = u16; // Bitfield: 1 = slot available
-pub const DirtyMask = u16; // Bitfield: 1 = pane is dirty
+// ── Bitmask types ───────────────────────────────────────────────────────────
+
+/// One bit per pane slot (16 slots). Bit set = slot available.
+pub const FreeMask = u16;
+
+/// One bit per pane slot (16 slots). Bit set = pane is dirty.
+pub const DirtyMask = u16;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 

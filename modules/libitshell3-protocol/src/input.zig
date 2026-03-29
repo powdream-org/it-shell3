@@ -1,6 +1,9 @@
+//! Input event messages (keyboard, mouse, paste, focus) sent from client
+//! to server, plus scroll/search request-response pairs.
+
 const std = @import("std");
 
-/// Modifier bitflags (u8)
+/// Keyboard modifier bitmask constants for KeyEvent and mouse events.
 pub const Modifiers = struct {
     pub const shift: u8 = 1 << 0;
     pub const ctrl: u8 = 1 << 1;
@@ -10,14 +13,14 @@ pub const Modifiers = struct {
     pub const num_lock: u8 = 1 << 5;
 };
 
-/// Key action values
+/// Key action constants for `KeyEvent.action`.
 pub const Action = struct {
     pub const press: u8 = 0;
     pub const release: u8 = 1;
     pub const repeat: u8 = 2;
 };
 
-/// KeyEvent (0x0200, C->S)
+/// 0x0200, C->S. Physical key press/release/repeat with modifiers.
 pub const KeyEvent = struct {
     keycode: u16,
     action: u8, // 0=press, 1=release, 2=repeat
@@ -26,13 +29,13 @@ pub const KeyEvent = struct {
     pane_id: ?u32 = null,
 };
 
-/// TextInput (0x0201, C->S)
+/// 0x0201, C->S. Committed text (post-IME) to write to a pane's PTY.
 pub const TextInput = struct {
     pane_id: u32,
     text: []const u8,
 };
 
-/// MouseButton (0x0202, C->S)
+/// 0x0202, C->S.
 pub const MouseButton = struct {
     pane_id: u32,
     button: u8, // 0=left, 1=middle, 2=right, 3-7=extra
@@ -43,7 +46,7 @@ pub const MouseButton = struct {
     y: f32 = 0.0,
 };
 
-/// MouseMove (0x0203, C->S)
+/// 0x0203, C->S.
 pub const MouseMove = struct {
     pane_id: u32,
     modifiers: u8,
@@ -52,7 +55,7 @@ pub const MouseMove = struct {
     y: f32 = 0.0,
 };
 
-/// MouseScroll (0x0204, C->S)
+/// 0x0204, C->S.
 pub const MouseScroll = struct {
     pane_id: u32,
     modifiers: u8,
@@ -61,7 +64,7 @@ pub const MouseScroll = struct {
     precise: bool = false,
 };
 
-/// PasteData (0x0205, C->S)
+/// 0x0205, C->S. Chunked paste data with bracketed-paste control.
 pub const PasteData = struct {
     pane_id: u32,
     bracketed_paste: bool = true,
@@ -70,20 +73,20 @@ pub const PasteData = struct {
     data: []const u8,
 };
 
-/// FocusEvent (0x0206, C->S)
+/// 0x0206, C->S. Window/pane focus gained or lost.
 pub const FocusEvent = struct {
     pane_id: u32,
     focused: bool,
 };
 
-/// ScrollRequest (0x0301, C->S)
+/// 0x0301, C->S.
 pub const ScrollRequest = struct {
     pane_id: u32,
     direction: u8 = 0, // 0=up, 1=down, 2=top, 3=bottom
     lines: u32 = 0,
 };
 
-/// ScrollPosition (0x0302, S->C)
+/// 0x0302, S->C.
 pub const ScrollPosition = struct {
     pane_id: u32,
     viewport_top: u32 = 0,
@@ -91,7 +94,7 @@ pub const ScrollPosition = struct {
     viewport_rows: u32 = 0,
 };
 
-/// SearchRequest (0x0303, C->S)
+/// 0x0303, C->S.
 pub const SearchRequest = struct {
     pane_id: u32,
     direction: u8 = 0, // 0=forward, 1=backward
@@ -101,7 +104,7 @@ pub const SearchRequest = struct {
     query: []const u8,
 };
 
-/// SearchResult (0x0304, S->C)
+/// 0x0304, S->C.
 pub const SearchResult = struct {
     pane_id: u32,
     total_matches: u32 = 0,
@@ -111,7 +114,7 @@ pub const SearchResult = struct {
     match_end_col: u16 = 0,
 };
 
-/// SearchCancel (0x0305, C->S)
+/// 0x0305, C->S.
 pub const SearchCancel = struct {
     pane_id: u32,
 };

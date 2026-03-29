@@ -1,8 +1,9 @@
-//! Spec compliance tests: EventLoop Redesign.
+//! Spec compliance tests: EventLoop, PriorityEventBuffer, and Handler chain.
 //!
-//! Spec source: docs/superpowers/specs/2026-03-28-event-loop-redesign.md
-//! These tests are derived from the SPEC, not the implementation.
-//! QA-owned: verifies that the implementation conforms to the design spec.
+//! Covers EventLoop field constraints, run/stop behavior, priority-ordered
+//! event buffering, handler chain forwarding/consuming, and EventTarget semantics.
+//!
+//! Spec source: event-loop-redesign spec.
 
 const std = @import("std");
 const server = @import("itshell3_server");
@@ -17,12 +18,10 @@ const EventTarget = interfaces.EventTarget;
 const PriorityEventBuffer = server.os.priority_event_buffer.PriorityEventBuffer;
 const MockEventLoopOps = test_mod.mock_os.MockEventLoopOps;
 
-// ── Spec 3: EventLoop API ─────────────────────────────────────────────────────
+// ── Spec: EventLoop API ──────────────────────────────────────────────────────
 
 test "spec: EventLoop — has no client state fields" {
-    // Spec 2.1: EventLoop does NOT own client state (clients array,
-    // addClientTransport, removeClient, findClientByFd, clientCount).
-    // Verify the struct has exactly four fields: event_ops, event_ctx, chain, running.
+    // EventLoop does NOT own client state — that belongs to ClientManager.
     const fields = @typeInfo(EventLoop).@"struct".fields;
     try std.testing.expectEqual(@as(usize, 4), fields.len);
 
@@ -35,7 +34,6 @@ test "spec: EventLoop — has no client state fields" {
 }
 
 test "spec: EventLoop — has no session_manager field" {
-    // Spec 2.1: EventLoop does NOT own session state or session manager reference.
     const fields = @typeInfo(EventLoop).@"struct".fields;
     inline for (fields) |field| {
         if (comptime std.mem.eql(u8, field.name, "session_manager")) {
@@ -45,8 +43,7 @@ test "spec: EventLoop — has no session_manager field" {
 }
 
 test "spec: EventLoop — has no shutdown_requested field" {
-    // Spec 2.1: EventLoop does NOT own shutdown state machine or shutdown_requested.
-    // Spec 3: stop() replaces shutdown_requested.
+    // stop() replaces shutdown_requested — no separate field needed.
     const fields = @typeInfo(EventLoop).@"struct".fields;
     inline for (fields) |field| {
         if (comptime std.mem.eql(u8, field.name, "shutdown_requested")) {
@@ -56,9 +53,6 @@ test "spec: EventLoop — has no shutdown_requested field" {
 }
 
 test "spec: EventLoop.run — iterates events from wait and calls handler chain" {
-    // Spec 3, run(): "Each iteration: calls event_ops.wait() to get a batch
-    // of raw events ... For each event from the iterator, calls
-    // chain.handleFn(chain.context, event, chain.next)."
     const InvocationTracker = struct {
         events_seen: [8]std.posix.fd_t = [_]std.posix.fd_t{0} ** 8,
         count: u32 = 0,
@@ -104,8 +98,6 @@ test "spec: EventLoop.run — iterates events from wait and calls handler chain"
 }
 
 test "spec: EventLoop.stop — causes run to exit" {
-    // Spec 3, stop(): "Sets running = false. The current wait() call completes,
-    // the loop checks the flag, and run() returns."
     const StopHandler = struct {
         event_loop: ?*EventLoop = null,
 
@@ -138,11 +130,9 @@ test "spec: EventLoop.stop — causes run to exit" {
     try std.testing.expect(!el.running);
 }
 
-// ── Spec 4: PriorityEventBuffer ───────────────────────────────────────────────
+// ── Spec: PriorityEventBuffer ────────────────────────────────────────────────
 
 test "spec: PriorityEventBuffer.add — places events in correct priority tier" {
-    // Spec 4.1-4.2: add() maps event.filter to a priority tier via
-    // @intFromEnum(event.filter) and appends to that tier's buffer.
     var buf = PriorityEventBuffer{};
 
     buf.add(.{ .fd = 1, .filter = .signal, .target = null });
@@ -164,9 +154,6 @@ test "spec: PriorityEventBuffer.add — places events in correct priority tier" 
 }
 
 test "spec: PriorityEventBuffer.iterator — yields events in SIGNAL > TIMER > READ > WRITE order" {
-    // Spec 4, priority tiers: "0: SIGNAL, 1: TIMER, 2: READ, 3: WRITE"
-    // Spec 4.1, iterator(): "yields events in priority order: all tier-0 first
-    // (in insertion order), then tier-1, etc."
     var buf = PriorityEventBuffer{};
 
     // Insert in reverse priority order to prove the buffer reorders
@@ -186,7 +173,6 @@ test "spec: PriorityEventBuffer.iterator — yields events in SIGNAL > TIMER > R
 }
 
 test "spec: PriorityEventBuffer.iterator — insertion order preserved within each tier" {
-    // Spec 4.1: "all tier-0 events first (in insertion order), then tier-1, etc."
     var buf = PriorityEventBuffer{};
 
     buf.add(.{ .fd = 100, .filter = .read, .target = null });
@@ -208,7 +194,6 @@ test "spec: PriorityEventBuffer.iterator — insertion order preserved within ea
 }
 
 test "spec: PriorityEventBuffer.reset — clears all tiers" {
-    // Spec 4.1: "Zeroes all sizes. Does not clear buffer contents."
     var buf = PriorityEventBuffer{};
 
     buf.add(.{ .fd = 1, .filter = .signal, .target = null });
@@ -233,7 +218,6 @@ test "spec: PriorityEventBuffer.reset — clears all tiers" {
 }
 
 test "spec: PriorityEventBuffer.isEmpty — correct before and after adds" {
-    // Spec 4.1: "Returns true if sum of all sizes is zero."
     var buf = PriorityEventBuffer{};
 
     // Fresh buffer is empty
@@ -249,8 +233,6 @@ test "spec: PriorityEventBuffer.isEmpty — correct before and after adds" {
 }
 
 test "spec: PriorityEventBuffer.add — full tier silently drops without crash" {
-    // Spec 4.1: "Drops the event silently if the tier is full (defensive;
-    // should not happen with reasonable CAPACITY)."
     var buf = PriorityEventBuffer{};
 
     // Fill the signal tier to capacity
@@ -269,11 +251,9 @@ test "spec: PriorityEventBuffer.add — full tier silently drops without crash" 
     try std.testing.expectEqual(@as(u32, 0), buf.sizes[3]);
 }
 
-// ── Spec 5: Handler Chain ─────────────────────────────────────────────────────
+// ── Spec: Handler Chain ──────────────────────────────────────────────────────
 
 test "spec: Handler.invoke — calls handleFn with correct context and next" {
-    // Spec 5.1: "Convenience: calls handleFn with this handler's context and next."
-    // "invoke() hides the handleFn(context, event, next) expansion."
     const Ctx = struct {
         received_fd: std.posix.fd_t = -1,
         received_next: bool = false,
@@ -320,8 +300,6 @@ test "spec: Handler.invoke — calls handleFn with correct context and next" {
 }
 
 test "spec: Handler chain — first handler can forward to next" {
-    // Spec 5.2: "Skip the event by calling next.?.invoke(event)."
-    // Spec 5.3: chain traversal order.
     const ForwardingCtx = struct {
         invoked: bool = false,
 
@@ -367,9 +345,8 @@ test "spec: Handler chain — first handler can forward to next" {
 }
 
 test "spec: Handler chain — unhandled event completes without error" {
-    // Spec 5.2: "If next is null and the handler does not recognize the event,
-    // the event is silently dropped. This is intentional: unhandled events are
-    // a normal condition during incremental plan implementation."
+    // Unhandled events are silently dropped — a normal condition during
+    // incremental plan implementation.
     const PassthroughCtx = struct {
         fn handle(_: *anyopaque, event: Event, next: ?*const Handler) void {
             // Does not recognize the event, tries to forward
@@ -390,8 +367,7 @@ test "spec: Handler chain — unhandled event completes without error" {
 }
 
 test "spec: Handler chain — handler can consume event without forwarding" {
-    // Spec 5.2: "Handle the event (consume it). It may optionally also call next."
-    // A consuming handler that does NOT call next should prevent the next handler
+    // A consuming handler that does NOT call next prevents downstream handlers
     // from receiving the event.
     const ConsumingCtx = struct {
         consumed: bool = false,
@@ -432,11 +408,9 @@ test "spec: Handler chain — handler can consume event without forwarding" {
     try std.testing.expect(!never_reached.reached);
 }
 
-// ── Spec 2.5: EventTarget ─────────────────────────────────────────────────────
+// ── Spec: EventTarget ────────────────────────────────────────────────────────
 
 test "spec: EventTarget — Event.target is optional" {
-    // Spec 2.5: "target is optional."
-    // An Event with null target must be constructible and usable.
     const event = Event{
         .fd = 42,
         .filter = .read,
@@ -454,10 +428,8 @@ test "spec: EventTarget — Event.target is optional" {
 }
 
 test "spec: EventTarget — signal events have null target" {
-    // Spec 2.5: "Signal events (delivered via kqueue EVFILT_SIGNAL) have no
-    // associated target -- the signal number is carried in the fd (ident) field.
-    // Handlers dispatch signals via event.filter == .signal, not by matching
-    // on event.target."
+    // Signal events carry the signal number in the fd field; handlers dispatch
+    // via event.filter == .signal, not by matching on event.target.
     const sigchld_event = Event{
         .fd = 20, // SIGCHLD number carried in fd
         .filter = .signal,

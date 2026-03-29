@@ -1,12 +1,12 @@
+//! Fixed-capacity event buffer that groups events by priority tier
+//! (SIGNAL > TIMER > READ > WRITE). OS-level wait implementations fill this
+//! buffer, and the EventLoop iterates events in priority order.
+
 const std = @import("std");
 const interfaces = @import("interfaces.zig");
 const Filter = interfaces.Filter;
 const Event = interfaces.Event;
 
-/// Fixed-capacity buffer that groups events by priority tier.
-/// OS-level wait implementations fill this buffer instead of returning a flat
-/// array. PriorityEventBuffer sorts raw OS events into four priority groups
-/// (SIGNAL > TIMER > READ > WRITE) before EventLoop iterates them.
 pub const PriorityEventBuffer = struct {
     const NUM_PRIORITIES = Filter.count;
     const CAPACITY = interfaces.MAX_EVENTS_PER_BATCH;

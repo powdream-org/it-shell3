@@ -20,12 +20,10 @@ pub const LivenessResult = enum {
     unknown,
 };
 
-/// Manages heartbeat state across all clients.
 pub const HeartbeatManager = struct {
-    /// Monotonically increasing ping_id counter.
     next_ping_id: u32 = 1,
 
-    /// Advance the ping_id counter and return the current value.
+    /// Returns the current ping_id and increments. Wraps to 1, skipping 0.
     pub fn nextPingId(self: *HeartbeatManager) u32 {
         const id = self.next_ping_id;
         self.next_ping_id +%= 1;
@@ -41,13 +39,12 @@ pub const HeartbeatManager = struct {
         return .alive;
     }
 
-    /// Process an incoming HeartbeatAck from a client.
     pub fn processAck(client: *ClientState, ping_id: u32) void {
         client.last_ping_id_acked = ping_id;
         client.recordActivity();
     }
 
-    /// Process an incoming Heartbeat from a client. Returns the ping_id to echo.
+    /// Returns the ping_id to echo back as HeartbeatAck.
     pub fn processHeartbeat(client: *ClientState, ping_id: u32) u32 {
         client.recordActivity();
         return ping_id;

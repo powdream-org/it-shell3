@@ -15,15 +15,11 @@ const ClientManager = server.connection.client_manager.ClientManager;
 
 const Handler = event_loop_mod.Handler;
 
-/// Callback type for adding a newly accepted client connection.
-/// Returns the assigned client slot index on success.
 pub const AddClientFn = *const fn (conn: SocketConnection) error{MaxClientsReached}!u16;
 
-/// Duration for handshake stage 1 timer (accept to first byte).
-/// Per daemon-behavior policies-and-procedures spec (Handshake Timeouts).
+/// Handshake stage 1 timeout (accept to first byte), per daemon-behavior spec.
 pub const HANDSHAKE_TIMEOUT_MS: u32 = 5000;
 
-/// Context for the client accept chain handler.
 pub const ClientAcceptContext = struct {
     listener: *Listener,
     add_client_fn: AddClientFn,
@@ -32,9 +28,7 @@ pub const ClientAcceptContext = struct {
     event_loop_context: *anyopaque,
 };
 
-/// Chain handler entry point for client accept events.
-/// Matches on event.target == .listener. If the event is not for the listener,
-/// forwards to the next handler in the chain.
+/// Matches `.listener` events; forwards all others to the next handler.
 pub fn chainHandle(context: *anyopaque, event: interfaces.Event, next: ?*const Handler) void {
     if (event.target) |target| {
         switch (target) {

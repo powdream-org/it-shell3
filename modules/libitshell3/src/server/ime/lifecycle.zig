@@ -1,3 +1,7 @@
+//! IME lifecycle management. Tracks per-session attached-client count and
+//! triggers activate/deactivate on the session's IME engine at the 0-to-1
+//! and N-to-0 transitions. Per ime-procedures eager activate/deactivate spec.
+
 const std = @import("std");
 const core = @import("itshell3_core");
 const session_mod = core.session;

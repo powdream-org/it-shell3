@@ -1,3 +1,7 @@
+//! Serializes dirty rows into wire-format FrameUpdate messages and writes
+//! them into a per-pane ring buffer. Bridges ghostty render state export
+//! and the ring-based delivery pipeline.
+
 const std = @import("std");
 const protocol = @import("itshell3_protocol");
 const ring_buffer_mod = @import("ring_buffer.zig");

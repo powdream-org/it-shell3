@@ -1,11 +1,12 @@
+//! Mock OS operation vtables (PTY, signal, event loop) for deterministic
+//! unit testing without real kernel resources.
+
 const std = @import("std");
 const interfaces = @import("itshell3_server").os.interfaces;
 const PriorityEventBuffer = @import("itshell3_server").os.priority_event_buffer.PriorityEventBuffer;
 
-/// Thread-local mock state pointer. Safe because Zig tests are single-threaded.
 threadlocal var global_mock_pty: ?*MockPtyOps = null;
 
-/// Mock PTY operations for deterministic unit testing.
 pub const MockPtyOps = struct {
     fork_result: ?interfaces.PtyOps.ForkPtyResult = null,
     fork_error: ?interfaces.PtyOps.ForkPtyError = null,
@@ -18,7 +19,7 @@ pub const MockPtyOps = struct {
     write_buf: [1024]u8 = @splat(0),
     write_length: usize = 0,
 
-    /// Install this mock and return a PtyOps vtable pointing to it.
+    /// Installs this instance as the thread-local mock and returns a PtyOps vtable.
     pub fn ops(self: *MockPtyOps) interfaces.PtyOps {
         global_mock_pty = self;
         return .{
@@ -30,7 +31,6 @@ pub const MockPtyOps = struct {
         };
     }
 
-    /// Return the bytes written so far.
     pub fn written(self: *const MockPtyOps) []const u8 {
         return self.write_buf[0..self.write_length];
     }
@@ -154,12 +154,9 @@ test "MockPtyOps: read returns 0 when no data configured" {
 
 threadlocal var global_mock_signal: ?*MockSignalOps = null;
 
-/// Mock signal operations for deterministic unit testing.
 pub const MockSignalOps = struct {
     block_error: ?interfaces.SignalOps.SignalError = null,
     register_error: ?interfaces.SignalOps.SignalError = null,
-    /// Slice of WaitResults to return from waitChild(), in order.
-    /// After the slice is exhausted, waitChild() returns null.
     wait_results: []const interfaces.SignalOps.WaitResult = &.{},
     wait_index: usize = 0,
     block_called: bool = false,
@@ -239,29 +236,24 @@ test "MockSignalOps: waitChild returns null when no results" {
 
 threadlocal var global_mock_event_loop: ?*MockEventLoopOps = null;
 
+/// Recorded fd registration for test assertions.
 pub const MockRegistration = struct {
     fd: std.posix.fd_t,
     filter: enum { read, write },
     target: ?interfaces.EventTarget,
 };
 
-/// Mock event loop operations for deterministic unit testing.
 pub const MockEventLoopOps = struct {
-    /// Configurable events to return from wait().
     events_to_return: []const interfaces.Event = &.{},
     events_index: usize = 0,
     wait_error: ?interfaces.EventLoopOps.WaitError = null,
     register_error: ?interfaces.EventLoopOps.RegisterError = null,
 
-    /// Internal PriorityEventBuffer for wait() to fill and return an iterator from.
     event_buffer: PriorityEventBuffer = .{},
-
-    /// Tracks registered file descriptors.
     registered: [64]?MockRegistration = [_]?MockRegistration{null} ** 64,
     registered_count: usize = 0,
     unregister_count: usize = 0,
 
-    /// Tracks timer registrations.
     timer_registered: [64]MockTimerRegistration = [_]MockTimerRegistration{.{}} ** 64,
     timer_registered_count: usize = 0,
     timer_cancel_count: usize = 0,

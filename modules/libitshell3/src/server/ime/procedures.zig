@@ -1,3 +1,7 @@
+//! IME preedit procedures. Implements ownership transfer, disconnect/detach
+//! cleanup, focus change, pane close, alternate screen switch, mouse click,
+//! input method switch, and error recovery. See ime-procedures spec.
+
 const std = @import("std");
 const core = @import("itshell3_core");
 const session_mod = core.session;
