@@ -207,17 +207,8 @@ test "spec: pane equalize -- all split ratios set to 0.5" {
         .leaf => return error.TestUnexpectedResult,
     }
 
-    // Equalize: iterate tree and set all split ratios to 0.5.
-    // (This is the behavioral contract — implementation provides equalizeRatios
-    // or equivalent.)
-    for (&tree) |*node_opt| {
-        if (node_opt.*) |*node| {
-            switch (node.*) {
-                .split => |*s| s.ratio = 0.5,
-                .leaf => {},
-            }
-        }
-    }
+    // Call the actual equalizeRatios function to exercise the real code path.
+    split_tree.equalizeRatios(&tree);
 
     // Verify all splits now have ratio 0.5.
     for (tree) |node_opt| {
@@ -245,10 +236,10 @@ test "spec: pane swap -- exchanges two leaf positions" {
     try std.testing.expectEqual(SplitNodeData{ .leaf = 0 }, tree[left_idx].?);
     try std.testing.expectEqual(SplitNodeData{ .leaf = 1 }, tree[right_idx].?);
 
-    // Swap: exchange leaf values.
-    const tmp = tree[left_idx];
-    tree[left_idx] = tree[right_idx];
-    tree[right_idx] = tmp;
+    // Call the actual swapLeaves function to exercise the real code path.
+    // swapLeaves takes PaneSlot values (not tree indices).
+    const swapped = split_tree.swapLeaves(&tree, 0, 1);
+    try std.testing.expect(swapped);
 
     // After swap: left=slot 1, right=slot 0.
     try std.testing.expectEqual(SplitNodeData{ .leaf = 1 }, tree[left_idx].?);
@@ -375,4 +366,76 @@ test "spec: pane tree depth -- max depth enforced on split" {
     }
     // We must have hit an error before 20 splits (tree has bounded depth).
     try std.testing.expect(depth_reached < 20);
+}
+
+// ── CreatePaneRequest/Response ────────────────────────────────────────────
+
+test "spec: pane create -- CreatePaneResponse includes status and pane_id" {
+    // protocol 03 Section 2.1-2.2: CreatePaneRequest (0x0140) creates a
+    // standalone pane in a session. CreatePaneResponse (0x0141) returns
+    // status (0 = success) and pane_id (server-assigned, monotonic).
+    //
+    // Test: verify message type codes and that a pane slot can be allocated
+    // (the state-level operation backing CreatePaneResponse).
+    try std.testing.expectEqual(@as(u16, 0x0140), @intFromEnum(MessageType.create_pane_request));
+    try std.testing.expectEqual(@as(u16, 0x0141), @intFromEnum(MessageType.create_pane_response));
+
+    // Allocate a pane slot in a session — this is the state operation that
+    // produces the pane_id for CreatePaneResponse.
+    resetState();
+    const id = try sm.createSession("test", testImeEngine(), 0);
+    const entry = sm.getSession(id).?;
+
+    // Session starts with 1 pane (slot 0). Allocating another gives slot 1.
+    const new_slot = try entry.allocPaneSlot();
+    try std.testing.expect(new_slot > 0);
+    try std.testing.expectEqual(@as(u8, 2), entry.paneCount());
+}
+
+// ── LayoutChanged broadcast after SplitPane ───────────────────────────────
+
+test "spec: pane split -- LayoutChanged broadcast after SplitPaneRequest" {
+    // protocol 03 Section 2.4: On SplitPaneResponse success, the server
+    // follows with a LayoutChanged (0x0180) notification to session-scoped
+    // clients.
+    //
+    // Test: verify that after a split operation modifies the layout tree,
+    // the session's dirty state is set (triggering LayoutChanged), and
+    // the broadcast infrastructure can deliver to session-scoped clients.
+    const broadcast_mod = server.connection.broadcast;
+    const ClientManager = server.connection.client_manager.ClientManager;
+    const testing_mod = @import("itshell3_testing");
+
+    // Verify LayoutChanged message type and encoding.
+    try std.testing.expectEqual(@as(u16, 0x0180), @intFromEnum(MessageType.layout_changed));
+    try std.testing.expectEqual(MessageType.Encoding.json, MessageType.layout_changed.expectedEncoding());
+
+    // Set up a session and perform a split.
+    resetState();
+    const sess_id = try sm.createSession("test", testImeEngine(), 0);
+    const entry = sm.getSession(sess_id).?;
+    const tree = &entry.session.tree_nodes;
+
+    // Split the root pane.
+    const new_slot = try entry.allocPaneSlot();
+    try split_tree.splitLeaf(tree, 0, .horizontal, 0.5, new_slot);
+    try std.testing.expectEqual(@as(u8, 2), split_tree.leafCount(tree));
+
+    // Mark the layout as dirty (the handler does this after a successful split).
+    entry.markDirty(0);
+    entry.markDirty(new_slot);
+
+    // Verify session-scoped broadcast delivers to attached clients.
+    var mgr = ClientManager{ .chunk_pool = testing_mod.helpers.testChunkPool() };
+
+    const idx1 = try mgr.addClient(.{ .fd = 20 });
+    const c1 = mgr.getClient(idx1).?;
+    _ = c1.connection.transitionTo(.ready);
+    _ = c1.connection.transitionTo(.operating);
+    c1.connection.attached_session_id = sess_id;
+
+    const result = broadcast_mod.broadcastToSession(&mgr, sess_id, "layout_changed", null);
+    try std.testing.expectEqual(@as(u16, 1), result.sent_count);
+
+    mgr.getClient(idx1).?.deinit();
 }

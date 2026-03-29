@@ -194,7 +194,7 @@ pub fn serializeLayoutTree(
 
 fn serializeNode(
     tree: *const [types.MAX_TREE_NODES]?split_tree.SplitNodeData,
-    node_idx: u8,
+    node_index: u8,
     x: f32,
     y: f32,
     width: f32,
@@ -204,8 +204,8 @@ fn serializeNode(
     pane_id_lookup: *const fn (slot: types.PaneSlot) types.PaneId,
     writer: anytype,
 ) !void {
-    if (node_idx >= types.MAX_TREE_NODES) return;
-    const node = tree[node_idx] orelse return;
+    if (node_index >= types.MAX_TREE_NODES) return;
+    const node = tree[node_index] orelse return;
 
     switch (node) {
         .leaf => |slot| {
@@ -225,14 +225,14 @@ fn serializeNode(
             });
         },
         .split => |s| {
-            const orientation_str: []const u8 = if (s.orientation == .horizontal) "horizontal" else "vertical";
+            const orientation_string: []const u8 = if (s.orientation == .horizontal) "horizontal" else "vertical";
             const cols: u16 = @intFromFloat(@round(width));
             const rows: u16 = @intFromFloat(@round(height));
             const x_off: u16 = @intFromFloat(@round(x));
             const y_off: u16 = @intFromFloat(@round(y));
 
             try writer.print("{{\"type\":\"split\",\"orientation\":\"{s}\",\"ratio\":{d:.6},\"cols\":{d},\"rows\":{d},\"x_off\":{d},\"y_off\":{d},\"first\":", .{
-                orientation_str,
+                orientation_string,
                 s.ratio,
                 cols,
                 rows,
@@ -240,21 +240,21 @@ fn serializeNode(
                 y_off,
             });
 
-            const left_idx = split_tree.leftChild(node_idx);
-            const right_idx = split_tree.rightChild(node_idx);
+            const left_index = split_tree.leftChild(node_index);
+            const right_index = split_tree.rightChild(node_index);
 
             switch (s.orientation) {
                 .horizontal => {
                     const left_width = width * s.ratio;
-                    try serializeNode(tree, left_idx, x, y, left_width, height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
+                    try serializeNode(tree, left_index, x, y, left_width, height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
                     try writer.writeAll(",\"second\":");
-                    try serializeNode(tree, right_idx, x + left_width, y, width - left_width, height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
+                    try serializeNode(tree, right_index, x + left_width, y, width - left_width, height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
                 },
                 .vertical => {
                     const top_height = height * s.ratio;
-                    try serializeNode(tree, left_idx, x, y, width, top_height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
+                    try serializeNode(tree, left_index, x, y, width, top_height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
                     try writer.writeAll(",\"second\":");
-                    try serializeNode(tree, right_idx, x, y + top_height, width, height - top_height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
+                    try serializeNode(tree, right_index, x, y + top_height, width, height - top_height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
                 },
             }
             try writer.writeAll("}");

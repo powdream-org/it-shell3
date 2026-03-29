@@ -67,26 +67,156 @@ pub fn dispatch(
             ctx.disconnect_fn(client_slot);
         },
         // Session management messages (0x0100-0x013F).
+        .create_session_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                name: []const u8 = "",
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var session_ctx = makeSessionHandlerContext(ctx);
+            session_handler.handleCreateSession(&session_ctx, client, client_slot, header.sequence, parsed.value.name);
+        },
         .list_sessions_request => {
             var session_ctx = makeSessionHandlerContext(ctx);
             session_handler.handleListSessions(&session_ctx, client, client_slot, header.sequence);
         },
         .rename_session_request => {
-            // TODO(Plan 9+): Parse session_id and name from payload JSON
-            // and call session_handler.handleRenameSession.
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+                name: []const u8,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var session_ctx = makeSessionHandlerContext(ctx);
+            session_handler.handleRenameSession(&session_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.name);
         },
         .attach_session_request => {
-            // TODO(Plan 9+): Parse session_id from payload JSON
-            // and call session_handler.handleAttachSession.
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var session_ctx = makeSessionHandlerContext(ctx);
+            session_handler.handleAttachSession(&session_ctx, client, client_slot, header.sequence, parsed.value.session_id);
         },
         .detach_session_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
             var session_ctx = makeSessionHandlerContext(ctx);
-            session_handler.handleDetachSession(&session_ctx, client, client_slot, header.sequence);
+            session_handler.handleDetachSession(&session_ctx, client, client_slot, header.sequence, parsed.value.session_id);
+        },
+        .destroy_session_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+                force: bool = false,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var session_ctx = makeSessionHandlerContext(ctx);
+            session_handler.handleDestroySession(&session_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.force);
+        },
+        .attach_or_create_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                name: []const u8,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var session_ctx = makeSessionHandlerContext(ctx);
+            session_handler.handleAttachOrCreate(&session_ctx, client, client_slot, header.sequence, parsed.value.name);
         },
         // Pane management messages (0x0140-0x017F).
+        .create_pane_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var pane_ctx = makePaneHandlerContext(ctx);
+            pane_handler.handleCreatePane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id);
+        },
+        .split_pane_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+                pane_id: u32,
+                direction: []const u8,
+                ratio: f32 = 0.5,
+                focus_new: bool = true,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            const direction = parseDirection(parsed.value.direction) orelse return;
+            var pane_ctx = makePaneHandlerContext(ctx);
+            pane_handler.handleSplitPane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_id, direction, parsed.value.ratio, parsed.value.focus_new);
+        },
+        .close_pane_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+                pane_id: u32,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var pane_ctx = makePaneHandlerContext(ctx);
+            pane_handler.handleClosePane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_id);
+        },
+        .focus_pane_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+                pane_id: u32,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var pane_ctx = makePaneHandlerContext(ctx);
+            pane_handler.handleFocusPane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_id);
+        },
+        .navigate_pane_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+                direction: []const u8,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            const direction = parseDirection(parsed.value.direction) orelse return;
+            var pane_ctx = makePaneHandlerContext(ctx);
+            pane_handler.handleNavigatePane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, direction);
+        },
+        .resize_pane_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+                pane_id: u32,
+                direction: []const u8,
+                delta: i32,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            const direction = parseDirection(parsed.value.direction) orelse return;
+            var pane_ctx = makePaneHandlerContext(ctx);
+            pane_handler.handleResizePane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_id, direction, parsed.value.delta);
+        },
         .equalize_splits_request => {
-            // TODO(Plan 9+): Parse session_id from payload JSON
-            // and call pane_handler.handleEqualizeSplits.
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var pane_ctx = makePaneHandlerContext(ctx);
+            pane_handler.handleEqualizeSplits(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id);
+        },
+        .zoom_pane_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+                pane_id: u32,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var pane_ctx = makePaneHandlerContext(ctx);
+            pane_handler.handleZoomPane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_id);
+        },
+        .swap_panes_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+                pane_a_id: u32,
+                pane_b_id: u32,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var pane_ctx = makePaneHandlerContext(ctx);
+            pane_handler.handleSwapPanes(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_a_id, parsed.value.pane_b_id);
+        },
+        .layout_get_request => {
+            const parsed = std.json.parseFromSlice(struct {
+                session_id: u32,
+            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
+            defer parsed.deinit();
+            var pane_ctx = makePaneHandlerContext(ctx);
+            pane_handler.handleLayoutGet(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id);
         },
         else => {
             // All other message types are stubs for future plans (input,
@@ -102,6 +232,22 @@ fn makeSessionHandlerContext(ctx: *DispatcherContext) session_handler.SessionHan
         .disconnect_fn = ctx.disconnect_fn,
         .default_ime_engine = ctx.default_ime_engine,
     };
+}
+
+fn makePaneHandlerContext(ctx: *DispatcherContext) pane_handler.PaneHandlerContext {
+    return .{
+        .session_manager = ctx.session_manager,
+        .client_manager = ctx.client_manager,
+    };
+}
+
+/// Parses a direction string ("right", "left", "up", "down") into a Direction enum.
+fn parseDirection(direction_string: []const u8) ?core.types.Direction {
+    if (std.mem.eql(u8, direction_string, "right")) return .right;
+    if (std.mem.eql(u8, direction_string, "left")) return .left;
+    if (std.mem.eql(u8, direction_string, "up")) return .up;
+    if (std.mem.eql(u8, direction_string, "down")) return .down;
+    return null;
 }
 
 fn handleClientHello(

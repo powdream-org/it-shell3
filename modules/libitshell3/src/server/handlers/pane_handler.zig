@@ -29,6 +29,53 @@ pub const PaneHandlerContext = struct {
     client_manager: *ClientManager,
 };
 
+// ── CreatePaneRequest (0x0140) ─────────────────────────────────────────────
+
+/// Handles CreatePaneRequest. Creates a standalone pane replacing the layout
+/// root. Per protocol Section 2.1.
+pub fn handleCreatePane(
+    ctx: *PaneHandlerContext,
+    client: *ClientState,
+    client_slot: u16,
+    sequence: u32,
+    session_id: types.SessionId,
+) void {
+    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+
+    const entry = ctx.session_manager.getSession(session_id) orelse {
+        const err = "{\"status\":1,\"error\":\"session not found\"}";
+        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.create_pane_response), sequence, err) orelse return;
+        client.enqueueDirect(r) catch {};
+        return;
+    };
+
+    // Allocate a new pane slot.
+    const new_slot = entry.allocPaneSlot() catch {
+        const err = "{\"status\":8,\"error\":\"PANE_LIMIT_EXCEEDED\"}";
+        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.create_pane_response), sequence, err) orelse return;
+        client.enqueueDirect(r) catch {};
+        return;
+    };
+
+    // Assign a PaneId and create stub Pane (PTY not yet spawned).
+    const new_pane_id = ctx.session_manager.allocPaneId();
+    // TODO(Plan 9+): Spawn shell via forkpty with optional shell/cwd args.
+    entry.setPaneAtSlot(new_slot, Pane.init(new_pane_id, new_slot, -1, 0, 0, 0));
+
+    // Replace the layout root with this single leaf.
+    entry.session.tree_nodes = split_tree.initSingleLeaf(new_slot);
+    entry.session.focused_pane = new_slot;
+
+    // Response to requester.
+    var json_buf: [128]u8 = undefined;
+    const resp_json = std.fmt.bufPrint(&json_buf, "{{\"status\":0,\"pane_id\":{d}}}", .{new_pane_id}) catch return;
+    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.create_pane_response), sequence, resp_json) orelse return;
+    client.enqueueDirect(resp) catch {};
+
+    // Broadcast LayoutChanged.
+    broadcastLayoutChanged(ctx, client, client_slot, entry);
+}
+
 // ── SplitPaneRequest (0x0142) ───────────────────────────────────────────────
 
 /// Handles SplitPaneRequest. Validates pane limit, allocates new pane,
@@ -79,7 +126,7 @@ pub fn handleSplitPane(
     };
 
     // Find the leaf in the tree.
-    const leaf_idx = split_tree.findLeafBySlot(&entry.session.tree_nodes, target_slot) orelse {
+    const leaf_index = split_tree.findLeafBySlot(&entry.session.tree_nodes, target_slot) orelse {
         entry.freePaneSlot(new_slot);
         const err = "{\"status\":7,\"error\":\"internal error\"}";
         const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
@@ -90,7 +137,7 @@ pub fn handleSplitPane(
     // For left/up splits, the new pane is the left child and original is right.
     // splitLeaf always puts original on left, new on right.
     // For left/up, we swap after splitting.
-    split_tree.splitLeaf(&entry.session.tree_nodes, leaf_idx, orientation, ratio, new_slot) catch {
+    split_tree.splitLeaf(&entry.session.tree_nodes, leaf_index, orientation, ratio, new_slot) catch {
         entry.freePaneSlot(new_slot);
         const err = "{\"status\":3,\"error\":\"TOO_SMALL\"}";
         const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
@@ -152,13 +199,13 @@ pub fn handleClosePane(
     };
 
     // Find the leaf in the tree.
-    const leaf_idx = split_tree.findLeafBySlot(&entry.session.tree_nodes, target_slot) orelse return;
+    const leaf_index = split_tree.findLeafBySlot(&entry.session.tree_nodes, target_slot) orelse return;
 
     // Determine sibling for focus transfer.
     var new_focus_pane_id: types.PaneId = 0;
     var side_effect: u8 = 0;
 
-    split_tree.removeLeaf(&entry.session.tree_nodes, leaf_idx) catch {
+    split_tree.removeLeaf(&entry.session.tree_nodes, leaf_index) catch {
         // CannotRemoveRoot = last pane in session. Session auto-destroy.
         side_effect = 1;
         entry.freePaneSlot(target_slot);
@@ -349,7 +396,7 @@ pub fn handleResizePane(
     };
 
     // Find the adjacent split node.
-    const split_idx = split_tree.findAdjacentSplit(&entry.session.tree_nodes, target_slot, direction) orelse {
+    const split_index = split_tree.findAdjacentSplit(&entry.session.tree_nodes, target_slot, direction) orelse {
         const err = "{\"status\":2,\"error\":\"no split in that direction\"}";
         const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.resize_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
@@ -359,7 +406,7 @@ pub fn handleResizePane(
     // Adjust the ratio. Delta is in cells; convert to ratio delta.
     // Use a rough conversion: delta / 80 for horizontal, delta / 24 for vertical.
     const ratio_delta: f32 = @as(f32, @floatFromInt(delta)) / 80.0;
-    if (entry.session.tree_nodes[split_idx]) |*node| {
+    if (entry.session.tree_nodes[split_index]) |*node| {
         switch (node.*) {
             .split => |*s| {
                 s.ratio = std.math.clamp(s.ratio + ratio_delta, 0.1, 0.9);
@@ -516,7 +563,7 @@ pub fn handleLayoutGet(
 fn broadcastLayoutChanged(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    client_slot: u16,
+    _: u16,
     entry: *SessionEntry,
 ) void {
     const layout_json = buildLayoutPayload(entry) orelse return;
@@ -546,7 +593,7 @@ fn broadcastLayoutChanged(
         ctx.client_manager,
         entry.session.session_id,
         notif,
-        client_slot,
+        null,
     );
 }
 
@@ -555,7 +602,7 @@ var layout_tree_buf: [4096]u8 = undefined;
 /// File-scope static buffer for the full layout JSON payload.
 var layout_json_buf: [6144]u8 = undefined;
 
-fn buildLayoutPayload(entry: *SessionEntry) ?[]const u8 {
+pub fn buildLayoutPayload(entry: *SessionEntry) ?[]const u8 {
     // Use a simple pane_id lookup function.
     const lookup = struct {
         var entry_ref: *SessionEntry = undefined;

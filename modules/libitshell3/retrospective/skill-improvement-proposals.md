@@ -209,3 +209,34 @@ plan's parallelizable groups information is not utilized at spawn time.
   (Tasks 8, 9, 11, 12, 13) once their dependencies complete."
 - Add anti-pattern: "Don't serialize parallelizable tasks into one implementer.
   The plan's dependency graph exists precisely to enable concurrent execution."
+
+## SIP-8: Team leader attempted to self-triage instead of presenting to owner
+
+**Discovered during**: Step 9 (Fix Cycle)
+
+**What happened**: After the QA reviewer reported 8 [CODE] + 9 [TEST] issues,
+the team leader began self-triaging: classifying issues as "바로 Fix 가능",
+"구현 누락", "판단 필요" and making disposition recommendations (e.g., "Skip?"
+for [CODE-8], "defer?" for [CODE-4]). Per `docs/work-styles/06-issue-triage.md`,
+the team leader should group issues by component/area, present the group index
+to the owner, and let the owner triage each issue one at a time. The team leader
+does NOT pre-decide dispositions — presenting recommendations is a form of
+pre-deciding that biases the owner's judgment.
+
+**Root cause**: `steps/09-fix-cycle.md` section 9c says "Route issues to the
+correct agent" without referencing the triage procedure. The team leader
+interpreted Step 9 as "classify and fix" rather than "triage with owner first,
+then route." The triage procedure from `06-issue-triage.md` applies to ALL
+discovered issues, not just Step 3 verification issues.
+
+**Affected steps**: `steps/09-fix-cycle.md`
+
+**Proposed changes**:
+
+- In section 9c, add: "Before routing issues, triage them with the owner per
+  `docs/work-styles/06-issue-triage.md`. Group by component/area, present the
+  index, and let the owner decide dispositions. Only after triage is complete
+  should issues be routed to agents."
+- Add anti-pattern: "Don't self-triage. The team leader groups and presents
+  issues; the owner decides dispositions. Pre-classifying issues as 'fix',
+  'defer', or 'skip' bypasses the owner's judgment."

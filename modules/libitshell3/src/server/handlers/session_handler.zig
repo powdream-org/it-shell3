@@ -23,6 +23,7 @@ const ClientManager = server.connection.client_manager.ClientManager;
 const broadcast = server.connection.broadcast;
 const envelope = @import("protocol_envelope.zig");
 const notification_builder = @import("notification_builder.zig");
+const pane_handler = @import("pane_handler.zig");
 
 /// Context for session handler operations.
 pub const SessionHandlerContext = struct {
@@ -262,8 +263,31 @@ pub fn handleAttachSession(
     const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.attach_session_response), sequence, resp_json) orelse return;
     client.enqueueDirect(resp) catch {};
 
-    // TODO(Plan 9): Send LayoutChanged notification to requester.
+    // Send LayoutChanged notification to the requester.
     // TODO(Plan 9): Send initial I-frame from ring buffer.
+    if (pane_handler.buildLayoutPayload(entry)) |layout_json| {
+        const lc_active_pane_id: types.PaneId = if (entry.session.focused_pane) |fp|
+            if (entry.getPaneAtSlot(fp)) |pane| pane.pane_id else 0
+        else
+            0;
+        const lc_zoomed_pane_id: types.PaneId = if (entry.zoomed_pane) |zp|
+            if (entry.getPaneAtSlot(zp)) |pane| pane.pane_id else 0
+        else
+            0;
+        var lc_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+        const lc_seq = client.connection.advanceSendSequence();
+        if (notification_builder.buildLayoutChanged(
+            session_id,
+            lc_active_pane_id,
+            entry.isZoomed(),
+            lc_zoomed_pane_id,
+            layout_json,
+            lc_seq,
+            &lc_buf,
+        )) |lc_notif| {
+            client.enqueueDirect(lc_notif) catch {};
+        }
+    }
 
     // Broadcast ClientAttached to other session peers.
     var attached_count: u32 = 0;
@@ -285,12 +309,14 @@ pub fn handleAttachSession(
 
 // ── DetachSessionRequest (0x0106) ───────────────────────────────────────────
 
-/// Handles DetachSessionRequest. Clears attachment, transitions to READY.
+/// Handles DetachSessionRequest. Validates session_id matches attachment,
+/// clears attachment, transitions to READY.
 pub fn handleDetachSession(
     ctx: *SessionHandlerContext,
     client: *ClientState,
     client_slot: u16,
     sequence: u32,
+    session_id: types.SessionId,
 ) void {
     var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
@@ -301,7 +327,13 @@ pub fn handleDetachSession(
         return;
     }
 
-    const session_id = client.connection.attached_session_id;
+    // Validate session_id matches the currently attached session.
+    if (client.connection.attached_session_id != session_id) {
+        const err_json = "{\"status\":1,\"error\":\"session_id mismatch\"}";
+        const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.detach_session_response), sequence, err_json) orelse return;
+        client.enqueueDirect(resp) catch {};
+        return;
+    }
     const client_id = client.connection.client_id;
 
     // Clear attachment.
@@ -343,6 +375,7 @@ pub fn handleDestroySession(
     client_slot: u16,
     sequence: u32,
     session_id: types.SessionId,
+    force: bool,
 ) void {
     var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
@@ -353,10 +386,31 @@ pub fn handleDestroySession(
         client.enqueueDirect(resp) catch {};
         return;
     };
+
+    // When force=false, check if any pane has a running process.
+    if (!force) {
+        var has_running = false;
+        var p: u32 = 0;
+        while (p < types.MAX_PANES) : (p += 1) {
+            const slot: types.PaneSlot = @intCast(p);
+            if (entry.getPaneAtSlot(slot)) |pane| {
+                if (pane.is_running) {
+                    has_running = true;
+                    break;
+                }
+            }
+        }
+        if (has_running) {
+            const err_json = "{\"status\":2,\"error\":\"PROCESSES_RUNNING\"}";
+            const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.destroy_session_response), sequence, err_json) orelse return;
+            client.enqueueDirect(resp) catch {};
+            return;
+        }
+    }
     var name_copy: [types.MAX_SESSION_NAME]u8 = @splat(0);
-    const name_len = entry.session.name_length;
-    @memcpy(name_copy[0..name_len], entry.session.name[0..name_len]);
-    const session_name = name_copy[0..name_len];
+    const name_length = entry.session.name_length;
+    @memcpy(name_copy[0..name_length], entry.session.name[0..name_length]);
+    const session_name = name_copy[0..name_length];
 
     // TODO(Plan 8): 1. PreeditEnd to affected clients (if composition active).
 
@@ -437,36 +491,93 @@ pub fn handleAttachOrCreate(
     }
 
     // Try to find existing session by name.
-    if (ctx.session_manager.findSessionByName(session_name)) |entry| {
-        // Attach to existing session.
-        handleAttachSession(ctx, client, client_slot, sequence, entry.session.session_id);
-        return;
-    }
+    const action_taken: []const u8 = if (ctx.session_manager.findSessionByName(session_name)) |_|
+        "attached"
+    else
+        "created";
 
-    // Session not found — create a new one and attach.
-    const timestamp = std.time.milliTimestamp();
-    const new_session_id = ctx.session_manager.createSession(
-        session_name,
-        ctx.default_ime_engine,
-        timestamp,
-    ) catch {
-        const err_json = "{\"status\":7,\"error\":\"max sessions reached\"}";
+    const target_session_id: types.SessionId = if (ctx.session_manager.findSessionByName(session_name)) |entry|
+        entry.session.session_id
+    else blk: {
+        // Session not found — create a new one.
+        const timestamp = std.time.milliTimestamp();
+        const new_session_id = ctx.session_manager.createSession(
+            session_name,
+            ctx.default_ime_engine,
+            timestamp,
+        ) catch {
+            const err_json = "{\"status\":7,\"error\":\"max sessions reached\"}";
+            const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.attach_or_create_response), sequence, err_json) orelse return;
+            client.enqueueDirect(resp) catch {};
+            return;
+        };
+
+        // TODO(Plan 9+): Spawn shell process for the initial pane.
+        _ = ctx.session_manager.allocPaneId();
+
+        // Broadcast SessionListChanged(event="created").
+        var notif_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+        const notif_seq = client.connection.advanceSendSequence();
+        const notif = notification_builder.buildSessionListChanged("created", new_session_id, session_name, notif_seq, &notif_buf) orelse return;
+        _ = broadcast.broadcastToActive(ctx.client_manager, notif, client_slot);
+
+        break :blk new_session_id;
+    };
+
+    // Attach to the session (existing or newly created).
+    const entry = ctx.session_manager.getSession(target_session_id) orelse return;
+
+    if (!client.connection.transitionTo(.operating)) {
+        const err_json = "{\"status\":7,\"error\":\"internal error\"}";
         const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.attach_or_create_response), sequence, err_json) orelse return;
         client.enqueueDirect(resp) catch {};
         return;
-    };
+    }
 
-    // TODO(Plan 9+): Spawn shell process for the initial pane.
-    _ = ctx.session_manager.allocPaneId();
+    client.connection.attached_session_id = target_session_id;
+    client.attached_session = entry;
 
-    // Broadcast SessionListChanged(event="created").
-    var notif_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
-    const notif_seq = client.connection.advanceSendSequence();
-    const notif = notification_builder.buildSessionListChanged("created", new_session_id, session_name, notif_seq, &notif_buf) orelse return;
-    _ = broadcast.broadcastToActive(ctx.client_manager, notif, client_slot);
+    if (client.ready_idle_timer_id) |_| {
+        client.ready_idle_timer_id = null;
+    }
 
-    // Now attach to the new session.
-    handleAttachSession(ctx, client, client_slot, sequence, new_session_id);
+    // Build AttachOrCreateResponse (0x010D) with action_taken.
+    const active_pane_id: types.PaneId = if (entry.session.focused_pane) |fp|
+        if (entry.getPaneAtSlot(fp)) |pane| pane.pane_id else 0
+    else
+        0;
+
+    var json_resp_buf: [1024]u8 = undefined;
+    const resp_json = std.fmt.bufPrint(&json_resp_buf, "{{\"status\":0,\"session_id\":{d},\"name\":\"{s}\",\"active_pane_id\":{d},\"action_taken\":\"{s}\",\"active_input_method\":\"{s}\",\"active_keyboard_layout\":\"{s}\",\"resize_policy\":\"latest\"}}", .{
+        target_session_id,
+        entry.session.getName(),
+        active_pane_id,
+        action_taken,
+        entry.session.getActiveInputMethod(),
+        entry.session.getActiveKeyboardLayout(),
+    }) catch return;
+    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.attach_or_create_response), sequence, resp_json) orelse return;
+    client.enqueueDirect(resp) catch {};
+
+    // TODO(Plan 9): Send LayoutChanged notification to requester.
+    // TODO(Plan 9): Send initial I-frame from ring buffer.
+
+    // Broadcast ClientAttached to other session peers.
+    var attached_count: u32 = 0;
+    var c: u32 = 0;
+    while (c < server.connection.client_manager.MAX_CLIENTS) : (c += 1) {
+        const idx: u16 = @intCast(c);
+        if (ctx.client_manager.getClientConst(idx)) |cs| {
+            if (cs.connection.state == .operating and cs.connection.attached_session_id == target_session_id) {
+                attached_count += 1;
+            }
+        }
+    }
+
+    var ca_notif_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    const ca_notif_seq = client.connection.advanceSendSequence();
+    const ca_notif = notification_builder.buildClientAttached(target_session_id, client.connection.client_id, "", attached_count, ca_notif_seq, &ca_notif_buf) orelse return;
+    _ = broadcast.broadcastToSession(ctx.client_manager, target_session_id, ca_notif, client_slot);
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -583,7 +694,7 @@ test "handleDetachSession: detaches client" {
         .default_ime_engine = helpers.testImeEngine(),
     };
 
-    handleDetachSession(&ctx, client, idx, 1);
+    handleDetachSession(&ctx, client, idx, 1, 1);
 
     try std.testing.expectEqual(@as(u32, 0), client.connection.attached_session_id);
     try std.testing.expect(client.connection.state == .ready);
