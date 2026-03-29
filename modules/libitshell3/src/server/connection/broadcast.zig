@@ -82,8 +82,6 @@ fn enqueueCallback(ctx: *BroadcastContext, slot: *ClientState, idx: u16) void {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 test "broadcastToSession: sends to operating clients in session" {
-    const transport_mod = @import("itshell3_transport");
-    _ = transport_mod;
     var mgr = ClientManager{};
 
     // Add two clients, both operating in session 1

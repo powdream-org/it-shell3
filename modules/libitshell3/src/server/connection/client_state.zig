@@ -10,19 +10,25 @@ const ConnectionState = connection_state_mod.ConnectionState;
 const State = connection_state_mod.State;
 const transport = @import("itshell3_transport");
 const SocketConnection = transport.transport.SocketConnection;
+const protocol = @import("itshell3_protocol");
+const MessageReader = protocol.reader.MessageReader;
+const core = @import("itshell3_core");
+const MAX_PANES = core.types.MAX_PANES;
 const server = @import("itshell3_server");
 const ring_buffer_mod = server.delivery.ring_buffer;
 const RingCursor = ring_buffer_mod.RingCursor;
 const direct_queue_mod = server.delivery.direct_queue;
 const DirectQueue = direct_queue_mod.DirectQueue;
+const SessionEntry = server.state.session_entry.SessionEntry;
 
 /// Per-client daemon state. Wraps ConnectionState (which wraps SocketConnection)
 /// plus daemon-specific delivery and tracking fields.
 pub const ClientState = struct {
     connection: ConnectionState,
 
-    /// Per-client ring buffer cursor for frame delivery (priority 2 channel).
-    ring_cursor: RingCursor = RingCursor.init(),
+    /// Per-client ring buffer cursors for frame delivery (priority 2 channel).
+    /// One cursor per pane slot. null = client has not received frames for that pane.
+    ring_cursors: [MAX_PANES]?RingCursor = [_]?RingCursor{null} ** MAX_PANES,
 
     /// Per-client direct message queue (priority 1 channel).
     direct_queue: DirectQueue = DirectQueue.init(),
@@ -30,10 +36,14 @@ pub const ClientState = struct {
     /// Partial send offset for direct queue drain.
     direct_partial_offset: usize = 0,
 
-    /// Display info from ClientDisplayInfo message.
-    display_refresh_hz: u32 = 60,
-    power_state: PowerState = .ac,
-    transport_type: TransportType = .local,
+    /// Display info reported by the client.
+    // TODO(Plan 8): Populate from ClientDisplayInfo message (0x0505). Add
+    // remaining fields: preferred_max_fps, estimated_rtt_ms, bandwidth_hint.
+    display_info: ClientDisplayInfo = .{},
+
+    /// Pointer to the attached session (daemon-level field for direct access
+    /// without lookup). null = not attached to any session.
+    attached_session: ?*SessionEntry = null,
 
     /// Heartbeat tracking.
     last_activity_timestamp: i64 = 0,
@@ -44,22 +54,17 @@ pub const ClientState = struct {
     handshake_timer_id: ?u16 = null,
     ready_idle_timer_id: ?u16 = null,
 
-    /// Per-client buffer for accumulating partial protocol frames across recv()
-    /// calls. TCP does not guarantee message boundaries, so incomplete trailing
-    /// bytes from one recv() must be preserved for the next.
-    recv_partial_buffer: [MAX_RECV_PARTIAL]u8 = [_]u8{0} ** MAX_RECV_PARTIAL,
-    recv_partial_length: u16 = 0,
+    /// Per-connection framing state. Accumulates partial messages across recv()
+    /// calls. See daemon-architecture integration-boundaries spec.
+    message_reader: MessageReader = .{},
 
     /// Whether this client slot is occupied.
     occupied: bool = false,
 
-    /// Maximum partial frame buffer size. Large enough to hold one max-size
-    /// header plus some payload spillover. Protocol header is 16 bytes; typical
-    /// partial frames are much smaller than this.
-    pub const MAX_RECV_PARTIAL: u16 = 4096;
-
-    pub const PowerState = enum { ac, battery, low_battery };
-    pub const TransportType = enum { local, ssh_tunnel, unknown };
+    // TODO(Plan 8): Define fields from ClientDisplayInfo message (0x0505):
+    // display_refresh_hz, power_state, preferred_max_fps, transport_type,
+    // estimated_rtt_ms, bandwidth_hint.
+    pub const ClientDisplayInfo = struct {};
 
     /// Initialize a new client state wrapping a SocketConnection.
     pub fn init(socket: SocketConnection, client_id: u32) ClientState {
@@ -73,7 +78,8 @@ pub const ClientState = struct {
     /// Reset this slot to unoccupied state.
     pub fn deinit(self: *ClientState) void {
         self.direct_queue.deinit();
-        self.recv_partial_length = 0;
+        self.message_reader.reset();
+        self.attached_session = null;
         self.occupied = false;
     }
 
@@ -108,25 +114,6 @@ pub const ClientState = struct {
     pub fn enqueueDirect(self: *ClientState, data: []const u8) !void {
         try self.direct_queue.enqueue(data);
     }
-
-    /// Returns any previously saved partial frame bytes.
-    pub fn getRecvPartial(self: *const ClientState) []const u8 {
-        return self.recv_partial_buffer[0..self.recv_partial_length];
-    }
-
-    /// Saves leftover bytes from an incomplete frame for the next recv() call.
-    /// If the leftover exceeds the buffer capacity, the excess is silently
-    /// dropped (protocol error -- the frame is too large for partial buffering).
-    pub fn saveRecvPartial(self: *ClientState, data: []const u8) void {
-        const copy_length = @min(data.len, MAX_RECV_PARTIAL);
-        @memcpy(self.recv_partial_buffer[0..copy_length], data[0..copy_length]);
-        self.recv_partial_length = @intCast(copy_length);
-    }
-
-    /// Clears the partial receive buffer.
-    pub fn clearRecvPartial(self: *ClientState) void {
-        self.recv_partial_length = 0;
-    }
 };
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -149,7 +136,7 @@ test "ClientState.deinit: marks slot as unoccupied" {
 test "ClientState.recordActivity: updates timestamp" {
     var client = ClientState.init(.{ .fd = 7 }, 1);
     const before = client.last_activity_timestamp;
-    // Force a different timestamp by manipulating directly
+    // Force a different timestamp by manipulating directly.
     client.last_activity_timestamp = before - 100;
     client.recordActivity();
     try std.testing.expect(client.last_activity_timestamp >= before - 100);
@@ -162,55 +149,46 @@ test "ClientState.enqueueDirect: adds message to direct queue" {
     try std.testing.expect(!client.direct_queue.isEmpty());
 }
 
-test "ClientState: ring_cursor starts at zero" {
+test "ClientState: ring_cursors all start as null" {
     const client = ClientState.init(.{ .fd = 7 }, 1);
-    try std.testing.expectEqual(@as(usize, 0), client.ring_cursor.position);
+    for (client.ring_cursors) |cursor| {
+        try std.testing.expect(cursor == null);
+    }
 }
 
-test "ClientState: default display info" {
+test "ClientState: display_info field exists" {
     const client = ClientState.init(.{ .fd = 7 }, 1);
-    try std.testing.expectEqual(@as(u32, 60), client.display_refresh_hz);
-    try std.testing.expectEqual(ClientState.PowerState.ac, client.power_state);
-    try std.testing.expectEqual(ClientState.TransportType.local, client.transport_type);
+    _ = client.display_info;
 }
 
-test "ClientState.saveRecvPartial: stores and retrieves leftover bytes" {
-    var client = ClientState.init(.{ .fd = 7 }, 1);
-    defer client.deinit();
-    const data = "partial-frame-data";
-    client.saveRecvPartial(data);
-    try std.testing.expectEqualStrings(data, client.getRecvPartial());
+test "ClientState: attached_session defaults to null" {
+    const client = ClientState.init(.{ .fd = 7 }, 1);
+    try std.testing.expect(client.attached_session == null);
 }
 
-test "ClientState.clearRecvPartial: resets partial length to zero" {
+test "ClientState.deinit: clears attached_session" {
     var client = ClientState.init(.{ .fd = 7 }, 1);
-    defer client.deinit();
-    client.saveRecvPartial("some bytes");
-    client.clearRecvPartial();
-    try std.testing.expectEqual(@as(u16, 0), client.recv_partial_length);
-    try std.testing.expectEqual(@as(usize, 0), client.getRecvPartial().len);
-}
-
-test "ClientState.saveRecvPartial: truncates when exceeding capacity" {
-    var client = ClientState.init(.{ .fd = 7 }, 1);
-    defer client.deinit();
-    // Create data larger than MAX_RECV_PARTIAL.
-    var big_data: [ClientState.MAX_RECV_PARTIAL + 100]u8 = [_]u8{'x'} ** (ClientState.MAX_RECV_PARTIAL + 100);
-    client.saveRecvPartial(&big_data);
-    try std.testing.expectEqual(@as(u16, ClientState.MAX_RECV_PARTIAL), client.recv_partial_length);
-}
-
-test "ClientState.deinit: clears recv partial buffer" {
-    var client = ClientState.init(.{ .fd = 7 }, 1);
-    client.saveRecvPartial("leftover");
+    // Verify that attached_session is cleared on deinit by checking
+    // the field is null after init, setting it non-null, then deiniting.
+    try std.testing.expect(client.attached_session == null);
+    // Use @ptrFromInt with a well-aligned nonzero address for test purposes only.
+    // This avoids constructing a real SessionEntry (which requires ImeEngine vtable).
+    client.attached_session = @ptrFromInt(@alignOf(SessionEntry));
+    try std.testing.expect(client.attached_session != null);
     client.deinit();
-    try std.testing.expectEqual(@as(u16, 0), client.recv_partial_length);
+    try std.testing.expect(client.attached_session == null);
 }
 
-test "ClientState.init: recv partial starts empty" {
+test "ClientState: message_reader starts empty" {
     const client = ClientState.init(.{ .fd = 7 }, 1);
-    try std.testing.expectEqual(@as(u16, 0), client.recv_partial_length);
-    try std.testing.expectEqual(@as(usize, 0), client.getRecvPartial().len);
+    try std.testing.expectEqual(@as(u16, 0), client.message_reader.length);
+}
+
+test "ClientState.deinit: resets message_reader" {
+    var client = ClientState.init(.{ .fd = 7 }, 1);
+    _ = client.message_reader.feed("leftover");
+    client.deinit();
+    try std.testing.expectEqual(@as(u16, 0), client.message_reader.length);
 }
 
 test "ClientState: timer IDs default to null" {

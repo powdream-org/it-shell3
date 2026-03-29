@@ -4,7 +4,7 @@
 
 - **Step**: 5 (Spec Compliance Review)
 - **Cycle Type**: modification (Plan 6 — new features on existing codebase)
-- **Review Round**: 0
+- **Review Round**: 1
 - **Active Team**: impl-team
 - **Team Directory**: `.claude/agents/impl-team/`
 
@@ -39,7 +39,7 @@
 - [x] Step 1: Requirements Intake
 - [x] Step 2: Scaffold & Build Verification
 - [x] Step 3: Implementation Phase
-- [ ] Step 4: Code Simplify
+- [x] Step 4: Code Simplify
 - [ ] Step 5: Spec Compliance Review
 - [ ] Step 6: Fix Cycle
 - [ ] Step 7: Coverage Audit

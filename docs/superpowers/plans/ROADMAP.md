@@ -274,6 +274,17 @@ timestamp when creating sessions. TODO comment in `session.zig`.
 `foreground_pid`, `silence_subscriptions`, `silence_deadline` per spec
 `state-and-types.md`. TODO comments in `pane.zig`.
 
+**Note (from Plan 6):** `ConnectionState.transitionTo()` does not allow
+OPERATING→OPERATING. Spec requires this for session switching
+(AttachSessionRequest to a different session while OPERATING). Add
+`target == .operating` to the `.operating` arm when implementing
+AttachSessionRequest. TODO comment in `connection_state.zig`.
+
+**Note (from Plan 6):** ServerHello, HeartbeatAck, and Heartbeat messages are
+enqueued as raw JSON without the 16-byte protocol header. All messages must
+carry the header per protocol spec Section 3. TODO comments in
+`message_dispatcher.zig` and `timer_handler.zig`.
+
 **Depends on:** Plan 6 (message dispatch + connection lifecycle required to
 route session/pane requests and send notifications)
 
@@ -283,6 +294,11 @@ route session/pane requests and send notifications)
 PasteData handler, FocusEvent handler, preedit broadcasting (PreeditStart /
 PreeditUpdate / PreeditEnd / PreeditSync, InputMethodAck), AmbiguousWidthConfig,
 preedit inactivity timeout (30s), input processing priority (5-tier).
+
+**Note (from Plan 6):** `ClientState.display_info` is a dummy
+`ClientDisplayInfo` struct. Populate fields from the `ClientDisplayInfo` message
+(0x0505) when implementing the message handler. TODO comment in
+`client_state.zig`.
 
 **Note (from Plan 5.5 audit):** Wire message sending for IME procedures
 (PreeditEnd, PreeditStart, InputMethodAck, LayoutChanged) — code has TODO(Plan

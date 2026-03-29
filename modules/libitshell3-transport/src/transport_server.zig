@@ -18,7 +18,6 @@ pub const ListenError = error{
     Bind,
     Listen,
     DaemonAlreadyRunning,
-    StaleSocket,
     DirectoryCreate,
 };
 
@@ -110,15 +109,20 @@ pub const Listener = struct {
 
 /// Binds and listens on a Unix socket at `socket_path`.
 ///
-/// Returns error.DaemonAlreadyRunning if a daemon is already bound,
-/// or error.StaleSocket if a stale socket file exists.
+/// Returns error.DaemonAlreadyRunning if a daemon is already bound.
+/// If a stale socket file exists (no daemon listening), it is automatically
+/// unlinked and bind proceeds. See daemon-lifecycle spec.
 pub fn listen(socket_path: []const u8) ListenError!Listener {
     if (socket_path.len > MAX_SOCKET_PATH) return error.PathTooLong;
 
-    // Stale socket detection — report result to caller per spec §1.5.5.
+    // Stale socket detection. Per daemon-lifecycle spec, unlink stale socket
+    // and proceed with bind.
     switch (probeStaleSocket(socket_path)) {
         .daemon_running => return error.DaemonAlreadyRunning,
-        .stale_socket => return error.StaleSocket,
+        .stale_socket => {
+            // Unlink the stale socket file and continue with bind.
+            std.posix.unlink(socket_path) catch {};
+        },
         .no_prior_socket => {},
     }
 
@@ -222,7 +226,7 @@ test "listen: returns DaemonAlreadyRunning when another listener is active" {
     try testing.expectError(error.DaemonAlreadyRunning, result);
 }
 
-test "listen: returns StaleSocket when a stale socket file exists" {
+test "listen: auto-unlinks stale socket and succeeds" {
     comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
         @compileError("listen tests require BSD or Linux");
 
@@ -236,12 +240,14 @@ test "listen: returns StaleSocket when a stale socket file exists" {
     var addr = makeAddr(socket_path);
     std.posix.bind(tmp_fd, @ptrCast(&addr), @sizeOf(std.posix.sockaddr.un)) catch
         return error.Bind;
-    // Close without unlinking — leaves a stale socket file.
+    // Close without unlinking -- leaves a stale socket file.
     std.posix.close(tmp_fd);
-    defer std.posix.unlink(socket_path) catch {};
 
-    const result = listen(socket_path);
-    try testing.expectError(error.StaleSocket, result);
+    // Per daemon-lifecycle spec, listen() should unlink the stale socket and proceed.
+    var listener = try listen(socket_path);
+    defer listener.deinit();
+
+    try testing.expectEqualSlices(u8, socket_path, listener.socketPath());
 }
 
 test "listen: succeeds on a fresh path and returns a valid Listener" {

@@ -13,9 +13,11 @@ const heartbeat_manager_mod = server.connection.heartbeat_manager;
 const HeartbeatManager = heartbeat_manager_mod.HeartbeatManager;
 const HeartbeatTickResult = heartbeat_manager_mod.HeartbeatTickResult;
 
-/// Timer ID ranges for dispatching.
-pub const HANDSHAKE_TIMER_BASE: u16 = 0x0000; // 0x0000-0x003F
-pub const READY_IDLE_TIMER_BASE: u16 = 0x0040; // 0x0040-0x007F
+const MAX_CLIENTS = server.connection.client_manager.MAX_CLIENTS;
+
+/// Timer ID ranges for dispatching. Derived from MAX_CLIENTS to stay in sync.
+pub const HANDSHAKE_TIMER_BASE: u16 = 0x0000;
+pub const READY_IDLE_TIMER_BASE: u16 = HANDSHAKE_TIMER_BASE + MAX_CLIENTS;
 pub const HEARTBEAT_TIMER_ID: u16 = heartbeat_manager_mod.HEARTBEAT_TIMER_ID;
 
 /// Callback for initiating client disconnect.
@@ -52,7 +54,7 @@ fn handleTimer(ctx: *TimerHandlerContext, timer_id: u16) void {
         // Handshake timeout for a specific client slot.
         const client_slot = timer_id - HANDSHAKE_TIMER_BASE;
         handleHandshakeTimeout(ctx, client_slot);
-    } else if (timer_id >= READY_IDLE_TIMER_BASE and timer_id < READY_IDLE_TIMER_BASE + 64) {
+    } else if (timer_id >= READY_IDLE_TIMER_BASE and timer_id < READY_IDLE_TIMER_BASE + MAX_CLIENTS) {
         // READY idle timeout for a specific client slot.
         const client_slot = timer_id - READY_IDLE_TIMER_BASE;
         handleReadyIdleTimeout(ctx, client_slot);
@@ -69,7 +71,7 @@ fn handleHeartbeatTick(ctx: *TimerHandlerContext) void {
             .timed_out => ctx.disconnect_fn(idx),
             .heartbeat_sent => {
                 // Enqueue heartbeat message to client.
-                // TODO: serialize with protocol header.
+                // TODO(Plan 7): Serialize with protocol header.
                 var buf: [128]u8 = undefined;
                 const json = std.fmt.bufPrint(&buf, "{{\"ping_id\":{d}}}", .{client.last_ping_id_sent}) catch continue;
                 client.enqueueDirect(json) catch {};

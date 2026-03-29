@@ -6,8 +6,6 @@
 const std = @import("std");
 const client_state_mod = @import("client_state.zig");
 const ClientState = client_state_mod.ClientState;
-const client_manager_mod = @import("client_manager.zig");
-const ClientManager = client_manager_mod.ClientManager;
 
 /// Heartbeat interval in milliseconds (30 seconds).
 pub const HEARTBEAT_INTERVAL_MS: u32 = 30_000;
@@ -87,13 +85,11 @@ test "HeartbeatManager.nextPingId: wraps around skipping zero" {
 }
 
 test "HeartbeatManager.checkClient: skips handshaking clients" {
-    const transport_mod = @import("itshell3_transport");
     var mgr = HeartbeatManager{};
     var client = ClientState.init(.{ .fd = 5 }, 1);
-    // Client is in handshaking state
+    // Client is in handshaking state.
     const result = mgr.checkClient(&client);
     try std.testing.expectEqual(HeartbeatTickResult.skipped, result);
-    _ = transport_mod;
 }
 
 test "HeartbeatManager.checkClient: sends heartbeat for ready client" {
