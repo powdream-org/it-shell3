@@ -1,3 +1,7 @@
+//! Tiered-buffer message reader that accumulates partial protocol frames across
+//! recv() calls. Uses a 64 KB fixed buffer for common messages and borrows
+//! 16 MiB chunks from a ChunkPool for large payloads.
+
 const std = @import("std");
 const header_mod = @import("header.zig");
 

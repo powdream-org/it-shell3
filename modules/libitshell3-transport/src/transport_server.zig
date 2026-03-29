@@ -1,3 +1,6 @@
+//! Server-side Unix socket listener with stale-socket detection, UID
+//! verification, and non-blocking I/O setup for accepted connections.
+
 const std = @import("std");
 const builtin = @import("builtin");
 const transport = @import("transport.zig");
@@ -186,10 +189,7 @@ fn chmodSocket(socket_path: []const u8, mode: std.posix.mode_t) void {
     _ = std.c.chmod(@ptrCast(&path_buf), mode);
 }
 
-// ── Tests ────────────────────────────────────────────────────────────────
-
-const testing = std.testing;
-
+// ── Tests ────────────────────────────────────────────────────────────────────
 
 test "listen: returns PathTooLong when path exceeds MAX_SOCKET_PATH" {
     comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
@@ -197,7 +197,7 @@ test "listen: returns PathTooLong when path exceeds MAX_SOCKET_PATH" {
 
     const long_path = "x" ** (MAX_SOCKET_PATH + 1);
     const result = listen(long_path);
-    try testing.expectError(error.PathTooLong, result);
+    try std.testing.expectError(error.PathTooLong, result);
 }
 
 test "listen: returns DaemonAlreadyRunning when another listener is active" {
@@ -221,7 +221,7 @@ test "listen: returns DaemonAlreadyRunning when another listener is active" {
 
     // Second listen attempt on the same path should detect the running daemon.
     const result = listen(socket_path);
-    try testing.expectError(error.DaemonAlreadyRunning, result);
+    try std.testing.expectError(error.DaemonAlreadyRunning, result);
 }
 
 test "listen: auto-unlinks stale socket and succeeds" {
@@ -245,7 +245,7 @@ test "listen: auto-unlinks stale socket and succeeds" {
     var listener = try listen(socket_path);
     defer listener.deinit();
 
-    try testing.expectEqualSlices(u8, socket_path, listener.socketPath());
+    try std.testing.expectEqualSlices(u8, socket_path, listener.socketPath());
 }
 
 test "listen: succeeds on a fresh path and returns a valid Listener" {
@@ -258,8 +258,8 @@ test "listen: succeeds on a fresh path and returns a valid Listener" {
     var listener = try listen(socket_path);
     defer listener.deinit();
 
-    try testing.expect(listener.fd() > 0 or listener.fd() == 0);
-    try testing.expectEqualSlices(u8, socket_path, listener.socketPath());
+    try std.testing.expect(listener.fd() > 0 or listener.fd() == 0);
+    try std.testing.expectEqualSlices(u8, socket_path, listener.socketPath());
 }
 
 test "Listener.fd: returns the listen file descriptor" {
@@ -277,7 +277,7 @@ test "Listener.fd: returns the listen file descriptor" {
     };
     defer std.posix.close(listener.listen_fd);
 
-    try testing.expectEqual(raw_fd, listener.fd());
+    try std.testing.expectEqual(raw_fd, listener.fd());
 }
 
 test "Listener.socketPath: returns the bound path" {
@@ -292,7 +292,7 @@ test "Listener.socketPath: returns the bound path" {
     };
     @memcpy(listener.socket_path_storage[0..expected_path.len], expected_path);
 
-    try testing.expectEqualSlices(u8, expected_path, listener.socketPath());
+    try std.testing.expectEqualSlices(u8, expected_path, listener.socketPath());
 }
 
 test "Listener.close: closes fd and unlinks socket file" {
@@ -322,7 +322,7 @@ test "Listener.close: closes fd and unlinks socket file" {
 
     // Verify socket file is removed: accessing it should fail.
     std.fs.cwd().access(socket_path, .{}) catch |err| {
-        try testing.expectEqual(error.FileNotFound, err);
+        try std.testing.expectEqual(error.FileNotFound, err);
         return;
     };
     // If access succeeded, the file still exists — fail the test.
@@ -355,7 +355,7 @@ test "listen: returns Bind when path parent is not a directory" {
     // /dev/null exists but is a device file, not a directory.
     // ensureDirectory sees PathAlreadyExists (OK), but bind fails with ENOTDIR.
     const result = listen("/dev/null/itshell3-test.sock");
-    try testing.expectError(error.Bind, result);
+    try std.testing.expectError(error.Bind, result);
 }
 
 test "listen: returns DirectoryCreate when parent path is not creatable" {
@@ -365,7 +365,7 @@ test "listen: returns DirectoryCreate when parent path is not creatable" {
     // The parent path /nonexistent/subdir does not exist and cannot be created
     // because /nonexistent does not exist. mkdir fails with FileNotFound.
     const result = listen("/nonexistent/subdir/itshell3-test.sock");
-    try testing.expectError(error.DirectoryCreate, result);
+    try std.testing.expectError(error.DirectoryCreate, result);
 }
 
 test "Listener.accept: accepts a client connection" {
@@ -395,7 +395,7 @@ test "Listener.accept: accepts a client connection" {
     var buf: [16]u8 = undefined;
     const result = conn.recv(&buf);
     switch (result) {
-        .bytes_read => |n| try testing.expectEqualSlices(u8, "hello", buf[0..n]),
+        .bytes_read => |n| try std.testing.expectEqualSlices(u8, "hello", buf[0..n]),
         else => return error.TestUnexpectedResult,
     }
 }

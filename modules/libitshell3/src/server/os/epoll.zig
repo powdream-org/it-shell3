@@ -1,3 +1,6 @@
+//! epoll-based event loop backend for Linux. Implements the EventLoopOps
+//! vtable using epoll for fd monitoring and timerfd for timers.
+
 const std = @import("std");
 const builtin = @import("builtin");
 const interfaces = @import("interfaces.zig");
@@ -209,16 +212,13 @@ fn epWait(ctx: *anyopaque, timeout_ms: ?u32) interfaces.EventLoopOps.WaitError!P
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
-const testing = std.testing;
-const createPipe = @import("itshell3_testing").helpers.createPipe;
-
 test "epEncodeTarget and epDecodeData: round-trip all variants" {
     // listener
     {
         const target: ?interfaces.EventTarget = .{ .listener = {} };
         const encoded = epEncodeTarget(7, target);
         const decoded = epDecodeData(encoded);
-        try testing.expectEqual(@as(std.posix.fd_t, 7), decoded.fd);
+        try std.testing.expectEqual(@as(std.posix.fd_t, 7), decoded.fd);
         if (decoded.target) |dec| {
             switch (dec) {
                 .listener => {},
@@ -232,12 +232,12 @@ test "epEncodeTarget and epDecodeData: round-trip all variants" {
         const target: ?interfaces.EventTarget = .{ .pty = .{ .session_idx = 10, .pane_slot = 3 } };
         const encoded = epEncodeTarget(42, target);
         const decoded = epDecodeData(encoded);
-        try testing.expectEqual(@as(std.posix.fd_t, 42), decoded.fd);
+        try std.testing.expectEqual(@as(std.posix.fd_t, 42), decoded.fd);
         if (decoded.target) |dec| {
             switch (dec) {
                 .pty => |p| {
-                    try testing.expectEqual(@as(u16, 10), p.session_idx);
-                    try testing.expectEqual(@as(u8, 3), p.pane_slot);
+                    try std.testing.expectEqual(@as(u16, 10), p.session_idx);
+                    try std.testing.expectEqual(@as(u8, 3), p.pane_slot);
                 },
                 else => return error.TestUnexpectedResult,
             }
@@ -249,10 +249,10 @@ test "epEncodeTarget and epDecodeData: round-trip all variants" {
         const target: ?interfaces.EventTarget = .{ .client = .{ .client_idx = 63 } };
         const encoded = epEncodeTarget(100, target);
         const decoded = epDecodeData(encoded);
-        try testing.expectEqual(@as(std.posix.fd_t, 100), decoded.fd);
+        try std.testing.expectEqual(@as(std.posix.fd_t, 100), decoded.fd);
         if (decoded.target) |dec| {
             switch (dec) {
-                .client => |c| try testing.expectEqual(@as(u16, 63), c.client_idx),
+                .client => |c| try std.testing.expectEqual(@as(u16, 63), c.client_idx),
                 else => return error.TestUnexpectedResult,
             }
         } else return error.TestUnexpectedResult;
@@ -263,10 +263,10 @@ test "epEncodeTarget and epDecodeData: round-trip all variants" {
         const target: ?interfaces.EventTarget = .{ .timer = .{ .timer_id = 999 } };
         const encoded = epEncodeTarget(55, target);
         const decoded = epDecodeData(encoded);
-        try testing.expectEqual(@as(std.posix.fd_t, 55), decoded.fd);
+        try std.testing.expectEqual(@as(std.posix.fd_t, 55), decoded.fd);
         if (decoded.target) |dec| {
             switch (dec) {
-                .timer => |t| try testing.expectEqual(@as(u16, 999), t.timer_id),
+                .timer => |t| try std.testing.expectEqual(@as(u16, 999), t.timer_id),
                 else => return error.TestUnexpectedResult,
             }
         } else return error.TestUnexpectedResult;
@@ -276,8 +276,8 @@ test "epEncodeTarget and epDecodeData: round-trip all variants" {
     {
         const encoded = epEncodeTarget(200, null);
         const decoded = epDecodeData(encoded);
-        try testing.expectEqual(@as(std.posix.fd_t, 200), decoded.fd);
-        try testing.expect(decoded.target == null);
+        try std.testing.expectEqual(@as(std.posix.fd_t, 200), decoded.fd);
+        try std.testing.expect(decoded.target == null);
     }
 }
 
@@ -289,12 +289,12 @@ test "epEncodeTarget and epDecodeData: pty boundary values" {
     } };
     const encoded = epEncodeTarget(1, target);
     const decoded = epDecodeData(encoded);
-    try testing.expectEqual(@as(std.posix.fd_t, 1), decoded.fd);
+    try std.testing.expectEqual(@as(std.posix.fd_t, 1), decoded.fd);
     if (decoded.target) |dec| {
         switch (dec) {
             .pty => |p| {
-                try testing.expectEqual(std.math.maxInt(u16), p.session_idx);
-                try testing.expectEqual(std.math.maxInt(types.PaneSlot), p.pane_slot);
+                try std.testing.expectEqual(std.math.maxInt(u16), p.session_idx);
+                try std.testing.expectEqual(std.math.maxInt(types.PaneSlot), p.pane_slot);
             },
             else => return error.TestUnexpectedResult,
         }
@@ -307,20 +307,20 @@ test "epEncodeTarget and epDecodeData: fd preserved in lower 32 bits" {
     const large_fd: std.posix.fd_t = 0x7FFF_FFFF; // max positive i32
     const encoded = epEncodeTarget(large_fd, target);
     const decoded = epDecodeData(encoded);
-    try testing.expectEqual(large_fd, decoded.fd);
+    try std.testing.expectEqual(large_fd, decoded.fd);
 }
 
 test "epEncodeTarget/epDecodeData: null target round-trip" {
     const encoded = epEncodeTarget(5, null);
     const decoded = epDecodeData(encoded);
-    try testing.expectEqual(@as(std.posix.fd_t, 5), decoded.fd);
-    try testing.expect(decoded.target == null);
+    try std.testing.expectEqual(@as(std.posix.fd_t, 5), decoded.fd);
+    try std.testing.expect(decoded.target == null);
 }
 
 test "epEncodeTarget/epDecodeData: null vs listener non-collision" {
     const null_encoded = epEncodeTarget(5, null);
     const listener_encoded = epEncodeTarget(5, .{ .listener = {} });
-    try testing.expect(null_encoded != listener_encoded);
+    try std.testing.expect(null_encoded != listener_encoded);
 }
 
 test "epEncodeTarget/epDecodeData: null vs pty boundary non-collision" {
@@ -329,7 +329,7 @@ test "epEncodeTarget/epDecodeData: null vs pty boundary non-collision" {
         .session_idx = std.math.maxInt(u16),
         .pane_slot = std.math.maxInt(types.PaneSlot),
     } });
-    try testing.expect(null_encoded != pty_max_encoded);
+    try std.testing.expect(null_encoded != pty_max_encoded);
 }
 
 test "epEncodeTarget/epDecodeData: null vs client boundary non-collision" {
@@ -337,7 +337,7 @@ test "epEncodeTarget/epDecodeData: null vs client boundary non-collision" {
     const client_max_encoded = epEncodeTarget(5, .{ .client = .{
         .client_idx = std.math.maxInt(u16),
     } });
-    try testing.expect(null_encoded != client_max_encoded);
+    try std.testing.expect(null_encoded != client_max_encoded);
 }
 
 test "epEncodeTarget/epDecodeData: null vs timer boundary non-collision" {
@@ -345,7 +345,7 @@ test "epEncodeTarget/epDecodeData: null vs timer boundary non-collision" {
     const timer_max_encoded = epEncodeTarget(5, .{ .timer = .{
         .timer_id = std.math.maxInt(u16),
     } });
-    try testing.expect(null_encoded != timer_max_encoded);
+    try std.testing.expect(null_encoded != timer_max_encoded);
 }
 
 test "epEncodeTarget/epDecodeData: all variants produce distinct udata ranges" {
@@ -360,7 +360,7 @@ test "epEncodeTarget/epDecodeData: all variants produce distinct udata ranges" {
     // Verify no two values are the same.
     for (all, 0..) |a, i| {
         for (all, 0..) |b, j| {
-            if (i != j) try testing.expect(a != b);
+            if (i != j) try std.testing.expect(a != b);
         }
     }
 }
@@ -377,6 +377,7 @@ test "epEncodeTarget/epDecodeData: all variants produce distinct udata ranges" {
 
 test "EpollContext: registerRead pipe write event detected and target verified" {
     if (comptime builtin.os.tag != .linux) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
 
     var ctx = try EpollContext.init();
     defer ctx.deinit();
@@ -397,24 +398,25 @@ test "EpollContext: registerRead pipe write event detected and target verified" 
     var iter = try ops.wait(ctx_ptr, 100);
     const event = iter.next();
 
-    try testing.expect(event != null);
-    try testing.expectEqual(read_fd, event.?.fd);
-    try testing.expectEqual(interfaces.Filter.read, event.?.filter);
+    try std.testing.expect(event != null);
+    try std.testing.expectEqual(read_fd, event.?.fd);
+    try std.testing.expectEqual(interfaces.Filter.read, event.?.filter);
     if (event.?.target) |decoded_target| {
         switch (decoded_target) {
-            .client => |c| try testing.expectEqual(@as(u16, 42), c.client_idx),
+            .client => |c| try std.testing.expectEqual(@as(u16, 42), c.client_idx),
             else => return error.TestUnexpectedResult,
         }
     } else return error.TestUnexpectedResult;
 
     var buf: [16]u8 = undefined;
     const bytes_read = try std.posix.read(read_fd, &buf);
-    try testing.expectEqual(@as(usize, 5), bytes_read);
-    try testing.expectEqualSlices(u8, "hello", buf[0..bytes_read]);
+    try std.testing.expectEqual(@as(usize, 5), bytes_read);
+    try std.testing.expectEqualSlices(u8, "hello", buf[0..bytes_read]);
 }
 
 test "EpollContext: registerWrite immediately writable and write succeeds" {
     if (comptime builtin.os.tag != .linux) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
 
     var ctx = try EpollContext.init();
     defer ctx.deinit();
@@ -433,22 +435,23 @@ test "EpollContext: registerWrite immediately writable and write succeeds" {
     var iter = try ops.wait(ctx_ptr, 100);
     const event = iter.next();
 
-    try testing.expect(event != null);
-    try testing.expectEqual(write_fd, event.?.fd);
-    try testing.expectEqual(interfaces.Filter.write, event.?.filter);
+    try std.testing.expect(event != null);
+    try std.testing.expectEqual(write_fd, event.?.fd);
+    try std.testing.expectEqual(interfaces.Filter.write, event.?.filter);
     if (event.?.target) |decoded_target| {
         switch (decoded_target) {
-            .client => |c| try testing.expectEqual(@as(u16, 77), c.client_idx),
+            .client => |c| try std.testing.expectEqual(@as(u16, 77), c.client_idx),
             else => return error.TestUnexpectedResult,
         }
     } else return error.TestUnexpectedResult;
 
     const bytes_written = try std.posix.write(write_fd, "test");
-    try testing.expect(bytes_written > 0);
+    try std.testing.expect(bytes_written > 0);
 }
 
 test "EpollContext: unregister no event after write" {
     if (comptime builtin.os.tag != .linux) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
 
     var ctx = try EpollContext.init();
     defer ctx.deinit();
@@ -468,11 +471,12 @@ test "EpollContext: unregister no event after write" {
     _ = try std.posix.write(write_fd, "ignored");
 
     var iter = try ops.wait(ctx_ptr, 50);
-    try testing.expect(iter.next() == null);
+    try std.testing.expect(iter.next() == null);
 }
 
 test "EpollContext: timeout with no events returns empty iterator" {
     if (comptime builtin.os.tag != .linux) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
 
     var ctx = try EpollContext.init();
     defer ctx.deinit();
@@ -486,11 +490,12 @@ test "EpollContext: timeout with no events returns empty iterator" {
     try ops.registerRead(ctx_ptr, pipe_fds[0], .{ .listener = {} });
 
     var iter = try ops.wait(ctx_ptr, 50);
-    try testing.expect(iter.next() == null);
+    try std.testing.expect(iter.next() == null);
 }
 
 test "EpollContext: multiple fds correct target routing" {
     if (comptime builtin.os.tag != .linux) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
 
     var ctx = try EpollContext.init();
     defer ctx.deinit();
@@ -522,8 +527,8 @@ test "EpollContext: multiple fds correct target routing" {
             if (event.target) |target| {
                 switch (target) {
                     .pty => |p| {
-                        try testing.expectEqual(@as(u16, 1), p.session_idx);
-                        try testing.expectEqual(@as(u8, 2), p.pane_slot);
+                        try std.testing.expectEqual(@as(u16, 1), p.session_idx);
+                        try std.testing.expectEqual(@as(u8, 2), p.pane_slot);
                     },
                     else => return error.TestUnexpectedResult,
                 }
@@ -533,7 +538,7 @@ test "EpollContext: multiple fds correct target routing" {
         if (event.fd == pipe2[0]) {
             if (event.target) |target| {
                 switch (target) {
-                    .client => |c| try testing.expectEqual(@as(u16, 5), c.client_idx),
+                    .client => |c| try std.testing.expectEqual(@as(u16, 5), c.client_idx),
                     else => return error.TestUnexpectedResult,
                 }
             } else return error.TestUnexpectedResult;
@@ -541,12 +546,13 @@ test "EpollContext: multiple fds correct target routing" {
         }
     }
 
-    try testing.expect(found_pipe1);
-    try testing.expect(found_pipe2);
+    try std.testing.expect(found_pipe1);
+    try std.testing.expect(found_pipe2);
 }
 
 test "EpollContext: EOF detection when write end is closed" {
     if (comptime builtin.os.tag != .linux) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
 
     var ctx = try EpollContext.init();
     defer ctx.deinit();
@@ -564,10 +570,10 @@ test "EpollContext: EOF detection when write end is closed" {
 
     var iter = try ops.wait(ctx_ptr, 100);
     const event = iter.next();
-    try testing.expect(event != null);
-    try testing.expectEqual(read_fd, event.?.fd);
+    try std.testing.expect(event != null);
+    try std.testing.expectEqual(read_fd, event.?.fd);
 
     var buf: [16]u8 = undefined;
     const bytes_read = try std.posix.read(read_fd, &buf);
-    try testing.expectEqual(@as(usize, 0), bytes_read);
+    try std.testing.expectEqual(@as(usize, 0), bytes_read);
 }

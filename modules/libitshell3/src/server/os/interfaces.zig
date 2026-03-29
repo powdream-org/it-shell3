@@ -1,3 +1,7 @@
+//! OS abstraction vtables for PTY operations, event loop (kqueue/epoll),
+//! and signal handling. Defines the Event, EventTarget, and Filter types
+//! shared by all OS backends.
+
 const std = @import("std");
 const core = @import("itshell3_core");
 const types = core.types;

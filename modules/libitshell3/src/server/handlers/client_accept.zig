@@ -1,3 +1,6 @@
+//! Server-side handler for accepting new client connections on the listener
+//! socket. Arms a handshake timeout timer after each successful accept.
+
 const std = @import("std");
 const interfaces = @import("../os/interfaces.zig");
 const EventLoopOps = interfaces.EventLoopOps;
@@ -80,9 +83,7 @@ fn handleClientAccept(ctx: *ClientAcceptContext) void {
     }
 }
 
-// --- Tests ---
-
-const testing = std.testing;
+// ── Tests ────────────────────────────────────────────────────────────────────
 
 test "chainHandle: non-listener event forwards to next handler" {
     var forwarded = false;
@@ -111,5 +112,5 @@ test "chainHandle: non-listener event forwards to next handler" {
     };
 
     chainHandle(@ptrCast(&dummy_ctx), pty_event, &next);
-    try testing.expect(forwarded);
+    try std.testing.expect(forwarded);
 }

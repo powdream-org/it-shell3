@@ -1,3 +1,6 @@
+//! kqueue-based event loop backend for macOS/BSD. Implements the EventLoopOps
+//! vtable using kevent for fd monitoring, timers, and signal delivery.
+
 const std = @import("std");
 const builtin = @import("builtin");
 const interfaces = @import("interfaces.zig");
@@ -214,11 +217,9 @@ fn kqWait(ctx: *anyopaque, timeout_ms: ?u32) interfaces.EventLoopOps.WaitError!P
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
-const testing = std.testing;
-const createPipe = @import("itshell3_testing").helpers.createPipe;
-
 test "KqueueContext: registerRead pipe write event detected and target verified" {
     if (comptime !builtin.os.tag.isBSD()) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
     var ctx = try KqueueContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -238,24 +239,25 @@ test "KqueueContext: registerRead pipe write event detected and target verified"
     var iter = try ops.wait(ctx_ptr, 100);
     const event = iter.next();
 
-    try testing.expect(event != null);
-    try testing.expectEqual(read_fd, event.?.fd);
-    try testing.expectEqual(interfaces.Filter.read, event.?.filter);
+    try std.testing.expect(event != null);
+    try std.testing.expectEqual(read_fd, event.?.fd);
+    try std.testing.expectEqual(interfaces.Filter.read, event.?.filter);
     if (event.?.target) |decoded_target| {
         switch (decoded_target) {
-            .client => |c| try testing.expectEqual(@as(u16, 42), c.client_idx),
+            .client => |c| try std.testing.expectEqual(@as(u16, 42), c.client_idx),
             else => return error.TestUnexpectedResult,
         }
     } else return error.TestUnexpectedResult;
 
     var buf: [16]u8 = undefined;
     const bytes_read = try std.posix.read(read_fd, &buf);
-    try testing.expectEqual(@as(usize, 5), bytes_read);
-    try testing.expectEqualSlices(u8, "hello", buf[0..bytes_read]);
+    try std.testing.expectEqual(@as(usize, 5), bytes_read);
+    try std.testing.expectEqualSlices(u8, "hello", buf[0..bytes_read]);
 }
 
 test "KqueueContext: registerWrite immediately writable and write succeeds" {
     if (comptime !builtin.os.tag.isBSD()) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
     var ctx = try KqueueContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -273,22 +275,23 @@ test "KqueueContext: registerWrite immediately writable and write succeeds" {
     var iter = try ops.wait(ctx_ptr, 100);
     const event = iter.next();
 
-    try testing.expect(event != null);
-    try testing.expectEqual(write_fd, event.?.fd);
-    try testing.expectEqual(interfaces.Filter.write, event.?.filter);
+    try std.testing.expect(event != null);
+    try std.testing.expectEqual(write_fd, event.?.fd);
+    try std.testing.expectEqual(interfaces.Filter.write, event.?.filter);
     if (event.?.target) |decoded_target| {
         switch (decoded_target) {
-            .client => |c| try testing.expectEqual(@as(u16, 77), c.client_idx),
+            .client => |c| try std.testing.expectEqual(@as(u16, 77), c.client_idx),
             else => return error.TestUnexpectedResult,
         }
     } else return error.TestUnexpectedResult;
 
     const bytes_written = try std.posix.write(write_fd, "test");
-    try testing.expect(bytes_written > 0);
+    try std.testing.expect(bytes_written > 0);
 }
 
 test "KqueueContext: unregister no event after write" {
     if (comptime !builtin.os.tag.isBSD()) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
     var ctx = try KqueueContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -307,11 +310,12 @@ test "KqueueContext: unregister no event after write" {
     _ = try std.posix.write(write_fd, "ignored");
 
     var iter = try ops.wait(ctx_ptr, 50);
-    try testing.expect(iter.next() == null);
+    try std.testing.expect(iter.next() == null);
 }
 
 test "KqueueContext: timeout with no events returns empty iterator" {
     if (comptime !builtin.os.tag.isBSD()) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
     var ctx = try KqueueContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -324,11 +328,12 @@ test "KqueueContext: timeout with no events returns empty iterator" {
     try ops.registerRead(ctx_ptr, pipe_fds[0], .{ .listener = {} });
 
     var iter = try ops.wait(ctx_ptr, 50);
-    try testing.expect(iter.next() == null);
+    try std.testing.expect(iter.next() == null);
 }
 
 test "KqueueContext: multiple fds correct target routing" {
     if (comptime !builtin.os.tag.isBSD()) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
     var ctx = try KqueueContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -359,8 +364,8 @@ test "KqueueContext: multiple fds correct target routing" {
             if (event.target) |target| {
                 switch (target) {
                     .pty => |p| {
-                        try testing.expectEqual(@as(u16, 1), p.session_idx);
-                        try testing.expectEqual(@as(u8, 2), p.pane_slot);
+                        try std.testing.expectEqual(@as(u16, 1), p.session_idx);
+                        try std.testing.expectEqual(@as(u8, 2), p.pane_slot);
                     },
                     else => return error.TestUnexpectedResult,
                 }
@@ -370,7 +375,7 @@ test "KqueueContext: multiple fds correct target routing" {
         if (event.fd == pipe2[0]) {
             if (event.target) |target| {
                 switch (target) {
-                    .client => |c| try testing.expectEqual(@as(u16, 5), c.client_idx),
+                    .client => |c| try std.testing.expectEqual(@as(u16, 5), c.client_idx),
                     else => return error.TestUnexpectedResult,
                 }
             } else return error.TestUnexpectedResult;
@@ -378,12 +383,13 @@ test "KqueueContext: multiple fds correct target routing" {
         }
     }
 
-    try testing.expect(found_pipe1);
-    try testing.expect(found_pipe2);
+    try std.testing.expect(found_pipe1);
+    try std.testing.expect(found_pipe2);
 }
 
 test "KqueueContext: EOF detection when write end is closed" {
     if (comptime !builtin.os.tag.isBSD()) return;
+    const createPipe = @import("itshell3_testing").helpers.createPipe;
     var ctx = try KqueueContext.init();
     defer ctx.deinit();
     const ops = ctx.eventLoopOps();
@@ -400,19 +406,19 @@ test "KqueueContext: EOF detection when write end is closed" {
 
     var iter = try ops.wait(ctx_ptr, 100);
     const event = iter.next();
-    try testing.expect(event != null);
-    try testing.expectEqual(read_fd, event.?.fd);
+    try std.testing.expect(event != null);
+    try std.testing.expectEqual(read_fd, event.?.fd);
 
     var buf: [16]u8 = undefined;
     const bytes_read = try std.posix.read(read_fd, &buf);
-    try testing.expectEqual(@as(usize, 0), bytes_read);
+    try std.testing.expectEqual(@as(usize, 0), bytes_read);
 }
 
 test "encodeTarget and decodeTarget: round-trip all variants" {
     // null
     const null_enc = encodeTarget(null);
     const null_dec = decodeTarget(null_enc);
-    try testing.expect(null_dec == null);
+    try std.testing.expect(null_dec == null);
 
     // listener
     const listener: ?interfaces.EventTarget = .{ .listener = {} };
@@ -432,8 +438,8 @@ test "encodeTarget and decodeTarget: round-trip all variants" {
     if (pty_dec) |dec| {
         switch (dec) {
             .pty => |p| {
-                try testing.expectEqual(@as(u16, 10), p.session_idx);
-                try testing.expectEqual(@as(u8, 3), p.pane_slot);
+                try std.testing.expectEqual(@as(u16, 10), p.session_idx);
+                try std.testing.expectEqual(@as(u8, 3), p.pane_slot);
             },
             else => return error.TestUnexpectedResult,
         }
@@ -445,7 +451,7 @@ test "encodeTarget and decodeTarget: round-trip all variants" {
     const client_dec = decodeTarget(client_enc);
     if (client_dec) |dec| {
         switch (dec) {
-            .client => |c| try testing.expectEqual(@as(u16, 63), c.client_idx),
+            .client => |c| try std.testing.expectEqual(@as(u16, 63), c.client_idx),
             else => return error.TestUnexpectedResult,
         }
     } else return error.TestUnexpectedResult;
@@ -456,7 +462,7 @@ test "encodeTarget and decodeTarget: round-trip all variants" {
     const timer_dec = decodeTarget(timer_enc);
     if (timer_dec) |dec| {
         switch (dec) {
-            .timer => |t| try testing.expectEqual(@as(u16, 999), t.timer_id),
+            .timer => |t| try std.testing.expectEqual(@as(u16, 999), t.timer_id),
             else => return error.TestUnexpectedResult,
         }
     } else return error.TestUnexpectedResult;
@@ -464,15 +470,15 @@ test "encodeTarget and decodeTarget: round-trip all variants" {
 
 test "encodeTarget/decodeTarget: null target round-trip" {
     const encoded = encodeTarget(null);
-    try testing.expectEqual(NULL_TARGET_SENTINEL, encoded);
+    try std.testing.expectEqual(NULL_TARGET_SENTINEL, encoded);
     const decoded = decodeTarget(encoded);
-    try testing.expect(decoded == null);
+    try std.testing.expect(decoded == null);
 }
 
 test "encodeTarget/decodeTarget: null vs listener non-collision" {
     const null_udata = encodeTarget(null);
     const listener_udata = encodeTarget(.{ .listener = {} });
-    try testing.expect(null_udata != listener_udata);
+    try std.testing.expect(null_udata != listener_udata);
 }
 
 test "encodeTarget/decodeTarget: null vs pty boundary non-collision" {
@@ -481,7 +487,7 @@ test "encodeTarget/decodeTarget: null vs pty boundary non-collision" {
         .session_idx = std.math.maxInt(u16),
         .pane_slot = std.math.maxInt(types.PaneSlot),
     } });
-    try testing.expect(null_udata != pty_max_udata);
+    try std.testing.expect(null_udata != pty_max_udata);
 }
 
 test "encodeTarget/decodeTarget: null vs client boundary non-collision" {
@@ -489,7 +495,7 @@ test "encodeTarget/decodeTarget: null vs client boundary non-collision" {
     const client_max_udata = encodeTarget(.{ .client = .{
         .client_idx = std.math.maxInt(u16),
     } });
-    try testing.expect(null_udata != client_max_udata);
+    try std.testing.expect(null_udata != client_max_udata);
 }
 
 test "encodeTarget/decodeTarget: null vs timer boundary non-collision" {
@@ -497,7 +503,7 @@ test "encodeTarget/decodeTarget: null vs timer boundary non-collision" {
     const timer_max_udata = encodeTarget(.{ .timer = .{
         .timer_id = std.math.maxInt(u16),
     } });
-    try testing.expect(null_udata != timer_max_udata);
+    try std.testing.expect(null_udata != timer_max_udata);
 }
 
 test "encodeTarget/decodeTarget: all variants produce distinct udata ranges" {
@@ -511,7 +517,7 @@ test "encodeTarget/decodeTarget: all variants produce distinct udata ranges" {
     // Verify no two values are the same.
     for (all, 0..) |a, i| {
         for (all, 0..) |b, j| {
-            if (i != j) try testing.expect(a != b);
+            if (i != j) try std.testing.expect(a != b);
         }
     }
 }
