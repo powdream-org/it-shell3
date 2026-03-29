@@ -81,6 +81,9 @@ fn handleClientHello(
         ctx.server_pid,
     );
 
+    // Cancel the handshake timer regardless of outcome.
+    cancelHandshakeTimer(ctx, client, client_slot);
+
     switch (result) {
         .success => |data| {
             // Transition to READY.
@@ -88,11 +91,6 @@ fn handleClientHello(
             // Enqueue the ServerHello response via direct queue.
             // TODO(Plan 7): Wrap with protocol header before sending.
             client.enqueueDirect(data.getPayload()) catch {};
-
-            // Cancel the 5s handshake timer.
-            const handshake_timer_id = timer_handler.HANDSHAKE_TIMER_BASE + client_slot;
-            ctx.event_loop_ops.cancelTimer(ctx.event_loop_context, handshake_timer_id);
-            client.handshake_timer_id = null;
 
             // Arm the 60s READY idle timer.
             const ready_timer_id = timer_handler.READY_IDLE_TIMER_BASE + client_slot;
@@ -107,15 +105,17 @@ fn handleClientHello(
         .version_mismatch, .capability_required, .malformed_payload => |err_data| {
             // Send error, transition to disconnecting.
             _ = err_data;
-            // Cancel the handshake timer on failure too.
-            const handshake_timer_id = timer_handler.HANDSHAKE_TIMER_BASE + client_slot;
-            ctx.event_loop_ops.cancelTimer(ctx.event_loop_context, handshake_timer_id);
-            client.handshake_timer_id = null;
-
             _ = client.connection.transitionTo(.disconnecting);
             ctx.disconnect_fn(client_slot);
         },
     }
+}
+
+/// Cancels the handshake timeout timer for a client slot.
+fn cancelHandshakeTimer(ctx: *DispatcherContext, client: *ClientState, client_slot: u16) void {
+    const timer_id = timer_handler.HANDSHAKE_TIMER_BASE + client_slot;
+    ctx.event_loop_ops.cancelTimer(ctx.event_loop_context, timer_id);
+    client.handshake_timer_id = null;
 }
 
 fn handleHeartbeat(client: *ClientState, payload: []const u8) void {

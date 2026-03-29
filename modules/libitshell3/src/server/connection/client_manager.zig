@@ -148,35 +148,8 @@ pub const ClientManager = struct {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-/// Minimal no-op chunk pool for tests that do not exercise large messages.
-const TestChunkPoolContext = struct {
-    pool: ChunkPool = undefined,
-
-    fn init() TestChunkPoolContext {
-        var ctx = TestChunkPoolContext{};
-        ctx.pool = .{
-            .context = @ptrCast(&ctx),
-            .borrow_fn = borrowNoop,
-            .release_fn = releaseNoop,
-        };
-        return ctx;
-    }
-
-    fn chunkPool(self: *TestChunkPoolContext) *ChunkPool {
-        self.pool.context = @ptrCast(self);
-        return &self.pool;
-    }
-
-    fn borrowNoop(_: *anyopaque) ?ChunkPool.Chunk {
-        return null;
-    }
-
-    fn releaseNoop(_: *anyopaque, _: ChunkPool.Chunk) void {}
-};
-
 test "ClientManager: addClient assigns monotonic client_id" {
-    var pool_ctx = TestChunkPoolContext.init();
-    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
     const c1 = mgr.getClient(idx1).?;
@@ -187,8 +160,7 @@ test "ClientManager: addClient assigns monotonic client_id" {
 }
 
 test "ClientManager: removeClient frees slot for reuse" {
-    var pool_ctx = TestChunkPoolContext.init();
-    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     try std.testing.expectEqual(@as(u16, 1), mgr.count());
     mgr.removeClient(idx);
@@ -201,15 +173,13 @@ test "ClientManager: removeClient frees slot for reuse" {
 }
 
 test "ClientManager: getClient returns null for empty slot" {
-    var pool_ctx = TestChunkPoolContext.init();
-    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     try std.testing.expect(mgr.getClient(0) == null);
     try std.testing.expect(mgr.getClient(MAX_CLIENTS) == null);
 }
 
 test "ClientManager: findByClientId locates correct slot" {
-    var pool_ctx = TestChunkPoolContext.init();
-    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     _ = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
     const found = mgr.findByClientId(2);
@@ -218,14 +188,12 @@ test "ClientManager: findByClientId locates correct slot" {
 }
 
 test "ClientManager: findByClientId returns null for unknown id" {
-    var pool_ctx = TestChunkPoolContext.init();
-    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     try std.testing.expect(mgr.findByClientId(999) == null);
 }
 
 test "ClientManager: findByFd locates correct slot" {
-    var pool_ctx = TestChunkPoolContext.init();
-    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 42 });
     const found = mgr.findByFd(42);
     try std.testing.expect(found != null);
@@ -233,8 +201,7 @@ test "ClientManager: findByFd locates correct slot" {
 }
 
 test "ClientManager: addClient returns MaxClientsReached when full" {
-    var pool_ctx = TestChunkPoolContext.init();
-    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     var i: u32 = 0;
     while (i < MAX_CLIENTS) : (i += 1) {
         _ = try mgr.addClient(.{ .fd = @intCast(i + 100) });
@@ -244,8 +211,7 @@ test "ClientManager: addClient returns MaxClientsReached when full" {
 }
 
 test "ClientManager: forEachActive iterates ready and operating clients" {
-    var pool_ctx = TestChunkPoolContext.init();
-    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
     // Transition idx1 to READY

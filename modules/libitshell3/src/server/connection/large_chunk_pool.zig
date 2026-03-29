@@ -10,8 +10,8 @@ const client_manager_mod = @import("client_manager.zig");
 const protocol = @import("itshell3_protocol");
 const ChunkPool = protocol.message_reader.ChunkPool;
 
-/// Chunk size matches the protocol maximum payload size plus header headroom.
-pub const CHUNK_SIZE: usize = 16 * 1024 * 1024;
+/// Chunk size derived from the protocol module's canonical chunk capacity.
+pub const CHUNK_SIZE: usize = ChunkPool.Chunk.CHUNK_CAPACITY;
 
 /// Maximum number of pooled chunks (one per possible concurrent client).
 const MAX_CHUNKS: u16 = client_manager_mod.MAX_CLIENTS;

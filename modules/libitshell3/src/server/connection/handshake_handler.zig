@@ -185,7 +185,9 @@ pub fn processClientHello(
         .coalescing_config = .{},
     };
 
-    const json_bytes = std.json.Stringify.valueAlloc(allocator, server_hello, .{
+    var result = ServerHelloData{};
+    var fba = std.heap.FixedBufferAllocator.init(&result.payload);
+    const json_bytes = std.json.Stringify.valueAlloc(fba.allocator(), server_hello, .{
         .emit_null_optional_fields = false,
     }) catch {
         return .{ .malformed_payload = makeError(
@@ -193,18 +195,7 @@ pub fn processClientHello(
             "Failed to serialize ServerHello",
         ) };
     };
-    defer allocator.free(json_bytes);
-
-    var result = ServerHelloData{};
-    if (json_bytes.len <= MAX_HELLO_SIZE) {
-        @memcpy(result.payload[0..json_bytes.len], json_bytes);
-        result.payload_length = @intCast(json_bytes.len);
-    } else {
-        return .{ .malformed_payload = makeError(
-            @intFromEnum(ErrorCode.internal),
-            "ServerHello too large",
-        ) };
-    }
+    result.payload_length = @intCast(json_bytes.len);
 
     return .{ .success = result };
 }
