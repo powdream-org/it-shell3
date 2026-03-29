@@ -55,6 +55,10 @@ pub const MAX_PANE_TITLE: u16 = 256;
 /// Maximum length of a pane current working directory path in bytes.
 pub const MAX_PANE_CWD: u16 = 4096;
 
+/// Maximum length of a foreground process path in bytes.
+/// Derived from the platform's PATH_MAX (1024 on macOS, 4096 on Linux).
+pub const MAX_FOREGROUND_PROCESS: u16 = @intCast(std.posix.PATH_MAX);
+
 // ── Layout enums ────────────────────────────────────────────────────────────
 
 /// Split orientation for the binary pane tree.

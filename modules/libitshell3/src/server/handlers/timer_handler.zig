@@ -74,10 +74,18 @@ fn handleHeartbeatTick(ctx: *TimerHandlerContext) void {
                 const ping_id = ctx.heartbeat_manager.nextPingId();
                 client.last_ping_id_sent = ping_id;
 
-                // TODO(Plan 7): Serialize with protocol header.
-                var buf: [128]u8 = undefined;
-                const json = std.fmt.bufPrint(&buf, "{{\"ping_id\":{d}}}", .{ping_id}) catch continue;
-                client.enqueueDirect(json) catch {};
+                // Serialize heartbeat with protocol header.
+                const envelope_mod = @import("protocol_envelope.zig");
+                const MessageType = @import("itshell3_protocol").message_type.MessageType;
+                var json_buf: [128]u8 = undefined;
+                const json = std.fmt.bufPrint(&json_buf, "{{\"ping_id\":{d}}}", .{ping_id}) catch continue;
+                var hb_buf: [envelope_mod.MAX_ENVELOPE_SIZE]u8 = undefined;
+                const seq = client.connection.advanceSendSequence();
+                if (envelope_mod.wrapNotification(&hb_buf, @intFromEnum(MessageType.heartbeat), seq, json)) |wrapped| {
+                    client.enqueueDirect(wrapped) catch {};
+                } else {
+                    client.enqueueDirect(json) catch {};
+                }
             },
             .unknown => {},
         }

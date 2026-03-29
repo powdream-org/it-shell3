@@ -62,6 +62,10 @@ pub const handlers = struct {
     pub const client_read = @import("handlers/client_read.zig");
     pub const message_dispatcher = @import("handlers/message_dispatcher.zig");
     pub const timer_handler = @import("handlers/timer_handler.zig");
+    pub const protocol_envelope = @import("handlers/protocol_envelope.zig");
+    pub const notification_builder = @import("handlers/notification_builder.zig");
+    pub const session_handler = @import("handlers/session_handler.zig");
+    pub const pane_handler = @import("handlers/pane_handler.zig");
     pub const EventLoop = event_loop.EventLoop;
     pub const Handler = event_loop.Handler;
 };

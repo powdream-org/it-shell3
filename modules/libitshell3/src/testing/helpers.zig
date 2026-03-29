@@ -106,6 +106,10 @@ test "tempSocketPath: generates valid unique paths" {
     try std.testing.expect(!std.mem.eql(u8, path1, path2));
 }
 
+// File-scope static SessionManager for integration tests. Avoids stack overflow
+// since SessionManager is ~6 MiB (MAX_SESSIONS * MAX_PANES * Pane).
+var integration_test_sm = session_manager_mod.SessionManager.init();
+
 // ── Integration Tests ─────────────────────────────────────────────────────────
 
 // Integration test: EventLoop with handler chain using mock OS ops.
@@ -131,9 +135,11 @@ test "spec: daemon lifecycle -- EventLoop with handler chain and mock OS ops" {
     mock_event.events_to_return = &events_to_return;
     const event_ops = mock_event.ops();
 
-    // 2. Create SessionManager and create a session
-    var sm = session_manager_mod.SessionManager.init();
-    const session_id = try sm.createSession("integration-test", testImeEngine());
+    // 2. Create SessionManager (file-scope static to avoid stack overflow;
+    //    SessionManager is ~6 MiB with MAX_SESSIONS * MAX_PANES * Pane).
+    integration_test_sm = session_manager_mod.SessionManager.init();
+    var sm = &integration_test_sm;
+    const session_id = try sm.createSession("integration-test", testImeEngine(), 0);
     try std.testing.expectEqual(@as(u32, 1), sm.sessionCount());
 
     // Verify the session exists

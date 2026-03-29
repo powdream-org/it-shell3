@@ -116,3 +116,96 @@ despite having read it earlier in the session.
   owner explicitly says 'fix it right now.'"
 - Consider adding a bolded reminder at the top of section 3b: "Triage is for
   dispositions only. Fixes come after."
+
+## SIP-5: Checkpoint commit after each step's state update
+
+**Discovered during**: Step 5 (Scaffold & Build Verification)
+
+**What happened**: Steps 1 through 5 completed with TODO.md and ROADMAP.md
+updates at each step boundary, but no checkpoint commits were made until the
+owner explicitly requested one after Step 5. By that point, 7 files had
+accumulated across 5 steps worth of changes. If context had been lost or the
+session interrupted, all progress tracking artifacts (TODO.md state, ROADMAP
+status, plan file, CTR, SIPs) would have been uncommitted and potentially lost.
+
+**Root cause**: No step file includes a "commit checkpoint" instruction in its
+State Update section. The skill assumes commits happen only at Step 12 (Commit &
+Report). Intermediate state changes (TODO.md step markers, ROADMAP status
+updates, CTRs, SIPs) are left uncommitted across multiple steps.
+
+**Affected steps**: All step files in both `/implementation` and
+`/design-doc-revision` skills — specifically the "State Update" section of each
+step.
+
+**Proposed changes**:
+
+- Add a cross-cutting rule in the main SKILL.md (Cross-Cutting Rules section):
+  "After completing a step's State Update (TODO.md + ROADMAP changes), create a
+  checkpoint commit with all changed files. Use prefix `chore(<target>):` and
+  include the step number. This prevents progress loss on session interruption."
+- Alternatively, add a "Checkpoint commit" instruction at the end of each step's
+  State Update section: "Commit all changed files (TODO.md, ROADMAP.md, any
+  artifacts created in this step)."
+
+## SIP-6: Unnecessary owner confirmation requests between steps
+
+**Discovered during**: Step 6 (Implementation Phase)
+
+**What happened**: At multiple step boundaries (Step 3→4, Step 5→6), the team
+leader asked "진행할까요?" or "다음 그룹 어디로 가시겠습니까?" and waited for
+the owner to respond before continuing. This happened even when the step's gate
+was fully satisfied and no owner decision was required. The only steps that
+require explicit owner input are: Step 3b (triage dispositions), Step 4e (owner
+approval before implementation), and Step 13 (owner review). All other step
+transitions should proceed automatically when the gate is met.
+
+**Root cause**: The step files' "Next" sections say "Read `steps/XX.md`" which
+the team leader interpreted as needing owner permission before reading the next
+step. Additionally, the team leader defaulted to a cautious "ask before
+proceeding" posture even when no gate condition requires owner input.
+
+**Affected steps**: Main SKILL.md (Cross-Cutting Rules section)
+
+**Proposed changes**:
+
+- Add a cross-cutting rule: "Auto-proceed between steps when the gate is fully
+  satisfied and the step does not explicitly require owner input. Only pause for
+  owner when: (1) triage requires dispositions (Step 3b), (2) cycle setup
+  requires owner approval (Step 4e), (3) owner review (Step 13), or (4) the step
+  file explicitly says 'wait for owner.' Do NOT ask 'proceed?' or '진행할까요?'
+  at routine step boundaries."
+- Add anti-pattern: "Don't ask permission to proceed to the next step when all
+  gate conditions are met. Unnecessary confirmation requests waste the owner's
+  time and break flow."
+
+## SIP-7: Single implementer for parallelizable tasks — extremely slow
+
+**Discovered during**: Step 6 (Implementation Phase)
+
+**What happened**: The plan's dependency graph explicitly identifies
+parallelizable task groups: Tasks 1, 2, 3, 4, 6 are all independent; Tasks 8, 9,
+11, 12, 13 can run in parallel after Task 7. Despite this, the team leader
+spawned a single implementer agent to work through all 15 tasks serially. This
+makes the implementation phase far slower than necessary — tasks that could
+execute concurrently are instead queued behind each other.
+
+**Root cause**: Step 6 (06-implementation.md) section 6d says "Spawn implementer
+and QA engineer in parallel" — singular implementer. The step file does not
+mention spawning multiple implementer instances for independent task groups. The
+plan's parallelizable groups information is not utilized at spawn time.
+
+**Affected steps**: `steps/06-implementation.md`
+
+**Proposed changes**:
+
+- In section 6c (Prepare spawn context), add: "Analyze the plan's dependency
+  graph for parallelizable task groups. For each independent group of 2+ tasks
+  that touch different files, prepare a separate implementer spawn."
+- In section 6d, change from spawning one implementer to: "Spawn one implementer
+  per parallelizable task group. Each implementer receives only its assigned
+  tasks and file list. Use worktree isolation if tasks touch overlapping files."
+- Add example: "If the plan shows Tasks 1, 2, 3, 4, 6 as independent, spawn 5
+  implementers in parallel (or group small tasks). Then spawn the next wave
+  (Tasks 8, 9, 11, 12, 13) once their dependencies complete."
+- Add anti-pattern: "Don't serialize parallelizable tasks into one implementer.
+  The plan's dependency graph exists precisely to enable concurrent execution."

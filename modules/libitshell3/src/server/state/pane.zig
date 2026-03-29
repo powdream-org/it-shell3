@@ -37,12 +37,16 @@ pub const Pane = struct {
     cwd: [types.MAX_PANE_CWD]u8 = [_]u8{0} ** types.MAX_PANE_CWD,
     cwd_length: u16 = 0,
 
+    // Foreground process metadata (stub fields — populated when process
+    // monitoring is implemented).
+    foreground_process: [types.MAX_FOREGROUND_PROCESS]u8 = [_]u8{0} ** types.MAX_FOREGROUND_PROCESS,
+    foreground_process_length: u16 = 0,
+    foreground_pid: std.posix.pid_t = 0,
+
     // Process state
     is_running: bool = true,
     exit_status: ?u8 = null,
 
-    // TODO(Plan 7): Add foreground_process: []const u8, foreground_pid: posix.pid_t
-    //               per spec state-and-types.md
     // TODO(Plan 17+): Add silence_subscriptions: BoundedArray(SilenceSubscription, MAX),
     //                 silence_deadline: ?i64 — requires SilenceSubscription type definition
 
@@ -97,6 +101,28 @@ pub const Pane = struct {
         const len = @min(cwd.len, self.cwd.len);
         @memcpy(self.cwd[0..len], cwd[0..len]);
         self.cwd_length = @intCast(len);
+    }
+
+    /// Copies up to MAX_FOREGROUND_PROCESS bytes into the internal buffer.
+    pub fn setForegroundProcess(self: *Pane, name: []const u8) void {
+        const len = @min(name.len, self.foreground_process.len);
+        @memcpy(self.foreground_process[0..len], name[0..len]);
+        self.foreground_process_length = @intCast(len);
+    }
+
+    /// Slice into the title buffer.
+    pub fn getTitle(self: *const Pane) []const u8 {
+        return self.title[0..self.title_length];
+    }
+
+    /// Slice into the cwd buffer.
+    pub fn getCwd(self: *const Pane) []const u8 {
+        return self.cwd[0..self.cwd_length];
+    }
+
+    /// Slice into the foreground process name buffer.
+    pub fn getForegroundProcess(self: *const Pane) []const u8 {
+        return self.foreground_process[0..self.foreground_process_length];
     }
 };
 
@@ -173,6 +199,31 @@ test "Pane.setTitle: truncates if longer than MAX_PANE_TITLE" {
     p.setTitle(long_title);
     try std.testing.expectEqual(@as(u16, types.MAX_PANE_TITLE), p.title_length);
     try std.testing.expectEqualSlices(u8, long_title[0..types.MAX_PANE_TITLE], p.title[0..types.MAX_PANE_TITLE]);
+}
+
+test "Pane.init: foreground fields default to empty/zero" {
+    const p = Pane.init(1, 0, 5, 100, 80, 24);
+    try std.testing.expectEqual(@as(u16, 0), p.foreground_process_length);
+    try std.testing.expectEqual(@as(std.posix.pid_t, 0), p.foreground_pid);
+    try std.testing.expectEqualSlices(u8, "", p.getForegroundProcess());
+}
+
+test "Pane.setForegroundProcess: copies bytes and updates length" {
+    var p = Pane.init(1, 0, 5, 100, 80, 24);
+    p.setForegroundProcess("vim");
+    try std.testing.expectEqualSlices(u8, "vim", p.getForegroundProcess());
+}
+
+test "Pane.getTitle: returns title slice" {
+    var p = Pane.init(1, 0, 5, 100, 80, 24);
+    p.setTitle("my terminal");
+    try std.testing.expectEqualSlices(u8, "my terminal", p.getTitle());
+}
+
+test "Pane.getCwd: returns cwd slice" {
+    var p = Pane.init(1, 0, 5, 100, 80, 24);
+    p.setCwd("/home/user");
+    try std.testing.expectEqualSlices(u8, "/home/user", p.getCwd());
 }
 
 test "Pane.setCwd: copies bytes and updates cwd_length" {

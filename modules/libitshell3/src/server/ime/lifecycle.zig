@@ -76,7 +76,7 @@ const MockPtyOps = test_mod.mock_os.MockPtyOps;
 
 test "activateSessionIme: calls activate on engine" {
     var mock = mock_ime.MockImeEngine{};
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     activateSessionIme(&session);
     try std.testing.expectEqual(@as(usize, 1), mock.activate_count);
 }
@@ -85,7 +85,7 @@ test "deactivateSessionIme: calls deactivate, writes committed text to PTY" {
     var mock = mock_ime.MockImeEngine{
         .deactivate_result = .{ .committed_text = "flushed", .preedit_changed = true },
     };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.setPreedit("composing");
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -102,7 +102,7 @@ test "deactivateSessionIme: empty engine returns no-op" {
     var mock = mock_ime.MockImeEngine{
         .deactivate_result = .{},
     };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -118,7 +118,7 @@ test "deactivateSessionIme: language state preserved (active_input_method unchan
         .active_input_method = "korean_2set",
         .deactivate_result = .{},
     };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -129,7 +129,7 @@ test "deactivateSessionIme: language state preserved (active_input_method unchan
 
 test "ClientTracker: first attach triggers activate" {
     var mock = mock_ime.MockImeEngine{};
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var tracker = ClientTracker{};
 
     tracker.clientAttached(&session);
@@ -140,7 +140,7 @@ test "ClientTracker: first attach triggers activate" {
 
 test "ClientTracker: second attach does NOT trigger activate again" {
     var mock = mock_ime.MockImeEngine{};
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var tracker = ClientTracker{};
 
     tracker.clientAttached(&session);
@@ -154,7 +154,7 @@ test "ClientTracker: last detach triggers deactivate" {
     var mock = mock_ime.MockImeEngine{
         .deactivate_result = .{ .committed_text = "bye", .preedit_changed = true },
     };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var tracker = ClientTracker{};
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -170,7 +170,7 @@ test "ClientTracker: last detach triggers deactivate" {
 
 test "ClientTracker: detach with remaining clients does NOT trigger deactivate" {
     var mock = mock_ime.MockImeEngine{};
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var tracker = ClientTracker{};
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -186,7 +186,7 @@ test "ClientTracker: detach with remaining clients does NOT trigger deactivate" 
 
 test "ClientTracker: detach from zero count is no-op" {
     var mock = mock_ime.MockImeEngine{};
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var tracker = ClientTracker{};
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();

@@ -27,6 +27,11 @@ pub const broadcast_spec_test = @import("spec/broadcast_spec_test.zig");
 pub const client_read_spec_test = @import("spec/client_read_spec_test.zig");
 pub const timer_handler_spec_test = @import("spec/timer_handler_spec_test.zig");
 pub const connection_state_spec_test = @import("spec/connection_state_spec_test.zig");
+pub const notification_spec_test = @import("spec/notification_spec_test.zig");
+pub const pane_crud_spec_test = @import("spec/pane_crud_spec_test.zig");
+pub const protocol_envelope_spec_test = @import("spec/protocol_envelope_spec_test.zig");
+pub const session_attachment_spec_test = @import("spec/session_attachment_spec_test.zig");
+pub const session_crud_spec_test = @import("spec/session_crud_spec_test.zig");
 
 // Re-exports
 pub const MockImeEngine = mock_ime_engine.MockImeEngine;

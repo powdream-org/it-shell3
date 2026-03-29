@@ -17,7 +17,7 @@ const MockImeEngine = test_mod.MockImeEngine;
 
 test "spec: session init — focused_pane is nullable and defaults to initial slot" {
     var mock = MockImeEngine{};
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     try std.testing.expectEqual(@as(?types.PaneSlot, 0), s.focused_pane);
     s.focused_pane = null;
     try std.testing.expect(s.focused_pane == null);
@@ -27,14 +27,14 @@ test "spec: session init — focused_pane is nullable and defaults to initial sl
 
 test "spec: session init — default input method is direct and layout is qwerty" {
     var mock = MockImeEngine{};
-    const s = Session.init(1, "t", 0, mock.engine());
+    const s = Session.init(1, "t", 0, mock.engine(), 0);
     try std.testing.expectEqualStrings("direct", s.getActiveInputMethod());
     try std.testing.expectEqualStrings("qwerty", s.getActiveKeyboardLayout());
 }
 
 test "spec: session init — preedit state defaults to null and zero" {
     var mock = MockImeEngine{};
-    const s = Session.init(1, "t", 0, mock.engine());
+    const s = Session.init(1, "t", 0, mock.engine(), 0);
     try std.testing.expect(s.current_preedit == null);
     try std.testing.expect(s.last_preedit_row == null);
     try std.testing.expect(s.preedit.owner == null);
@@ -43,7 +43,7 @@ test "spec: session init — preedit state defaults to null and zero" {
 
 test "spec: session init — truncates name longer than buffer size" {
     var mock = MockImeEngine{};
-    const s = Session.init(1, "a" ** 100, 0, mock.engine());
+    const s = Session.init(1, "a" ** 100, 0, mock.engine(), 0);
     try std.testing.expectEqual(@as(u8, 64), s.name_length);
 }
 
@@ -51,6 +51,6 @@ test "spec: session init — truncates name longer than buffer size" {
 
 test "spec: session entry init — latest_client_id defaults to 0" {
     var mock = MockImeEngine{};
-    const entry = SessionEntry.init(Session.init(1, "t", 0, mock.engine()));
+    const entry = SessionEntry.init(Session.init(1, "t", 0, mock.engine(), 0));
     try std.testing.expectEqual(@as(u32, 0), entry.latest_client_id);
 }

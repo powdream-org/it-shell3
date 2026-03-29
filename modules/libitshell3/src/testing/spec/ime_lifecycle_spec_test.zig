@@ -15,13 +15,13 @@ const ClientTracker = server.ime.ClientTracker;
 
 test "spec: IME lifecycle — engine created with direct default" {
     var mock = MockImeEngine{ .active_input_method = "direct" };
-    const s = Session.init(1, "t", 0, mock.engine());
+    const s = Session.init(1, "t", 0, mock.engine(), 0);
     try std.testing.expectEqualStrings("direct", s.ime_engine.getActiveInputMethod());
 }
 
 test "spec: IME lifecycle — first attach triggers activate" {
     var mock = MockImeEngine{};
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     var tracker = ClientTracker{};
     tracker.clientAttached(&s);
     try std.testing.expectEqual(@as(u32, 1), tracker.attached_count);
@@ -30,7 +30,7 @@ test "spec: IME lifecycle — first attach triggers activate" {
 
 test "spec: IME lifecycle — second attach does not trigger activate again" {
     var mock = MockImeEngine{};
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     var tracker = ClientTracker{};
     tracker.clientAttached(&s);
     tracker.clientAttached(&s);
@@ -39,7 +39,7 @@ test "spec: IME lifecycle — second attach does not trigger activate again" {
 
 test "spec: IME lifecycle — last detach triggers deactivate" {
     var mock = MockImeEngine{ .deactivate_result = .{ .committed_text = "bye", .preedit_changed = true } };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     var tracker = ClientTracker{};
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -52,7 +52,7 @@ test "spec: IME lifecycle — last detach triggers deactivate" {
 
 test "spec: IME lifecycle — detach with remaining clients does not deactivate" {
     var mock = MockImeEngine{};
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     var tracker = ClientTracker{};
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -65,7 +65,7 @@ test "spec: IME lifecycle — detach with remaining clients does not deactivate"
 
 test "spec: IME lifecycle — language preserved across deactivate and activate" {
     var mock = MockImeEngine{ .active_input_method = "korean_2set", .deactivate_result = .{} };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     var tracker = ClientTracker{};
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -77,7 +77,7 @@ test "spec: IME lifecycle — language preserved across deactivate and activate"
 
 test "spec: IME lifecycle — deactivate on empty engine returns no-op" {
     var mock = MockImeEngine{ .deactivate_result = .{} };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
     const dirty = server.ime.lifecycle.deactivateSessionIme(&s, 10, &pty_ops);

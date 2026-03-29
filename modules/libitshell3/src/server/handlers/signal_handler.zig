@@ -119,7 +119,7 @@ fn makeTestEventLoop() event_loop_mod.EventLoop {
 
 test "handleSignalEvent: SIGCHLD with matching pane -> pane marked exited" {
     test_sm.reset();
-    const session_id = try test_sm.createSession("test", testImeEngine());
+    const session_id = try test_sm.createSession("test", testImeEngine(), 0);
     const entry = test_sm.getSession(session_id).?;
 
     const pane_slot: types.PaneSlot = 0;
@@ -150,7 +150,7 @@ test "handleSignalEvent: SIGCHLD with matching pane -> pane marked exited" {
 
 test "handleSignalEvent: SIGCHLD with no children -> no change" {
     test_sm.reset();
-    const session_id = try test_sm.createSession("test", testImeEngine());
+    const session_id = try test_sm.createSession("test", testImeEngine(), 0);
     const entry = test_sm.getSession(session_id).?;
 
     const pane_slot: types.PaneSlot = 0;

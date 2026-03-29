@@ -39,6 +39,7 @@ pub const Session = struct {
         name: []const u8,
         initial_pane_slot: PaneSlot,
         ime_eng: ImeEngine,
+        creation_timestamp: i64,
     ) Session {
         // Copy name (truncate to MAX_SESSION_NAME).
         const name_length: u8 = @intCast(@min(name.len, types.MAX_SESSION_NAME));
@@ -65,16 +66,24 @@ pub const Session = struct {
             .active_keyboard_layout_length = default_keyboard_layout.len,
             .tree_nodes = split_tree.initSingleLeaf(initial_pane_slot),
             .focused_pane = initial_pane_slot,
-            // TODO(Plan 7): Caller must pass real timestamp (e.g., std.time.milliTimestamp()).
-            // Session.init() is in core/ which has no OS dependency, so the server layer
-            // must provide the value when creating sessions from CreateSessionRequest.
-            .creation_timestamp = 0,
+            .creation_timestamp = creation_timestamp,
             .ime_engine = ime_eng,
             .current_preedit = null,
             .preedit_buf = @splat(0),
             .last_preedit_row = null,
             .preedit = PreeditState.init(),
         };
+    }
+
+    /// Updates the session name. Truncates to MAX_SESSION_NAME.
+    pub fn setName(self: *Session, new_name: []const u8) void {
+        const len: u8 = @intCast(@min(new_name.len, types.MAX_SESSION_NAME));
+        @memcpy(self.name[0..len], new_name[0..len]);
+        // Zero out the rest of the buffer to avoid stale data.
+        if (len < types.MAX_SESSION_NAME) {
+            @memset(self.name[len..], 0);
+        }
+        self.name_length = len;
     }
 
     /// Slice into the inline name buffer.
@@ -118,7 +127,7 @@ fn testImeEngine() ImeEngine {
 }
 
 test "Session.init: sets correct defaults" {
-    const s = Session.init(1, "myterm", 0, testImeEngine());
+    const s = Session.init(1, "myterm", 0, testImeEngine(), 1234567890);
     try std.testing.expectEqual(@as(SessionId, 1), s.session_id);
     try std.testing.expectEqualSlices(u8, "myterm", s.getName());
     try std.testing.expectEqualSlices(u8, "direct", s.getActiveInputMethod());
@@ -126,34 +135,34 @@ test "Session.init: sets correct defaults" {
     try std.testing.expectEqual(@as(?PaneSlot, 0), s.focused_pane);
     try std.testing.expect(s.current_preedit == null);
     try std.testing.expect(s.last_preedit_row == null);
-    try std.testing.expectEqual(@as(i64, 0), s.creation_timestamp);
+    try std.testing.expectEqual(@as(i64, 1234567890), s.creation_timestamp);
 }
 
 test "Session.init: with initial_pane_slot sets focused_pane" {
-    const s = Session.init(2, "test", 5, testImeEngine());
+    const s = Session.init(2, "test", 5, testImeEngine(), 0);
     try std.testing.expectEqual(@as(?PaneSlot, 5), s.focused_pane);
 }
 
 test "Session.getName: returns the name" {
-    const s = Session.init(1, "hello", 0, testImeEngine());
+    const s = Session.init(1, "hello", 0, testImeEngine(), 0);
     try std.testing.expectEqualSlices(u8, "hello", s.getName());
 }
 
 test "Session.init: truncates name longer than 64 bytes" {
     const long_name = "a" ** 100;
-    const s = Session.init(1, long_name, 0, testImeEngine());
+    const s = Session.init(1, long_name, 0, testImeEngine(), 0);
     try std.testing.expectEqual(@as(u8, 64), s.name_length);
     try std.testing.expectEqualSlices(u8, long_name[0..64], s.getName());
 }
 
 test "Session.preedit: initialized to null owner and session_id 0" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     try std.testing.expectEqual(@as(?types.ClientId, null), s.preedit.owner);
     try std.testing.expectEqual(@as(u32, 0), s.preedit.session_id);
 }
 
 test "Session.setPreedit: sets and clears preedit" {
-    var s = Session.init(1, "s", 0, testImeEngine());
+    var s = Session.init(1, "s", 0, testImeEngine(), 0);
 
     // Set preedit.
     s.setPreedit("hello");
@@ -166,15 +175,34 @@ test "Session.setPreedit: sets and clears preedit" {
 }
 
 test "Session.setPreedit: truncates to MAX_PREEDIT_BUF" {
-    var s = Session.init(1, "s", 0, testImeEngine());
+    var s = Session.init(1, "s", 0, testImeEngine(), 0);
     const long_text = "x" ** 100;
     s.setPreedit(long_text);
     try std.testing.expect(s.current_preedit != null);
     try std.testing.expectEqual(@as(usize, types.MAX_PREEDIT_BUF), s.current_preedit.?.len);
 }
 
+test "Session.setName: updates name correctly" {
+    var s = Session.init(1, "old", 0, testImeEngine(), 0);
+    try std.testing.expectEqualSlices(u8, "old", s.getName());
+    s.setName("new-name");
+    try std.testing.expectEqualSlices(u8, "new-name", s.getName());
+}
+
+test "Session.setName: truncates to MAX_SESSION_NAME" {
+    var s = Session.init(1, "x", 0, testImeEngine(), 0);
+    const long_name = "a" ** 100;
+    s.setName(long_name);
+    try std.testing.expectEqual(@as(u8, types.MAX_SESSION_NAME), s.name_length);
+}
+
+test "Session.init: accepts creation_timestamp parameter" {
+    const s = Session.init(1, "t", 0, testImeEngine(), 999);
+    try std.testing.expectEqual(@as(i64, 999), s.creation_timestamp);
+}
+
 test "Session.init: tree_nodes uses optional SplitNodeData" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     // Root should be a leaf.
     try std.testing.expect(s.tree_nodes[0] != null);
     try std.testing.expect(s.tree_nodes[0].? == .leaf);

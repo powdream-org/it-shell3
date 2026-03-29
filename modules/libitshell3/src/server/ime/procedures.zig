@@ -158,7 +158,7 @@ test "ownershipTransfer: flushes, clears preedit, increments session_id, sets ow
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "committed", .preedit_changed = true },
     };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.preedit.owner = 42;
     session.setPreedit("composing");
     var mock_pty = MockPtyOps{};
@@ -177,7 +177,7 @@ test "onClientDisconnect: owner disconnects -> flush and clear owner" {
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "flushed", .preedit_changed = true },
     };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.preedit.owner = 5;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -190,7 +190,7 @@ test "onClientDisconnect: owner disconnects -> flush and clear owner" {
 
 test "onClientDisconnect: non-owner disconnects -> no-op" {
     var mock = mock_ime.MockImeEngine{};
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.preedit.owner = 5;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -205,7 +205,7 @@ test "onFocusChange: flushes to old pane, updates focused_pane" {
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "text", .preedit_changed = true },
     };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.focused_pane = 0;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -219,7 +219,7 @@ test "onFocusChange: flushes to old pane, updates focused_pane" {
 
 test "onPaneClose: resets (not flushes), clears preedit and owner, increments session_id" {
     var mock = mock_ime.MockImeEngine{};
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.preedit.owner = 10;
     session.setPreedit("composing");
 
@@ -236,7 +236,7 @@ test "onAlternateScreenSwitch: flushes and clears" {
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "flushed", .preedit_changed = true },
     };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.setPreedit("composing");
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -251,7 +251,7 @@ test "onMouseClick: flushes composition before mouse event" {
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "click", .preedit_changed = true },
     };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -264,7 +264,7 @@ test "onInputMethodSwitch: commit_current=true flushes atomically" {
     var mock = mock_ime.MockImeEngine{
         .set_active_input_method_result = .{ .committed_text = "committed", .preedit_changed = true },
     };
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.setPreedit("composing");
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -278,7 +278,7 @@ test "onInputMethodSwitch: commit_current=true flushes atomically" {
 
 test "onInputMethodSwitch: commit_current=false resets and switches" {
     var mock = mock_ime.MockImeEngine{};
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.preedit.owner = 5;
     session.setPreedit("composing");
     var mock_pty = MockPtyOps{};
@@ -296,7 +296,7 @@ test "onInputMethodSwitch: commit_current=false resets and switches" {
 
 test "errorRecovery: best-effort commit + reset to known-good state" {
     var mock = mock_ime.MockImeEngine{};
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.preedit.owner = 7;
     session.setPreedit("broken");
     var mock_pty = MockPtyOps{};
@@ -312,7 +312,7 @@ test "errorRecovery: best-effort commit + reset to known-good state" {
 
 test "errorRecovery: no preedit -> reset only" {
     var mock = mock_ime.MockImeEngine{};
-    var session = session_mod.Session.init(1, "test", 0, mock.engine());
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 

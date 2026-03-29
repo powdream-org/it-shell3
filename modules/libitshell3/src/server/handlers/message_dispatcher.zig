@@ -19,6 +19,10 @@ const heartbeat_manager_mod = server.connection.heartbeat_manager;
 const HeartbeatManager = heartbeat_manager_mod.HeartbeatManager;
 const disconnect_handler = server.connection.disconnect_handler;
 const timer_handler = server.handlers.timer_handler;
+const session_handler = server.handlers.session_handler;
+const pane_handler = server.handlers.pane_handler;
+const SessionManager = server.state.session_manager.SessionManager;
+const core = @import("itshell3_core");
 
 /// Timeout after which a READY client that hasn't attached a session is
 /// disconnected, per daemon-behavior spec.
@@ -35,6 +39,10 @@ pub const DispatcherContext = struct {
     event_loop_context: *anyopaque,
     /// Allocator for handshake processing and other dynamic allocations.
     allocator: std.mem.Allocator,
+    /// Session manager reference for session/pane handlers.
+    session_manager: *SessionManager = undefined,
+    /// Default IME engine for session creation.
+    default_ime_engine: core.ImeEngine = undefined,
 };
 
 /// Routes a decoded message by type: handshake, heartbeat, disconnect, or error
@@ -46,7 +54,6 @@ pub fn dispatch(
     header: Header,
     payload: []const u8,
 ) void {
-    _ = header;
     const client = ctx.client_manager.getClient(client_slot) orelse return;
 
     switch (msg_type) {
@@ -59,11 +66,42 @@ pub fn dispatch(
             _ = client.connection.transitionTo(.disconnecting);
             ctx.disconnect_fn(client_slot);
         },
+        // Session management messages (0x0100-0x013F).
+        .list_sessions_request => {
+            var session_ctx = makeSessionHandlerContext(ctx);
+            session_handler.handleListSessions(&session_ctx, client, client_slot, header.sequence);
+        },
+        .rename_session_request => {
+            // TODO(Plan 9+): Parse session_id and name from payload JSON
+            // and call session_handler.handleRenameSession.
+        },
+        .attach_session_request => {
+            // TODO(Plan 9+): Parse session_id from payload JSON
+            // and call session_handler.handleAttachSession.
+        },
+        .detach_session_request => {
+            var session_ctx = makeSessionHandlerContext(ctx);
+            session_handler.handleDetachSession(&session_ctx, client, client_slot, header.sequence);
+        },
+        // Pane management messages (0x0140-0x017F).
+        .equalize_splits_request => {
+            // TODO(Plan 9+): Parse session_id from payload JSON
+            // and call pane_handler.handleEqualizeSplits.
+        },
         else => {
-            // All other message types are stubs for future plans (session, pane,
-            // input, render, IME, flow control, etc.).
+            // All other message types are stubs for future plans (input,
+            // render, IME, flow control, etc.).
         },
     }
+}
+
+fn makeSessionHandlerContext(ctx: *DispatcherContext) session_handler.SessionHandlerContext {
+    return .{
+        .session_manager = ctx.session_manager,
+        .client_manager = ctx.client_manager,
+        .disconnect_fn = ctx.disconnect_fn,
+        .default_ime_engine = ctx.default_ime_engine,
+    };
 }
 
 fn handleClientHello(
@@ -88,9 +126,17 @@ fn handleClientHello(
         .success => |data| {
             // Transition to READY.
             _ = client.connection.transitionTo(.ready);
-            // Enqueue the ServerHello response via direct queue.
-            // TODO(Plan 7): Wrap with protocol header before sending.
-            client.enqueueDirect(data.getPayload()) catch {};
+            // Enqueue the ServerHello response via direct queue with protocol header.
+            const envelope_mod = @import("protocol_envelope.zig");
+            var hello_buf: [envelope_mod.MAX_ENVELOPE_SIZE]u8 = undefined;
+            const hello_payload = data.getPayload();
+            const seq = client.connection.advanceSendSequence();
+            if (envelope_mod.wrapResponse(&hello_buf, @intFromEnum(MessageType.server_hello), seq, hello_payload)) |wrapped| {
+                client.enqueueDirect(wrapped) catch {};
+            } else {
+                // Fallback: send without header if wrapping fails.
+                client.enqueueDirect(hello_payload) catch {};
+            }
 
             // Arm the 60s READY idle timer.
             const ready_timer_id = timer_handler.READY_IDLE_TIMER_BASE + client_slot;
@@ -127,10 +173,16 @@ fn handleHeartbeat(client: *ClientState, payload: []const u8) void {
     defer parsed.deinit();
 
     const echo_id = HeartbeatManager.processHeartbeat(client, parsed.value.ping_id);
-    // TODO(Plan 7): Wrap with protocol header before sending.
-    var ack_buf: [128]u8 = undefined;
-    const ack_json = std.fmt.bufPrint(&ack_buf, "{{\"ping_id\":{d}}}", .{echo_id}) catch return;
-    client.enqueueDirect(ack_json) catch {};
+    var ack_json_buf: [128]u8 = undefined;
+    const ack_json = std.fmt.bufPrint(&ack_json_buf, "{{\"ping_id\":{d}}}", .{echo_id}) catch return;
+    const envelope_mod = @import("protocol_envelope.zig");
+    var ack_buf: [envelope_mod.MAX_ENVELOPE_SIZE]u8 = undefined;
+    const seq = client.connection.advanceSendSequence();
+    if (envelope_mod.wrapResponse(&ack_buf, @intFromEnum(MessageType.heartbeat_ack), seq, ack_json)) |wrapped| {
+        client.enqueueDirect(wrapped) catch {};
+    } else {
+        client.enqueueDirect(ack_json) catch {};
+    }
 }
 
 fn handleHeartbeatAck(client: *ClientState, payload: []const u8) void {

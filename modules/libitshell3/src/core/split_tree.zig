@@ -196,6 +196,132 @@ pub fn removeLeaf(
     copySubtree(tree, par_idx, sibling_idx);
 }
 
+/// Sets all split node ratios to 0.5 (equal distribution).
+pub fn equalizeRatios(tree: *[MAX_TREE_NODES]?SplitNodeData) void {
+    var i: u32 = 0;
+    while (i < MAX_TREE_NODES) : (i += 1) {
+        if (tree[i]) |*node| {
+            switch (node.*) {
+                .split => |*s| s.ratio = 0.5,
+                .leaf => {},
+            }
+        }
+    }
+}
+
+/// Swaps two leaf PaneSlot values in the tree. The tree structure does not
+/// change — only the PaneSlot assignment at each leaf.
+pub fn swapLeaves(
+    tree: *[MAX_TREE_NODES]?SplitNodeData,
+    slot_a: PaneSlot,
+    slot_b: PaneSlot,
+) bool {
+    const idx_a = findLeafBySlot(tree, slot_a) orelse return false;
+    const idx_b = findLeafBySlot(tree, slot_b) orelse return false;
+
+    tree[idx_a] = .{ .leaf = slot_b };
+    tree[idx_b] = .{ .leaf = slot_a };
+    return true;
+}
+
+/// Per-leaf computed dimensions within a total area.
+pub const LeafDimension = struct {
+    slot: PaneSlot,
+    cols: u16,
+    rows: u16,
+    x_offset: u16,
+    y_offset: u16,
+};
+
+/// Computes per-leaf dimensions given total session area. Returns the count
+/// of entries written to the output buffer.
+pub fn computeLeafDimensions(
+    tree: *const [MAX_TREE_NODES]?SplitNodeData,
+    total_cols: u16,
+    total_rows: u16,
+    out: []LeafDimension,
+) u8 {
+    var count: u8 = 0;
+    computeLeafDimensionsNode(tree, 0, 0, 0, @floatFromInt(total_cols), @floatFromInt(total_rows), out, &count);
+    return count;
+}
+
+fn computeLeafDimensionsNode(
+    tree: *const [MAX_TREE_NODES]?SplitNodeData,
+    node_idx: u8,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    out: []LeafDimension,
+    count: *u8,
+) void {
+    if (node_idx >= MAX_TREE_NODES) return;
+    const node = tree[node_idx] orelse return;
+
+    switch (node) {
+        .leaf => |slot| {
+            if (count.* < out.len) {
+                out[count.*] = .{
+                    .slot = slot,
+                    .cols = @intFromFloat(@round(width)),
+                    .rows = @intFromFloat(@round(height)),
+                    .x_offset = @intFromFloat(@round(x)),
+                    .y_offset = @intFromFloat(@round(y)),
+                };
+                count.* += 1;
+            }
+        },
+        .split => |s| {
+            const left_idx = leftChild(node_idx);
+            const right_idx = rightChild(node_idx);
+            switch (s.orientation) {
+                .horizontal => {
+                    const left_width = width * s.ratio;
+                    computeLeafDimensionsNode(tree, left_idx, x, y, left_width, height, out, count);
+                    computeLeafDimensionsNode(tree, right_idx, x + left_width, y, width - left_width, height, out, count);
+                },
+                .vertical => {
+                    const top_height = height * s.ratio;
+                    computeLeafDimensionsNode(tree, left_idx, x, y, width, top_height, out, count);
+                    computeLeafDimensionsNode(tree, right_idx, x, y + top_height, width, height - top_height, out, count);
+                },
+            }
+        },
+    }
+}
+
+/// Finds the split node adjacent to a target leaf in the given direction.
+/// Walks up the tree to find the nearest ancestor split whose orientation
+/// matches the requested direction. Returns the tree index of that split
+/// node, or null if no such split exists.
+pub fn findAdjacentSplit(
+    tree: *const [MAX_TREE_NODES]?SplitNodeData,
+    target_slot: PaneSlot,
+    direction: types.Direction,
+) ?u8 {
+    const leaf_idx = findLeafBySlot(tree, target_slot) orelse return null;
+    const target_orientation: Orientation = switch (direction) {
+        .left, .right => .horizontal,
+        .up, .down => .vertical,
+    };
+
+    // Walk up from the leaf to find an ancestor split matching the orientation.
+    var current = leaf_idx;
+    while (parentIndex(current)) |par| {
+        if (tree[par]) |node| {
+            switch (node) {
+                .split => |s| {
+                    if (s.orientation == target_orientation) return par;
+                },
+                .leaf => {},
+            }
+        }
+        current = par;
+    }
+    return null;
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 test "initSingleLeaf: creates tree with 1 leaf and 30 null nodes" {
@@ -371,4 +497,79 @@ test "removeLeaf: with subtree sibling promotes entire subtree" {
     try std.testing.expect(tree[2] != null);
     try std.testing.expect(tree[2].? == .leaf);
     try std.testing.expectEqual(@as(u8, 2), leafCount(&tree));
+}
+
+test "equalizeRatios: sets all split ratios to 0.5" {
+    var tree = initSingleLeaf(0);
+    try splitLeaf(&tree, 0, .horizontal, 0.3, 1);
+    try splitLeaf(&tree, 1, .vertical, 0.7, 2);
+    equalizeRatios(&tree);
+
+    // Verify all splits have ratio 0.5.
+    var i: u32 = 0;
+    while (i < MAX_TREE_NODES) : (i += 1) {
+        if (tree[i]) |node| {
+            switch (node) {
+                .split => |s| try std.testing.expectApproxEqAbs(@as(f32, 0.5), s.ratio, 0.001),
+                .leaf => {},
+            }
+        }
+    }
+}
+
+test "swapLeaves: exchanges two leaf slots" {
+    var tree = initSingleLeaf(0);
+    try splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    try std.testing.expect(swapLeaves(&tree, 0, 1));
+
+    // Left child should now hold slot 1, right child slot 0.
+    try std.testing.expectEqual(@as(PaneSlot, 1), tree[leftChild(0)].?.leaf);
+    try std.testing.expectEqual(@as(PaneSlot, 0), tree[rightChild(0)].?.leaf);
+}
+
+test "swapLeaves: returns false for non-existent slot" {
+    var tree = initSingleLeaf(0);
+    try std.testing.expect(!swapLeaves(&tree, 0, 5));
+}
+
+test "computeLeafDimensions: single pane fills entire area" {
+    const tree = initSingleLeaf(0);
+    var dims: [MAX_PANES]LeafDimension = undefined;
+    const count = computeLeafDimensions(&tree, 80, 24, &dims);
+    try std.testing.expectEqual(@as(u8, 1), count);
+    try std.testing.expectEqual(@as(PaneSlot, 0), dims[0].slot);
+    try std.testing.expectEqual(@as(u16, 80), dims[0].cols);
+    try std.testing.expectEqual(@as(u16, 24), dims[0].rows);
+    try std.testing.expectEqual(@as(u16, 0), dims[0].x_offset);
+    try std.testing.expectEqual(@as(u16, 0), dims[0].y_offset);
+}
+
+test "computeLeafDimensions: two panes horizontal split" {
+    var tree = initSingleLeaf(0);
+    try splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    var dims: [MAX_PANES]LeafDimension = undefined;
+    const count = computeLeafDimensions(&tree, 80, 24, &dims);
+    try std.testing.expectEqual(@as(u8, 2), count);
+    // Left pane (slot 0): 40 cols.
+    try std.testing.expectEqual(@as(u16, 40), dims[0].cols);
+    try std.testing.expectEqual(@as(u16, 24), dims[0].rows);
+    try std.testing.expectEqual(@as(u16, 0), dims[0].x_offset);
+    // Right pane (slot 1): 40 cols, offset 40.
+    try std.testing.expectEqual(@as(u16, 40), dims[1].cols);
+    try std.testing.expectEqual(@as(u16, 40), dims[1].x_offset);
+}
+
+test "findAdjacentSplit: finds horizontal split for left/right" {
+    var tree = initSingleLeaf(0);
+    try splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    const result = findAdjacentSplit(&tree, 0, .right);
+    try std.testing.expect(result != null);
+    try std.testing.expectEqual(@as(u8, 0), result.?);
+}
+
+test "findAdjacentSplit: returns null when no matching split exists" {
+    var tree = initSingleLeaf(0);
+    try splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    // No vertical split exists, so up/down navigation has no adjacent split.
+    try std.testing.expect(findAdjacentSplit(&tree, 0, .up) == null);
 }

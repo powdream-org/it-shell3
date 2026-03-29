@@ -92,7 +92,7 @@ const MockKeyEncoder = struct {
 
 fn makeTestSession() struct { engine: mock_ime.MockImeEngine, session: session_mod.Session } {
     var eng = mock_ime.MockImeEngine{};
-    const s = session_mod.Session.init(1, "test", 0, eng.engine());
+    const s = session_mod.Session.init(1, "test", 0, eng.engine(), 0);
     return .{ .engine = eng, .session = s };
 }
 

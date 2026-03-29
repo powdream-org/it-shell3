@@ -62,8 +62,8 @@ pub const ConnectionState = struct {
         const valid = switch (self.state) {
             .handshaking => target == .ready or target == .disconnecting,
             .ready => target == .operating or target == .disconnecting,
-            // TODO(Plan 7): Add `target == .operating` for session switching
-            // (AttachSessionRequest to a different session while OPERATING).
+            // Per ADR 00020: OPERATING->OPERATING is NOT valid. Client must
+            // DetachSessionRequest (-> READY) then AttachSessionRequest (-> OPERATING).
             .operating => target == .ready or target == .disconnecting,
             .disconnecting => false,
         };

@@ -18,7 +18,7 @@ const KeyEncoder = server.ime.consumer.KeyEncoder;
 
 fn makeSession() struct { mock: MockImeEngine, session: Session } {
     var m = MockImeEngine{};
-    return .{ .mock = m, .session = Session.init(1, "t", 0, m.engine()) };
+    return .{ .mock = m, .session = Session.init(1, "t", 0, m.engine(), 0) };
 }
 
 test "spec: IME consumer — committed_text written to PTY" {

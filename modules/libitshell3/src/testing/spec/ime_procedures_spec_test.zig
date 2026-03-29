@@ -17,7 +17,7 @@ const procs = server.ime.procedures;
 
 test "spec: ownership transfer — flush, clear preedit, increment session_id, update owner" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "c", .preedit_changed = true } };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 42;
     s.preedit.session_id = 5;
     s.setPreedit("active");
@@ -36,7 +36,7 @@ test "spec: ownership transfer — flush, clear preedit, increment session_id, u
 
 test "spec: client disconnect — owner disconnects triggers flush and clears owner" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "d", .preedit_changed = true } };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 5;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -47,7 +47,7 @@ test "spec: client disconnect — owner disconnects triggers flush and clears ow
 
 test "spec: client disconnect — non-owner disconnect is no-op" {
     var mock = MockImeEngine{};
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 5;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -58,7 +58,7 @@ test "spec: client disconnect — non-owner disconnect is no-op" {
 
 test "spec: client disconnect — no active composition is no-op" {
     var mock = MockImeEngine{};
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
     procs.onClientDisconnect(&s, 42, 10, &pty_ops);
@@ -69,7 +69,7 @@ test "spec: client disconnect — no active composition is no-op" {
 
 test "spec: focus change — flush to old pane then update focused_pane" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "old", .preedit_changed = true } };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
     procs.onFocusChange(&s, 42, &pty_ops, 3);
@@ -80,7 +80,7 @@ test "spec: focus change — flush to old pane then update focused_pane" {
 
 test "spec: focus change — empty engine still updates focused_pane" {
     var mock = MockImeEngine{ .flush_result = .{} };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
     procs.onFocusChange(&s, 42, &pty_ops, 5);
@@ -92,7 +92,7 @@ test "spec: focus change — empty engine still updates focused_pane" {
 
 test "spec: pane close — reset not flush, clear preedit and owner, increment session_id" {
     var mock = MockImeEngine{};
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 1;
     s.preedit.session_id = 3;
     s.setPreedit("comp");
@@ -110,7 +110,7 @@ test "spec: pane close — reset not flush, clear preedit and owner, increment s
 
 test "spec: alternate screen switch — flush and clear" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "alt", .preedit_changed = true } };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.setPreedit("comp");
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -123,7 +123,7 @@ test "spec: alternate screen switch — flush and clear" {
 
 test "spec: mouse click — flushes before forwarding" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "click", .preedit_changed = true } };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
     procs.onMouseClick(&s, 10, &pty_ops);
@@ -134,7 +134,7 @@ test "spec: mouse click — flushes before forwarding" {
 
 test "spec: input method switch — commit_current true flushes atomically" {
     var mock = MockImeEngine{ .set_active_input_method_result = .{ .committed_text = "sw", .preedit_changed = true } };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.setPreedit("comp");
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -146,7 +146,7 @@ test "spec: input method switch — commit_current true flushes atomically" {
 
 test "spec: input method switch — commit_current false resets and switches" {
     var mock = MockImeEngine{};
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 5;
     s.preedit.session_id = 7;
     s.setPreedit("comp");
@@ -166,7 +166,7 @@ test "spec: input method switch — commit_current false resets and switches" {
 
 test "spec: error recovery — best-effort commit plus reset to known-good state" {
     var mock = MockImeEngine{};
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 7;
     s.setPreedit("broken");
     var mock_pty = MockPtyOps{};
@@ -182,7 +182,7 @@ test "spec: error recovery — best-effort commit plus reset to known-good state
 
 test "spec: focus return — no composition restoration after focus return" {
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "x", .preedit_changed = true } };
-    var s = Session.init(1, "t", 0, mock.engine());
+    var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 1;
     var mock_pty = MockPtyOps{};
     var pty_ops = mock_pty.ops();

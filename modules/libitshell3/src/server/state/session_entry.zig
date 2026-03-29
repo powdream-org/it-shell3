@@ -30,6 +30,8 @@ pub const SessionEntry = struct {
     free_mask: FreeMask, // 1 = available
     dirty_mask: DirtyMask, // 1 = dirty
     latest_client_id: u32, // client_id of most recently active client; 0 = no active client
+    /// Zoom state: slot of the zoomed pane, or null if not zoomed.
+    zoomed_pane: ?PaneSlot = null,
 
     pub fn init(session: Session) SessionEntry {
         return SessionEntry{
@@ -92,6 +94,46 @@ pub const SessionEntry = struct {
     pub fn paneCount(self: *const SessionEntry) u8 {
         return @intCast(@popCount(~self.free_mask));
     }
+
+    /// Finds a pane slot by wire PaneId. Linear scan — cold path per spec.
+    pub fn findPaneSlotByPaneId(self: *const SessionEntry, pane_id: types.PaneId) ?PaneSlot {
+        var i: u32 = 0;
+        while (i < MAX_PANES) : (i += 1) {
+            const slot: PaneSlot = @intCast(i);
+            if (self.pane_slots[slot]) |pane| {
+                if (pane.pane_id == pane_id) return slot;
+            }
+        }
+        return null;
+    }
+
+    /// Toggles zoom state. If already zoomed on this pane, unzooms.
+    /// If zoomed on a different pane, switches zoom to the new pane.
+    /// If not zoomed, zooms the specified pane.
+    pub fn toggleZoom(self: *SessionEntry, pane_slot: PaneSlot) void {
+        if (self.zoomed_pane) |current| {
+            if (current == pane_slot) {
+                // Unzoom.
+                self.zoomed_pane = null;
+            } else {
+                // Switch zoom target.
+                self.zoomed_pane = pane_slot;
+            }
+        } else {
+            // Zoom in.
+            self.zoomed_pane = pane_slot;
+        }
+    }
+
+    /// Unzooms without toggle semantics. Clears zoom regardless of current state.
+    pub fn unzoom(self: *SessionEntry) void {
+        self.zoomed_pane = null;
+    }
+
+    /// Whether any pane is currently zoomed.
+    pub fn isZoomed(self: *const SessionEntry) bool {
+        return self.zoomed_pane != null;
+    }
 };
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -106,7 +148,7 @@ fn testImeEngine() session_mod.ImeEngine {
 }
 
 test "SessionEntry.init: has all null pane_slots, free_mask = 0xFFFF, dirty = 0, latest_client_id = 0" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     const entry = SessionEntry.init(s);
     try std.testing.expectEqual(@as(FreeMask, 0xFFFF), entry.free_mask);
     try std.testing.expectEqual(@as(DirtyMask, 0), entry.dirty_mask);
@@ -117,14 +159,14 @@ test "SessionEntry.init: has all null pane_slots, free_mask = 0xFFFF, dirty = 0,
 }
 
 test "SessionEntry.allocPaneSlot: returns 0 first (lowest free bit)" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
     const slot = try entry.allocPaneSlot();
     try std.testing.expectEqual(@as(PaneSlot, 0), slot);
 }
 
 test "SessionEntry.allocPaneSlot: second call returns 1" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
     _ = try entry.allocPaneSlot();
     const slot = try entry.allocPaneSlot();
@@ -132,7 +174,7 @@ test "SessionEntry.allocPaneSlot: second call returns 1" {
 }
 
 test "SessionEntry.allocPaneSlot: when all 16 occupied returns error.NoFreeSlots" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
     var i: u32 = 0;
     while (i < MAX_PANES) : (i += 1) {
@@ -143,7 +185,7 @@ test "SessionEntry.allocPaneSlot: when all 16 occupied returns error.NoFreeSlots
 }
 
 test "SessionEntry.freePaneSlot: makes slot available again" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
     const slot0 = try entry.allocPaneSlot();
     _ = try entry.allocPaneSlot();
@@ -153,7 +195,7 @@ test "SessionEntry.freePaneSlot: makes slot available again" {
 }
 
 test "SessionEntry.setPaneAtSlot: round-trip with getPaneAtSlot" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
     const slot = try entry.allocPaneSlot();
     const p = Pane.init(42, slot, 10, 200, 80, 24);
@@ -165,14 +207,14 @@ test "SessionEntry.setPaneAtSlot: round-trip with getPaneAtSlot" {
 }
 
 test "SessionEntry.getPaneAtSlot: returns null for unoccupied slot" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
     const got = entry.getPaneAtSlot(3);
     try std.testing.expect(got == null);
 }
 
 test "SessionEntry.focusedPane: returns correct pane" {
-    var s = Session.init(1, "s", 0, testImeEngine());
+    var s = Session.init(1, "s", 0, testImeEngine(), 0);
     s.focused_pane = 2;
     var entry = SessionEntry.init(s);
     const slot: PaneSlot = 2;
@@ -185,14 +227,14 @@ test "SessionEntry.focusedPane: returns correct pane" {
 }
 
 test "SessionEntry.focusedPane: returns null when focused slot is empty" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
     const fp = entry.focusedPane();
     try std.testing.expect(fp == null);
 }
 
 test "SessionEntry.focusedPane: returns null when focused_pane is null" {
-    var s = Session.init(1, "s", 0, testImeEngine());
+    var s = Session.init(1, "s", 0, testImeEngine(), 0);
     s.focused_pane = null;
     var entry = SessionEntry.init(s);
     const fp = entry.focusedPane();
@@ -200,7 +242,7 @@ test "SessionEntry.focusedPane: returns null when focused_pane is null" {
 }
 
 test "SessionEntry.dirtyMask: markDirty, isDirty, clearDirty, clearDirtySlot" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
 
     try std.testing.expect(!entry.isDirty(0));
@@ -227,7 +269,7 @@ test "SessionEntry.dirtyMask: markDirty, isDirty, clearDirty, clearDirtySlot" {
 }
 
 test "SessionEntry.paneCount: returns correct count" {
-    const s = Session.init(1, "s", 0, testImeEngine());
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
     try std.testing.expectEqual(@as(u8, 0), entry.paneCount());
 
@@ -241,4 +283,54 @@ test "SessionEntry.paneCount: returns correct count" {
 
     entry.freePaneSlot(slot0);
     try std.testing.expectEqual(@as(u8, 1), entry.paneCount());
+}
+
+test "SessionEntry.findPaneSlotByPaneId: finds existing pane" {
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
+    var entry = SessionEntry.init(s);
+    const slot = try entry.allocPaneSlot();
+    entry.setPaneAtSlot(slot, Pane.init(42, slot, 10, 200, 80, 24));
+    const found = entry.findPaneSlotByPaneId(42);
+    try std.testing.expect(found != null);
+    try std.testing.expectEqual(slot, found.?);
+}
+
+test "SessionEntry.findPaneSlotByPaneId: returns null for unknown id" {
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
+    var entry = SessionEntry.init(s);
+    const slot = try entry.allocPaneSlot();
+    entry.setPaneAtSlot(slot, Pane.init(1, slot, 10, 200, 80, 24));
+    try std.testing.expect(entry.findPaneSlotByPaneId(999) == null);
+}
+
+test "SessionEntry.toggleZoom: zooms and unzooms" {
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
+    var entry = SessionEntry.init(s);
+    try std.testing.expect(!entry.isZoomed());
+
+    entry.toggleZoom(3);
+    try std.testing.expect(entry.isZoomed());
+    try std.testing.expectEqual(@as(?PaneSlot, 3), entry.zoomed_pane);
+
+    // Toggle same pane = unzoom.
+    entry.toggleZoom(3);
+    try std.testing.expect(!entry.isZoomed());
+}
+
+test "SessionEntry.toggleZoom: switches zoom target" {
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
+    var entry = SessionEntry.init(s);
+    entry.toggleZoom(1);
+    try std.testing.expectEqual(@as(?PaneSlot, 1), entry.zoomed_pane);
+    entry.toggleZoom(5);
+    try std.testing.expectEqual(@as(?PaneSlot, 5), entry.zoomed_pane);
+}
+
+test "SessionEntry.unzoom: clears zoom state" {
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
+    var entry = SessionEntry.init(s);
+    entry.toggleZoom(2);
+    try std.testing.expect(entry.isZoomed());
+    entry.unzoom();
+    try std.testing.expect(!entry.isZoomed());
 }
