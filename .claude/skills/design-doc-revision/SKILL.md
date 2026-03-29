@@ -88,6 +88,7 @@ step's file** — do not pre-read future steps.
 | 7    | `steps/07-commit-and-report.md`   | Commit, report to owner, STOP                                  | Commit done, owner notified                 |
 | 8    | `steps/08-owner-review.md`        | Owner reviews docs, team leader supports                       | Owner signals review completion             |
 | 9    | `steps/09-retrospective.md`       | Review cycle, propose skill improvements                       | Improvements applied or none needed         |
+| 10   | `steps/10-handover.md`            | Write handover doc, update design principles                   | Handover committed, principles updated      |
 
 ## Continuous Improvement Log
 
