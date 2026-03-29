@@ -162,3 +162,106 @@ test "SocketConnection: bidirectional communication" {
     const r2 = a.recv(&buf);
     try std.testing.expectEqualSlices(u8, "from B", buf[0..r2.bytes_read]);
 }
+
+const setNonBlock = @import("transport_helper.zig").setNonBlock;
+
+fn setSmallSendBuffer(fd: posix.fd_t) void {
+    // Set the smallest possible send buffer to make it easy to fill.
+    const min_size: [4]u8 = @bitCast(@as(u32, 1));
+    posix.setsockopt(fd, posix.SOL.SOCKET, posix.SO.SNDBUF, &min_size) catch {};
+}
+
+test "SocketConnection.recv: would_block on non-blocking socket with no data" {
+    const helpers = @import("testing/helpers.zig");
+    const fd_a, const fd_b = try helpers.createSocketPair();
+    var a = SocketConnection{ .fd = fd_a };
+    var b = SocketConnection{ .fd = fd_b };
+    defer a.close();
+    defer b.close();
+
+    // Set receiver to non-blocking.
+    setNonBlock(b.fd);
+
+    // No data sent, so recv should return would_block.
+    var buf: [64]u8 = undefined;
+    const result = b.recv(&buf);
+    try std.testing.expectEqual(RecvResult.would_block, result);
+}
+
+test "SocketConnection.send: would_block when send buffer is full" {
+    const helpers = @import("testing/helpers.zig");
+    const fd_a, const fd_b = try helpers.createSocketPair();
+    var client = SocketConnection{ .fd = fd_a };
+    var server = SocketConnection{ .fd = fd_b };
+    defer client.close();
+    defer server.close();
+
+    // Set non-blocking and minimize send buffer to trigger would_block.
+    setNonBlock(client.fd);
+    setSmallSendBuffer(client.fd);
+
+    // Fill the send buffer until would_block.
+    const chunk = [_]u8{0xAA} ** 4096;
+    var got_would_block = false;
+    for (0..4096) |_| {
+        const result = client.send(&chunk);
+        switch (result) {
+            .would_block => {
+                got_would_block = true;
+                break;
+            },
+            .bytes_written => {},
+            else => break,
+        }
+    }
+    try std.testing.expect(got_would_block);
+}
+
+test "SocketConnection.sendv: would_block when send buffer is full" {
+    const helpers = @import("testing/helpers.zig");
+    const fd_a, const fd_b = try helpers.createSocketPair();
+    var client = SocketConnection{ .fd = fd_a };
+    var server = SocketConnection{ .fd = fd_b };
+    defer client.close();
+    defer server.close();
+
+    // Set non-blocking and minimize send buffer to trigger would_block.
+    setNonBlock(client.fd);
+    setSmallSendBuffer(client.fd);
+
+    // Fill the send buffer until would_block.
+    const chunk = [_]u8{0xBB} ** 4096;
+    const iovecs = [_]ImmutableIoVector{
+        .{ .base = &chunk, .len = chunk.len },
+    };
+    var got_would_block = false;
+    for (0..4096) |_| {
+        const result = client.sendv(&iovecs);
+        switch (result) {
+            .would_block => {
+                got_would_block = true;
+                break;
+            },
+            .bytes_written => {},
+            else => break,
+        }
+    }
+    try std.testing.expect(got_would_block);
+}
+
+test "SocketConnection.sendv: peer_closed on broken pipe" {
+    const helpers = @import("testing/helpers.zig");
+    const fd_a, const fd_b = try helpers.createSocketPair();
+    var client = SocketConnection{ .fd = fd_a };
+
+    // Close the peer end to trigger BrokenPipe on sendv.
+    posix.close(fd_b);
+
+    const iovecs = [_]ImmutableIoVector{
+        .{ .base = "data", .len = 4 },
+    };
+    const result = client.sendv(&iovecs);
+    try std.testing.expectEqual(SendResult.peer_closed, result);
+
+    client.close();
+}

@@ -19,5 +19,8 @@ pub const session = @import("session.zig");
 pub const writer = @import("writer.zig");
 
 test {
-    @import("std").testing.refAllDecls(@This());
+    const std = @import("std");
+    std.testing.refAllDecls(@This());
+    // Testing module with spec compliance tests must be explicitly imported.
+    _ = @import("testing/root.zig");
 }

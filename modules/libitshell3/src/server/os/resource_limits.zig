@@ -72,6 +72,13 @@ pub fn checkAndAdjustFileDescriptorLimit() ResourceCheckResult {
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
+//
+// Coverage exception (valid — permission-restricted):
+// - setrlimit success path (line 58): Whether setrlimit succeeds depends on
+//   the process's hard limit being higher than the soft limit AND having
+//   permission to raise it. In Docker containers with restricted capabilities,
+//   this path may not be exercisable. The getrlimit path and the "already at
+//   hard limit" path are always covered.
 
 test "checkAndAdjustFileDescriptorLimit: returns valid result" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;

@@ -139,7 +139,7 @@ fn epRegisterTimer(ctx: *anyopaque, timer_id: u16, interval_ms: u32, target: ?in
         ep_ctx.timer_fds[timer_id] = -1;
     }
 
-    const tfd = std.posix.timerfd_create(std.os.linux.TFD.TIMER.CLOEXEC, .MONOTONIC) catch return error.EventLoopError;
+    const tfd = std.posix.timerfd_create(.MONOTONIC, .{ .CLOEXEC = true }) catch return error.EventLoopError;
     errdefer std.posix.close(tfd);
 
     const secs: u32 = interval_ms / 1000;
@@ -365,6 +365,13 @@ test "epEncodeTarget/epDecodeData: all variants produce distinct udata ranges" {
 
 // ── Linux-only integration tests ───────────────────────────────────────────
 // These tests exercise EpollContext with real pipes and are skipped on non-Linux.
+//
+// Coverage exceptions (valid — platform-specific):
+// - epRegisterTimer, epCancelTimer: Require Linux (timerfd_create syscall).
+//   Cannot be exercised on macOS test platform. Covered by Docker/Linux CI.
+// - EpollContext.init/deinit: Require Linux epoll_create1. Same reason.
+// - epRegisterRead/Write/Unregister/Wait: Linux-only paths behind comptime
+//   guard. Covered by Docker/Linux CI tests below.
 
 test "EpollContext: registerRead pipe write event detected and target verified" {
     if (comptime builtin.os.tag != .linux) return;
