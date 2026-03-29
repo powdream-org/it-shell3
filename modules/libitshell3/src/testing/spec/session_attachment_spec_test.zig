@@ -6,11 +6,12 @@
 //! Spec sources:
 //!   - ADR 00020 (session attachment model: single-session-per-connection,
 //!     ERR_SESSION_ALREADY_ATTACHED, detach before re-attach)
-//!   - protocol 03-session-pane-management (Sections 1.5-1.8, 1.13-1.14)
-//!   - daemon-behavior 03-policies-and-procedures (Section 12 client state
-//!     transitions: READY->OPERATING, OPERATING->READY)
-//!   - daemon-behavior 02-event-handling (Section 4 destroy cascade,
-//!     Section 1.1 response-before-notification)
+//!   - protocol 03-session-pane-management (attach/detach/attach-or-create
+//!     message definitions)
+//!   - daemon-behavior 03-policies-and-procedures (client state transitions:
+//!     READY->OPERATING, OPERATING->READY)
+//!   - daemon-behavior 02-event-handling (destroy cascade,
+//!     response-before-notification)
 
 const std = @import("std");
 const core = @import("itshell3_core");
@@ -56,21 +57,24 @@ fn makeConn(state: State) ConnectionState {
 // ── ADR 00020: Single-session-per-connection ───────────────────────────────
 
 test "spec: attachment -- READY allows AttachSessionRequest" {
-    // daemon-behavior 03 Section 12: READY -> AttachSessionRequest -> OPERATING.
+    // daemon-behavior 03-policies-and-procedures (client state transitions):
+    // READY -> AttachSessionRequest -> OPERATING.
     const conn = makeConn(.ready);
     try std.testing.expect(conn.isMessageAllowed(.attach_session_request));
 }
 
 test "spec: attachment -- READY to OPERATING transition succeeds" {
-    // daemon-behavior 03 Section 12: READY -> OPERATING on attach.
+    // daemon-behavior 03-policies-and-procedures (client state transitions):
+    // READY -> OPERATING on attach.
     var conn = makeConn(.ready);
     try std.testing.expect(conn.transitionTo(.operating));
     try std.testing.expectEqual(State.operating, conn.state);
 }
 
 test "spec: attachment -- OPERATING to OPERATING transition is invalid" {
-    // ADR 00020: OPERATING->OPERATING is NOT valid. Client must
-    // DetachSessionRequest (-> READY) then AttachSessionRequest (-> OPERATING).
+    // ADR 00020 (session attachment model): OPERATING->OPERATING is NOT valid.
+    // Client must DetachSessionRequest (-> READY) then AttachSessionRequest
+    // (-> OPERATING).
     var conn = makeConn(.operating);
     try std.testing.expect(!conn.transitionTo(.operating));
     // State should remain OPERATING (transition was rejected).
@@ -78,7 +82,8 @@ test "spec: attachment -- OPERATING to OPERATING transition is invalid" {
 }
 
 test "spec: attachment -- OPERATING to READY via detach succeeds" {
-    // daemon-behavior 03 Section 12: OPERATING -> DetachSessionRequest -> READY.
+    // daemon-behavior 03-policies-and-procedures (client state transitions):
+    // OPERATING -> DetachSessionRequest -> READY.
     var conn = makeConn(.operating);
     try std.testing.expect(conn.transitionTo(.ready));
     try std.testing.expectEqual(State.ready, conn.state);
@@ -109,7 +114,8 @@ test "spec: attachment -- session switching requires detach then attach" {
 }
 
 test "spec: attachment -- attached_session_id tracks current session" {
-    // protocol 03 Section 1.5-1.6: AttachSessionRequest sets session binding.
+    // protocol 03-session-pane-management (attach/detach message definitions):
+    // AttachSessionRequest sets session binding.
     // ConnectionState.attached_session_id stores the attached session (0 = none).
     var conn = makeConn(.ready);
     try std.testing.expectEqual(@as(u32, 0), conn.attached_session_id);
@@ -120,7 +126,8 @@ test "spec: attachment -- attached_session_id tracks current session" {
 }
 
 test "spec: attachment -- detach clears attached_session_id" {
-    // protocol 03 Section 1.7-1.8: DetachSessionRequest clears attachment.
+    // protocol 03-session-pane-management (attach/detach message definitions):
+    // DetachSessionRequest clears attachment.
     var conn = makeConn(.operating);
     conn.attached_session_id = 10;
 
@@ -133,19 +140,20 @@ test "spec: attachment -- detach clears attached_session_id" {
 // ── AttachOrCreate ─────────────────────────────────────────────────────────
 
 test "spec: attachment -- READY allows AttachOrCreateRequest" {
-    // protocol 03 Section 1.13: AttachOrCreateRequest subject to same
-    // single-session-per-connection rule.
+    // protocol 03-session-pane-management (attach-or-create message definition):
+    // AttachOrCreateRequest subject to same single-session-per-connection rule.
     const conn = makeConn(.ready);
     try std.testing.expect(conn.isMessageAllowed(.attach_or_create_request));
 }
 
 test "spec: attachment -- AttachOrCreate allowed through filter in OPERATING state" {
-    // ADR 00020: ERR_SESSION_ALREADY_ATTACHED is returned at the handler level,
-    // not at the message filter level. The message type 0x010C is in the
-    // operational range and must pass through the filter. The handler is
-    // responsible for returning the error status.
-    // daemon-behavior 03 Section 12: OPERATING allows session management
-    // messages (create, destroy, rename, list, attach_or_create).
+    // ADR 00020 (session attachment model): ERR_SESSION_ALREADY_ATTACHED is
+    // returned at the handler level, not at the message filter level. The
+    // message type 0x010C is in the operational range and must pass through
+    // the filter. The handler is responsible for returning the error status.
+    // daemon-behavior 03-policies-and-procedures (client state transitions):
+    // OPERATING allows session management messages (create, destroy, rename,
+    // list, attach_or_create).
     const conn = makeConn(.operating);
     try std.testing.expect(conn.isMessageAllowed(.attach_or_create_request));
 }
@@ -153,13 +161,15 @@ test "spec: attachment -- AttachOrCreate allowed through filter in OPERATING sta
 // ── State transitions: OPERATING messages ──────────────────────────────────
 
 test "spec: attachment -- OPERATING allows DetachSessionRequest" {
-    // daemon-behavior 03 Section 12: OPERATING -> DetachSessionRequest -> READY.
+    // daemon-behavior 03-policies-and-procedures (client state transitions):
+    // OPERATING -> DetachSessionRequest -> READY.
     const conn = makeConn(.operating);
     try std.testing.expect(conn.isMessageAllowed(.detach_session_request));
 }
 
 test "spec: attachment -- OPERATING allows operational messages" {
-    // daemon-behavior 03 Section 12: OPERATING allows input, pane management.
+    // daemon-behavior 03-policies-and-procedures (client state transitions):
+    // OPERATING allows input, pane management.
     const conn = makeConn(.operating);
     try std.testing.expect(conn.isMessageAllowed(.key_event));
     try std.testing.expect(conn.isMessageAllowed(.split_pane_request));
@@ -174,8 +184,9 @@ test "spec: attachment -- OPERATING allows operational messages" {
 }
 
 test "spec: attachment -- OPERATING allows session management that mutates" {
-    // daemon-behavior 03 Section 12: OPERATING allows CreateSession, DestroySession,
-    // RenameSession, ListSessions (in addition to detach).
+    // daemon-behavior 03-policies-and-procedures (client state transitions):
+    // OPERATING allows CreateSession, DestroySession, RenameSession,
+    // ListSessions (in addition to detach).
     const conn = makeConn(.operating);
     try std.testing.expect(conn.isMessageAllowed(.create_session_request));
     try std.testing.expect(conn.isMessageAllowed(.destroy_session_request));
@@ -186,8 +197,9 @@ test "spec: attachment -- OPERATING allows session management that mutates" {
 // ── Destroy cascade: requester transitions to READY ────────────────────────
 
 test "spec: attachment -- destroy own session transitions to READY" {
-    // daemon-behavior 03 Section 12: OPERATING -> DestroySessionRequest (own
-    // session) -> READY. The requester does NOT receive DetachSessionResponse.
+    // daemon-behavior 03-policies-and-procedures (client state transitions):
+    // OPERATING -> DestroySessionRequest (own session) -> READY. The
+    // requester does NOT receive DetachSessionResponse.
     var conn = makeConn(.operating);
     conn.attached_session_id = 1;
 
@@ -202,15 +214,16 @@ test "spec: attachment -- destroy own session transitions to READY" {
 // ── DISCONNECTING state ────────────────────────────────────────────────────
 
 test "spec: attachment -- OPERATING to DISCONNECTING on server shutdown" {
-    // daemon-behavior 03 Section 12: OPERATING -> Disconnect(server_shutdown) ->
-    // DISCONNECTING.
+    // daemon-behavior 03-policies-and-procedures (client state transitions):
+    // OPERATING -> Disconnect(server_shutdown) -> DISCONNECTING.
     var conn = makeConn(.operating);
     try std.testing.expect(conn.transitionTo(.disconnecting));
     try std.testing.expectEqual(State.disconnecting, conn.state);
 }
 
 test "spec: attachment -- DISCONNECTING rejects all non-disconnect messages" {
-    // daemon-behavior 03 Section 12: DISCONNECTING -> only disconnect/error.
+    // daemon-behavior 03-policies-and-procedures (client state transitions):
+    // DISCONNECTING -> only disconnect/error.
     const conn = makeConn(.disconnecting);
     try std.testing.expect(!conn.isMessageAllowed(.attach_session_request));
     try std.testing.expect(!conn.isMessageAllowed(.detach_session_request));
@@ -223,7 +236,8 @@ test "spec: attachment -- DISCONNECTING rejects all non-disconnect messages" {
 // ── Sequence number management ─────────────────────────────────────────────
 
 test "spec: attachment -- send sequence starts at 1 and increments" {
-    // protocol 01 Section 3.1: sequence field in header. Starts at 1.
+    // protocol 01-protocol-overview (wire header format): sequence field
+    // starts at 1.
     var conn = makeConn(.ready);
     const seq1 = conn.advanceSendSequence();
     const seq2 = conn.advanceSendSequence();
@@ -232,7 +246,8 @@ test "spec: attachment -- send sequence starts at 1 and increments" {
 }
 
 test "spec: attachment -- send sequence wraps from max to 1 skipping 0" {
-    // protocol 01: sequence wraps, skipping 0 (0 is reserved/sentinel).
+    // protocol 01-protocol-overview (wire header format): sequence wraps,
+    // skipping 0 (0 is reserved/sentinel).
     var conn = makeConn(.ready);
     conn.send_sequence = 0xFFFFFFFF;
     const seq = conn.advanceSendSequence();
@@ -250,8 +265,9 @@ fn resetStaticSm() void {
 }
 
 test "spec: attachment -- AttachOrCreate 'created' path when session does not exist" {
-    // protocol 03 Section 1.14: AttachOrCreateResponse must include
-    // action_taken: "created" when a new session is created.
+    // protocol 03-session-pane-management (attach-or-create response):
+    // AttachOrCreateResponse must include action_taken: "created" when a
+    // new session is created.
     // Test: when no session with the given name exists, the handler must
     // create a new session. We verify the precondition (findSessionByName
     // returns null) that triggers the "created" code path.
@@ -273,8 +289,9 @@ test "spec: attachment -- AttachOrCreate 'created' path when session does not ex
 }
 
 test "spec: attachment -- AttachOrCreate 'attached' path when session exists" {
-    // protocol 03 Section 1.14: AttachOrCreateResponse must include
-    // action_taken: "attached" when attaching to an existing session.
+    // protocol 03-session-pane-management (attach-or-create response):
+    // AttachOrCreateResponse must include action_taken: "attached" when
+    // attaching to an existing session.
     // Test: when a session with the given name already exists,
     // findSessionByName returns it and the handler attaches (no creation).
     resetStaticSm();
@@ -294,10 +311,10 @@ test "spec: attachment -- AttachOrCreate 'attached' path when session exists" {
 // ── DetachSession with wrong session_id ───────────────────────────────────
 
 test "spec: attachment -- DetachSession with mismatched session_id returns status 1" {
-    // protocol 03 Section 1.8: DetachSessionResponse status 1 means
-    // "not attached to this session." When DetachSessionRequest carries a
-    // session_id that does not match the connection's attached_session_id,
-    // the handler must return status 1.
+    // protocol 03-session-pane-management (detach session response):
+    // DetachSessionResponse status 1 means "not attached to this session."
+    // When DetachSessionRequest carries a session_id that does not match
+    // the connection's attached_session_id, the handler must return status 1.
     // Test: verify the precondition — attached_session_id differs from
     // the requested session_id.
     var conn = makeConn(.operating);
@@ -315,14 +332,15 @@ test "spec: attachment -- DetachSession with mismatched session_id returns statu
 // ── DestroySession cascade with peers ─────────────────────────────────────
 
 test "spec: attachment -- DestroySession cascade sends correct messages to peers" {
-    // daemon-behavior 02 Section 4.2: DestroySession observable effects:
+    // daemon-behavior 02-event-handling (destroy cascade): DestroySession
+    // observable effects:
     //   1. [PreeditEnd — Plan 8 scope, skipped]
     //   2. DestroySessionResponse(status=0) — to requester
     //   3. SessionListChanged(event="destroyed") — broadcast to ALL
     //   4. DetachSessionResponse(reason="session_destroyed") — to each peer
     //   5. ClientDetached(client_id=C) — to requester, for each peer
     //
-    // Section 4.3: The requester does NOT receive DetachSessionResponse.
+    // The requester does NOT receive DetachSessionResponse.
     //
     // Test: set up multiple clients attached to the same session, destroy it,
     // and verify the message ordering constraints using broadcast infrastructure.
@@ -382,10 +400,10 @@ test "spec: attachment -- DestroySession cascade sends correct messages to peers
 // ── LayoutChanged after AttachSession ─────────────────────────────────────
 
 test "spec: attachment -- LayoutChanged sent after AttachSession success" {
-    // protocol 03 Section 1.6: After AttachSessionResponse success, server
-    // sends LayoutChanged notification to the attaching client with full
-    // layout tree (including per-pane active_input_method and
-    // active_keyboard_layout in leaf nodes).
+    // protocol 03-session-pane-management (attach session response):
+    // After AttachSessionResponse success, server sends LayoutChanged
+    // notification to the attaching client with full layout tree (including
+    // per-pane active_input_method and active_keyboard_layout in leaf nodes).
     //
     // Verify: LayoutChanged (0x0180) is a valid notification type and uses
     // JSON encoding, the session has a layout tree to send, and the message

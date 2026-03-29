@@ -8,7 +8,6 @@
 const std = @import("std");
 const protocol = @import("itshell3_protocol");
 const MessageType = protocol.message_type.MessageType;
-const HEADER_SIZE = protocol.header.HEADER_SIZE;
 const core = @import("itshell3_core");
 const types = core.types;
 const split_tree = core.split_tree;
@@ -32,7 +31,7 @@ pub const PaneHandlerContext = struct {
 // ── CreatePaneRequest (0x0140) ─────────────────────────────────────────────
 
 /// Handles CreatePaneRequest. Creates a standalone pane replacing the layout
-/// root. Per protocol Section 2.1.
+/// root. Per protocol 03-session-pane-management (standalone pane creation).
 pub fn handleCreatePane(
     ctx: *PaneHandlerContext,
     client: *ClientState,

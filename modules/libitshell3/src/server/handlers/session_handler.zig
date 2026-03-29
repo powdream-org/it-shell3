@@ -10,10 +10,8 @@ const std = @import("std");
 const protocol = @import("itshell3_protocol");
 const MessageType = protocol.message_type.MessageType;
 const Header = protocol.header.Header;
-const HEADER_SIZE = protocol.header.HEADER_SIZE;
 const core = @import("itshell3_core");
 const types = core.types;
-const session_mod = core.session;
 const server = @import("itshell3_server");
 const SessionManager = server.state.session_manager.SessionManager;
 const SessionInfo = server.state.session_manager.SessionInfo;
@@ -48,6 +46,7 @@ pub fn handleCreateSession(
     sequence: u32,
     request_name: []const u8,
 ) void {
+    _ = client_slot;
     var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
     const timestamp = std.time.milliTimestamp();
 
@@ -90,7 +89,7 @@ pub fn handleCreateSession(
     var notif_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
     const notif_seq = client.connection.advanceSendSequence();
     const notif = notification_builder.buildSessionListChanged("created", session_id, name, notif_seq, &notif_buf) orelse return;
-    _ = broadcast.broadcastToActive(ctx.client_manager, notif, client_slot);
+    _ = broadcast.broadcastToActive(ctx.client_manager, notif, null);
 }
 
 // ── ListSessionsRequest (0x0102) ────────────────────────────────────────────
@@ -165,6 +164,7 @@ pub fn handleRenameSession(
     session_id: types.SessionId,
     new_name: []const u8,
 ) void {
+    _ = client_slot;
     var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     // Check session exists.
@@ -197,7 +197,7 @@ pub fn handleRenameSession(
     var notif_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
     const notif_seq = client.connection.advanceSendSequence();
     const notif = notification_builder.buildSessionListChanged("renamed", session_id, new_name, notif_seq, &notif_buf) orelse return;
-    _ = broadcast.broadcastToActive(ctx.client_manager, notif, client_slot);
+    _ = broadcast.broadcastToActive(ctx.client_manager, notif, null);
 }
 
 // ── AttachSessionRequest (0x0104) ───────────────────────────────────────────
@@ -447,7 +447,8 @@ pub fn handleDestroySession(
 
         // Send DetachSessionResponse to the peer.
         const detach_json = "{\"status\":0,\"reason\":\"session_destroyed\"}";
-        const detach_resp = envelope.wrapResponse(&peer_buf, @intFromEnum(MessageType.detach_session_response), 0, detach_json) orelse continue;
+        const peer_seq = peer.connection.advanceSendSequence();
+        const detach_resp = envelope.wrapResponse(&peer_buf, @intFromEnum(MessageType.detach_session_response), peer_seq, detach_json) orelse continue;
         peer.enqueueDirect(detach_resp) catch {};
 
         // Send ClientDetached to the requester for this peer.
@@ -496,6 +497,10 @@ pub fn handleAttachOrCreate(
     else
         "created";
 
+    // Track whether a new session was created so we can broadcast
+    // SessionListChanged after the response (response-before-notification).
+    var created_session_id: ?types.SessionId = null;
+
     const target_session_id: types.SessionId = if (ctx.session_manager.findSessionByName(session_name)) |entry|
         entry.session.session_id
     else blk: {
@@ -515,12 +520,7 @@ pub fn handleAttachOrCreate(
         // TODO(Plan 9+): Spawn shell process for the initial pane.
         _ = ctx.session_manager.allocPaneId();
 
-        // Broadcast SessionListChanged(event="created").
-        var notif_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
-        const notif_seq = client.connection.advanceSendSequence();
-        const notif = notification_builder.buildSessionListChanged("created", new_session_id, session_name, notif_seq, &notif_buf) orelse return;
-        _ = broadcast.broadcastToActive(ctx.client_manager, notif, client_slot);
-
+        created_session_id = new_session_id;
         break :blk new_session_id;
     };
 
@@ -548,9 +548,10 @@ pub fn handleAttachOrCreate(
         0;
 
     var json_resp_buf: [1024]u8 = undefined;
-    const resp_json = std.fmt.bufPrint(&json_resp_buf, "{{\"status\":0,\"session_id\":{d},\"name\":\"{s}\",\"active_pane_id\":{d},\"action_taken\":\"{s}\",\"active_input_method\":\"{s}\",\"active_keyboard_layout\":\"{s}\",\"resize_policy\":\"latest\"}}", .{
+    const resp_json = std.fmt.bufPrint(&json_resp_buf, "{{\"status\":0,\"session_id\":{d},\"session_name\":\"{s}\",\"pane_id\":{d},\"active_pane_id\":{d},\"action_taken\":\"{s}\",\"active_input_method\":\"{s}\",\"active_keyboard_layout\":\"{s}\",\"resize_policy\":\"latest\"}}", .{
         target_session_id,
         entry.session.getName(),
+        active_pane_id,
         active_pane_id,
         action_taken,
         entry.session.getActiveInputMethod(),
@@ -558,6 +559,15 @@ pub fn handleAttachOrCreate(
     }) catch return;
     const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.attach_or_create_response), sequence, resp_json) orelse return;
     client.enqueueDirect(resp) catch {};
+
+    // Broadcast SessionListChanged(event="created") after response
+    // (response-before-notification per daemon-behavior 02-event-handling).
+    if (created_session_id) |new_id| {
+        var notif_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+        const notif_seq = client.connection.advanceSendSequence();
+        const notif = notification_builder.buildSessionListChanged("created", new_id, session_name, notif_seq, &notif_buf) orelse return;
+        _ = broadcast.broadcastToActive(ctx.client_manager, notif, null);
+    }
 
     // TODO(Plan 9): Send LayoutChanged notification to requester.
     // TODO(Plan 9): Send initial I-frame from ring buffer.

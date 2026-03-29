@@ -10,7 +10,6 @@ const envelope = @import("protocol_envelope.zig");
 const core = @import("itshell3_core");
 const types = core.types;
 const split_tree = core.split_tree;
-const session_mod = core.session;
 
 /// Maximum size for notification JSON payloads.
 const MAX_NOTIFICATION_JSON: usize = 6144;

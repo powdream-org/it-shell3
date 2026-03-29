@@ -203,12 +203,12 @@ pub fn dispatch(
         .swap_panes_request => {
             const parsed = std.json.parseFromSlice(struct {
                 session_id: u32,
-                pane_a_id: u32,
-                pane_b_id: u32,
+                pane_a: u32,
+                pane_b: u32,
             }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
             defer parsed.deinit();
             var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleSwapPanes(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_a_id, parsed.value.pane_b_id);
+            pane_handler.handleSwapPanes(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_a, parsed.value.pane_b);
         },
         .layout_get_request => {
             const parsed = std.json.parseFromSlice(struct {
