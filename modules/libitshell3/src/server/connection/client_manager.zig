@@ -10,6 +10,8 @@ const connection_state_mod = @import("connection_state.zig");
 const State = connection_state_mod.State;
 const transport = @import("itshell3_transport");
 const SocketConnection = transport.transport.SocketConnection;
+const protocol = @import("itshell3_protocol");
+const ChunkPool = protocol.message_reader.ChunkPool;
 
 /// Maximum concurrent client connections.
 pub const MAX_CLIENTS: u16 = 64;
@@ -19,18 +21,32 @@ pub const AddError = error{MaxClientsReached};
 /// Manages a fixed-size array of ClientState slots.
 /// Client IDs are monotonically increasing and never reused within daemon lifetime.
 pub const ClientManager = struct {
-    slots: [MAX_CLIENTS]ClientState = [_]ClientState{std.mem.zeroes(ClientState)} ** MAX_CLIENTS,
+    /// Client slots. Only the `occupied` field is meaningful for uninitialized
+    /// slots; all other fields are set by ClientState.init() when a client
+    /// connects. Initialized via initSlots() to set `occupied = false` without
+    /// requiring zeroing of the full struct (which fails for non-nullable pointers).
+    slots: [MAX_CLIENTS]ClientState = initSlots(),
     /// Next client_id to assign. Monotonically increasing, never reused.
     next_client_id: u32 = 1,
     /// Current count of occupied slots.
     active_count: u16 = 0,
+    /// Shared chunk pool reference for MessageReader large message support.
+    chunk_pool: *ChunkPool,
+
+    fn initSlots() [MAX_CLIENTS]ClientState {
+        var result: [MAX_CLIENTS]ClientState = undefined;
+        for (&result) |*slot| {
+            slot.occupied = false;
+        }
+        return result;
+    }
 
     /// Add a new client connection. Returns the slot index.
     pub fn addClient(self: *ClientManager, socket: SocketConnection) AddError!u16 {
         const slot_idx = self.findFreeSlot() orelse return error.MaxClientsReached;
         const client_id = self.next_client_id;
         self.next_client_id += 1;
-        self.slots[slot_idx] = ClientState.init(socket, client_id);
+        self.slots[slot_idx] = ClientState.init(socket, client_id, self.chunk_pool);
         self.active_count += 1;
         return slot_idx;
     }
@@ -132,8 +148,35 @@ pub const ClientManager = struct {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
+/// Minimal no-op chunk pool for tests that do not exercise large messages.
+const TestChunkPoolContext = struct {
+    pool: ChunkPool = undefined,
+
+    fn init() TestChunkPoolContext {
+        var ctx = TestChunkPoolContext{};
+        ctx.pool = .{
+            .context = @ptrCast(&ctx),
+            .borrow_fn = borrowNoop,
+            .release_fn = releaseNoop,
+        };
+        return ctx;
+    }
+
+    fn chunkPool(self: *TestChunkPoolContext) *ChunkPool {
+        self.pool.context = @ptrCast(self);
+        return &self.pool;
+    }
+
+    fn borrowNoop(_: *anyopaque) ?ChunkPool.Chunk {
+        return null;
+    }
+
+    fn releaseNoop(_: *anyopaque, _: ChunkPool.Chunk) void {}
+};
+
 test "ClientManager: addClient assigns monotonic client_id" {
-    var mgr = ClientManager{};
+    var pool_ctx = TestChunkPoolContext.init();
+    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
     const c1 = mgr.getClient(idx1).?;
@@ -144,7 +187,8 @@ test "ClientManager: addClient assigns monotonic client_id" {
 }
 
 test "ClientManager: removeClient frees slot for reuse" {
-    var mgr = ClientManager{};
+    var pool_ctx = TestChunkPoolContext.init();
+    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     try std.testing.expectEqual(@as(u16, 1), mgr.count());
     mgr.removeClient(idx);
@@ -157,13 +201,15 @@ test "ClientManager: removeClient frees slot for reuse" {
 }
 
 test "ClientManager: getClient returns null for empty slot" {
-    var mgr = ClientManager{};
+    var pool_ctx = TestChunkPoolContext.init();
+    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
     try std.testing.expect(mgr.getClient(0) == null);
     try std.testing.expect(mgr.getClient(MAX_CLIENTS) == null);
 }
 
 test "ClientManager: findByClientId locates correct slot" {
-    var mgr = ClientManager{};
+    var pool_ctx = TestChunkPoolContext.init();
+    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
     _ = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
     const found = mgr.findByClientId(2);
@@ -172,12 +218,14 @@ test "ClientManager: findByClientId locates correct slot" {
 }
 
 test "ClientManager: findByClientId returns null for unknown id" {
-    var mgr = ClientManager{};
+    var pool_ctx = TestChunkPoolContext.init();
+    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
     try std.testing.expect(mgr.findByClientId(999) == null);
 }
 
 test "ClientManager: findByFd locates correct slot" {
-    var mgr = ClientManager{};
+    var pool_ctx = TestChunkPoolContext.init();
+    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
     const idx = try mgr.addClient(.{ .fd = 42 });
     const found = mgr.findByFd(42);
     try std.testing.expect(found != null);
@@ -185,7 +233,8 @@ test "ClientManager: findByFd locates correct slot" {
 }
 
 test "ClientManager: addClient returns MaxClientsReached when full" {
-    var mgr = ClientManager{};
+    var pool_ctx = TestChunkPoolContext.init();
+    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
     var i: u32 = 0;
     while (i < MAX_CLIENTS) : (i += 1) {
         _ = try mgr.addClient(.{ .fd = @intCast(i + 100) });
@@ -195,7 +244,8 @@ test "ClientManager: addClient returns MaxClientsReached when full" {
 }
 
 test "ClientManager: forEachActive iterates ready and operating clients" {
-    var mgr = ClientManager{};
+    var pool_ctx = TestChunkPoolContext.init();
+    var mgr = ClientManager{ .chunk_pool = pool_ctx.chunkPool() };
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
     // Transition idx1 to READY

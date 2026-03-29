@@ -12,6 +12,7 @@ const transport = @import("itshell3_transport");
 const SocketConnection = transport.transport.SocketConnection;
 const protocol = @import("itshell3_protocol");
 const MessageReader = protocol.message_reader.MessageReader;
+const ChunkPool = protocol.message_reader.ChunkPool;
 const core = @import("itshell3_core");
 const MAX_PANES = core.types.MAX_PANES;
 const server = @import("itshell3_server");
@@ -56,7 +57,7 @@ pub const ClientState = struct {
 
     /// Per-connection framing state. Accumulates partial messages across recv()
     /// calls. See daemon-architecture integration-boundaries spec.
-    message_reader: MessageReader = .{},
+    message_reader: MessageReader,
 
     /// Whether this client slot is occupied.
     occupied: bool = false,
@@ -67,9 +68,12 @@ pub const ClientState = struct {
     pub const ClientDisplayInfo = struct {};
 
     /// Initialize a new client state wrapping a SocketConnection.
-    pub fn init(socket: SocketConnection, client_id: u32) ClientState {
+    /// The `chunk_pool` reference is shared across all clients and must outlive
+    /// this ClientState.
+    pub fn init(socket: SocketConnection, client_id: u32, chunk_pool: *ChunkPool) ClientState {
         return .{
             .connection = ConnectionState.init(socket, client_id),
+            .message_reader = .{ .pool = chunk_pool },
             .occupied = true,
             .last_activity_timestamp = std.time.milliTimestamp(),
         };
@@ -118,8 +122,35 @@ pub const ClientState = struct {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
+/// Minimal no-op chunk pool for tests that do not exercise large messages.
+const TestChunkPoolContext = struct {
+    pool: ChunkPool = undefined,
+
+    fn init() TestChunkPoolContext {
+        var ctx = TestChunkPoolContext{};
+        ctx.pool = .{
+            .context = @ptrCast(&ctx),
+            .borrow_fn = borrowNoop,
+            .release_fn = releaseNoop,
+        };
+        return ctx;
+    }
+
+    fn chunkPool(self: *TestChunkPoolContext) *ChunkPool {
+        self.pool.context = @ptrCast(self);
+        return &self.pool;
+    }
+
+    fn borrowNoop(_: *anyopaque) ?ChunkPool.Chunk {
+        return null;
+    }
+
+    fn releaseNoop(_: *anyopaque, _: ChunkPool.Chunk) void {}
+};
+
 test "ClientState.init: creates occupied client with handshaking state" {
-    const client = ClientState.init(.{ .fd = 7 }, 42);
+    var pool_ctx = TestChunkPoolContext.init();
+    const client = ClientState.init(.{ .fd = 7 }, 42, pool_ctx.chunkPool());
     try std.testing.expect(client.occupied);
     try std.testing.expectEqual(State.handshaking, client.getState());
     try std.testing.expectEqual(@as(u32, 42), client.getClientId());
@@ -128,13 +159,15 @@ test "ClientState.init: creates occupied client with handshaking state" {
 }
 
 test "ClientState.deinit: marks slot as unoccupied" {
-    var client = ClientState.init(.{ .fd = 7 }, 1);
+    var pool_ctx = TestChunkPoolContext.init();
+    var client = ClientState.init(.{ .fd = 7 }, 1, pool_ctx.chunkPool());
     client.deinit();
     try std.testing.expect(!client.occupied);
 }
 
 test "ClientState.recordActivity: updates timestamp" {
-    var client = ClientState.init(.{ .fd = 7 }, 1);
+    var pool_ctx = TestChunkPoolContext.init();
+    var client = ClientState.init(.{ .fd = 7 }, 1, pool_ctx.chunkPool());
     const before = client.last_activity_timestamp;
     // Force a different timestamp by manipulating directly.
     client.last_activity_timestamp = before - 100;
@@ -143,33 +176,36 @@ test "ClientState.recordActivity: updates timestamp" {
 }
 
 test "ClientState.enqueueDirect: adds message to direct queue" {
-    var client = ClientState.init(.{ .fd = 7 }, 1);
+    var pool_ctx = TestChunkPoolContext.init();
+    var client = ClientState.init(.{ .fd = 7 }, 1, pool_ctx.chunkPool());
     defer client.deinit();
     try client.enqueueDirect("test-msg");
     try std.testing.expect(!client.direct_queue.isEmpty());
 }
 
 test "ClientState: ring_cursors all start as null" {
-    const client = ClientState.init(.{ .fd = 7 }, 1);
+    var pool_ctx = TestChunkPoolContext.init();
+    const client = ClientState.init(.{ .fd = 7 }, 1, pool_ctx.chunkPool());
     for (client.ring_cursors) |cursor| {
         try std.testing.expect(cursor == null);
     }
 }
 
 test "ClientState: display_info field exists" {
-    const client = ClientState.init(.{ .fd = 7 }, 1);
+    var pool_ctx = TestChunkPoolContext.init();
+    const client = ClientState.init(.{ .fd = 7 }, 1, pool_ctx.chunkPool());
     _ = client.display_info;
 }
 
 test "ClientState: attached_session defaults to null" {
-    const client = ClientState.init(.{ .fd = 7 }, 1);
+    var pool_ctx = TestChunkPoolContext.init();
+    const client = ClientState.init(.{ .fd = 7 }, 1, pool_ctx.chunkPool());
     try std.testing.expect(client.attached_session == null);
 }
 
 test "ClientState.deinit: clears attached_session" {
-    var client = ClientState.init(.{ .fd = 7 }, 1);
-    // Verify that attached_session is cleared on deinit by checking
-    // the field is null after init, setting it non-null, then deiniting.
+    var pool_ctx = TestChunkPoolContext.init();
+    var client = ClientState.init(.{ .fd = 7 }, 1, pool_ctx.chunkPool());
     try std.testing.expect(client.attached_session == null);
     // Use @ptrFromInt with a well-aligned nonzero address for test purposes only.
     // This avoids constructing a real SessionEntry (which requires ImeEngine vtable).
@@ -180,19 +216,22 @@ test "ClientState.deinit: clears attached_session" {
 }
 
 test "ClientState: message_reader starts empty" {
-    const client = ClientState.init(.{ .fd = 7 }, 1);
-    try std.testing.expectEqual(@as(u16, 0), client.message_reader.length);
+    var pool_ctx = TestChunkPoolContext.init();
+    const client = ClientState.init(.{ .fd = 7 }, 1, pool_ctx.chunkPool());
+    try std.testing.expectEqual(@as(u32, 0), client.message_reader.length);
 }
 
 test "ClientState.deinit: resets message_reader" {
-    var client = ClientState.init(.{ .fd = 7 }, 1);
-    _ = client.message_reader.feed("leftover");
+    var pool_ctx = TestChunkPoolContext.init();
+    var client = ClientState.init(.{ .fd = 7 }, 1, pool_ctx.chunkPool());
+    try client.message_reader.feed("leftover");
     client.deinit();
-    try std.testing.expectEqual(@as(u16, 0), client.message_reader.length);
+    try std.testing.expectEqual(@as(u32, 0), client.message_reader.length);
 }
 
 test "ClientState: timer IDs default to null" {
-    const client = ClientState.init(.{ .fd = 7 }, 1);
+    var pool_ctx = TestChunkPoolContext.init();
+    const client = ClientState.init(.{ .fd = 7 }, 1, pool_ctx.chunkPool());
     try std.testing.expect(client.handshake_timer_id == null);
     try std.testing.expect(client.ready_idle_timer_id == null);
 }

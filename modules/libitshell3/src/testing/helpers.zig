@@ -8,10 +8,47 @@ const core = @import("itshell3_core");
 const session_mod = core.session;
 const server = @import("itshell3_server");
 const session_manager_mod = server.state.session_manager;
+const protocol = @import("itshell3_protocol");
+const ChunkPool = protocol.message_reader.ChunkPool;
 
 // File-scope static mock engine. Persists across tests so the vtable pointer
 // stored in sessions remains valid. Exported for use by other test files.
 pub var test_mock_engine = mock_ime.MockImeEngine{};
+
+/// No-op chunk pool for tests that do not exercise large messages.
+/// The pool context is file-scoped and static so vtable pointers remain valid.
+pub const NoopChunkPool = struct {
+    pool: ChunkPool,
+
+    pub fn init() NoopChunkPool {
+        return .{
+            .pool = .{
+                .context = undefined,
+                .borrow_fn = borrowNoop,
+                .release_fn = releaseNoop,
+            },
+        };
+    }
+
+    pub fn chunkPool(self: *NoopChunkPool) *ChunkPool {
+        self.pool.context = @ptrCast(self);
+        return &self.pool;
+    }
+
+    fn borrowNoop(_: *anyopaque) ?ChunkPool.Chunk {
+        return null;
+    }
+
+    fn releaseNoop(_: *anyopaque, _: ChunkPool.Chunk) void {}
+};
+
+/// File-scoped static noop chunk pool for tests. Returns a *ChunkPool that
+/// remains valid for the process lifetime.
+pub var noop_chunk_pool = NoopChunkPool.init();
+
+pub fn testChunkPool() *ChunkPool {
+    return noop_chunk_pool.chunkPool();
+}
 
 pub fn testImeEngine() session_mod.ImeEngine {
     return test_mock_engine.engine();

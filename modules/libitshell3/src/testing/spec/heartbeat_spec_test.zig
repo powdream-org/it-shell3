@@ -39,7 +39,7 @@ test "spec: heartbeat — server sends heartbeat with monotonic ping_id" {
     //  sent within the heartbeat interval."
     // Plan 6 spec: "ping_id is a monotonic counter"
     var mgr = HeartbeatManager{};
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
     client.recordActivity();
 
@@ -60,14 +60,14 @@ test "spec: heartbeat — server sends heartbeat with monotonic ping_id" {
 test "spec: heartbeat — server responds to client heartbeat echoing ping_id" {
     // daemon-behavior 03-policies-and-procedures Section 10.2:
     // "The receiver responds with HeartbeatAck (0x0004)."
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     const echo = HeartbeatManager.processHeartbeat(&client, 42);
     try std.testing.expectEqual(@as(u32, 42), echo);
 }
 
 test "spec: heartbeat — processAck records the acked ping_id" {
     // Receiving HeartbeatAck confirms connection liveness.
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     HeartbeatManager.processAck(&client, 7);
     try std.testing.expectEqual(@as(u32, 7), client.last_ping_id_acked);
 }
@@ -79,7 +79,7 @@ test "spec: heartbeat — timeout fires when no message received for 90s" {
     // "If no message of any kind is received within 90 seconds (3 missed
     //  heartbeat intervals), the daemon sends Disconnect(reason: timeout)."
     var mgr = HeartbeatManager{};
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
 
     // Simulate 90s of inactivity by setting the timestamp far in the past.
@@ -91,7 +91,7 @@ test "spec: heartbeat — timeout fires when no message received for 90s" {
 
 test "spec: heartbeat — does NOT timeout when activity is recent" {
     var mgr = HeartbeatManager{};
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
     client.recordActivity(); // Recent activity.
 
@@ -105,7 +105,7 @@ test "spec: heartbeat — HeartbeatAck counts as a received message for connecti
     // daemon-behavior 03-policies-and-procedures Section 10.2:
     // "If no message of any kind is received within 90 seconds..."
     // HeartbeatAck IS a message, so it resets the connection liveness timeout.
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
 
     // Make the client appear inactive.
@@ -124,7 +124,7 @@ test "spec: heartbeat — skips clients in HANDSHAKING state" {
     // Heartbeat is only for READY and OPERATING clients. HANDSHAKING clients
     // have their own timeout (5s handshake timeout).
     var mgr = HeartbeatManager{};
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     // Client is in HANDSHAKING state.
     const result = mgr.checkClient(&client);
     try std.testing.expectEqual(heartbeat_manager_mod.HeartbeatTickResult.skipped, result);
@@ -133,7 +133,7 @@ test "spec: heartbeat — skips clients in HANDSHAKING state" {
 test "spec: heartbeat — skips clients in DISCONNECTING state" {
     // DISCONNECTING clients are being torn down; no heartbeat needed.
     var mgr = HeartbeatManager{};
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.disconnecting);
     const result = mgr.checkClient(&client);
     try std.testing.expectEqual(heartbeat_manager_mod.HeartbeatTickResult.skipped, result);
@@ -141,7 +141,7 @@ test "spec: heartbeat — skips clients in DISCONNECTING state" {
 
 test "spec: heartbeat — sends to OPERATING clients" {
     var mgr = HeartbeatManager{};
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
     client.recordActivity();

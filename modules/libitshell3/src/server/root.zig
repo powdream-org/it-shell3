@@ -27,6 +27,7 @@ pub const connection = struct {
     pub const connection_state = @import("connection/connection_state.zig");
     pub const client_state = @import("connection/client_state.zig");
     pub const client_manager = @import("connection/client_manager.zig");
+    pub const large_chunk_pool = @import("connection/large_chunk_pool.zig");
     pub const handshake_handler = @import("connection/handshake_handler.zig");
     pub const heartbeat_manager = @import("connection/heartbeat_manager.zig");
     pub const disconnect_handler = @import("connection/disconnect_handler.zig");
@@ -34,6 +35,7 @@ pub const connection = struct {
     pub const ConnectionState = connection_state.ConnectionState;
     pub const ClientState = client_state.ClientState;
     pub const ClientManager = client_manager.ClientManager;
+    pub const LargeChunkPool = large_chunk_pool.LargeChunkPool;
 };
 
 pub const ime = struct {

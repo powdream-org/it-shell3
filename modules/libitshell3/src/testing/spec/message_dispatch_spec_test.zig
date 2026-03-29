@@ -103,7 +103,7 @@ test "spec: disconnect — client disconnect does NOT affect session lifecycle" 
     //  until panes exit or daemon shuts down"
     // This is a design invariant verified at the structural level:
     // disconnect_handler only modifies the client's connection state, not sessions.
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
     client.connection.attached_session_id = 42;
@@ -124,7 +124,7 @@ test "spec: disconnect — unexpected disconnect bypasses DISCONNECTING" {
     // which calls teardown directly. Verify that processIncomingDisconnect
     // transitions to DISCONNECTING (for graceful path) — the peer_closed path
     // uses teardown() which marks the slot as unoccupied.
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
 
@@ -137,7 +137,7 @@ test "spec: disconnect — initiateDisconnect is idempotent for DISCONNECTING st
     // daemon-behavior 02-event-handling Section 2:
     // "Multiple simultaneous shutdown triggers: The shutdown sequence is
     //  idempotent" — same principle applies to disconnect.
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.disconnecting);
 
     const result = disconnect_handler.initiateDisconnect(&client);

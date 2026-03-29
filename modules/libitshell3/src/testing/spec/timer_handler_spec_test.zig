@@ -44,7 +44,7 @@ fn resetState() void {
 test "spec: timer handler -- handshake timeout disconnects HANDSHAKING client" {
     resetState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     var hb = HeartbeatManager{};
     const slot = try mgr.addClient(SocketConnection{ .fd = 100 });
     // Client starts in HANDSHAKING state
@@ -75,7 +75,7 @@ test "spec: timer handler -- handshake timeout disconnects HANDSHAKING client" {
 test "spec: timer handler -- handshake timeout ignores non-HANDSHAKING client" {
     resetState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     var hb = HeartbeatManager{};
     const slot = try mgr.addClient(SocketConnection{ .fd = 101 });
     // Transition to READY -- handshake timeout should not apply
@@ -101,7 +101,7 @@ test "spec: timer handler -- handshake timeout ignores non-HANDSHAKING client" {
 test "spec: timer handler -- ready idle timeout disconnects READY client" {
     resetState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     var hb = HeartbeatManager{};
     const slot = try mgr.addClient(SocketConnection{ .fd = 102 });
     _ = mgr.getClient(slot).?.connection.transitionTo(.ready);
@@ -130,7 +130,7 @@ test "spec: timer handler -- ready idle timeout disconnects READY client" {
 test "spec: timer handler -- ready idle timeout ignores OPERATING client" {
     resetState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     var hb = HeartbeatManager{};
     const slot = try mgr.addClient(SocketConnection{ .fd = 103 });
     _ = mgr.getClient(slot).?.connection.transitionTo(.ready);
@@ -156,7 +156,7 @@ test "spec: timer handler -- ready idle timeout ignores OPERATING client" {
 test "spec: timer handler -- heartbeat tick sends heartbeat to READY clients" {
     resetState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     var hb = HeartbeatManager{};
     const slot = try mgr.addClient(SocketConnection{ .fd = 104 });
     const client = mgr.getClient(slot).?;
@@ -186,7 +186,7 @@ test "spec: timer handler -- heartbeat tick sends heartbeat to READY clients" {
 test "spec: timer handler -- heartbeat tick disconnects timed-out client" {
     resetState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     var hb = HeartbeatManager{};
     const slot = try mgr.addClient(SocketConnection{ .fd = 105 });
     const client = mgr.getClient(slot).?;
@@ -214,7 +214,7 @@ test "spec: timer handler -- heartbeat tick disconnects timed-out client" {
 test "spec: timer handler -- heartbeat tick skips HANDSHAKING clients" {
     resetState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     var hb = HeartbeatManager{};
     _ = try mgr.addClient(SocketConnection{ .fd = 106 });
     // Client stays in HANDSHAKING

@@ -83,7 +83,7 @@ test "HeartbeatManager.nextPingId: wraps around skipping zero" {
 
 test "HeartbeatManager.checkClient: skips handshaking clients" {
     var mgr = HeartbeatManager{};
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     // Client is in handshaking state.
     const result = mgr.checkClient(&client);
     try std.testing.expectEqual(HeartbeatTickResult.skipped, result);
@@ -91,7 +91,7 @@ test "HeartbeatManager.checkClient: skips handshaking clients" {
 
 test "HeartbeatManager.checkClient: sends heartbeat for ready client" {
     var mgr = HeartbeatManager{};
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
     // Ensure client is "recently active" by updating timestamp
     client.recordActivity();
@@ -101,13 +101,13 @@ test "HeartbeatManager.checkClient: sends heartbeat for ready client" {
 }
 
 test "HeartbeatManager.processAck: records ack and updates activity" {
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     HeartbeatManager.processAck(&client, 42);
     try std.testing.expectEqual(@as(u32, 42), client.last_ping_id_acked);
 }
 
 test "HeartbeatManager.processHeartbeat: echoes ping_id and records activity" {
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     const echo = HeartbeatManager.processHeartbeat(&client, 7);
     try std.testing.expectEqual(@as(u32, 7), echo);
 }

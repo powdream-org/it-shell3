@@ -80,28 +80,28 @@ pub fn buildDisconnectPayload(
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 test "initiateDisconnect: transitions to disconnecting" {
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     const result = initiateDisconnect(&client);
     try std.testing.expectEqual(DisconnectResult.transitioned, result);
     try std.testing.expectEqual(State.disconnecting, client.getState());
 }
 
 test "initiateDisconnect: already disconnecting returns already_disconnecting" {
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.disconnecting);
     const result = initiateDisconnect(&client);
     try std.testing.expectEqual(DisconnectResult.already_disconnecting, result);
 }
 
 test "processIncomingDisconnect: transitions to disconnecting" {
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
     processIncomingDisconnect(&client);
     try std.testing.expectEqual(State.disconnecting, client.getState());
 }
 
 test "processIncomingDisconnect: idempotent when already disconnecting" {
-    var client = ClientState.init(.{ .fd = 5 }, 1);
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.disconnecting);
     processIncomingDisconnect(&client);
     try std.testing.expectEqual(State.disconnecting, client.getState());

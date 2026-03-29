@@ -1,7 +1,6 @@
 const std = @import("std");
 const cell_mod = @import("cell.zig");
 
-
 // --- Frame Header (20 bytes binary) ---
 
 pub const FRAME_HEADER_SIZE: usize = 20;

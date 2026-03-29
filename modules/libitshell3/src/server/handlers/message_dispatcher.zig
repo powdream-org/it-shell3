@@ -179,7 +179,7 @@ const noop_event_loop_ops = EventLoopOps{
 };
 
 test "dispatch: unknown message type does not crash" {
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const c = mgr.getClient(idx).?;
     _ = c.connection.transitionTo(.ready);

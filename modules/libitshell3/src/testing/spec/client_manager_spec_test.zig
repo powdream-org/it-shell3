@@ -35,7 +35,7 @@ test "spec: connection limits — resource exhaustion returns error" {
     // daemon-behavior 03-policies-and-procedures Section 1:
     // "When resource limits are reached, the daemon MUST reject new connections
     //  or requests with ERR_RESOURCE_EXHAUSTED."
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     // Fill all slots.
     var i: u32 = 0;
@@ -52,7 +52,7 @@ test "spec: connection limits — resource exhaustion returns error" {
 test "spec: client_id — monotonically increasing, never reused" {
     // daemon-behavior 02-event-handling Section 5.1:
     // "client_id is monotonically increasing, never reused."
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
@@ -70,7 +70,7 @@ test "spec: client_id — monotonically increasing, never reused" {
 test "spec: client_id — not reused after client removal" {
     // daemon-behavior 02-event-handling Section 5.1:
     // "client_id is monotonically increasing, never reused."
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const id1 = mgr.getClient(idx1).?.getClientId();
@@ -87,7 +87,7 @@ test "spec: client_id — not reused after client removal" {
 test "spec: client_id — each new connection receives a strictly greater client_id" {
     // daemon-behavior 02-event-handling Section 5.1 constraint 3:
     // "Each new connection receives a strictly greater client_id."
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     var prev_id: u32 = 0;
 
     var i: u32 = 0;
@@ -104,7 +104,7 @@ test "spec: client_id — each new connection receives a strictly greater client
 test "spec: client slot — add initializes to HANDSHAKING state" {
     // daemon-architecture 03-integration-boundaries — connection lifecycle:
     // "The daemon's per-client state machine starts at HANDSHAKING."
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;
     try std.testing.expectEqual(State.handshaking, client.getState());
@@ -113,7 +113,7 @@ test "spec: client slot — add initializes to HANDSHAKING state" {
 test "spec: client slot — remove cleans up slot" {
     // After removal, the slot must be available for reuse and lookups
     // must not return the removed client.
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client_id = mgr.getClient(idx).?.getClientId();
 
@@ -129,7 +129,7 @@ test "spec: client slot — remove cleans up slot" {
 
 test "spec: findByFd — locates client by socket file descriptor" {
     // The daemon needs fd-based lookup for kqueue event dispatch.
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 42 });
 
     const found = mgr.findByFd(42);
@@ -142,7 +142,7 @@ test "spec: findByFd — locates client by socket file descriptor" {
 
 test "spec: findByClientId — locates client by protocol-level ID" {
     // Used for targeted message delivery (e.g., PreeditEnd to specific client).
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     _ = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
     const id2 = mgr.getClient(idx2).?.getClientId();
@@ -157,7 +157,7 @@ test "spec: findByClientId — locates client by protocol-level ID" {
 test "spec: forEachOperatingInSession — iterates only OPERATING clients in target session" {
     // daemon-behavior 02-event-handling Section 1.1:
     // Notifications are sent to OPERATING clients attached to the session.
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     // Client 1: OPERATING in session 1.
     const idx1 = try mgr.addClient(.{ .fd = 10 });
@@ -196,7 +196,7 @@ test "spec: forEachOperatingInSession — iterates only OPERATING clients in tar
 
 test "spec: forEachActive — iterates READY and OPERATING clients" {
     // Used for heartbeat checks: heartbeat applies to READY and OPERATING clients.
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     _ = mgr.getClient(idx1).?.connection.transitionTo(.ready);

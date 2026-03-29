@@ -82,7 +82,7 @@ fn enqueueCallback(ctx: *BroadcastContext, slot: *ClientState, idx: u16) void {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 test "broadcastToSession: sends to operating clients in session" {
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     // Add two clients, both operating in session 1
     const idx1 = try mgr.addClient(.{ .fd = 10 });
@@ -107,7 +107,7 @@ test "broadcastToSession: sends to operating clients in session" {
 }
 
 test "broadcastToSession: excludes specified slot" {
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
     const c1 = mgr.getClient(idx1).?;
@@ -127,7 +127,7 @@ test "broadcastToSession: excludes specified slot" {
 }
 
 test "broadcastGlobal: sends to all operating clients" {
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
     _ = try mgr.addClient(.{ .fd = 12 }); // stays in handshaking
@@ -147,7 +147,7 @@ test "broadcastGlobal: sends to all operating clients" {
 }
 
 test "broadcastToSession: skips clients in different session" {
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const idx2 = try mgr.addClient(.{ .fd = 11 });
     const c1 = mgr.getClient(idx1).?;

@@ -67,7 +67,13 @@ fn handleClientRead(ctx: *ClientReadContext, client_idx: u16) void {
             client.recordActivity();
             // Feed received bytes into the per-client MessageReader, which
             // handles partial frame accumulation across recv() calls.
-            _ = client.message_reader.feed(ctx.recv_buffer[0..n]);
+            client.message_reader.feed(ctx.recv_buffer[0..n]) catch {
+                // ChunkPoolExhausted: large message rejected due to pool
+                // exhaustion. Reset the reader and continue; the connection
+                // is not dropped.
+                client.message_reader.reset();
+                return;
+            };
             processMessages(ctx, client_idx, client);
         },
         .would_block => {

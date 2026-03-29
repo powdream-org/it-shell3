@@ -19,7 +19,7 @@ const broadcast_mod = server.connection.broadcast;
 test "spec: broadcast — session-scoped sends to all OPERATING clients in that session" {
     // daemon-behavior 02-event-handling Section 1.1:
     // Notifications are sent to clients attached to the affected session.
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     // Two clients OPERATING in session 1.
     const idx1 = try mgr.addClient(.{ .fd = 10 });
@@ -45,7 +45,7 @@ test "spec: broadcast — session-scoped sends to all OPERATING clients in that 
 
 test "spec: broadcast — session-scoped skips clients in different session" {
     // Only clients attached to the target session receive the notification.
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const c1 = mgr.getClient(idx1).?;
@@ -69,7 +69,7 @@ test "spec: broadcast — session-scoped skips clients in different session" {
 test "spec: broadcast — session-scoped skips non-OPERATING clients" {
     // Only OPERATING clients receive session broadcasts.
     // READY and HANDSHAKING clients do not receive session notifications.
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     // OPERATING in session 1.
     const idx1 = try mgr.addClient(.{ .fd = 10 });
@@ -100,7 +100,7 @@ test "spec: broadcast — exclude-one variant for response-before-notification" 
     // "The response MUST be sent before the notifications."
     // The exclude_slot parameter enables this pattern: send response to requester
     // first, then broadcast notification to all others.
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const c1 = mgr.getClient(idx1).?;
@@ -139,7 +139,7 @@ test "spec: broadcast — exclude-one variant for response-before-notification" 
 test "spec: broadcast — global sends to all OPERATING clients" {
     // daemon-behavior 02-event-handling Section 7.2:
     // "SessionListChanged — broadcast to ALL connected clients"
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const c1 = mgr.getClient(idx1).?;
@@ -164,7 +164,7 @@ test "spec: broadcast — global sends to all OPERATING clients" {
 }
 
 test "spec: broadcast — global with exclude sends to all except excluded" {
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const c1 = mgr.getClient(idx1).?;
@@ -189,7 +189,7 @@ test "spec: broadcast — broadcastToActive includes READY and OPERATING clients
     // Some notifications (like SessionListChanged) need to reach READY clients
     // too, not just OPERATING ones, because READY clients need the session list
     // to decide which session to attach to.
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const c1 = mgr.getClient(idx1).?;
@@ -219,7 +219,7 @@ test "spec: broadcast — best-effort per client (individual failure does not st
     //
     // We verify this by checking that broadcastResult tracks both sent and failed counts,
     // and that the function returns rather than erroring.
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx1 = try mgr.addClient(.{ .fd = 10 });
     const c1 = mgr.getClient(idx1).?;
@@ -242,7 +242,7 @@ test "spec: broadcast — messages go via direct queue (priority 1 channel)" {
     // "Priority 1: Direct message queue — Control messages"
     // "Priority 2: Shared ring buffer — FrameUpdate"
     // Broadcast uses the direct queue (priority 1).
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
 
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;

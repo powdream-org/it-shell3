@@ -77,7 +77,7 @@ test "spec: client read -- complete frame dispatches via callback" {
 
     resetTestState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const slot = try mgr.addClient(SocketConnection{ .fd = client_fd });
     defer mgr.removeClient(slot);
 
@@ -119,7 +119,7 @@ test "spec: client read -- peer_closed triggers disconnect callback" {
 
     resetTestState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const slot = try mgr.addClient(SocketConnection{ .fd = client_fd });
     defer mgr.removeClient(slot);
 
@@ -153,7 +153,7 @@ test "spec: client read -- partial frames accumulate across recv calls" {
 
     resetTestState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const slot = try mgr.addClient(SocketConnection{ .fd = client_fd });
     defer mgr.removeClient(slot);
 
@@ -199,7 +199,7 @@ test "spec: client read -- invalid message type for state is skipped" {
 
     resetTestState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const slot = try mgr.addClient(SocketConnection{ .fd = client_fd });
     defer mgr.removeClient(slot);
 
@@ -235,7 +235,7 @@ test "spec: client read -- multiple frames in single recv" {
 
     resetTestState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const slot = try mgr.addClient(SocketConnection{ .fd = client_fd });
     defer mgr.removeClient(slot);
 
@@ -273,7 +273,7 @@ test "spec: client read -- recv_sequence_last updated after dispatch" {
 
     resetTestState();
 
-    var mgr = ClientManager{};
+    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const slot = try mgr.addClient(SocketConnection{ .fd = client_fd });
     defer mgr.removeClient(slot);
 
