@@ -25,6 +25,7 @@ them and decides what happens next.
 | [Design Workflow](./03-design-workflow/)                   | The revision/review cycle for producing and evolving design specification documents.                               |
 | [PoC Workflow](./04-poc-workflow.md)                       | When, why, and how we run Proof-of-Concept experiments to validate design assumptions.                             |
 | [Implementation Workflow](./05-implementation-workflow.md) | How we transform stable design specs into production code with comprehensive test coverage.                        |
+| [Issue Triage](./06-issue-triage.md)                       | When issues are discovered, how we triage them one at a time with the owner.                                       |
 
 ## 3. Related Conventions
 
