@@ -111,6 +111,8 @@ Step 8.
 
 ## State Update
 
+Update TODO.md:
+
 - If clean (no code changes):
   - **Step**: 12 (Commit & Report)
   - Mark Step 11 as `[x]`

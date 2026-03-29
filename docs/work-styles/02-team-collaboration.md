@@ -32,8 +32,9 @@ This document defines how teams are structured, how members communicate, and
 what rules govern collaboration. These rules apply to ALL team activities —
 design, PoC, review, verification, and implementation. The specific workflows
 for each activity type are documented separately in
-[Design Workflow](./03-design-workflow/) and
-[PoC Workflow](./04-poc-workflow.md).
+[Design Workflow](./03-design-workflow/), [PoC Workflow](./04-poc-workflow.md),
+[Implementation Workflow](./05-implementation-workflow.md), and
+[Issue Triage](./06-issue-triage.md).
 
 ---
 
@@ -99,12 +100,14 @@ members make judgments.
 
 ### 2.3 Teams Registry
 
-| Team                | Directory                           | Purpose                                                                                                                                                                           |
-| ------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `protocol-team`     | `.claude/agents/protocol-team/`     | Server-client binary protocol design: wire format, message framing, session/pane management, flow control, CJK preedit protocol, handshake/capability negotiation                 |
-| `ime-team`          | `.claude/agents/ime-team/`          | IME interface contract design: ImeEngine vtable, Korean Hangul composition via libhangul, ImeResult semantics, ghostty integration layer                                          |
-| `references-expert` | `.claude/agents/references-expert/` | Source-level analysis of reference codebases. Read-only. Spawned on demand when debates need implementation evidence.                                                             |
-| `ime-impl-team`     | `.claude/agents/ime-impl-team/`     | libitshell3-ime implementation: source code, unit/integration tests, coverage audit, over-engineering review. Follows [Implementation Workflow](./05-implementation-workflow.md). |
+| Team                    | Directory                               | Purpose                                                                                                                                                           |
+| ----------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `protocol-team`         | `.claude/agents/protocol-team/`         | Server-client binary protocol design: wire format, message framing, session/pane management, flow control, CJK preedit protocol, handshake/capability negotiation |
+| `ime-team`              | `.claude/agents/ime-team/`              | IME interface contract design: ImeEngine vtable, Korean Hangul composition via libhangul, ImeResult semantics, ghostty integration layer                          |
+| `references-expert`     | `.claude/agents/references-expert/`     | Source-level analysis of reference codebases. Read-only. Spawned on demand when debates need implementation evidence.                                             |
+| `impl-team`             | `.claude/agents/impl-team/`             | Implementation: source code, unit/integration tests, coverage audit, over-engineering review. Follows [Implementation Workflow](./05-implementation-workflow.md). |
+| `impl-plan-review-team` | `.claude/agents/impl-plan-review-team/` | Plan verification (Step 3): spec-plan-verifier, spec-code-verifier, plan-code-verifier. Three-way consistency check before implementation begins.                 |
+| `daemon-team`           | `.claude/agents/daemon-team/`           | libitshell3 daemon design: architecture, ghostty integration, protocol/IME cross-cutting concerns.                                                                |
 
 ---
 
@@ -130,6 +133,19 @@ Markdown file named after its role.
     tmux-expert.md
     zellij-expert.md
     iterm2-expert.md
+
+.claude/agents/impl-team/
+    implementer.md
+    qa-engineer.md
+    qa-reviewer.md
+    development-reviewer.md
+    devops.md
+    principal-architect.md  → ../principal-architect.md
+
+.claude/agents/impl-plan-review-team/
+    spec-plan-verifier.md
+    spec-code-verifier.md
+    plan-code-verifier.md
 ```
 
 ### 3.2 File Format
@@ -437,6 +453,8 @@ incomplete team.
 | When and how to run PoC experiments                  | [PoC Workflow](./04-poc-workflow.md)                                          |
 | File naming for review notes, handovers, resolutions | [Review and Handover Docs](../conventions/artifacts/documents/01-overview.md) |
 | Commit message format                                | [Commit Messages](../conventions/commit-messages.md)                          |
+| How implementation cycles work (15-step lifecycle)   | [Implementation Workflow](./05-implementation-workflow.md)                    |
+| How to triage issues found during implementation     | [Issue Triage](./06-issue-triage.md)                                          |
 | Available teams and their directories                | Section 2.3 of this document                                                  |
 
 ---

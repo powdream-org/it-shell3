@@ -17,7 +17,12 @@
 
 ## Action
 
-### 5a. Check cycle type
+### 5a. Update TODO.md
+
+Update TODO.md: set **Step** to 5 (Scaffold & Build Verification), mark Step 4
+as `[x]`.
+
+### 5b. Check cycle type
 
 Read TODO.md's `Cycle Type` field:
 
@@ -33,9 +38,9 @@ Read TODO.md's `Cycle Type` field:
   - If it fails → diagnose and fix before proceeding (the existing code is
     broken, which is a separate problem from the new work).
 
-- **If greenfield cycle** → Continue with 5b below.
+- **If greenfield cycle** → Continue with 5c below.
 
-### 5b. Create directory structure
+### 5c. Create directory structure
 
 Follow the implementation plan's directory layout. Typical structure:
 
@@ -51,7 +56,7 @@ Follow the implementation plan's directory layout. Typical structure:
 If the plan specifies vendored C dependencies, add the build step for them in
 `build.zig`.
 
-### 5c. Verify build chain
+### 5d. Verify build chain
 
 Run in sequence:
 
@@ -65,7 +70,7 @@ If any step fails, diagnose and fix before proceeding. Common issues:
 - Vendored C header paths not configured
 - Missing `build.zig.zon` dependency declarations
 
-### 5d. Signal scaffold ready
+### 5e. Signal scaffold ready
 
 Once `mise run test:macos` passes, the scaffold gate is satisfied.
 

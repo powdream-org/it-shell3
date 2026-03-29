@@ -11,7 +11,11 @@
 
 ## Action
 
-### 13a. Support the owner's review
+### 13a. Update TODO.md
+
+Update TODO.md: set **Step** to 13 (Owner Review), mark Step 12 as `[x]`.
+
+### 13b. Support the owner's review
 
 The owner reviews the committed code. During this time, the team leader:
 
@@ -24,7 +28,7 @@ The owner reviews the committed code. During this time, the team leader:
 - **Creates ADRs** if the owner identifies undocumented decisions (use the
   `/adr` skill)
 
-### 13b. Owner decision
+### 13c. Owner decision
 
 The owner signals one of:
 
@@ -40,6 +44,8 @@ The owner signals one of:
 - [ ] If changes requested: changes logged
 
 ## State Update
+
+Update TODO.md:
 
 - If accepted:
   - **Step**: 14 (Retrospective & Cleanup)

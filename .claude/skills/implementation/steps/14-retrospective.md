@@ -15,7 +15,12 @@
 
 ## Action
 
-### 14a. Review the cycle
+### 14a. Update TODO.md
+
+Update TODO.md: set **Step** to 14 (Retrospective & Cleanup), mark Step 13 as
+`[x]`.
+
+### 14b. Review the cycle
 
 Read TODO.md's Progress section end-to-end. Answer these questions:
 
@@ -31,7 +36,7 @@ Read TODO.md's Progress section end-to-end. Answer these questions:
    bottlenecking or micromanaging?
 6. **What worked well** — Approaches that should be preserved or reinforced.
 
-### 14b. Update implementation-learnings.md
+### 14c. Update implementation-learnings.md
 
 For any new toolchain or testing lessons discovered during this cycle, update
 `docs/insights/implementation-learnings.md`:
@@ -42,12 +47,12 @@ For any new toolchain or testing lessons discovered during this cycle, update
   description
 - Do NOT duplicate existing entries — check first
 
-### 14c. Review and finalize accumulated proposals
+### 14d. Review and finalize accumulated proposals
 
 Review SIPs accumulated via `/sip` during the cycle at
 `<target>/retrospective/skill-improvement-proposals.md`.
 
-For each problem identified in 11a that is not already captured, run
+For each problem identified in 14b that is not already captured, run
 `/sip <description>` to add it now.
 
 - Draft a specific edit to the relevant step file:
@@ -62,7 +67,7 @@ reason.
 
 ## Gate
 
-- [ ] Cycle reviewed (11a)
+- [ ] Cycle reviewed (14b)
 - [ ] `implementation-learnings.md` updated (or confirmed no new lessons)
 - [ ] Skill improvements proposed and applied (or confirmed none needed)
 
