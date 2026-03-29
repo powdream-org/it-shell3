@@ -11,7 +11,7 @@ const server = @import("itshell3_server");
 const ClientManager = server.connection.client_manager.ClientManager;
 const heartbeat_manager_mod = server.connection.heartbeat_manager;
 const HeartbeatManager = heartbeat_manager_mod.HeartbeatManager;
-const HeartbeatTickResult = heartbeat_manager_mod.HeartbeatTickResult;
+const LivenessResult = heartbeat_manager_mod.LivenessResult;
 
 const MAX_CLIENTS = server.connection.client_manager.MAX_CLIENTS;
 
@@ -70,21 +70,23 @@ fn handleTimer(ctx: *TimerHandlerContext, timer_id: u16) void {
 }
 
 fn handleHeartbeatTick(ctx: *TimerHandlerContext) void {
-    var i: u32 = 0;
+    var i: u16 = 0;
+    const now = std.time.milliTimestamp();
     while (i < server.connection.client_manager.MAX_CLIENTS) : (i += 1) {
-        const idx: u16 = @intCast(i);
-        const client = ctx.client_manager.getClient(idx) orelse continue;
-        const result = ctx.heartbeat_manager.checkClient(client);
+        const client = ctx.client_manager.getClient(i) orelse continue;
+        const result = ctx.heartbeat_manager.checkLiveness(client, now);
         switch (result) {
-            .timed_out => ctx.disconnect_fn(idx),
-            .heartbeat_sent => {
-                // Enqueue heartbeat message to client.
+            .timed_out => ctx.disconnect_fn(i),
+            .alive => {
+                const ping_id = ctx.heartbeat_manager.nextPingId();
+                client.last_ping_id_sent = ping_id;
+
                 // TODO(Plan 7): Serialize with protocol header.
                 var buf: [128]u8 = undefined;
-                const json = std.fmt.bufPrint(&buf, "{{\"ping_id\":{d}}}", .{client.last_ping_id_sent}) catch continue;
+                const json = std.fmt.bufPrint(&buf, "{{\"ping_id\":{d}}}", .{ping_id}) catch continue;
                 client.enqueueDirect(json) catch {};
             },
-            .skipped => {},
+            .unknown => {},
         }
     }
 }

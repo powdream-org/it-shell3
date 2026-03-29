@@ -14,14 +14,10 @@ pub const HEARTBEAT_INTERVAL_MS: u32 = 30_000;
 /// If no message of any kind is received within this window, disconnect.
 pub const HEARTBEAT_TIMEOUT_MS: i64 = 90_000;
 
-/// Result of a heartbeat tick for a single client.
-pub const HeartbeatTickResult = enum {
-    /// Client is healthy, heartbeat sent.
-    heartbeat_sent,
-    /// Client has timed out (no activity for 90s).
+pub const LivenessResult = enum {
+    alive,
     timed_out,
-    /// Client is not in an active state (handshaking/disconnecting).
-    skipped,
+    unknown,
 };
 
 /// Manages heartbeat state across all clients.
@@ -37,20 +33,12 @@ pub const HeartbeatManager = struct {
         return id;
     }
 
-    /// Check a single client for heartbeat timeout.
-    /// Returns the tick result. The caller is responsible for sending the
-    /// heartbeat message or initiating disconnect.
-    pub fn checkClient(self: *HeartbeatManager, client: *ClientState) HeartbeatTickResult {
+    pub fn checkLiveness(_: *const HeartbeatManager, client: *const ClientState, now: i64) LivenessResult {
         const state = client.getState();
-        if (state != .ready and state != .operating) return .skipped;
-
-        if (client.isInactiveSince(HEARTBEAT_TIMEOUT_MS)) {
+        if (state != .ready and state != .operating) return .unknown;
+        if (now - client.last_activity_timestamp >= HEARTBEAT_TIMEOUT_MS)
             return .timed_out;
-        }
-
-        const ping_id = self.nextPingId();
-        client.last_ping_id_sent = ping_id;
-        return .heartbeat_sent;
+        return .alive;
     }
 
     /// Process an incoming HeartbeatAck from a client.
@@ -81,23 +69,32 @@ test "HeartbeatManager.nextPingId: wraps around skipping zero" {
     try std.testing.expectEqual(@as(u32, 1), mgr.nextPingId());
 }
 
-test "HeartbeatManager.checkClient: skips handshaking clients" {
-    var mgr = HeartbeatManager{};
+test "HeartbeatManager.checkLiveness: unknown for handshaking clients" {
+    const mgr = HeartbeatManager{};
     var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
-    // Client is in handshaking state.
-    const result = mgr.checkClient(&client);
-    try std.testing.expectEqual(HeartbeatTickResult.skipped, result);
+    const now = std.time.milliTimestamp();
+    const result = mgr.checkLiveness(&client, now);
+    try std.testing.expectEqual(LivenessResult.unknown, result);
 }
 
-test "HeartbeatManager.checkClient: sends heartbeat for ready client" {
-    var mgr = HeartbeatManager{};
+test "HeartbeatManager.checkLiveness: alive for ready client with recent activity" {
+    const mgr = HeartbeatManager{};
     var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
     _ = client.connection.transitionTo(.ready);
-    // Ensure client is "recently active" by updating timestamp
     client.recordActivity();
-    const result = mgr.checkClient(&client);
-    try std.testing.expectEqual(HeartbeatTickResult.heartbeat_sent, result);
-    try std.testing.expectEqual(@as(u32, 1), client.last_ping_id_sent);
+    const now = std.time.milliTimestamp();
+    const result = mgr.checkLiveness(&client, now);
+    try std.testing.expectEqual(LivenessResult.alive, result);
+}
+
+test "HeartbeatManager.checkLiveness: timed_out for inactive client" {
+    const mgr = HeartbeatManager{};
+    var client = ClientState.init(.{ .fd = 5 }, 1, @import("itshell3_testing").helpers.testChunkPool());
+    _ = client.connection.transitionTo(.ready);
+    client.last_activity_timestamp = std.time.milliTimestamp() - HEARTBEAT_TIMEOUT_MS - 1;
+    const now = std.time.milliTimestamp();
+    const result = mgr.checkLiveness(&client, now);
+    try std.testing.expectEqual(LivenessResult.timed_out, result);
 }
 
 test "HeartbeatManager.processAck: records ack and updates activity" {
