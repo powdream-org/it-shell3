@@ -82,20 +82,20 @@ Each step file contains: anti-patterns, action instructions, gate conditions,
 and TODO.md state update instructions. Read **only the current step's file** —
 do not pre-read future steps.
 
-| Step | File                                  | Summary                                      | Gate                                              |
-| ---- | ------------------------------------- | -------------------------------------------- | ------------------------------------------------- |
-| 1    | `steps/01-requirements-intake.md`     | Identify spec, plan, inputs; create TODO.md  | Owner approves, TODO.md created                   |
-| 2    | `steps/02-scaffold-and-build.md`      | Create project skeleton; verify build chain  | `mise run test:macos` passes                      |
-| 3    | `steps/03-implementation.md`          | Spawn implementer + QA; parallel work        | Both report complete, all tests pass              |
-| 4    | `steps/04-simplify.md`                | Run `/simplify` (reuse, quality, efficiency) | Fixes applied, tests pass                         |
-| 5    | `steps/05-spec-compliance.md`         | QA reviews all code against spec             | Clean pass or issue list produced                 |
-| 6    | `steps/06-fix-cycle.md`               | Implementer fixes issues; QA re-validates    | All issues resolved → back to Step 5              |
-| 7    | `steps/07-coverage-audit.md`          | Measure coverage; fill gaps                  | Targets met or exemption granted                  |
-| 8    | `steps/08-over-engineering-review.md` | Principal architect reviews for KISS/YAGNI   | Clean → Step 9; code changed → back to Step 5     |
-| 9    | `steps/09-commit-and-report.md`       | Commit code; report to owner                 | All gates green, code committed                   |
-| 10   | `steps/10-owner-review.md`            | Owner evaluates; accepts or requests changes | Owner accepts → Step 11; changes → back to Step 3 |
-| 11   | `steps/11-retrospective.md`           | Review cycle, update learnings               | Learnings updated, SIPs processed                 |
-| 12   | `steps/12-cleanup.md`                 | Delete artifacts, update ROADMAP.md          | ROADMAP updated, artifacts deleted, pushed        |
+| Step | File                                  | Summary                                              | Gate                                              |
+| ---- | ------------------------------------- | ---------------------------------------------------- | ------------------------------------------------- |
+| 1    | `steps/01-requirements-intake.md`     | Identify spec, plan, inputs; create TODO.md          | Owner approves, TODO.md created                   |
+| 2    | `steps/02-scaffold-and-build.md`      | Create project skeleton; verify build chain          | `mise run test:macos` passes                      |
+| 3    | `steps/03-implementation.md`          | Implementer + QA engineer parallel; devops builds    | Code compiles, tests executed                     |
+| 4    | `steps/04-simplify.md`                | `/simplify` + `/fix-code-convention-violations`      | Fixes applied, tests pass                         |
+| 5    | `steps/05-spec-compliance.md`         | QA reviewer + development-reviewer dual review       | Clean pass or `[CODE]`/`[TEST]`/`[CONV]` list     |
+| 6    | `steps/06-fix-cycle.md`               | Route issues to implementer/QA engineer; re-validate | All issues resolved → back to Step 5              |
+| 7    | `steps/07-coverage-audit.md`          | Measure coverage; fill gaps                          | Targets met or exemption granted                  |
+| 8    | `steps/08-over-engineering-review.md` | Principal architect reviews for KISS/YAGNI           | Clean → Step 9; code changed → back to Step 5     |
+| 9    | `steps/09-commit-and-report.md`       | Commit code; report to owner                         | All gates green, code committed                   |
+| 10   | `steps/10-owner-review.md`            | Owner evaluates; accepts or requests changes         | Owner accepts → Step 11; changes → back to Step 3 |
+| 11   | `steps/11-retrospective.md`           | Review cycle, update learnings                       | Learnings updated, SIPs processed                 |
+| 12   | `steps/12-cleanup.md`                 | Delete artifacts, update ROADMAP.md                  | ROADMAP updated, artifacts deleted, pushed        |
 
 ## Regression Loop
 
@@ -115,8 +115,9 @@ Three documents govern each implementation cycle with strict precedence:
 3. **Code** (lowest) — the output. Must conform to the spec. When the plan
    contradicts the spec, the spec wins.
 
-Every agent — implementer, QA reviewer, principal architect — must verify their
-work against the spec, not the plan.
+Every agent — implementer, QA engineer, QA reviewer, development-reviewer,
+devops, principal architect — must verify their work against the spec, not the
+plan.
 
 ## Cross-Cutting Rules
 

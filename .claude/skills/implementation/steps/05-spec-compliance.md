@@ -4,6 +4,9 @@
 
 - **Don't let the implementer review their own code.** The QA reviewer does this
   — that's the whole point of role separation.
+- **Don't let the QA engineer review their own tests.** The QA reviewer checks
+  test completeness against the spec — the person who wrote the tests cannot
+  objectively assess their own coverage gaps.
 - **Don't accept "it works" as proof of compliance.** Working code can still
   deviate from the spec (extra fields, wrong signatures, unauthorized behavior).
   The QA reviewer checks the spec, not the test results.
@@ -14,8 +17,11 @@
   still violate the spec's delivery mechanism or API contract. Verify against
   the SPEC, not the plan or the code's apparent intent.
 - **Don't edit code directly.** The team leader delegates fixes to the
-  implementer. If the QA reviewer finds issues, they go through Step 6 — the
-  team leader never edits source files.
+  implementer or QA engineer. If reviewers find issues, they go through Step 6 —
+  the team leader never edits source files.
+- **Don't skip convention re-verification.** The development-reviewer must
+  re-verify after Step 4 fixes AND after any Step 6 fix cycle, since fixes can
+  introduce new convention violations.
 
 ## Action
 
@@ -24,45 +30,73 @@
 Update TODO.md: set **Step** to 5 (Spec Compliance Review), mark Step 4 as
 `[x]`. Increment **Review Round** if returning from Step 8 regression.
 
-### 5b. Instruct the QA reviewer
+### 5b. Spawn parallel reviews
 
-Send to QA reviewer:
+Spawn **QA reviewer** and **development-reviewer** in parallel:
+
+**QA Reviewer** (`.claude/agents/impl-team/qa-reviewer.md`) — dual review:
 
 ```
-Review all source files in <target>/src/ against the design spec.
-Check:
+Perform a dual review of <target>/src/ against the design spec.
+Read TODO.md's ## Spec section for all spec paths.
+
+**Part A — Implementation compliance:**
+Review all source files (excluding tests) against the design spec. Check:
 - Every spec requirement has corresponding code
 - Types, field names, and method signatures match the spec EXACTLY
 - Error handling matches spec-defined behavior
 - Edge cases described in the spec are handled
 - No undocumented behavior or implicit assumptions
 - No unauthorized extensions (extra fields, methods, parameters)
-- No dead code (unused functions, types, imports, or variables)
 - Memory ownership rules followed (buffer lifetimes, pointer validity)
 - For each public API, cite the spec section that defines it and verify the
   implementation matches the SPEC — not the plan
 - For delivery/performance-critical paths, verify the mechanism matches the
   spec (e.g., zero-copy vs copy, writev vs write)
-- Check for ../ imports crossing module boundaries. Flag bidirectional import
-  chains as dependency violations. Cross-module references must use named
-  imports (see the target's CLAUDE.md for the import table).
+
+**Part B — Test case completeness:**
+Review all spec behavior tests in src/testing/spec/ against the design spec
+and scenario matrix. Check:
+- Every scenario in the spec's scenario matrix has a corresponding test
+- Each test validates the spec requirement it claims to validate
+- Test assertions match expected behavior defined in the spec
+- No scenarios are missing test coverage
+- Tests are derived from the spec, not from the implementation
 
 Report either:
-(a) "Clean pass — no issues found", or
-(b) A numbered issue list with file:line references and spec section citations
+(a) "Clean pass — no issues found in either part", or
+(b) A numbered issue list. Prefix each issue with [CODE] or [TEST]:
+    [CODE] issues: file:line reference + spec section citation
+    [TEST] issues: missing scenario or incorrect test + spec section citation
 ```
 
-### 5b. Collect results
+**Development Reviewer** (`.claude/agents/impl-team/development-reviewer.md`) —
+convention re-verification:
 
-Wait for the QA reviewer to report.
+```
+Re-verify all source files in <target>/src/ for convention violations.
+Zig version: run `mise current zig` to get the active version.
+Zig reference docs: docs/references/<version>/zig-language-reference.html
 
-- **If clean pass** -> Proceed to Step 7 (Coverage Audit).
-- **If issues found** -> Proceed to Step 6 (Fix Cycle).
+This is a re-verification after Step 4 fixes. Check for any new violations
+introduced by simplify or convention fixes.
+Report all violations as a numbered [CONV] issue list.
+If no violations: "Clean pass — no convention violations found."
+```
+
+### 5c. Collect results
+
+Wait for both reviewers to report.
+
+- **If both clean** → Proceed to Step 7 (Coverage Audit).
+- **If any issues found** → Merge issue lists (`[CODE]` + `[TEST]` + `[CONV]`)
+  and proceed to Step 6 (Fix Cycle).
 
 ## Gate
 
-- [ ] QA reviewer has completed the review
-- [ ] Result is either "clean pass" or a numbered issue list
+- [ ] QA reviewer has completed dual review (Part A + Part B)
+- [ ] Development-reviewer has completed convention re-verification
+- [ ] Result is either "all clean" or a merged issue list with prefixes
 
 ## State Update
 
@@ -74,5 +108,5 @@ Update TODO.md:
 
 ## Next
 
-- If clean -> Read `steps/07-coverage-audit.md`.
-- If issues found -> Read `steps/06-fix-cycle.md`.
+- If clean → Read `steps/07-coverage-audit.md`.
+- If issues found → Read `steps/06-fix-cycle.md`.
