@@ -43,8 +43,8 @@ pub const Pane = struct {
 
     // TODO(Plan 7): Add foreground_process: []const u8, foreground_pid: posix.pid_t
     //               per spec state-and-types.md
-    // TODO(Plan 7): Add silence_subscriptions: BoundedArray(SilenceSubscription, MAX),
-    //               silence_deadline: ?i64 — requires SilenceSubscription type definition
+    // TODO(Plan 17+): Add silence_subscriptions: BoundedArray(SilenceSubscription, MAX),
+    //                 silence_deadline: ?i64 — requires SilenceSubscription type definition
 
     // Two-phase exit flags
     pane_exited: bool = false, // set by SIGCHLD handler after waitpid()

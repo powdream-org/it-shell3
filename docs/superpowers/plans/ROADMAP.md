@@ -34,28 +34,28 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 
 ## Plan Index
 
-| #    | Name                                          | Plan File                                           | Target Module        | Status      |
-| ---- | --------------------------------------------- | --------------------------------------------------- | -------------------- | ----------- |
-| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**    |
-| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**    |
-| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
-| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**    |
-| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done**    |
-| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3 + docs   | **Done**    |
-| 6    | Message Infrastructure & Connection Lifecycle | `2026-03-28-libitshell3-message-infrastructure.md`  | libitshell3          | **Done**    |
-| 7    | Session & Pane Operations                     | (not yet written)                                   | libitshell3          | Not started |
-| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                   | libitshell3          | Not started |
-| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                   | libitshell3          | Not started |
-| 10   | Cascades & Shutdown                           | (not yet written)                                   | libitshell3          | Not started |
-| 11   | SSH Transport                                 | (not yet written)                                   | libitshell3-protocol | Not started |
-| 12.1 | Daemon CLI — Design                           | (not yet written)                                   | daemon               | Not started |
-| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                   | daemon               | Not started |
-| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started |
-| 14.1 | macOS Client PoC — Design                     | (not yet written)                                   | app/macos            | Not started |
-| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                   | app/macos            | Not started |
-| 15   | Design Doc CTR Resolution                     | (not yet written)                                   | multi-module         | Not started |
-| 16   | Post-Design Code Alignment                    | (not yet written)                                   | multi-module         | Not started |
-| 17+  | Deferred Features                             | —                                                   | various              | Not started |
+| #    | Name                                          | Plan File                                           | Target Module        | Status          |
+| ---- | --------------------------------------------- | --------------------------------------------------- | -------------------- | --------------- |
+| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**        |
+| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**        |
+| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**        |
+| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**        |
+| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done**        |
+| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3 + docs   | **Done**        |
+| 6    | Message Infrastructure & Connection Lifecycle | `2026-03-28-libitshell3-message-infrastructure.md`  | libitshell3          | **Done**        |
+| 7    | Session & Pane Operations                     | `2026-03-29-libitshell3-session-pane-operations.md` | libitshell3          | **In progress** |
+| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                   | libitshell3          | Not started     |
+| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                   | libitshell3          | Not started     |
+| 10   | Cascades & Shutdown                           | (not yet written)                                   | libitshell3          | Not started     |
+| 11   | SSH Transport                                 | (not yet written)                                   | libitshell3-protocol | Not started     |
+| 12.1 | Daemon CLI — Design                           | (not yet written)                                   | daemon               | Not started     |
+| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                   | daemon               | Not started     |
+| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started     |
+| 14.1 | macOS Client PoC — Design                     | (not yet written)                                   | app/macos            | Not started     |
+| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                   | app/macos            | Not started     |
+| 15   | Design Doc CTR Resolution                     | (not yet written)                                   | multi-module         | Not started     |
+| 16   | Post-Design Code Alignment                    | (not yet written)                                   | multi-module         | Not started     |
+| 17+  | Deferred Features                             | —                                                   | various              | Not started     |
 
 ---
 
@@ -267,6 +267,36 @@ extraction (title via OSC 0/2, CWD via OSC 7), basic always-sent notifications
 (LayoutChanged, SessionListChanged, PaneMetadataChanged, ClientAttached /
 ClientDetached).
 
+**Key deliverables:**
+
+- Protocol envelope utility for 16-byte header wrapping on all outbound messages
+  (fixes Plan 6 raw-JSON TODO)
+- ADR 00020 compliance: remove invalid OPERATING→OPERATING transition TODO
+- Pane metadata detection via ghostty vtStream() processing (title/cwd changes)
+- 7 session request handlers (Create, List, Attach, Detach, Destroy, Rename,
+  AttachOrCreate) in `server/handlers/session_handler.zig`
+- 10 pane request handlers (Create, Split, Close, Focus, Navigate, Resize,
+  Equalize, Zoom, Swap, LayoutGet) in `server/handlers/pane_handler.zig`
+- 5 always-sent notification builders (LayoutChanged, SessionListChanged,
+  PaneMetadataChanged, ClientAttached, ClientDetached)
+- Split tree operations: equalizeRatios, swapLeaves, computeLeafDimensions
+- SessionEntry enhancements: PaneId wire lookup, zoom state tracking
+- Pane struct: foreground_process/foreground_pid fields (stubbed)
+- Session: real creation_timestamp, setName mutation
+
+**Design spec refs:**
+
+- `daemon-architecture/.../01-module-structure.md` (module decomposition, pane
+  placement)
+- `daemon-architecture/.../02-state-and-types.md` (state tree, pane metadata)
+- `daemon-architecture/.../impl-constraints/state-and-types.md` (type defs)
+- `daemon-behavior/.../02-event-handling.md` (response-before-notification,
+  session rename, client state changes)
+- `daemon-behavior/.../03-policies-and-procedures.md` (notification defaults,
+  client state transitions)
+- `server-client-protocols/.../03-session-pane-management.md` (all message
+  definitions, layout tree wire format, notifications)
+
 **Note (from Plan 5.5 audit):** `Session.creation_timestamp` is hardcoded to 0.
 `core/` cannot call OS time functions; the server layer must pass a real
 timestamp when creating sessions. TODO comment in `session.zig`.
@@ -275,11 +305,11 @@ timestamp when creating sessions. TODO comment in `session.zig`.
 `foreground_pid`, `silence_subscriptions`, `silence_deadline` per spec
 `state-and-types.md`. TODO comments in `pane.zig`.
 
-**Note (from Plan 6):** `ConnectionState.transitionTo()` does not allow
-OPERATING→OPERATING. Spec requires this for session switching
-(AttachSessionRequest to a different session while OPERATING). Add
-`target == .operating` to the `.operating` arm when implementing
-AttachSessionRequest. TODO comment in `connection_state.zig`.
+**Note (from Plan 7 triage):** ADR 00020 prohibits OPERATING→OPERATING
+transition. `AttachSessionRequest` while attached returns
+`ERR_SESSION_ALREADY_ATTACHED`. Client must detach first. CTR filed against
+daemon-behavior spec (line 804 contradicts ADR). The `TODO(Plan 7)` in
+`connection_state.zig` should be removed, not implemented.
 
 **Note (from Plan 6):** ServerHello, HeartbeatAck, and Heartbeat messages are
 enqueued as raw JSON without the 16-byte protocol header. All messages must
@@ -308,6 +338,10 @@ preedit inactivity timeout (30s), input processing priority (5-tier).
 **Note (from Plan 5):** Implement daemon shortcut keybinding system. The key
 routing hook point exists in `key_router.zig` — add a shortcut binding parameter
 when keybinding design is done. TODO comment in `key_router.zig`.
+
+**Note (from Plan 7 triage):** Move `PreeditState` from `core/preedit_state.zig`
+into `core/session.zig` per spec annotation `<<core/session.zig>>`. TODO(Plan 8)
+comment added in `preedit_state.zig`.
 
 **Depends on:** Plan 7 (input must target a focused pane in an attached session)
 
@@ -496,6 +530,8 @@ Features deferred beyond the initial implementation scope:
 - Extension negotiation
 - Opt-in notification subscriptions (Subscribe/Unsubscribe)
 - Silence detection timer
+- Readonly client enforcement (AttachSessionRequest `readonly` field, prohibited
+  message list, ERR_ACCESS_DENIED response — protocol spec Section 8)
 
 ---
 

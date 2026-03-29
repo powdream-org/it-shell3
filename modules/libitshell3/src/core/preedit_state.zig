@@ -1,5 +1,8 @@
 //! Preedit composition ownership tracking. Ensures only one client at a time
 //! can drive IME composition on a given session.
+//!
+//! TODO(Plan 8): Move this type into core/session.zig per spec
+//! daemon-architecture/impl-constraints/state-and-types.md annotation.
 
 const std = @import("std");
 const types = @import("types.zig");
