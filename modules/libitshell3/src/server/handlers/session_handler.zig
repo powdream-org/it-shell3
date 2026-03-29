@@ -51,7 +51,7 @@ pub fn handleCreateSession(
     const timestamp = std.time.milliTimestamp();
 
     // Use provided name or generate a default.
-    var name_buf: [64]u8 = undefined;
+    var name_buf: [types.MAX_SESSION_NAME]u8 = undefined;
     const name = if (request_name.len > 0)
         request_name
     else blk: {
@@ -336,7 +336,7 @@ pub fn handleDetachSession(
 // ── DestroySessionRequest (0x0108) ──────────────────────────────────────────
 
 /// Handles DestroySessionRequest. Per daemon-behavior 02-event-handling
-/// Section 4.2 (5 wire messages).
+/// (destroy cascade: 5 wire messages).
 pub fn handleDestroySession(
     ctx: *SessionHandlerContext,
     client: *ClientState,
@@ -346,16 +346,13 @@ pub fn handleDestroySession(
 ) void {
     var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
-    // Check session exists.
-    if (ctx.session_manager.getSession(session_id) == null) {
+    // Check session exists and get entry in a single lookup.
+    const entry = ctx.session_manager.getSession(session_id) orelse {
         const err_json = "{\"status\":1,\"error\":\"session not found\"}";
         const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.destroy_session_response), sequence, err_json) orelse return;
         client.enqueueDirect(resp) catch {};
         return;
-    }
-
-    // Get session name before destruction.
-    const entry = ctx.session_manager.getSession(session_id).?;
+    };
     var name_copy: [types.MAX_SESSION_NAME]u8 = @splat(0);
     const name_len = entry.session.name_length;
     @memcpy(name_copy[0..name_len], entry.session.name[0..name_len]);
@@ -391,16 +388,17 @@ pub fn handleDestroySession(
         peer.attached_session = null;
         _ = peer.connection.transitionTo(.ready);
 
+        // Reuse a single buffer for per-peer messages (only one peer processed at a time).
+        var peer_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+
         // Send DetachSessionResponse to the peer.
-        var detach_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
         const detach_json = "{\"status\":0,\"reason\":\"session_destroyed\"}";
-        const detach_resp = envelope.wrapResponse(&detach_buf, @intFromEnum(MessageType.detach_session_response), 0, detach_json) orelse continue;
+        const detach_resp = envelope.wrapResponse(&peer_buf, @intFromEnum(MessageType.detach_session_response), 0, detach_json) orelse continue;
         peer.enqueueDirect(detach_resp) catch {};
 
         // Send ClientDetached to the requester for this peer.
-        var cd_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
         const cd_seq = client.connection.advanceSendSequence();
-        const cd_notif = notification_builder.buildClientDetached(session_id, peer_client_id, "", "session_destroyed", 0, cd_seq, &cd_buf) orelse continue;
+        const cd_notif = notification_builder.buildClientDetached(session_id, peer_client_id, "", "session_destroyed", 0, cd_seq, &peer_buf) orelse continue;
         client.enqueueDirect(cd_notif) catch {};
     }
 
@@ -473,9 +471,6 @@ pub fn handleAttachOrCreate(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const testing_mod = @import("itshell3_testing");
-const helpers = testing_mod.helpers;
-
 fn testSessionManager() *SessionManager {
     // Static test SessionManager.
     const S = struct {
@@ -486,6 +481,7 @@ fn testSessionManager() *SessionManager {
 }
 
 test "handleListSessions: returns empty list when no sessions" {
+    const helpers = @import("itshell3_testing").helpers;
     var mgr = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;
@@ -510,6 +506,7 @@ test "handleListSessions: returns empty list when no sessions" {
 }
 
 test "handleRenameSession: renames successfully" {
+    const helpers = @import("itshell3_testing").helpers;
     var mgr = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;
@@ -539,6 +536,7 @@ test "handleRenameSession: renames successfully" {
 }
 
 test "handleRenameSession: duplicate name returns error" {
+    const helpers = @import("itshell3_testing").helpers;
     var mgr = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;
@@ -567,6 +565,7 @@ test "handleRenameSession: duplicate name returns error" {
 }
 
 test "handleDetachSession: detaches client" {
+    const helpers = @import("itshell3_testing").helpers;
     var mgr = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;
@@ -593,6 +592,7 @@ test "handleDetachSession: detaches client" {
 }
 
 test "handleAttachSession: already attached returns error" {
+    const helpers = @import("itshell3_testing").helpers;
     var mgr = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;

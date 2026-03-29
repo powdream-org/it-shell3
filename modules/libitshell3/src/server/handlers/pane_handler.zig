@@ -40,7 +40,7 @@ pub fn handleSplitPane(
     sequence: u32,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
-    direction: u8,
+    direction: types.Direction,
     ratio: f32,
     focus_new: bool,
 ) void {
@@ -74,9 +74,8 @@ pub fn handleSplitPane(
 
     // Map direction to orientation and determine child placement.
     const orientation: types.Orientation = switch (direction) {
-        0, 2 => .horizontal, // right/left = horizontal split
-        1, 3 => .vertical, // down/up = vertical split
-        else => .horizontal,
+        .right, .left => .horizontal,
+        .down, .up => .vertical,
     };
 
     // Find the leaf in the tree.
@@ -100,7 +99,7 @@ pub fn handleSplitPane(
     };
 
     // For left/up directions, swap so the new pane is on the correct side.
-    if (direction == 2 or direction == 3) {
+    if (direction == .left or direction == .up) {
         _ = split_tree.swapLeaves(&entry.session.tree_nodes, target_slot, new_slot);
     }
 
@@ -600,19 +599,8 @@ fn buildLayoutPayload(entry: *SessionEntry) ?[]const u8 {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const testing_mod = @import("itshell3_testing");
-const helpers = testing_mod.helpers;
-
-fn setupTestEntry() *SessionEntry {
-    const S = struct {
-        var sm = SessionManager.init();
-    };
-    S.sm.reset();
-    _ = S.sm.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
-    return S.sm.getSession(1).?;
-}
-
 test "handleEqualizeSplits: equalizes split ratios" {
+    const helpers = @import("itshell3_testing").helpers;
     var mgr = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;
@@ -653,6 +641,7 @@ test "handleEqualizeSplits: equalizes split ratios" {
 }
 
 test "handleZoomPane: toggles zoom state" {
+    const helpers = @import("itshell3_testing").helpers;
     var mgr = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;

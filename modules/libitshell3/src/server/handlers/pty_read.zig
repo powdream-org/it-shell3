@@ -92,16 +92,12 @@ pub fn handlePtyRead(
     }
 }
 
-// --- Tests ---
-
-const testing = std.testing;
-const test_mod = @import("itshell3_testing");
-const mock_os = test_mod.mock_os;
-const test_helpers = test_mod.helpers;
-
-const testImeEngine = test_helpers.testImeEngine;
+// ── Tests ────────────────────────────────────────────────────────────────────
 
 test "handlePtyRead: reads data from PTY and marks pane dirty" {
+    const testing = std.testing;
+    const mock_os = @import("itshell3_testing").mock_os;
+    const testImeEngine = @import("itshell3_testing").helpers.testImeEngine;
     var mock_pty = mock_os.MockPtyOps{
         .read_data = "hello world",
     };
@@ -122,6 +118,9 @@ test "handlePtyRead: reads data from PTY and marks pane dirty" {
 }
 
 test "handlePtyRead: EOF marks pane pty_eof, not dirty" {
+    const testing = std.testing;
+    const mock_os = @import("itshell3_testing").mock_os;
+    const testImeEngine = @import("itshell3_testing").helpers.testImeEngine;
     var mock_pty = mock_os.MockPtyOps{
         .read_data = null, // returns 0 bytes
     };
@@ -141,6 +140,9 @@ test "handlePtyRead: EOF marks pane pty_eof, not dirty" {
 }
 
 test "handlePtyRead: isFullyDead when both flags set" {
+    const testing = std.testing;
+    const mock_os = @import("itshell3_testing").mock_os;
+    const testImeEngine = @import("itshell3_testing").helpers.testImeEngine;
     var mock_pty = mock_os.MockPtyOps{
         .read_data = null,
     };
@@ -160,6 +162,9 @@ test "handlePtyRead: isFullyDead when both flags set" {
 }
 
 test "handlePtyRead: marks pane dirty after reading data" {
+    const testing = std.testing;
+    const mock_os = @import("itshell3_testing").mock_os;
+    const testImeEngine = @import("itshell3_testing").helpers.testImeEngine;
     var mock_pty = mock_os.MockPtyOps{ .read_data = "terminal output" };
     const pty_ops = mock_pty.ops();
 
@@ -174,6 +179,9 @@ test "handlePtyRead: marks pane dirty after reading data" {
 }
 
 test "handlePtyRead: does not mark dirty on EOF" {
+    const testing = std.testing;
+    const mock_os = @import("itshell3_testing").mock_os;
+    const testImeEngine = @import("itshell3_testing").helpers.testImeEngine;
     var mock_pty = mock_os.MockPtyOps{ .read_data = null };
     const pty_ops = mock_pty.ops();
 
@@ -187,6 +195,7 @@ test "handlePtyRead: does not mark dirty on EOF" {
 }
 
 test "chainHandle: non-pty event forwards to next handler" {
+    const testing = std.testing;
     var forwarded = false;
     const NextCtx = struct {
         flag: *bool,

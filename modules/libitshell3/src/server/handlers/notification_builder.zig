@@ -165,7 +165,7 @@ pub fn buildLayoutChanged(
 }
 
 /// Serializes a split tree into the wire layout tree JSON format.
-/// Per protocol 03-session-pane-management Section 3 (recursive layout tree).
+/// Per protocol 03-session-pane-management (recursive layout tree).
 pub fn serializeLayoutTree(
     tree: *const [types.MAX_TREE_NODES]?split_tree.SplitNodeData,
     total_cols: u16,

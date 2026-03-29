@@ -37,8 +37,8 @@ pub const Pane = struct {
     cwd: [types.MAX_PANE_CWD]u8 = [_]u8{0} ** types.MAX_PANE_CWD,
     cwd_length: u16 = 0,
 
-    // Foreground process metadata (stub fields — populated when process
-    // monitoring is implemented).
+    // Foreground process metadata — population site (process monitor) not
+    // yet implemented; fields and accessors are functional.
     foreground_process: [types.MAX_FOREGROUND_PROCESS]u8 = [_]u8{0} ** types.MAX_FOREGROUND_PROCESS,
     foreground_process_length: u16 = 0,
     foreground_pid: std.posix.pid_t = 0,
