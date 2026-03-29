@@ -14,7 +14,12 @@
 
 ## Action
 
-### 7a. Determine coverage approach
+### 7a. Update TODO.md
+
+Update TODO.md: set **Step** to 7 (Coverage Audit), mark Step 6 as `[x]`. Clear
+**Active Issues** (all resolved).
+
+### 7b. Determine coverage approach
 
 **Always re-measure.** Never trust previous coverage numbers — code changes
 between passes invalidate them. Even if returning from a regression loop, run

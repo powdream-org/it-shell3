@@ -17,7 +17,12 @@
 
 ## Action
 
-### 6a. Check context budget
+### 6a. Update TODO.md
+
+Update TODO.md: set **Step** to 6 (Fix Cycle), mark Step 5 as `[x]`. Record the
+QA reviewer's issue list in **Active Issues**.
+
+### 6b. Check context budget
 
 Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
 `/compact` before continuing. Fix cycles accumulate context with each iteration

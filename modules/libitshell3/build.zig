@@ -20,14 +20,15 @@ pub fn build(b: *std.Build) void {
     });
     const protocol_mod = protocol_dep.module("itshell3-protocol");
 
-    // --- Internal named modules ---
-    const core_mod = b.createModule(.{
-        .root_source_file = b.path("src/core/root.zig"),
+    const transport_dep = b.dependency("itshell3-transport", .{
         .target = target,
         .optimize = optimize,
     });
-    const os_mod = b.createModule(.{
-        .root_source_file = b.path("src/os/root.zig"),
+    const transport_mod = transport_dep.module("itshell3-transport");
+
+    // --- Internal named modules ---
+    const core_mod = b.createModule(.{
+        .root_source_file = b.path("src/core/root.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -58,7 +59,6 @@ pub fn build(b: *std.Build) void {
     // --- Wire cross-module dependencies ---
     const all_internal = [_]struct { name: []const u8, mod: *std.Build.Module }{
         .{ .name = "itshell3_core", .mod = core_mod },
-        .{ .name = "itshell3_os", .mod = os_mod },
         .{ .name = "itshell3_server", .mod = server_mod },
         .{ .name = "itshell3_input", .mod = input_mod },
         .{ .name = "itshell3_testing", .mod = testing_mod },
@@ -69,6 +69,7 @@ pub fn build(b: *std.Build) void {
             entry.mod.addImport(dep.name, dep.mod);
         }
         entry.mod.addImport("itshell3_protocol", protocol_mod);
+        entry.mod.addImport("itshell3_transport", transport_mod);
         entry.mod.addImport("ghostty", ghostty_vt);
     }
 
@@ -76,8 +77,8 @@ pub fn build(b: *std.Build) void {
     const root_imports: []const std.Build.Module.Import = &.{
         .{ .name = "ghostty", .module = ghostty_vt },
         .{ .name = "itshell3_protocol", .module = protocol_mod },
+        .{ .name = "itshell3_transport", .module = transport_mod },
         .{ .name = "itshell3_core", .module = core_mod },
-        .{ .name = "itshell3_os", .module = os_mod },
         .{ .name = "itshell3_server", .module = server_mod },
         .{ .name = "itshell3_input", .module = input_mod },
         .{ .name = "itshell3_testing", .module = testing_mod },

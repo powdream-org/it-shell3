@@ -1,5 +1,4 @@
 const std = @import("std");
-const json_mod = @import("json.zig");
 
 /// PreeditStart (0x0400, S->C)
 pub const PreeditStart = struct {
@@ -63,7 +62,8 @@ pub const IMEError = struct {
     detail: []const u8 = "",
 };
 
-test "PreeditStart JSON round-trip" {
+test "PreeditStart: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = PreeditStart{
         .pane_id = 1,
@@ -79,7 +79,8 @@ test "PreeditStart JSON round-trip" {
     try std.testing.expectEqual(@as(u32, 42), parsed.value.preedit_session_id);
 }
 
-test "PreeditEnd committed_text round-trip" {
+test "PreeditEnd: committed_text round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = PreeditEnd{ .pane_id = 1, .preedit_session_id = 42, .reason = "committed", .committed_text = "\xed\x95\x9c" };
     const j = try json_mod.encode(allocator, original);
@@ -90,7 +91,8 @@ test "PreeditEnd committed_text round-trip" {
     try std.testing.expectEqualStrings("\xed\x95\x9c", parsed.value.committed_text);
 }
 
-test "PreeditEnd committed_text empty when cancelled" {
+test "PreeditEnd: committed_text empty when cancelled" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = PreeditEnd{ .pane_id = 1, .preedit_session_id = 1, .reason = "cancelled" };
     const j = try json_mod.encode(allocator, original);
@@ -102,7 +104,8 @@ test "PreeditEnd committed_text empty when cancelled" {
     try std.testing.expectEqualStrings("", parsed.value.committed_text);
 }
 
-test "InputMethodSwitch optional keyboard_layout" {
+test "InputMethodSwitch: optional keyboard_layout omitted" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = InputMethodSwitch{ .pane_id = 1, .input_method = "korean_2set" };
     const j = try json_mod.encode(allocator, original);
@@ -110,7 +113,8 @@ test "InputMethodSwitch optional keyboard_layout" {
     try std.testing.expect(std.mem.indexOf(u8, j, "keyboard_layout") == null);
 }
 
-test "InputMethodAck JSON round-trip" {
+test "InputMethodAck: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = InputMethodAck{
         .pane_id = 1,

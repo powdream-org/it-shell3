@@ -19,7 +19,12 @@
 
 ## Action
 
-### 5a. Instruct the QA reviewer
+### 5a. Update TODO.md
+
+Update TODO.md: set **Step** to 5 (Spec Compliance Review), mark Step 4 as
+`[x]`. Increment **Review Round** if returning from Step 8 regression.
+
+### 5b. Instruct the QA reviewer
 
 Send to QA reviewer:
 

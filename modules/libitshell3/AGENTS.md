@@ -8,12 +8,14 @@ API for Swift/other consumers.
 
 ```
 src/
-├── core/       — Domain types (Session, Pane, SplitTree, ImeEngine vtable)
-├── os/         — OS interface vtables (PTY, kqueue, signals) + real/mock impls
+├── core/       — Domain types (Session, SplitTree, ImeEngine vtable)
 ├── ghostty/    — ghostty helper functions (terminal, render_state, key_encode)
 ├── input/      — Key routing pipeline (Phase 0 shortcuts, Phase 1 IME)
-├── server/     — Event loop, handlers, IME consumer/lifecycle/procedures
-├── testing/    — Mock implementations (MockImeEngine, MockPtyWriter, MockOs)
+├── server/     — Event loop, IME consumer/lifecycle/procedures
+│   └── os/     — OS interface vtables (PTY, kqueue, signals) + real impls
+├── testing/    — Mock implementations and spec compliance tests
+│   ├── mocks/  — MockImeEngine, MockPtyWriter, MockOs
+│   └── spec/   — Spec compliance test files
 └── root.zig    — Library root (re-exports all modules for test discovery)
 ```
 
@@ -24,15 +26,15 @@ eliminates `../../` chains and makes module boundaries explicit.
 
 **Available named imports** (defined in `build.zig`):
 
-| Import name         | Root file              | Use for                           |
-| ------------------- | ---------------------- | --------------------------------- |
-| `itshell3_core`     | `src/core/root.zig`    | Domain types, Session, Pane, IME  |
-| `itshell3_os`       | `src/os/root.zig`      | OS interfaces and implementations |
-| `itshell3_server`   | `src/server/root.zig`  | Event loop, handlers, IME server  |
-| `itshell3_input`    | `src/input/root.zig`   | Key routing, wire decomposition   |
-| `itshell3_testing`  | `src/testing/root.zig` | Mocks and test helpers            |
-| `itshell3_protocol` | (external dep)         | Wire protocol library             |
-| `ghostty`           | (external dep)         | ghostty VT engine                 |
+| Import name         | Root file              | Use for                               |
+| ------------------- | ---------------------- | ------------------------------------- |
+| `itshell3_core`     | `src/core/root.zig`    | Domain types, Session, IME vtable     |
+| `itshell3_server`   | `src/server/root.zig`  | Event loop, OS interfaces, IME server |
+| `itshell3_input`    | `src/input/root.zig`   | Key routing, wire decomposition       |
+| `itshell3_testing`  | `src/testing/root.zig` | Mocks, helpers, spec tests            |
+| `itshell3_ghostty`  | `src/ghostty/root.zig` | ghostty helper functions              |
+| `itshell3_protocol` | (external dep)         | Wire protocol library                 |
+| `ghostty`           | (external dep)         | ghostty VT engine                     |
 
 **Rule**: Use `@import("itshell3_core")` instead of
 `@import("../../core/types.zig")`. Within the same module (e.g.,

@@ -9,15 +9,12 @@ pub const engine = @import("engine.zig");
 pub const ImeEngine = engine.ImeEngine;
 
 pub const HangulImeEngine = @import("hangul_engine.zig").HangulImeEngine;
-pub const MockImeEngine = @import("mock_engine.zig").MockImeEngine;
+pub const MockImeEngine = @import("testing/mocks/mock_engine.zig").MockImeEngine;
+
+pub const hid_to_ascii = @import("hid_to_ascii.zig");
+pub const ucs4 = @import("ucs4.zig");
+pub const testing_mod = @import("testing/root.zig");
 
 test {
-    // Force test runner to discover tests in all submodules.
-    _ = @import("types.zig");
-    _ = @import("hid_to_ascii.zig");
-    _ = @import("ucs4.zig");
-    _ = @import("engine.zig");
-    _ = @import("mock_engine.zig");
-    _ = @import("hangul_engine.zig");
-    _ = @import("hangul_engine_test.zig");
+    @import("std").testing.refAllDecls(@This());
 }

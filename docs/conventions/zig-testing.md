@@ -198,6 +198,29 @@ pub const server = @import("<module>_server");
 pub const testing_mod = @import("<module>_testing");
 ```
 
+## Test-Only Imports
+
+Imports used exclusively by tests MUST be inside the `test` block, not at the
+file top level. Top-level imports are included in production builds even if
+unused at runtime.
+
+```zig
+// BAD — test helper imported at file top level, included in production
+const json_mod = @import("testing/helpers.zig");
+
+test "round-trip" {
+    const json = try json_mod.encode(allocator, value);
+    // ...
+}
+
+// GOOD — import inside test block, excluded from production
+test "round-trip" {
+    const json_mod = @import("testing/helpers.zig");
+    const json = try json_mod.encode(allocator, value);
+    // ...
+}
+```
+
 ## What NOT to Test
 
 - `unreachable` branches — UB by definition, not testable

@@ -104,7 +104,7 @@ test "routeKeyEvent: HID keycode > HID_KEYCODE_MAX bypasses IME" {
     const result = routeKeyEvent(eng, key, &.{});
     switch (result) {
         .bypassed => |k| {
-            try std.testing.expectEqual(@as(u8, 0xE8), k.hid_keycode);
+            try std.testing.expectEqual(@as(u16, 0xE8), k.hid_keycode);
         },
         else => return error.TestUnexpectedResult,
     }
@@ -115,7 +115,7 @@ test "routeKeyEvent: HID keycode > HID_KEYCODE_MAX bypasses IME" {
 test "routeKeyEvent: toggle key triggers setActiveInputMethod" {
     var mock = mock_ime.MockImeEngine{
         .active_input_method = "direct",
-        .set_aim_result = .{ .preedit_changed = false },
+        .set_active_input_method_result = .{ .preedit_changed = false },
     };
     const eng = mock.engine();
     const bindings = [_]ToggleBinding{
@@ -129,7 +129,7 @@ test "routeKeyEvent: toggle key triggers setActiveInputMethod" {
         },
         else => return error.TestUnexpectedResult,
     }
-    try std.testing.expectEqual(@as(usize, 1), mock.set_aim_count);
+    try std.testing.expectEqual(@as(usize, 1), mock.set_active_input_method_count);
     try std.testing.expectEqual(@as(usize, 0), mock.process_key_count);
 }
 
@@ -148,13 +148,13 @@ test "routeKeyEvent: toggle key on repeat is ignored when press_only" {
         .processed => {},
         else => return error.TestUnexpectedResult,
     }
-    try std.testing.expectEqual(@as(usize, 0), mock.set_aim_count);
+    try std.testing.expectEqual(@as(usize, 0), mock.set_active_input_method_count);
 }
 
 test "routeKeyEvent: toggle when already in target method switches to direct" {
     var mock = mock_ime.MockImeEngine{
         .active_input_method = "korean_2set",
-        .set_aim_result = .{ .committed_text = "flushed", .preedit_changed = true },
+        .set_active_input_method_result = .{ .committed_text = "flushed", .preedit_changed = true },
     };
     const eng = mock.engine();
     const bindings = [_]ToggleBinding{
@@ -170,7 +170,7 @@ test "routeKeyEvent: toggle when already in target method switches to direct" {
         else => return error.TestUnexpectedResult,
     }
     // Should have called setActiveInputMethod with "direct"
-    try std.testing.expectEqualSlices(u8, "direct", mock.last_set_aim_method.?);
+    try std.testing.expectEqualSlices(u8, "direct", mock.last_set_active_input_method.?);
 }
 
 test "routeKeyEvent: HID_KEYCODE_MAX (0xE7) is still processed by IME" {

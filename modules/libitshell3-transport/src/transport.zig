@@ -1,0 +1,164 @@
+const std = @import("std");
+const posix = std.posix;
+
+/// A single contiguous byte buffer for transport I/O.
+pub const ImmutableIoVector = posix.iovec_const;
+
+pub const FileDescriptor = posix.fd_t;
+
+/// Unix socket connection. The `fd` field is public for kqueue/epoll registration.
+pub const SocketConnection = struct {
+    fd: FileDescriptor,
+
+    pub fn recv(self: SocketConnection, buf: []u8) RecvResult {
+        const n = posix.read(self.fd, buf) catch |err| switch (err) {
+            error.WouldBlock => return .would_block,
+            error.ConnectionResetByPeer => return .peer_closed,
+            error.NotOpenForReading => return .peer_closed,
+            else => return .{ .err = err },
+        };
+        if (n == 0) return .peer_closed;
+        return .{ .bytes_read = n };
+    }
+
+    pub fn send(self: SocketConnection, buf: []const u8) SendResult {
+        const n = posix.write(self.fd, buf) catch |err| switch (err) {
+            error.WouldBlock => return .would_block,
+            error.BrokenPipe => return .peer_closed,
+            error.ConnectionResetByPeer => return .peer_closed,
+            error.NotOpenForWriting => return .peer_closed,
+            else => return .{ .err = err },
+        };
+        return .{ .bytes_written = n };
+    }
+
+    pub fn sendv(self: SocketConnection, iovecs: []const ImmutableIoVector) SendResult {
+        const n = posix.writev(self.fd, iovecs) catch |err| switch (err) {
+            error.WouldBlock => return .would_block,
+            error.BrokenPipe => return .peer_closed,
+            error.ConnectionResetByPeer => return .peer_closed,
+            error.NotOpenForWriting => return .peer_closed,
+            else => return .{ .err = err },
+        };
+        return .{ .bytes_written = n };
+    }
+
+    pub fn close(self: *SocketConnection) void {
+        posix.close(self.fd);
+        self.fd = -1;
+    }
+};
+
+pub const RecvResult = union(enum) {
+    bytes_read: usize,
+    would_block: void,
+    peer_closed: void,
+    err: posix.ReadError,
+};
+
+pub const SendResult = union(enum) {
+    bytes_written: usize,
+    would_block: void,
+    peer_closed: void,
+    err: posix.WriteError,
+};
+
+// ── Tests ────────────────────────────────────────────────────────────────
+
+test "SocketConnection.recv: round-trip with send" {
+    const helpers = @import("testing/helpers.zig");
+    const client_fd, const server_fd = try helpers.createSocketPair();
+    var client = SocketConnection{ .fd = client_fd };
+    var server = SocketConnection{ .fd = server_fd };
+    defer client.close();
+    defer server.close();
+
+    const sent = client.send("hello");
+    try std.testing.expectEqual(@as(usize, 5), sent.bytes_written);
+
+    var buf: [64]u8 = undefined;
+    const result = server.recv(&buf);
+    try std.testing.expectEqualSlices(u8, "hello", buf[0..result.bytes_read]);
+}
+
+test "SocketConnection.recv: peer_closed on EOF" {
+    const helpers = @import("testing/helpers.zig");
+    const client_fd, const server_fd = try helpers.createSocketPair();
+    var server = SocketConnection{ .fd = server_fd };
+
+    posix.close(client_fd);
+
+    var buf: [64]u8 = undefined;
+    const result = server.recv(&buf);
+    try std.testing.expectEqual(RecvResult.peer_closed, result);
+
+    server.close();
+}
+
+test "SocketConnection.sendv: multiple segments" {
+    const helpers = @import("testing/helpers.zig");
+    const client_fd, const server_fd = try helpers.createSocketPair();
+    var client = SocketConnection{ .fd = client_fd };
+    var server = SocketConnection{ .fd = server_fd };
+    defer client.close();
+    defer server.close();
+
+    const iovecs = [_]ImmutableIoVector{
+        .{ .base = "hello", .len = 5 },
+        .{ .base = ", world", .len = 7 },
+    };
+    const sent = client.sendv(&iovecs);
+    try std.testing.expectEqual(@as(usize, 12), sent.bytes_written);
+
+    var buf: [64]u8 = undefined;
+    var total: usize = 0;
+    while (total < 12) {
+        const r = server.recv(buf[total..]);
+        switch (r) {
+            .bytes_read => |n| total += n,
+            .peer_closed => break,
+            else => break,
+        }
+    }
+    try std.testing.expectEqualSlices(u8, "hello, world", buf[0..total]);
+}
+
+test "SocketConnection.send: peer_closed on broken pipe" {
+    const helpers = @import("testing/helpers.zig");
+    const client_fd, const server_fd = try helpers.createSocketPair();
+    var client = SocketConnection{ .fd = client_fd };
+
+    posix.close(server_fd);
+
+    const result = client.send("data");
+    try std.testing.expectEqual(SendResult.peer_closed, result);
+
+    client.close();
+}
+
+test "SocketConnection.close: sets fd to -1" {
+    const helpers = @import("testing/helpers.zig");
+    const client_fd, _ = try helpers.createSocketPair();
+    var conn = SocketConnection{ .fd = client_fd };
+
+    conn.close();
+    try std.testing.expectEqual(@as(FileDescriptor, -1), conn.fd);
+}
+
+test "SocketConnection: bidirectional communication" {
+    const helpers = @import("testing/helpers.zig");
+    const fd_a, const fd_b = try helpers.createSocketPair();
+    var a = SocketConnection{ .fd = fd_a };
+    var b = SocketConnection{ .fd = fd_b };
+    defer a.close();
+    defer b.close();
+
+    _ = a.send("from A");
+    var buf: [64]u8 = undefined;
+    const r1 = b.recv(&buf);
+    try std.testing.expectEqualSlices(u8, "from A", buf[0..r1.bytes_read]);
+
+    _ = b.send("from B");
+    const r2 = a.recv(&buf);
+    try std.testing.expectEqualSlices(u8, "from B", buf[0..r2.bytes_read]);
+}

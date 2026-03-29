@@ -26,6 +26,8 @@ consists of three libraries and two applications:
   export/import. Exports C API for Swift/other consumers.
 - **libitshell3-protocol** — Wire protocol library shared by daemon and client:
   message types, serialization, capability negotiation, CJK preedit sync.
+- **libitshell3-transport** — Transport layer library: Unix domain socket
+  client/server, socket path management.
 - **libitshell3-ime** — Native IME engine in Zig (wraps libhangul for Korean).
   Purely algorithmic, no OS IME dependency. Covers English QWERTY + Korean
   2-set.
@@ -37,11 +39,12 @@ consists of three libraries and two applications:
 Three library modules are under active implementation. See
 [`ROADMAP.md`](docs/superpowers/plans/ROADMAP.md) for per-plan status.
 
-| Module               | Status                                           |
-| -------------------- | ------------------------------------------------ |
-| libitshell3-protocol | Implemented (22 source files), 135+ tests        |
-| libitshell3-ime      | Implemented (9 source files), 135+ tests         |
-| libitshell3          | Implemented (6 sub-modules), spec alignment next |
+| Module                | Status                           |
+| --------------------- | -------------------------------- |
+| libitshell3-protocol  | Implemented, spec alignment next |
+| libitshell3-transport | Implemented                      |
+| libitshell3-ime       | Implemented (v0.7.0 finalized)   |
+| libitshell3           | Implemented, spec alignment next |
 
 Applications (it-shell3 client, it-shell3-daemon) are not yet started.
 
@@ -112,14 +115,12 @@ reconnection procedures.
 
 ## Documentation Structure
 
-- `docs/modules/libitshell3/` — 15 design documents (00–14) covering project
-  overview, API analysis, protocol, PTY, CJK input, architecture, testing
-  strategy, and validation
-- `docs/modules/libitshell3/design/server-client-protocols/` — 6 detailed
-  protocol specs (handshake, session/pane mgmt, input/renderstate, CJK preedit,
-  flow control)
-- `docs/modules/libitshell3-ime/` — 7 documents covering Korean composition
-  rules, libhangul API, IME architecture, integration protocol, build/licensing
+- `docs/modules/libitshell3/` — Overview and design docs (daemon architecture,
+  daemon behavior)
+- `docs/modules/libitshell3-protocol/` — Protocol design docs
+  (server-client-protocols)
+- `docs/modules/libitshell3-ime/` — Overview and design docs
+  (interface-contract, behavior)
 - [**`docs/insights/`**](docs/insights/) — Cross-cutting architectural insights.
   Read before design discussions to avoid re-researching solved questions.
   - [Design Principles](docs/insights/design-principles.md) — Living document of
@@ -183,54 +184,25 @@ status, and test/coverage commands.
 
 ### Design Document Metadata
 
-Spec documents (numbered `01-*.md` through `99-*.md`) use bullet-item metadata
-immediately after the `# Title` heading. Only these two properties are allowed:
-
-```markdown
-# Document Title
-
-- **Date**: YYYY-MM-DD
-- **Scope**: one-line description of what this document covers
-```
-
-Do NOT add Status, Version, Author, Depends on, Changes from, or any other
-metadata. Status and version are encoded in the directory path
-(`draft/v1.0-rN/`). Author and dependency info belong in changelogs or
-resolution docs, not in the spec header.
-
-Process artifacts (review notes, design resolutions, verification issues,
-cross-team requests) have their own metadata conventions defined in
-`docs/conventions/artifacts/documents/`.
+> **⚠️ MANDATORY:** Read
+> [`docs/conventions/design-document-metadata.md`](docs/conventions/design-document-metadata.md)
+> before creating or editing any spec document.
 
 ### Cross-Document References
 
-The deciding factor is **whether two documents share a revision cycle** (move
-together), not whether they are in the same module.
+> **⚠️ MANDATORY:** Read
+> [`docs/conventions/cross-document-references.md`](docs/conventions/cross-document-references.md)
+> before adding cross-document links.
 
-- **Same revision cycle** (e.g., files within
-  `interface-contract/draft/v1.0-r9/`): relative paths are fine — they always
-  move together.
-- **Independent revision cycles** (e.g., `interface-contract/draft/v1.0-r9/` →
-  `behavior/draft/v1.0-r1/`, or any cross-module reference): **do NOT use exact
-  file path links**. Exact paths encode revision numbers that break every time
-  the target is revised.
+## CRITICAL: Never Overwrite Working Tree with Git Checkout
 
-Instead, use a loose prose reference:
+**NEVER use `git checkout <ref> -- <path>` to compare or restore files in a
+dirty working tree.** This overwrites uncommitted changes and can destroy agent
+work in progress. Use non-destructive alternatives:
 
-```markdown
-<!-- Avoid: exact path, breaks on every revision -->
-
-See
-[behavior/draft/v1.0-r1/02-scenario-matrix.md](../../../behavior/draft/v1.0-r1/02-scenario-matrix.md).
-See
-[daemon design doc 02 §4.2](../../../../../libitshell3/.../v1.0-r3/02-integration-boundaries.md#42-...).
-
-<!-- Prefer: name the doc without the path; omit section numbers (they change too) -->
-
-See `02-scenario-matrix.md` in the behavior docs for the complete scenario
-matrix. See the `libitshell3` daemon design docs for details. See the
-`libitshell3-protocol` server-client-protocols docs for details.
-```
+- `git show <ref>:<path>` — view a file at a specific commit
+- `git diff <ref>` — compare current state against a commit
+- `git stash` — only if you intend to restore immediately
 
 ## CRITICAL: Never Change the Working Directory
 
@@ -245,6 +217,12 @@ subshell so the directory change does not persist:
 ```bash
 (cd other-dir; command;)
 ```
+
+## Issue Triage
+
+> **⚠️ MANDATORY:** Read
+> [`docs/work-styles/06-issue-triage.md`](docs/work-styles/06-issue-triage.md)
+> before triaging any issues.
 
 ## Work Styles
 
@@ -281,3 +259,5 @@ subshell so the directory change does not persist:
   `design-doc-revision` skill** (`.claude/skills/design-doc-revision/`).
 - [**PoC Workflow**](docs/work-styles/04-poc-workflow.md) — When, why, and how
   to run Proof-of-Concept experiments.
+- [**Implementation Workflow**](docs/work-styles/05-implementation-workflow.md)
+  — How to transform stable design specs into production code.

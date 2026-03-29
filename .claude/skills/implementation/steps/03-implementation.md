@@ -32,7 +32,11 @@
 
 ## Action
 
-### 3a. Check context budget
+### 3a. Update TODO.md
+
+Update TODO.md: set **Step** to 3 (Implementation Phase), mark Step 2 as `[x]`.
+
+### 3b. Check context budget
 
 Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
 `/compact` before spawning agents.

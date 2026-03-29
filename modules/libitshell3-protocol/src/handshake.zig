@@ -1,5 +1,4 @@
 const std = @import("std");
-const json_mod = @import("json.zig");
 
 /// ClientHello (0x0001, C->S)
 pub const ClientHello = struct {
@@ -27,7 +26,7 @@ pub const ClientHello = struct {
 
 /// ServerHello (0x0002, S->C)
 pub const ServerHello = struct {
-    protocol_version: u32 = 1,
+    protocol_version: u8 = 1,
     client_id: u32,
     negotiated_caps: []const []const u8 = &.{},
     negotiated_render_caps: []const []const u8 = &.{},
@@ -81,7 +80,8 @@ pub const Disconnect = struct {
     detail: []const u8 = "",
 };
 
-test "ClientHello JSON round-trip" {
+test "ClientHello: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ClientHello{
         .protocol_version_min = 1,
@@ -102,7 +102,8 @@ test "ClientHello JSON round-trip" {
     try std.testing.expectEqualStrings(original.client_name, parsed.value.client_name);
 }
 
-test "ClientHello optional pixel fields omitted when null" {
+test "ClientHello: optional pixel fields omitted when null" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     // pixel_width/pixel_height are null by default
     const original = ClientHello{};
@@ -112,7 +113,8 @@ test "ClientHello optional pixel fields omitted when null" {
     try std.testing.expect(std.mem.indexOf(u8, json, "pixel_height") == null);
 }
 
-test "ClientHello optional pixel fields present when set" {
+test "ClientHello: optional pixel fields present when set" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ClientHello{ .pixel_width = 1920, .pixel_height = 1080 };
     const json = try json_mod.encode(allocator, original);
@@ -123,7 +125,8 @@ test "ClientHello optional pixel fields present when set" {
     try std.testing.expectEqual(@as(?u16, 1080), parsed.value.pixel_height);
 }
 
-test "ServerHello JSON round-trip" {
+test "ServerHello: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ServerHello{
         .protocol_version = 1,
@@ -142,7 +145,8 @@ test "ServerHello JSON round-trip" {
     try std.testing.expectEqualStrings(original.server_name, parsed.value.server_name);
 }
 
-test "ServerHello coalescing_config omitted when null" {
+test "ServerHello: coalescing_config omitted when null" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ServerHello{ .client_id = 1, .server_pid = 100 };
     const json = try json_mod.encode(allocator, original);
@@ -150,7 +154,8 @@ test "ServerHello coalescing_config omitted when null" {
     try std.testing.expect(std.mem.indexOf(u8, json, "coalescing_config") == null);
 }
 
-test "ServerHello coalescing_config round-trip when present" {
+test "ServerHello: coalescing_config round-trip when present" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ServerHello{
         .client_id = 1,
@@ -168,7 +173,8 @@ test "ServerHello coalescing_config round-trip when present" {
     try std.testing.expectEqual(@as(u32, 16), parsed.value.coalescing_config.?.active_interval_ms);
 }
 
-test "Heartbeat JSON round-trip" {
+test "Heartbeat: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = Heartbeat{ .ping_id = 42 };
     const json = try json_mod.encode(allocator, original);
@@ -178,7 +184,8 @@ test "Heartbeat JSON round-trip" {
     try std.testing.expectEqual(original.ping_id, parsed.value.ping_id);
 }
 
-test "HeartbeatAck JSON round-trip" {
+test "HeartbeatAck: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = HeartbeatAck{ .ping_id = 7 };
     const json = try json_mod.encode(allocator, original);
@@ -188,7 +195,8 @@ test "HeartbeatAck JSON round-trip" {
     try std.testing.expectEqual(original.ping_id, parsed.value.ping_id);
 }
 
-test "Disconnect JSON round-trip" {
+test "Disconnect: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = Disconnect{ .reason = "shutdown", .detail = "user request" };
     const json = try json_mod.encode(allocator, original);

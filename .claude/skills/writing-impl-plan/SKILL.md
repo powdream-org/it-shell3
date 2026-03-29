@@ -92,6 +92,13 @@ change to 2-3 files.
 
 Save to: `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 
+**After saving the plan**, update `docs/superpowers/plans/ROADMAP.md`:
+
+- Add the plan to the **Plan Index** table with the plan file path and status
+  `Not started`
+- Add the plan to the **Dependency Graph** if it has dependencies
+- Add a **Plan Summary** section with scope, spec refs, and depends-on
+
 ```markdown
 # <Feature Name> Implementation Plan
 
@@ -113,6 +120,12 @@ Save to: `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 **In scope:** <numbered list matching spec sections>
 
 **Out of scope:** <what this plan does NOT cover, with reason>
+
+**Convention scope rule:** If the plan includes convention fixes (naming,
+documentation, testing structure, integer widths, etc.), identify ALL modules in
+the project that share the same convention docs. Either include all affected
+modules in scope, or explicitly list excluded modules in "Out of scope" with a
+follow-up plan reference.
 
 ## File Structure
 

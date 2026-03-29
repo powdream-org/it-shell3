@@ -1,5 +1,4 @@
 const std = @import("std");
-const json_mod = @import("json.zig");
 
 /// CreateSessionRequest (0x0100, C->S)
 pub const CreateSessionRequest = struct {
@@ -116,7 +115,8 @@ pub const AttachOrCreateResponse = struct {
     @"error": ?[]const u8 = null,
 };
 
-test "CreateSessionRequest JSON round-trip" {
+test "CreateSessionRequest: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = CreateSessionRequest{ .name = "my-session", .cols = 80, .rows = 24 };
     const j = try json_mod.encode(allocator, original);
@@ -127,7 +127,8 @@ test "CreateSessionRequest JSON round-trip" {
     try std.testing.expectEqual(@as(?u16, 80), parsed.value.cols);
 }
 
-test "CreateSessionResponse JSON round-trip" {
+test "CreateSessionResponse: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = CreateSessionResponse{ .status = 0, .session_id = 5, .pane_id = 1 };
     const j = try json_mod.encode(allocator, original);
@@ -137,7 +138,8 @@ test "CreateSessionResponse JSON round-trip" {
     try std.testing.expectEqual(@as(u32, 5), parsed.value.session_id);
 }
 
-test "ListSessionsResponse JSON round-trip" {
+test "ListSessionsResponse: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const sessions = [_]SessionInfo{.{ .session_id = 1, .name = "main", .pane_count = 2 }};
     const original = ListSessionsResponse{ .status = 0, .sessions = &sessions };
@@ -149,7 +151,8 @@ test "ListSessionsResponse JSON round-trip" {
     try std.testing.expectEqualStrings("main", parsed.value.sessions[0].name);
 }
 
-test "AttachSessionRequest JSON round-trip" {
+test "AttachSessionRequest: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = AttachSessionRequest{ .session_id = 1, .cols = 100, .rows = 30 };
     const j = try json_mod.encode(allocator, original);
@@ -160,7 +163,8 @@ test "AttachSessionRequest JSON round-trip" {
     try std.testing.expectEqual(@as(u16, 100), parsed.value.cols);
 }
 
-test "AttachSessionResponse JSON round-trip" {
+test "AttachSessionResponse: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = AttachSessionResponse{
         .status = 0,
@@ -178,7 +182,8 @@ test "AttachSessionResponse JSON round-trip" {
     try std.testing.expectEqualStrings("korean_2set", parsed.value.active_input_method);
 }
 
-test "AttachOrCreateResponse action_taken field" {
+test "AttachOrCreateResponse: action_taken field" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = AttachOrCreateResponse{ .action_taken = "created", .session_id = 1, .pane_id = 1 };
     const j = try json_mod.encode(allocator, original);

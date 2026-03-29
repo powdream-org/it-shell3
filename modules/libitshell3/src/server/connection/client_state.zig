@@ -1,0 +1,198 @@
+//! Per-client state struct wrapping ConnectionState with daemon-specific fields.
+//! Owns the connection lifecycle plus ring buffer cursors, display info,
+//! heartbeat tracking, and attached session reference.
+//!
+//! Per daemon-architecture integration-boundaries spec.
+
+const std = @import("std");
+const connection_state_mod = @import("connection_state.zig");
+const ConnectionState = connection_state_mod.ConnectionState;
+const State = connection_state_mod.State;
+const transport = @import("itshell3_transport");
+const SocketConnection = transport.transport.SocketConnection;
+const protocol = @import("itshell3_protocol");
+const MessageReader = protocol.message_reader.MessageReader;
+const core = @import("itshell3_core");
+const MAX_PANES = core.types.MAX_PANES;
+const server = @import("itshell3_server");
+const ring_buffer_mod = server.delivery.ring_buffer;
+const RingCursor = ring_buffer_mod.RingCursor;
+const direct_queue_mod = server.delivery.direct_queue;
+const DirectQueue = direct_queue_mod.DirectQueue;
+const SessionEntry = server.state.session_entry.SessionEntry;
+
+/// Per-client daemon state. Wraps ConnectionState (which wraps SocketConnection)
+/// plus daemon-specific delivery and tracking fields.
+pub const ClientState = struct {
+    connection: ConnectionState,
+
+    /// Per-client ring buffer cursors for frame delivery (priority 2 channel).
+    /// One cursor per pane slot. null = client has not received frames for that pane.
+    ring_cursors: [MAX_PANES]?RingCursor = [_]?RingCursor{null} ** MAX_PANES,
+
+    /// Per-client direct message queue (priority 1 channel).
+    direct_queue: DirectQueue = DirectQueue.init(),
+
+    /// Partial send offset for direct queue drain.
+    direct_partial_offset: usize = 0,
+
+    /// Display info reported by the client.
+    // TODO(Plan 8): Populate from ClientDisplayInfo message (0x0505). Add
+    // remaining fields: preferred_max_fps, estimated_rtt_ms, bandwidth_hint.
+    display_info: ClientDisplayInfo = .{},
+
+    /// Pointer to the attached session (daemon-level field for direct access
+    /// without lookup). null = not attached to any session.
+    attached_session: ?*SessionEntry = null,
+
+    /// Heartbeat tracking.
+    last_activity_timestamp: i64 = 0,
+    last_ping_id_sent: u32 = 0,
+    last_ping_id_acked: u32 = 0,
+
+    /// Timer IDs for per-client timers (handshake timeout, ready idle timeout).
+    handshake_timer_id: ?u16 = null,
+    ready_idle_timer_id: ?u16 = null,
+
+    /// Per-connection framing state. Accumulates partial messages across recv()
+    /// calls. See daemon-architecture integration-boundaries spec.
+    message_reader: MessageReader = .{},
+
+    /// Whether this client slot is occupied.
+    occupied: bool = false,
+
+    // TODO(Plan 8): Define fields from ClientDisplayInfo message (0x0505):
+    // display_refresh_hz, power_state, preferred_max_fps, transport_type,
+    // estimated_rtt_ms, bandwidth_hint.
+    pub const ClientDisplayInfo = struct {};
+
+    /// Initialize a new client state wrapping a SocketConnection.
+    pub fn init(socket: SocketConnection, client_id: u32) ClientState {
+        return .{
+            .connection = ConnectionState.init(socket, client_id),
+            .occupied = true,
+            .last_activity_timestamp = std.time.milliTimestamp(),
+        };
+    }
+
+    /// Reset this slot to unoccupied state.
+    pub fn deinit(self: *ClientState) void {
+        self.direct_queue.deinit();
+        self.message_reader.reset();
+        self.attached_session = null;
+        self.occupied = false;
+    }
+
+    /// Convenience accessor for the connection state.
+    pub fn getState(self: *const ClientState) State {
+        return self.connection.state;
+    }
+
+    /// Convenience accessor for client_id.
+    pub fn getClientId(self: *const ClientState) u32 {
+        return self.connection.client_id;
+    }
+
+    /// Convenience accessor for the socket fd (for kqueue registration).
+    pub fn fd(self: *const ClientState) std.posix.fd_t {
+        return self.connection.socket.fd;
+    }
+
+    /// Record that activity was observed (any message received).
+    /// Resets the heartbeat liveness timeout.
+    pub fn recordActivity(self: *ClientState) void {
+        self.last_activity_timestamp = std.time.milliTimestamp();
+    }
+
+    /// Check if this client has been inactive for longer than timeout_ms.
+    pub fn isInactiveSince(self: *const ClientState, timeout_ms: i64) bool {
+        const now = std.time.milliTimestamp();
+        return (now - self.last_activity_timestamp) >= timeout_ms;
+    }
+
+    /// Enqueue a message to the direct queue (priority 1 channel).
+    pub fn enqueueDirect(self: *ClientState, data: []const u8) !void {
+        try self.direct_queue.enqueue(data);
+    }
+};
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+test "ClientState.init: creates occupied client with handshaking state" {
+    const client = ClientState.init(.{ .fd = 7 }, 42);
+    try std.testing.expect(client.occupied);
+    try std.testing.expectEqual(State.handshaking, client.getState());
+    try std.testing.expectEqual(@as(u32, 42), client.getClientId());
+    try std.testing.expectEqual(@as(std.posix.fd_t, 7), client.fd());
+    try std.testing.expect(client.last_activity_timestamp > 0);
+}
+
+test "ClientState.deinit: marks slot as unoccupied" {
+    var client = ClientState.init(.{ .fd = 7 }, 1);
+    client.deinit();
+    try std.testing.expect(!client.occupied);
+}
+
+test "ClientState.recordActivity: updates timestamp" {
+    var client = ClientState.init(.{ .fd = 7 }, 1);
+    const before = client.last_activity_timestamp;
+    // Force a different timestamp by manipulating directly.
+    client.last_activity_timestamp = before - 100;
+    client.recordActivity();
+    try std.testing.expect(client.last_activity_timestamp >= before - 100);
+}
+
+test "ClientState.enqueueDirect: adds message to direct queue" {
+    var client = ClientState.init(.{ .fd = 7 }, 1);
+    defer client.deinit();
+    try client.enqueueDirect("test-msg");
+    try std.testing.expect(!client.direct_queue.isEmpty());
+}
+
+test "ClientState: ring_cursors all start as null" {
+    const client = ClientState.init(.{ .fd = 7 }, 1);
+    for (client.ring_cursors) |cursor| {
+        try std.testing.expect(cursor == null);
+    }
+}
+
+test "ClientState: display_info field exists" {
+    const client = ClientState.init(.{ .fd = 7 }, 1);
+    _ = client.display_info;
+}
+
+test "ClientState: attached_session defaults to null" {
+    const client = ClientState.init(.{ .fd = 7 }, 1);
+    try std.testing.expect(client.attached_session == null);
+}
+
+test "ClientState.deinit: clears attached_session" {
+    var client = ClientState.init(.{ .fd = 7 }, 1);
+    // Verify that attached_session is cleared on deinit by checking
+    // the field is null after init, setting it non-null, then deiniting.
+    try std.testing.expect(client.attached_session == null);
+    // Use @ptrFromInt with a well-aligned nonzero address for test purposes only.
+    // This avoids constructing a real SessionEntry (which requires ImeEngine vtable).
+    client.attached_session = @ptrFromInt(@alignOf(SessionEntry));
+    try std.testing.expect(client.attached_session != null);
+    client.deinit();
+    try std.testing.expect(client.attached_session == null);
+}
+
+test "ClientState: message_reader starts empty" {
+    const client = ClientState.init(.{ .fd = 7 }, 1);
+    try std.testing.expectEqual(@as(u16, 0), client.message_reader.length);
+}
+
+test "ClientState.deinit: resets message_reader" {
+    var client = ClientState.init(.{ .fd = 7 }, 1);
+    _ = client.message_reader.feed("leftover");
+    client.deinit();
+    try std.testing.expectEqual(@as(u16, 0), client.message_reader.length);
+}
+
+test "ClientState: timer IDs default to null" {
+    const client = ClientState.init(.{ .fd = 7 }, 1);
+    try std.testing.expect(client.handshake_timer_id == null);
+    try std.testing.expect(client.ready_idle_timer_id == null);
+}

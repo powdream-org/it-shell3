@@ -1,3 +1,6 @@
+//! Ghostty integration helpers. Thin free-function wrappers around ghostty's
+//! Terminal, RenderState, key encoding, preedit overlay, and bulk export APIs.
+
 const std = @import("std");
 
 pub const types = @import("types.zig");

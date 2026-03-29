@@ -16,13 +16,13 @@ pub const PreeditState = struct {
     }
 };
 
-test "init returns null owner and session_id 0" {
+test "PreeditState.init: returns null owner and session_id 0" {
     const ps = PreeditState.init();
     try std.testing.expectEqual(@as(?ClientId, null), ps.owner);
     try std.testing.expectEqual(@as(u32, 0), ps.session_id);
 }
 
-test "incrementSessionId increments by 1" {
+test "PreeditState.incrementSessionId: increments by 1" {
     var ps = PreeditState.init();
     try std.testing.expectEqual(@as(u32, 0), ps.session_id);
     ps.incrementSessionId();
@@ -31,7 +31,7 @@ test "incrementSessionId increments by 1" {
     try std.testing.expectEqual(@as(u32, 2), ps.session_id);
 }
 
-test "can set owner and verify it" {
+test "PreeditState: can set owner and verify it" {
     var ps = PreeditState.init();
     const client: ClientId = 123;
     ps.owner = client;

@@ -9,6 +9,9 @@
   wait for approval, then apply.
 - **Don't clean up before the retrospective.** TODO.md contains the cycle
   history needed for review. Delete it after, not before.
+- **Don't batch-delete TODO.md files across modules.** Each module may be in a
+  different cycle stage. Verify the cycle status of each TODO.md before deletion
+  — only delete files belonging to the cycle being cleaned up.
 
 ## Action
 
@@ -57,36 +60,16 @@ Present each proposal to the owner with rationale. Wait for owner approval
 before editing any skill files. If approved: apply the change and commit with
 reason.
 
-### 11d. Cleanup
-
-After retrospective is complete:
-
-1. Delete `<target>/TODO.md`
-2. Delete `<target>/retrospective/` (SIPs have been processed in 11c)
-3. Delete the implementation plan (`.claude/plan/<name>.md`)
-4. Commit:
-
-```bash
-git add -u
-git commit -m "$(cat <<'EOF'
-chore(<target>): clean up implementation artifacts
-
-Remove TODO.md, processed SIPs, and implementation plan after owner acceptance.
-EOF
-)"
-```
-
 ## Gate
 
 - [ ] Cycle reviewed (11a)
 - [ ] `implementation-learnings.md` updated (or confirmed no new lessons)
 - [ ] Skill improvements proposed and applied (or confirmed none needed)
-- [ ] TODO.md and plan deleted, cleanup committed
 
 ## State Update
 
-Implementation is **Complete**. No further TODO.md updates (it's been deleted).
+Update TODO.md: **Step**: 12 (Cleanup & ROADMAP Update). Mark Step 11 as `[x]`.
 
 ## Next
 
-**Done.** Report completion to the owner.
+Read `steps/12-cleanup.md`.

@@ -62,10 +62,9 @@ var idx: u3 = 0;  // u3 max = 7 = array size - 1
 This follows ghostty's `FlagStack` pattern where the index type inherently
 prevents out-of-bounds access.
 
-### 4. Loop counters — always u32 or usize
+### 4. Loop counters — prefer u32 or usize
 
-Loop counters (`while`, `for` iteration indices) MUST use `u32` or `usize`. No
-arbitrary-width loop counters.
+Loop counters (`while`, `for` iteration indices) SHOULD use `u32` or `usize`.
 
 ```zig
 // Wrong
@@ -75,6 +74,28 @@ while (i < MAX_PANES) : (i += 1) { ... }
 // Right
 var i: u32 = 0;
 while (i < MAX_PANES) : (i += 1) { ... }
+```
+
+**Exception:** When the loop body passes the counter to APIs that expect a
+narrower type, every iteration would require `@intCast`. In this case, declare
+the counter in the target type to avoid per-iteration casts.
+
+```zig
+const MAX_CLIENTS: u16 = 64;
+slots: [MAX_CLIENTS]ClientState,
+
+// Without exception — @intCast on every iteration
+var i: u32 = 0;
+while (i < MAX_CLIENTS) : (i += 1) {
+    const idx: u16 = @intCast(i);  // required because callback takes u16
+    callback(context, &self.slots[idx], idx);
+}
+
+// With exception — counter matches the API boundary type
+var i: u16 = 0;
+while (i < MAX_CLIENTS) : (i += 1) {
+    callback(context, &self.slots[i], i);
+}
 ```
 
 ### 5. Sparse discrete values — use enum, not bare integer
@@ -131,12 +152,12 @@ automatically propagates to all derived constants.
 
 ### Summary
 
-| Context                                     | Rule                              | Example                             |
-| ------------------------------------------- | --------------------------------- | ----------------------------------- |
-| Public symbol (const, field, param, return) | Tight but future-proof width      | `MAX_PANES: u8 = 16`                |
-| Local variable (narrow scope)               | Register-friendly: u8/u16/u32/u64 | `const bit_idx: u8 = ...`           |
-| Fixed-size array index                      | Match array capacity              | `var idx: u3` for `[8]T`            |
-| Loop counter                                | Always u32 or usize               | `var i: u32 = 0`                    |
-| Sparse discrete return                      | enum(uN)                          | `enum(u2) { narrow = 1, wide = 2 }` |
-| Packed struct field                         | Exact bit width per layout        | `packed struct(u8) { ... }`         |
-| Unicode codepoint                           | u21 (Zig std convention)          | `fn encode(cp: u21) ...`            |
+| Context                                     | Rule                                                                | Example                             |
+| ------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------- |
+| Public symbol (const, field, param, return) | Tight but future-proof width                                        | `MAX_PANES: u8 = 16`                |
+| Local variable (narrow scope)               | Register-friendly: u8/u16/u32/u64                                   | `const bit_idx: u8 = ...`           |
+| Fixed-size array index                      | Match array capacity                                                | `var idx: u3` for `[8]T`            |
+| Loop counter                                | Prefer u32/usize; narrower OK if it avoids per-iteration `@intCast` | `var i: u32 = 0`                    |
+| Sparse discrete return                      | enum(uN)                                                            | `enum(u2) { narrow = 1, wide = 2 }` |
+| Packed struct field                         | Exact bit width per layout                                          | `packed struct(u8) { ... }`         |
+| Unicode codepoint                           | u21 (Zig std convention)                                            | `fn encode(cp: u21) ...`            |

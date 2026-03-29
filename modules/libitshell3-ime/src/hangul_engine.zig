@@ -1,5 +1,5 @@
 //! HangulImeEngine: Concrete IME engine wrapping libhangul for Korean + direct mode.
-//! Follows IME Interface Contract v0.7, Section 3.7.
+//! See the IME interface-contract spec for the engine requirements.
 
 const std = @import("std");
 const c = @import("c.zig");
@@ -50,15 +50,15 @@ pub const HangulImeEngine = struct {
     /// (3 bytes UTF-8).
     preedit_buf: [64]u8 = @splat(0),
     /// Valid byte count in `committed_buf`.
-    committed_len: usize = 0,
+    committed_length: usize = 0,
     /// Valid byte count in `preedit_buf`.
-    preedit_len: usize = 0,
+    preedit_length: usize = 0,
 
     /// Previous preedit byte length for dirty tracking. Uses length-only comparison
     /// with "non-null to non-null always changed" shortcut -- libhangul never leaves
     /// preedit unchanged after consuming a key, so content comparison is unnecessary.
     /// See ADR-00041 (length-only preedit dirty tracking).
-    prev_preedit_len: usize = 0,
+    prev_preedit_length: usize = 0,
 
     /// Engine-internal mode for hot-path dispatch. NOT part of the public API.
     /// - `direct`: HID-to-ASCII passthrough, no libhangul involvement.
@@ -131,7 +131,7 @@ pub const HangulImeEngine = struct {
 
     /// Direct mode: HID→ASCII for printable, forward everything else.
     fn processKeyDirect(self: *HangulImeEngine, key: KeyEvent) ImeResult {
-        // Space always forwards (consistent across all modes per spec Section 3.2)
+        // Space always forwards (consistent across all modes per IME interface-contract spec).
         if (key.hid_keycode == HID_SPACE and !key.hasCompositionBreakingModifier()) {
             return ImeResult{
                 .forward_key = key,
@@ -146,7 +146,7 @@ pub const HangulImeEngine = struct {
         // Try HID→ASCII for printable keys
         if (hid_to_ascii.hidToAscii(key.hid_keycode, key.shift)) |ascii| {
             self.committed_buf[0] = ascii;
-            self.committed_len = 1;
+            self.committed_length = 1;
             return ImeResult{
                 .committed_text = self.committed_buf[0..1],
             };
@@ -209,15 +209,15 @@ pub const HangulImeEngine = struct {
             const flushed = c.hangul_ic_flush(self.hic);
             const n = ucs4.ucs4ToUtf8(flushed, &self.committed_buf);
             if (n > 0) {
-                self.committed_len = n;
+                self.committed_length = n;
                 result.committed_text = self.committed_buf[0..n];
             }
         }
 
         // Preedit is now null; check if it changed
-        result.preedit_changed = self.prev_preedit_len > 0;
-        self.preedit_len = 0;
-        self.prev_preedit_len = 0;
+        result.preedit_changed = self.prev_preedit_length > 0;
+        self.preedit_length = 0;
+        self.prev_preedit_length = 0;
 
         return result;
     }
@@ -245,35 +245,35 @@ pub const HangulImeEngine = struct {
         const consumed = c.hangul_ic_process(self.hic, @intCast(ascii));
 
         // Read committed text from libhangul (regardless of consumed)
-        self.committed_len = 0;
+        self.committed_length = 0;
         const commit_str = c.hangul_ic_get_commit_string(self.hic);
         const commit_n = ucs4.ucs4ToUtf8(commit_str, &self.committed_buf);
         if (commit_n > 0) {
-            self.committed_len = commit_n;
+            self.committed_length = commit_n;
         }
 
         // Read preedit from libhangul (regardless of consumed)
-        self.preedit_len = 0;
+        self.preedit_length = 0;
         const preedit_str = c.hangul_ic_get_preedit_string(self.hic);
         const preedit_n = ucs4.ucs4ToUtf8(preedit_str, &self.preedit_buf);
         if (preedit_n > 0) {
-            self.preedit_len = preedit_n;
+            self.preedit_length = preedit_n;
         }
 
         if (!consumed) {
             // Key rejected — flush remaining composition and forward
             if (!c.hangul_ic_is_empty(self.hic)) {
                 const flushed = c.hangul_ic_flush(self.hic);
-                const flush_n = ucs4.ucs4ToUtf8(flushed, self.committed_buf[self.committed_len..]);
-                self.committed_len += flush_n;
+                const flush_n = ucs4.ucs4ToUtf8(flushed, self.committed_buf[self.committed_length..]);
+                self.committed_length += flush_n;
             }
-            self.preedit_len = 0;
+            self.preedit_length = 0;
 
-            const preedit_changed = self.prev_preedit_len > 0 or preedit_n > 0;
-            self.prev_preedit_len = 0;
+            const preedit_changed = self.prev_preedit_length > 0 or preedit_n > 0;
+            self.prev_preedit_length = 0;
 
             return ImeResult{
-                .committed_text = if (self.committed_len > 0) self.committed_buf[0..self.committed_len] else null,
+                .committed_text = if (self.committed_length > 0) self.committed_buf[0..self.committed_length] else null,
                 .preedit_text = null,
                 .forward_key = key,
                 .preedit_changed = preedit_changed,
@@ -284,38 +284,38 @@ pub const HangulImeEngine = struct {
         // preedit_changed per spec: true on null->non-null, non-null->null,
         // or non-null->different-non-null transitions.
         const preedit_changed = blk: {
-            if (self.prev_preedit_len == 0 and self.preedit_len == 0) break :blk false;
-            if (self.prev_preedit_len == 0 and self.preedit_len > 0) break :blk true;
-            if (self.prev_preedit_len > 0 and self.preedit_len == 0) break :blk true;
+            if (self.prev_preedit_length == 0 and self.preedit_length == 0) break :blk false;
+            if (self.prev_preedit_length == 0 and self.preedit_length > 0) break :blk true;
+            if (self.prev_preedit_length > 0 and self.preedit_length == 0) break :blk true;
             break :blk true; // non-null -> non-null (content always changes on keystroke)
         };
 
-        self.prev_preedit_len = self.preedit_len;
+        self.prev_preedit_length = self.preedit_length;
 
         return ImeResult{
-            .committed_text = if (self.committed_len > 0) self.committed_buf[0..self.committed_len] else null,
-            .preedit_text = if (self.preedit_len > 0) self.preedit_buf[0..self.preedit_len] else null,
+            .committed_text = if (self.committed_length > 0) self.committed_buf[0..self.committed_length] else null,
+            .preedit_text = if (self.preedit_length > 0) self.preedit_buf[0..self.preedit_length] else null,
             .preedit_changed = preedit_changed,
         };
     }
 
     /// Read current preedit from libhangul and build result (used after backspace).
     fn readPreeditResult(self: *HangulImeEngine) ImeResult {
-        self.preedit_len = 0;
+        self.preedit_length = 0;
         const preedit_str = c.hangul_ic_get_preedit_string(self.hic);
         const preedit_n = ucs4.ucs4ToUtf8(preedit_str, &self.preedit_buf);
         if (preedit_n > 0) {
-            self.preedit_len = preedit_n;
+            self.preedit_length = preedit_n;
         }
 
         const preedit_changed = blk: {
-            if (self.prev_preedit_len == 0 and self.preedit_len == 0) break :blk false;
+            if (self.prev_preedit_length == 0 and self.preedit_length == 0) break :blk false;
             break :blk true;
         };
-        self.prev_preedit_len = self.preedit_len;
+        self.prev_preedit_length = self.preedit_length;
 
         return ImeResult{
-            .preedit_text = if (self.preedit_len > 0) self.preedit_buf[0..self.preedit_len] else null,
+            .preedit_text = if (self.preedit_length > 0) self.preedit_buf[0..self.preedit_length] else null,
             .preedit_changed = preedit_changed,
         };
     }
@@ -340,10 +340,10 @@ pub const HangulImeEngine = struct {
         const flushed = c.hangul_ic_flush(self.hic);
         const n = ucs4.ucs4ToUtf8(flushed, &self.committed_buf);
 
-        const preedit_was_active = self.prev_preedit_len > 0;
-        self.committed_len = n;
-        self.preedit_len = 0;
-        self.prev_preedit_len = 0;
+        const preedit_was_active = self.prev_preedit_length > 0;
+        self.committed_length = n;
+        self.preedit_length = 0;
+        self.prev_preedit_length = 0;
 
         return ImeResult{
             .committed_text = if (n > 0) self.committed_buf[0..n] else null,
@@ -355,9 +355,9 @@ pub const HangulImeEngine = struct {
     fn resetImpl(ptr: *anyopaque) void {
         const self: *HangulImeEngine = @ptrCast(@alignCast(ptr));
         c.hangul_ic_reset(self.hic);
-        self.committed_len = 0;
-        self.preedit_len = 0;
-        self.prev_preedit_len = 0;
+        self.committed_length = 0;
+        self.preedit_length = 0;
+        self.prev_preedit_length = 0;
     }
 
     fn isEmptyImpl(ptr: *anyopaque) bool {
@@ -409,17 +409,17 @@ pub const HangulImeEngine = struct {
             const flushed = c.hangul_ic_flush(self.hic);
             const n = ucs4.ucs4ToUtf8(flushed, &self.committed_buf);
             if (n > 0) {
-                self.committed_len = n;
+                self.committed_length = n;
                 result.committed_text = self.committed_buf[0..n];
             }
-            result.preedit_changed = self.prev_preedit_len > 0;
+            result.preedit_changed = self.prev_preedit_length > 0;
         }
 
         // Switch to the new method
         self.active_input_method = method;
         self.engine_mode = deriveMode(method);
-        self.preedit_len = 0;
-        self.prev_preedit_len = 0;
+        self.preedit_length = 0;
+        self.prev_preedit_length = 0;
 
         // Update libhangul keyboard if switching to a Korean layout
         if (libhangulKeyboardId(method)) |kb_id| {

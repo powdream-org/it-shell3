@@ -94,7 +94,8 @@ do not pre-read future steps.
 | 8    | `steps/08-over-engineering-review.md` | Principal architect reviews for KISS/YAGNI   | Clean → Step 9; code changed → back to Step 5     |
 | 9    | `steps/09-commit-and-report.md`       | Commit code; report to owner                 | All gates green, code committed                   |
 | 10   | `steps/10-owner-review.md`            | Owner evaluates; accepts or requests changes | Owner accepts → Step 11; changes → back to Step 3 |
-| 11   | `steps/11-retrospective.md`           | Review cycle, update learnings, cleanup      | Learnings updated, artifacts deleted              |
+| 11   | `steps/11-retrospective.md`           | Review cycle, update learnings               | Learnings updated, SIPs processed                 |
+| 12   | `steps/12-cleanup.md`                 | Delete artifacts, update ROADMAP.md          | ROADMAP updated, artifacts deleted, pushed        |
 
 ## Regression Loop
 

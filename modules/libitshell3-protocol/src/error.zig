@@ -1,6 +1,6 @@
 const std = @import("std");
 
-/// Per-response status codes (doc 03 convention)
+/// Per-response status codes. See the server-client-protocols session/pane management spec.
 pub const StatusCode = enum(u32) {
     ok = 0,
     not_found = 1,
@@ -14,7 +14,7 @@ pub const StatusCode = enum(u32) {
     _,
 };
 
-/// Protocol-level error codes (doc 01 §6.2-6.3)
+/// Protocol-level error codes. See the server-client-protocols handshake spec.
 pub const ErrorCode = enum(u32) {
     // Protocol errors (0x01-0xFF)
     bad_magic = 0x00000001,
@@ -63,19 +63,19 @@ pub const ErrorResponse = struct {
     detail: []const u8 = "",
 };
 
-test "ErrorCode.isFatal protocol errors" {
+test "ErrorCode.isFatal: protocol errors are fatal" {
     try std.testing.expect(ErrorCode.bad_magic.isFatal());
     try std.testing.expect(ErrorCode.unsupported_version.isFatal());
     try std.testing.expect(ErrorCode.malformed_payload.isFatal());
 }
 
-test "ErrorCode.isFatal handshake errors" {
+test "ErrorCode.isFatal: handshake errors are fatal" {
     try std.testing.expect(ErrorCode.version_mismatch.isFatal());
     try std.testing.expect(ErrorCode.auth_failed.isFatal());
     try std.testing.expect(ErrorCode.capability_required.isFatal());
 }
 
-test "ErrorCode.isFatal session/pane errors are not fatal" {
+test "ErrorCode.isFatal: session and pane errors are not fatal" {
     try std.testing.expect(!ErrorCode.session_not_found.isFatal());
     try std.testing.expect(!ErrorCode.pane_not_found.isFatal());
     try std.testing.expect(!ErrorCode.resource_exhausted.isFatal());

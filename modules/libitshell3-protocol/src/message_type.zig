@@ -140,14 +140,14 @@ pub const MessageType = enum(u16) {
 
 const std = @import("std");
 
-test "MessageType spot-check values" {
+test "MessageType: spot-check enum values" {
     try std.testing.expectEqual(@as(u16, 0x0001), @intFromEnum(MessageType.client_hello));
     try std.testing.expectEqual(@as(u16, 0x0300), @intFromEnum(MessageType.frame_update));
     try std.testing.expectEqual(@as(u16, 0x04FF), @intFromEnum(MessageType.ime_error));
     try std.testing.expectEqual(@as(u16, 0x00FF), @intFromEnum(MessageType.@"error"));
 }
 
-test "MessageType expectedEncoding" {
+test "MessageType.expectedEncoding: returns correct encoding" {
     try std.testing.expectEqual(MessageType.Encoding.binary, MessageType.frame_update.expectedEncoding());
     try std.testing.expectEqual(MessageType.Encoding.json, MessageType.client_hello.expectedEncoding());
     try std.testing.expectEqual(MessageType.Encoding.json, MessageType.key_event.expectedEncoding());

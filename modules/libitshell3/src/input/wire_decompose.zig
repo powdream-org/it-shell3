@@ -11,7 +11,7 @@ const KeyEvent = @import("itshell3_core").KeyEvent;
 ///   Bit 4: CapsLock  -> Not consumed by IME
 ///   Bit 5: NumLock   -> Not consumed by IME
 pub fn decomposeWireEvent(
-    hid_keycode: u8,
+    hid_keycode: u16,
     wire_modifiers: u8,
     action: KeyEvent.Action,
 ) KeyEvent {
@@ -31,7 +31,7 @@ pub fn decomposeWireEvent(
 
 test "decomposeWireEvent: no modifiers" {
     const key = decomposeWireEvent(0x04, 0x00, .press);
-    try std.testing.expectEqual(@as(u8, 0x04), key.hid_keycode);
+    try std.testing.expectEqual(@as(u16, 0x04), key.hid_keycode);
     try std.testing.expect(!key.shift);
     try std.testing.expect(!key.modifiers.ctrl);
     try std.testing.expect(!key.modifiers.alt);
@@ -90,7 +90,7 @@ test "decomposeWireEvent: NumLock (bit 5) not consumed by IME" {
 
 test "decomposeWireEvent: all modifier bits set" {
     const key = decomposeWireEvent(0x15, 0x3F, .press);
-    try std.testing.expectEqual(@as(u8, 0x15), key.hid_keycode);
+    try std.testing.expectEqual(@as(u16, 0x15), key.hid_keycode);
     try std.testing.expect(key.shift);
     try std.testing.expect(key.modifiers.ctrl);
     try std.testing.expect(key.modifiers.alt);
@@ -105,6 +105,24 @@ test "decomposeWireEvent: action repeat" {
 test "decomposeWireEvent: action release" {
     const key = decomposeWireEvent(0x04, 0x00, .release);
     try std.testing.expectEqual(KeyEvent.Action.release, key.action);
+}
+
+test "decomposeWireEvent: u16 keycode > 0xFF round-trips correctly" {
+    // Exercise the u16 widening path: a keycode value that exceeds u8 range
+    // must survive decomposition and be stored in KeyEvent.hid_keycode (u16).
+    // This would have failed with an old u8 parameter type.
+    const keycode: u16 = 0x0100;
+    const key = decomposeWireEvent(keycode, 0x00, .press);
+    try std.testing.expectEqual(keycode, key.hid_keycode);
+    try std.testing.expectEqual(KeyEvent.Action.press, key.action);
+
+    // Also test a value near the u16 maximum.
+    const high_keycode: u16 = 0xFFFF;
+    const high_key = decomposeWireEvent(high_keycode, 0x03, .release);
+    try std.testing.expectEqual(high_keycode, high_key.hid_keycode);
+    try std.testing.expect(high_key.shift);
+    try std.testing.expect(high_key.modifiers.ctrl);
+    try std.testing.expectEqual(KeyEvent.Action.release, high_key.action);
 }
 
 test "decomposeWireEvent: shift+ctrl combo (bits 0+1)" {

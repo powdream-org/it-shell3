@@ -52,7 +52,7 @@ pub const CellData = extern struct {
     };
 };
 
-/// Style flags (u16 LE, doc 04 §4)
+/// Style flags (u16 LE). See the server-client-protocols RenderState spec.
 pub const StyleFlags = struct {
     pub const bold: u16 = 1 << 0;
     pub const italic: u16 = 1 << 1;
@@ -64,7 +64,7 @@ pub const StyleFlags = struct {
     pub const overline: u16 = 1 << 7;
     // Bits 8-10: underline style (0=none, 1=single, 2=double, 3=curly, 4=dotted, 5=dashed)
     pub const underline_mask: u16 = 0x0700;
-    pub const underline_shift: u4 = 8;
+    pub const underline_shift: u8 = 8;
 };
 
 /// RowHeader (9 bytes binary)
@@ -84,7 +84,7 @@ pub const RowHeader = struct {
         pub const rle_encoded: u8 = 1 << 1;
         // Bits 2-3: semantic_prompt (0=none, 1=prompt, 2=prompt_continuation)
         pub const semantic_prompt_mask: u8 = 0x0C;
-        pub const semantic_prompt_shift: u3 = 2;
+        pub const semantic_prompt_shift: u8 = 2;
         // Bit 4: hyperlink (row contains hyperlinked cells)
         pub const hyperlink: u8 = 1 << 4;
     };
@@ -215,15 +215,15 @@ pub fn encodeUnderlineColorTable(entries: []const UnderlineColorEntry, writer: a
 
 // ---- Tests ----
 
-test "CellData comptime size check" {
+test "CellData: comptime size check" {
     try std.testing.expectEqual(@as(usize, 16), @sizeOf(CellData));
 }
 
-test "RowHeader size not 9 via extern (manual encode is correct)" {
+test "RowHeader: SIZE constant is 9" {
     try std.testing.expectEqual(@as(usize, 9), RowHeader.SIZE);
 }
 
-test "PackedColor constructors" {
+test "PackedColor: constructors" {
     const d = PackedColor.default_color;
     try std.testing.expectEqual(@as(u8, 0x00), d.tag);
     try std.testing.expect(d.isDefault());
@@ -239,7 +239,7 @@ test "PackedColor constructors" {
     try std.testing.expectEqual(@as(u8, 0), r.data[2]);
 }
 
-test "CellData encode/decode round-trip narrow cell" {
+test "encodeCellData/decodeCellData: round-trip narrow cell" {
     const cell = CellData{
         .codepoint = 0x0041, // 'A'
         .wide = CellData.Wide.narrow,
@@ -258,7 +258,7 @@ test "CellData encode/decode round-trip narrow cell" {
     try std.testing.expectEqual(cell.fg_color.tag, decoded.fg_color.tag);
 }
 
-test "CellData encode/decode wide cell" {
+test "encodeCellData/decodeCellData: round-trip wide cell" {
     const wide_cell = CellData{
         .codepoint = 0xD55C, // 한
         .wide = CellData.Wide.wide,
@@ -287,7 +287,7 @@ test "CellData encode/decode wide cell" {
     try std.testing.expectEqual(CellData.Wide.spacer_tail, decoded_spacer.wide);
 }
 
-test "CellData all style flags set" {
+test "encodeCellData/decodeCellData: all style flags set" {
     const all_flags: u16 = StyleFlags.bold | StyleFlags.italic | StyleFlags.faint |
         StyleFlags.blink | StyleFlags.inverse | StyleFlags.invisible |
         StyleFlags.strikethrough | StyleFlags.overline | StyleFlags.underline_mask;
@@ -305,7 +305,7 @@ test "CellData all style flags set" {
     try std.testing.expectEqual(all_flags, decoded.flags);
 }
 
-test "RowHeader encode/decode round-trip" {
+test "encodeRowHeader/decodeRowHeader: round-trip" {
     const rh = RowHeader{
         .y = 10,
         .row_flags = RowHeader.RowFlags.selection | RowHeader.RowFlags.rle_encoded,
@@ -325,7 +325,7 @@ test "RowHeader encode/decode round-trip" {
     try std.testing.expect(decoded.isRleEncoded());
 }
 
-test "RowHeader semantic_prompt and hyperlink flags" {
+test "RowHeader: semantic_prompt and hyperlink flags" {
     const rh = RowHeader{
         .y = 0,
         .row_flags = (2 << 2) | RowHeader.RowFlags.hyperlink, // prompt_continuation + hyperlink
@@ -340,7 +340,7 @@ test "RowHeader semantic_prompt and hyperlink flags" {
     try std.testing.expect(decoded.hasHyperlink());
 }
 
-test "RLE run encode/decode" {
+test "encodeRleRun/decodeRleRun: round-trip" {
     const cell = CellData{
         .codepoint = 0x20, // space
         .wide = 0,
@@ -356,14 +356,14 @@ test "RLE run encode/decode" {
     try std.testing.expectEqual(cell.codepoint, result.cell.codepoint);
 }
 
-test "GraphemeTable encode 0 entries" {
+test "encodeGraphemeTable: 0 entries" {
     var buf: [2]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
     try encodeGraphemeTable(&.{}, fbs.writer());
     try std.testing.expectEqual(@as(u16, 0), std.mem.readInt(u16, buf[0..2], .little));
 }
 
-test "GraphemeTable encode 1 entry" {
+test "encodeGraphemeTable: 1 entry" {
     const entries = [_]GraphemeEntry{.{ .col_index = 5, .extra_codepoints = &[_]u32{ 0x302, 0x308 } }};
     var buf: [128]u8 = std.mem.zeroes([128]u8);
     var fbs = std.io.fixedBufferStream(&buf);
@@ -375,7 +375,7 @@ test "GraphemeTable encode 1 entry" {
     try std.testing.expectEqual(@as(u32, 0x302), std.mem.readInt(u32, buf[5..9], .little));
 }
 
-test "UnderlineColorTable encode 1 entry" {
+test "encodeUnderlineColorTable: 1 entry" {
     const entries = [_]UnderlineColorEntry{.{ .col_index = 10, .underline_color = PackedColor.rgb(255, 0, 0) }};
     var buf: [128]u8 = std.mem.zeroes([128]u8);
     var fbs = std.io.fixedBufferStream(&buf);

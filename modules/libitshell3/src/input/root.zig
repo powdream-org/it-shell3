@@ -1,3 +1,6 @@
+//! Input routing module. Handles key event decomposition from wire format and
+//! routes keys through Phase 0 (shortcut check) and Phase 1 (IME processing).
+
 pub const wire_decompose = @import("wire_decompose.zig");
 pub const key_router = @import("key_router.zig");
 

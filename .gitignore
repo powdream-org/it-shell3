@@ -27,3 +27,6 @@ poc/**/.zig-cache/
 # invoke-agent
 /.invoke-agent
 coverage/
+
+# Claude worktrees
+/.claude/worktrees

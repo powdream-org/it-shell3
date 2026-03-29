@@ -91,7 +91,7 @@ pub const ExportResult = extern struct {
 ///
 /// The caller must call updateRenderState() before this to snapshot terminal
 /// state. This separation gives server/ explicit control over the
-/// update → dirty-check → export pipeline (spec §4.6).
+/// update → dirty-check → export pipeline (per daemon-architecture state-and-types spec).
 ///
 /// The returned ExportResult owns the cell buffer. Caller must free via freeExport().
 pub fn freeExport(alloc: Allocator, result: *ExportResult) void {
@@ -172,12 +172,12 @@ pub fn bulkExport(
 const terminal_mod = @import("terminal.zig");
 const render_state_mod = @import("render_state.zig");
 
-test "FlatCell size and alignment" {
+test "FlatCell: size and alignment" {
     try std.testing.expectEqual(@as(usize, 16), @sizeOf(FlatCell));
     try std.testing.expectEqual(@as(usize, 4), @alignOf(FlatCell));
 }
 
-test "PackedColor from Style.Color" {
+test "PackedColor.fromStyleColor: converts from Style.Color" {
     const none = PackedColor.fromStyleColor(.none);
     try std.testing.expectEqual(@as(u8, 0), none.tag);
 
@@ -192,7 +192,7 @@ test "PackedColor from Style.Color" {
     try std.testing.expectEqual(@as(u8, 0), rgb.b);
 }
 
-test "bulkExport produces correct dimensions" {
+test "bulkExport: produces correct dimensions" {
     var t = try terminal_mod.initTerminal(std.testing.allocator, 80, 24);
     defer terminal_mod.deinitTerminal(&t, std.testing.allocator);
 
@@ -207,7 +207,7 @@ test "bulkExport produces correct dimensions" {
     try std.testing.expectEqual(@as(u16, 80), result.cols);
 }
 
-test "bulkExport captures text content" {
+test "bulkExport: captures text content" {
     var t = try terminal_mod.initTerminal(std.testing.allocator, 80, 24);
     defer terminal_mod.deinitTerminal(&t, std.testing.allocator);
 
@@ -226,7 +226,7 @@ test "bulkExport captures text content" {
     try std.testing.expectEqual(@as(u32, 0), result.cells[3].codepoint);
 }
 
-test "bulkExport cursor tracks terminal position" {
+test "bulkExport: cursor tracks terminal position" {
     var t = try terminal_mod.initTerminal(std.testing.allocator, 80, 24);
     defer terminal_mod.deinitTerminal(&t, std.testing.allocator);
 
@@ -243,7 +243,7 @@ test "bulkExport cursor tracks terminal position" {
     try std.testing.expectEqual(@as(u32, 0), result.cursor_y);
 }
 
-test "freeExport cleans up allocation" {
+test "freeExport: cleans up allocation" {
     var t = try terminal_mod.initTerminal(std.testing.allocator, 10, 5);
     defer terminal_mod.deinitTerminal(&t, std.testing.allocator);
 

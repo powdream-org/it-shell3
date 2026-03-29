@@ -12,7 +12,12 @@
 
 ## Action
 
-### 8a. Check context budget
+### 8a. Update TODO.md
+
+Update TODO.md: set **Step** to 8 (Over-Engineering Review), mark Step 7 as
+`[x]`.
+
+### 8b. Check context budget
 
 Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
 `/compact` before spawning the over-engineering reviewer. This step may trigger

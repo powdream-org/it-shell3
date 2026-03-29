@@ -15,7 +15,11 @@
 
 ## Action
 
-### 9a. Final gate verification
+### 9a. Update TODO.md
+
+Update TODO.md: set **Step** to 9 (Commit & Report), mark Step 8 as `[x]`.
+
+### 9b. Final gate verification
 
 ALL of these must be true:
 

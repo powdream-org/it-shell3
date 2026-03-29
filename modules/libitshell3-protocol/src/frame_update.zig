@@ -1,6 +1,6 @@
 const std = @import("std");
 const cell_mod = @import("cell.zig");
-const json_mod = @import("json.zig");
+
 
 // --- Frame Header (20 bytes binary) ---
 
@@ -230,7 +230,9 @@ pub const FrameMetadata = struct {
 
 /// Encode JSON metadata blob: [json_len (u32 LE)] [json_data]
 pub fn encodeJsonMetadata(allocator: std.mem.Allocator, metadata: FrameMetadata, writer: anytype) !void {
-    const json_bytes = try json_mod.encode(allocator, metadata);
+    const json_bytes = try std.json.Stringify.valueAlloc(allocator, metadata, .{
+        .emit_null_optional_fields = false,
+    });
     defer allocator.free(json_bytes);
     var len_buf: [4]u8 = undefined;
     std.mem.writeInt(u32, &len_buf, @intCast(json_bytes.len), .little);
@@ -246,7 +248,9 @@ pub fn decodeJsonMetadata(reader: anytype, allocator: std.mem.Allocator) !std.js
     const json_bytes = try allocator.alloc(u8, json_len);
     defer allocator.free(json_bytes);
     try reader.readNoEof(json_bytes);
-    return json_mod.decode(FrameMetadata, allocator, json_bytes);
+    return std.json.parseFromSlice(FrameMetadata, allocator, json_bytes, .{
+        .ignore_unknown_fields = true,
+    });
 }
 
 /// Encode a complete FrameUpdate payload (after the 16-byte protocol header).
@@ -280,7 +284,7 @@ pub fn encodeFrameUpdate(
 
 // --- Tests ---
 
-test "FrameHeader encode/decode round-trip" {
+test "FrameHeader.encode/FrameHeader.decode: round-trip" {
     const fh = FrameHeader{
         .session_id = 1,
         .pane_id = 2,
@@ -302,7 +306,7 @@ test "FrameHeader encode/decode round-trip" {
     try std.testing.expect(decoded.hasJsonMetadata());
 }
 
-test "Empty P-frame (JSON metadata only)" {
+test "FrameHeader: empty P-frame with JSON metadata only" {
     const fh = FrameHeader{
         .session_id = 1,
         .pane_id = 1,
@@ -315,7 +319,7 @@ test "Empty P-frame (JSON metadata only)" {
     try std.testing.expect(fh.hasJsonMetadata());
 }
 
-test "I-frame FrameHeader" {
+test "FrameHeader: I-frame header" {
     const fh = FrameHeader{
         .session_id = 1,
         .pane_id = 1,
@@ -331,7 +335,7 @@ test "I-frame FrameHeader" {
     try std.testing.expectEqual(Screen.alternate, decoded.screen);
 }
 
-test "DirtyRows encode/decode round-trip (1 row, 3 cells)" {
+test "encodeDirtyRows/decodeDirtyRows: round-trip 1 row 3 cells" {
     const allocator = std.testing.allocator;
 
     const cells = [_]cell_mod.CellData{
@@ -362,7 +366,7 @@ test "DirtyRows encode/decode round-trip (1 row, 3 cells)" {
     try std.testing.expectEqual(cell_mod.StyleFlags.bold, decoded_rows[0].cells[1].flags);
 }
 
-test "DirtyRows with wide char pair" {
+test "encodeDirtyRows/decodeDirtyRows: wide char pair" {
     const allocator = std.testing.allocator;
 
     const cells = [_]cell_mod.CellData{
@@ -388,7 +392,7 @@ test "DirtyRows with wide char pair" {
     try std.testing.expectEqual(@as(u32, 0xD55C), decoded[0].cells[0].codepoint);
 }
 
-test "DirtyRows with grapheme entries" {
+test "encodeDirtyRows/decodeDirtyRows: with grapheme entries" {
     const allocator = std.testing.allocator;
 
     const extra_cps = [_]u32{ 0x0302, 0x0308 };
@@ -418,7 +422,8 @@ test "DirtyRows with grapheme entries" {
     try std.testing.expectEqual(@as(u32, 0x0302), decoded[0].grapheme_entries[0].extra_codepoints[0]);
 }
 
-test "FrameMetadata JSON round-trip" {
+test "FrameMetadata: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const metadata = FrameMetadata{
         .cursor = .{ .x = 5, .y = 10, .visible = true, .style = 0, .blinking = true },
@@ -433,7 +438,7 @@ test "FrameMetadata JSON round-trip" {
     try std.testing.expectEqual(@as(u16, 80), parsed.value.dimensions.?.cols);
 }
 
-test "JSON metadata blob encode/decode" {
+test "encodeJsonMetadataBlob: encode and decode" {
     const allocator = std.testing.allocator;
     const metadata = FrameMetadata{
         .cursor = .{ .x = 0, .y = 0, .visible = true },
@@ -451,7 +456,7 @@ test "JSON metadata blob encode/decode" {
     try std.testing.expect(decoded.value.terminal_modes.?.bracketed_paste.?);
 }
 
-test "Full FrameUpdate encode (dirty rows + metadata)" {
+test "encodeFrameUpdate: dirty rows plus metadata" {
     const allocator = std.testing.allocator;
 
     const cells = [_]cell_mod.CellData{
@@ -485,7 +490,7 @@ test "Full FrameUpdate encode (dirty rows + metadata)" {
     try std.testing.expectEqual(FrameType.p_frame, decoded_fh.frame_type);
 }
 
-test "DirtyRows with underline color entries (LSP diagnostic squiggles)" {
+test "encodeDirtyRows/decodeDirtyRows: with underline color entries" {
     const allocator = std.testing.allocator;
 
     // Simulate a row with colored underlines: red squiggly for error, yellow for warning
@@ -535,7 +540,7 @@ test "DirtyRows with underline color entries (LSP diagnostic squiggles)" {
     try std.testing.expectEqual(@as(u8, 0), uc2.underline_color.data[2]); // B
 }
 
-test "DirtyRows with both graphemes and underline colors" {
+test "encodeDirtyRows/decodeDirtyRows: both graphemes and underline colors" {
     const allocator = std.testing.allocator;
 
     const extra_cps = [_]u32{0x0308}; // combining diaeresis
@@ -573,7 +578,7 @@ test "DirtyRows with both graphemes and underline colors" {
     try std.testing.expectEqual(@as(u8, 196), decoded[0].underline_color_entries[0].underline_color.data[0]);
 }
 
-test "decodeDirtyRows OOM on row allocation frees nothing (no partial state)" {
+test "decodeDirtyRows: OOM on row allocation frees nothing" {
     // Use a FailingAllocator that fails on the very first allocation (the rows slice)
     var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 0 });
 
@@ -595,7 +600,7 @@ test "decodeDirtyRows OOM on row allocation frees nothing (no partial state)" {
     // std.testing.allocator would detect leaks if any cleanup was missed
 }
 
-test "decodeDirtyRows OOM on cells allocation cleans up rows slice" {
+test "decodeDirtyRows: OOM on cells allocation cleans up rows" {
     // Encode 2 rows so there is real data to decode
     const cells = [_]cell_mod.CellData{
         .{ .codepoint = 'A', .flags = 0, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
@@ -617,7 +622,7 @@ test "decodeDirtyRows OOM on cells allocation cleans up rows slice" {
     // The FailingAllocator backed by testing.allocator will detect any leak
 }
 
-test "decodeDirtyRows OOM on grapheme allocation cleans up cells" {
+test "decodeDirtyRows: OOM on grapheme allocation cleans up cells" {
     // Encode a row with grapheme entries; fail on grapheme alloc
     const extra_cps = [_]u32{0x0302};
     const graphemes = [_]cell_mod.GraphemeEntry{.{ .col_index = 0, .extra_codepoints = &extra_cps }};
@@ -642,7 +647,7 @@ test "decodeDirtyRows OOM on grapheme allocation cleans up cells" {
     try std.testing.expectError(error.OutOfMemory, result);
 }
 
-test "decodeDirtyRows OOM on extra_codepoints allocation cleans up grapheme and cells" {
+test "decodeDirtyRows: OOM on extra_codepoints cleans up grapheme and cells" {
     const extra_cps = [_]u32{ 0x0302, 0x0308 };
     const graphemes = [_]cell_mod.GraphemeEntry{.{ .col_index = 0, .extra_codepoints = &extra_cps }};
     const cells = [_]cell_mod.CellData{
@@ -665,7 +670,7 @@ test "decodeDirtyRows OOM on extra_codepoints allocation cleans up grapheme and 
     try std.testing.expectError(error.OutOfMemory, result);
 }
 
-test "decodeDirtyRows OOM on underline allocation cleans up graphemes and cells" {
+test "decodeDirtyRows: OOM on underline allocation cleans up graphemes and cells" {
     const cells = [_]cell_mod.CellData{
         .{ .codepoint = 'x', .flags = 0, .wide = 0, .content_tag = 0, .fg_color = cell_mod.PackedColor.default_color, .bg_color = cell_mod.PackedColor.default_color },
     };
@@ -690,7 +695,7 @@ test "decodeDirtyRows OOM on underline allocation cleans up graphemes and cells"
     try std.testing.expectError(error.OutOfMemory, result);
 }
 
-test "decodeDirtyRows OOM mid-second-row cleans up first row completely" {
+test "decodeDirtyRows: OOM mid-second-row cleans up first row completely" {
     // Two rows with underline colors (no grapheme extras to avoid known leak bug in
     // errdefer -- see BUG note below). OOM on second row's cells must free row 0 fully.
     //
@@ -733,7 +738,7 @@ test "decodeDirtyRows OOM mid-second-row cleans up first row completely" {
     // testing.allocator will detect any leak from incomplete cleanup
 }
 
-test "Multiple rows with underline colors round-trip" {
+test "encodeDirtyRows/decodeDirtyRows: multiple rows with underline colors" {
     const allocator = std.testing.allocator;
 
     const cells1 = [_]cell_mod.CellData{
@@ -789,7 +794,7 @@ test "Multiple rows with underline colors round-trip" {
     try std.testing.expectEqual(@as(u8, 0), decoded[1].underline_color_entries[0].underline_color.data[2]); // B=0
 }
 
-test "encodeFrameUpdate with no dirty rows and no metadata" {
+test "encodeFrameUpdate: no dirty rows and no metadata" {
     const allocator = std.testing.allocator;
     const fh = FrameHeader{
         .session_id = 5,

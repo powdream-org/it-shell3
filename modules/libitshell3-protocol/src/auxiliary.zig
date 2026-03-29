@@ -1,5 +1,4 @@
 const std = @import("std");
-const json_mod = @import("json.zig");
 
 // ---- Flow Control (0x0500-0x05FF) ----
 
@@ -296,7 +295,8 @@ pub const ExtensionMessage = struct {
 
 // --- Tests ---
 
-test "ClientDisplayInfo JSON round-trip" {
+test "ClientDisplayInfo: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ClientDisplayInfo{
         .display_refresh_hz = 120,
@@ -314,7 +314,8 @@ test "ClientDisplayInfo JSON round-trip" {
     try std.testing.expectEqualStrings("ssh_tunnel", parsed.value.transport_type);
 }
 
-test "FlowControlConfig JSON round-trip" {
+test "FlowControlConfig: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = FlowControlConfig{
         .max_queue_age_ms = 10000,
@@ -329,7 +330,8 @@ test "FlowControlConfig JSON round-trip" {
     try std.testing.expect(!parsed.value.auto_continue);
 }
 
-test "ClipboardWrite JSON round-trip" {
+test "ClipboardWrite: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ClipboardWrite{
         .pane_id = 1,
@@ -345,7 +347,8 @@ test "ClipboardWrite JSON round-trip" {
     try std.testing.expectEqualStrings("selection", parsed.value.clipboard_type);
 }
 
-test "Subscribe JSON round-trip with config" {
+test "Subscribe: JSON round-trip with config" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = Subscribe{
         .pane_id = 0,
@@ -361,7 +364,8 @@ test "Subscribe JSON round-trip with config" {
     try std.testing.expectEqual(@as(?u32, 15000), parsed.value.config.?.silence_threshold_ms);
 }
 
-test "SnapshotRequest JSON round-trip" {
+test "SnapshotRequest: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = SnapshotRequest{ .session_id = 1, .include_scrollback = false };
     const j = try json_mod.encode(allocator, original);
@@ -372,7 +376,8 @@ test "SnapshotRequest JSON round-trip" {
     try std.testing.expect(!parsed.value.include_scrollback);
 }
 
-test "ProcessExited JSON round-trip" {
+test "ProcessExited: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ProcessExited{ .pane_id = 1, .exit_code = -9, .process_name = "make" };
     const j = try json_mod.encode(allocator, original);
@@ -383,7 +388,7 @@ test "ProcessExited JSON round-trip" {
     try std.testing.expectEqualStrings("make", parsed.value.process_name);
 }
 
-test "EventMask constants" {
+test "EventMask: constants" {
     try std.testing.expectEqual(@as(u32, 0x0001), EventMask.pane_title_changed);
     try std.testing.expectEqual(@as(u32, 0x0100), EventMask.output_queue_status);
     const all = EventMask.pane_title_changed | EventMask.process_exited | EventMask.bell |
@@ -392,7 +397,8 @@ test "EventMask constants" {
     try std.testing.expectEqual(@as(u32, 0x01FF), all);
 }
 
-test "RendererHealth JSON round-trip" {
+test "RendererHealth: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = RendererHealth{
         .pane_id = 1,

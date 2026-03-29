@@ -22,9 +22,9 @@ libhangul, POSIX (kqueue/epoll, forkpty, Unix sockets).
 
 | Module               | Source Files | Tests | Coverage (kcov)            |
 | -------------------- | ------------ | ----- | -------------------------- |
-| libitshell3          | 33           | 274   | 94.54%                     |
-| libitshell3-protocol | 16           | 128   | 97.44%                     |
-| libitshell3-ime      | 10           | 138   | exempted (scenario-matrix) |
+| libitshell3          | 39           | 468   | pending re-measure         |
+| libitshell3-protocol | 22           | 146   | pending re-measure         |
+| libitshell3-ime      | 9            | 139   | exempted (scenario-matrix) |
 | daemon               | 1            | —     | —                          |
 
 Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
@@ -33,28 +33,28 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 
 ## Plan Index
 
-| #    | Name                                          | Plan File                                           | Target Module        | Status      |
-| ---- | --------------------------------------------- | --------------------------------------------------- | -------------------- | ----------- |
-| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**    |
-| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**    |
-| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**    |
-| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**    |
-| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done**    |
-| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3 + docs   | Not started |
-| 6    | Message Infrastructure & Connection Lifecycle | (not yet written)                                   | libitshell3          | Not started |
-| 7    | Session & Pane Operations                     | (not yet written)                                   | libitshell3          | Not started |
-| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                   | libitshell3          | Not started |
-| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                   | libitshell3          | Not started |
-| 10   | Cascades & Shutdown                           | (not yet written)                                   | libitshell3          | Not started |
-| 11   | SSH Transport                                 | (not yet written)                                   | libitshell3-protocol | Not started |
-| 12.1 | Daemon CLI — Design                           | (not yet written)                                   | daemon               | Not started |
-| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                   | daemon               | Not started |
-| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started |
-| 14.1 | macOS Client PoC — Design                     | (not yet written)                                   | app/macos            | Not started |
-| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                   | app/macos            | Not started |
-| 15   | Design Doc CTR Resolution                     | (not yet written)                                   | multi-module         | Not started |
-| 16   | Post-Design Code Alignment                    | (not yet written)                                   | multi-module         | Not started |
-| 17+  | Deferred Features                             | —                                                   | various              | Not started |
+| #    | Name                                          | Plan File                                           | Target Module        | Status          |
+| ---- | --------------------------------------------- | --------------------------------------------------- | -------------------- | --------------- |
+| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`              | libitshell3          | **Done**        |
+| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`     | libitshell3          | **Done**        |
+| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                | libitshell3-protocol | **Done**        |
+| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`             | libitshell3          | **Done**        |
+| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`         | libitshell3          | **Done**        |
+| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3 + docs   | **Done**        |
+| 6    | Message Infrastructure & Connection Lifecycle | `2026-03-28-libitshell3-message-infrastructure.md`  | libitshell3          | **In progress** |
+| 7    | Session & Pane Operations                     | (not yet written)                                   | libitshell3          | Not started     |
+| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                   | libitshell3          | Not started     |
+| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                   | libitshell3          | Not started     |
+| 10   | Cascades & Shutdown                           | (not yet written)                                   | libitshell3          | Not started     |
+| 11   | SSH Transport                                 | (not yet written)                                   | libitshell3-protocol | Not started     |
+| 12.1 | Daemon CLI — Design                           | (not yet written)                                   | daemon               | Not started     |
+| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                   | daemon               | Not started     |
+| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md` | daemon               | Not started     |
+| 14.1 | macOS Client PoC — Design                     | (not yet written)                                   | app/macos            | Not started     |
+| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                   | app/macos            | Not started     |
+| 15   | Design Doc CTR Resolution                     | (not yet written)                                   | multi-module         | Not started     |
+| 16   | Post-Design Code Alignment                    | (not yet written)                                   | multi-module         | Not started     |
+| 17+  | Deferred Features                             | —                                                   | various              | Not started     |
 
 ---
 
@@ -67,7 +67,7 @@ graph TD
     P2 --> P4["Plan 4: Ring Buffer + Frame Delivery ✅"]
     P3 --> P4
     P4 --> P5["Plan 5: IME Integration ✅"]
-    P5 --> P5_5["Plan 5.5: Spec Alignment Audit"]
+    P5 --> P5_5["Plan 5.5: Spec Alignment Audit ✅"]
     P5_5 --> P6["Plan 6: Message Infrastructure"]
     P6 --> P7["Plan 7: Session & Pane Ops"]
     P7 --> P8["Plan 8: Input Pipeline"]
@@ -182,7 +182,7 @@ ime-procedures from impl-constraints.
 **Depends on:** Plan 4 (ring buffer — preedit overlay applied to exported frames
 before ring insertion)
 
-### Plan 5.5: Spec Alignment Audit (Not Started)
+### Plan 5.5: Spec Alignment Audit (Done)
 
 **Scope:** Systematic audit and fix of Plan 1-5 technical debt. Plans 1-2 were
 implemented before the verification chain (Steps 5-8) existed, resulting in
@@ -274,6 +274,17 @@ timestamp when creating sessions. TODO comment in `session.zig`.
 `foreground_pid`, `silence_subscriptions`, `silence_deadline` per spec
 `state-and-types.md`. TODO comments in `pane.zig`.
 
+**Note (from Plan 6):** `ConnectionState.transitionTo()` does not allow
+OPERATING→OPERATING. Spec requires this for session switching
+(AttachSessionRequest to a different session while OPERATING). Add
+`target == .operating` to the `.operating` arm when implementing
+AttachSessionRequest. TODO comment in `connection_state.zig`.
+
+**Note (from Plan 6):** ServerHello, HeartbeatAck, and Heartbeat messages are
+enqueued as raw JSON without the 16-byte protocol header. All messages must
+carry the header per protocol spec Section 3. TODO comments in
+`message_dispatcher.zig` and `timer_handler.zig`.
+
 **Depends on:** Plan 6 (message dispatch + connection lifecycle required to
 route session/pane requests and send notifications)
 
@@ -283,6 +294,11 @@ route session/pane requests and send notifications)
 PasteData handler, FocusEvent handler, preedit broadcasting (PreeditStart /
 PreeditUpdate / PreeditEnd / PreeditSync, InputMethodAck), AmbiguousWidthConfig,
 preedit inactivity timeout (30s), input processing priority (5-tier).
+
+**Note (from Plan 6):** `ClientState.display_info` is a dummy
+`ClientDisplayInfo` struct. Populate fields from the `ClientDisplayInfo` message
+(0x0505) when implementing the message handler. TODO comment in
+`client_state.zig`.
 
 **Note (from Plan 5.5 audit):** Wire message sending for IME procedures
 (PreeditEnd, PreeditStart, InputMethodAck, LayoutChanged) — code has TODO(Plan
@@ -381,6 +397,11 @@ orchestration, LaunchAgent plist, stale socket detection, inherited fd check,
 default session creation, CLI argument parsing, version conflict handling.
 
 **Depends on:** Plan 12.1 (design must be complete before implementation)
+
+**Note:** `event_loop.zig` contains `TODO(Plan 6)` test stubs for
+`addClientTransport`, `removeClient`, and `findClientByFd` that must be replaced
+with proper Client Manager integration tests. The signal/listener fd
+registration and chain assembly in production belong to this plan.
 
 ### Plan 13: Debug Subsystem + `it-shell3-ctl` (Not Started)
 
