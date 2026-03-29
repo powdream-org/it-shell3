@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS-x86_64
+            runner: mac-mini
+            install_mise: false
+          - name: macOS-aarch64
+            runner: macos-latest
+            install_mise: true
+          - name: Linux-aarch64
+            runner: korea-pi5
+            install_mise: false
+          - name: Linux-x86_64
+            runner: ubuntu-latest
+            install_mise: true
+
+    name: test (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Init submodules
+        run: git submodule update --init --recursive vendors/ghostty vendors/libhangul
+
+      - name: Configure mise paths
+        if: matrix.install_mise
+        id: mise
+        run: |
+          MISE_BASE="${RUNNER_TOOL_CACHE}/mise"
+          echo "base=$MISE_BASE" >> "$GITHUB_OUTPUT"
+          echo "MISE_INSTALL_PATH=$MISE_BASE/bin/mise" >> "$GITHUB_ENV"
+          echo "MISE_DATA_DIR=$MISE_BASE/data" >> "$GITHUB_ENV"
+          echo "MISE_CACHE_DIR=$MISE_BASE/cache" >> "$GITHUB_ENV"
+          echo "MISE_CONFIG_DIR=$MISE_BASE/config" >> "$GITHUB_ENV"
+
+      - name: Cache mise
+        if: matrix.install_mise
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ${{ steps.mise.outputs.base }}
+          key: mise-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml') }}
+          restore-keys: |
+            mise-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install mise
+        if: matrix.install_mise
+        run: |
+          if [ ! -f "$MISE_INSTALL_PATH" ]; then
+            curl https://mise.run | sh
+          fi
+          echo "$(dirname "$MISE_INSTALL_PATH")" >> "$GITHUB_PATH"
+          echo "$MISE_DATA_DIR/shims" >> "$GITHUB_PATH"
+
+      - name: Install tools
+        run: mise trust && mise install
+
+      - name: Load mise environment
+        run: mise env -s bash | grep -v '^export PATH=' | sed "s/^export //; s/='\(.*\)'$/=\1/" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: |
+          for dir in $TEST_MODULES; do
+            echo "=== $(basename $dir) ==="
+            (cd $dir && zig build test --summary all)
+          done
+
+  coverage:
+    runs-on: mac-mini
+    needs: test
+
+    env:
+      IMAGE_TAG: zig-kcov-ci:${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Init submodules
+        run: git submodule update --init --recursive vendors/ghostty vendors/libhangul
+
+      - name: Load mise environment
+        run: mise env -s bash | grep -v '^export PATH=' | sed "s/^export //; s/='\(.*\)'$/=\1/" >> "$GITHUB_ENV"
+
+      - name: Cleanup old CI images
+        run: docker images zig-kcov-ci --format '{{.ID}}' | xargs -r docker rmi -f || true
+
+      - name: Build Docker image
+        run: |
+          docker build -t zig-kcov-base -f Dockerfile.kcov.base .
+          docker build -t $IMAGE_TAG -f Dockerfile.kcov .
+
+      - name: Measure coverage
+        run: |
+          docker run --rm --security-opt seccomp=unconfined \
+            -e TEST_MODULES="$TEST_MODULES" \
+            -v "$(pwd):/workspace" -w /workspace \
+            $IMAGE_TAG bash /workspace/scripts/coverage.sh
+
+      - name: Find coverage report
+        id: coverage
+        run: |
+          COBERTURA=$(find coverage/merged -name "cobertura.xml" | head -1)
+          echo "file=$COBERTURA" >> "$GITHUB_OUTPUT"
+          echo "Found: $COBERTURA"
+
+      - name: Upload to Coveralls
+        if: steps.coverage.outputs.file != ''
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
+        with:
+          file: ${{ steps.coverage.outputs.file }}
+          format: cobertura
+
+      - name: Cleanup current CI image
+        if: always()
+        run: docker rmi $IMAGE_TAG || true

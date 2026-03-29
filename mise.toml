@@ -27,9 +27,18 @@ for dir in $TEST_MODULES; do
 done
 """
 
+[tasks."build:docker:zig-kcov-base"]
+description = "Build the zig-kcov-base Docker image (kcov + mise)"
+run = "docker build -t zig-kcov-base -f Dockerfile.kcov.base ."
+
 [tasks."build:docker:zig-kcov"]
 description = "Build the zig-kcov Docker image (kcov + mise + zig)"
-run = "docker build -t zig-kcov -f Dockerfile.kcov ."
+run = """
+#!/usr/bin/env bash
+set -e
+docker build -t zig-kcov-base -f Dockerfile.kcov.base .
+docker build -t zig-kcov -f Dockerfile.kcov .
+"""
 
 [tasks."test:linux"]
 description = "Run all module tests in Linux Docker container (Debug)"
