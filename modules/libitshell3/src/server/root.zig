@@ -1,6 +1,6 @@
 //! Server module for the it-shell3 daemon. Contains the event loop, signal
-//! handling, client management, session/pane management, IME consumer/lifecycle/
-//! procedures, ring buffer frame delivery, and client writer.
+//! handling, client management, connection lifecycle, session/pane management,
+//! IME consumer/lifecycle/procedures, ring buffer frame delivery, and client writer.
 
 pub const os = struct {
     pub const interfaces = @import("os/interfaces.zig");
@@ -10,6 +10,7 @@ pub const os = struct {
     pub const platform_queue = @import("os/platform_queue.zig");
     pub const signals = @import("os/signals.zig");
     pub const priority_event_buffer = @import("os/priority_event_buffer.zig");
+    pub const resource_limits = @import("os/resource_limits.zig");
     pub const PlatformContext = platform_queue.PlatformContext;
     pub const PriorityEventBuffer = priority_event_buffer.PriorityEventBuffer;
 };
@@ -20,8 +21,19 @@ pub const delivery = struct {
     pub const frame_serializer = @import("delivery/frame_serializer.zig");
     pub const pane_delivery = @import("delivery/pane_delivery.zig");
     pub const client_writer = @import("delivery/client_writer.zig");
-    pub const client_state = @import("delivery/client_state.zig");
-    pub const client_read = @import("delivery/client_read.zig");
+};
+
+pub const connection = struct {
+    pub const connection_state = @import("connection/connection_state.zig");
+    pub const client_state = @import("connection/client_state.zig");
+    pub const client_manager = @import("connection/client_manager.zig");
+    pub const handshake_handler = @import("connection/handshake_handler.zig");
+    pub const heartbeat_manager = @import("connection/heartbeat_manager.zig");
+    pub const disconnect_handler = @import("connection/disconnect_handler.zig");
+    pub const broadcast = @import("connection/broadcast.zig");
+    pub const ConnectionState = connection_state.ConnectionState;
+    pub const ClientState = client_state.ClientState;
+    pub const ClientManager = client_manager.ClientManager;
 };
 
 pub const ime = struct {
@@ -45,6 +57,9 @@ pub const handlers = struct {
     pub const signal_handler = @import("handlers/signal_handler.zig");
     pub const pty_read = @import("handlers/pty_read.zig");
     pub const client_accept = @import("handlers/client_accept.zig");
+    pub const client_read = @import("handlers/client_read.zig");
+    pub const message_dispatcher = @import("handlers/message_dispatcher.zig");
+    pub const timer_handler = @import("handlers/timer_handler.zig");
     pub const EventLoop = event_loop.EventLoop;
     pub const Handler = event_loop.Handler;
 };
@@ -55,6 +70,7 @@ test {
     // Inline namespace structs need explicit traversal for test discovery
     std.testing.refAllDecls(os);
     std.testing.refAllDecls(delivery);
+    std.testing.refAllDecls(connection);
     std.testing.refAllDecls(ime);
     std.testing.refAllDecls(state);
     std.testing.refAllDecls(handlers);

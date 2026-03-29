@@ -261,12 +261,25 @@ pub const MockEventLoopOps = struct {
     registered_count: usize = 0,
     unregister_count: usize = 0,
 
+    /// Tracks timer registrations.
+    timer_registered: [64]MockTimerRegistration = [_]MockTimerRegistration{.{}} ** 64,
+    timer_registered_count: usize = 0,
+    timer_cancel_count: usize = 0,
+
+    pub const MockTimerRegistration = struct {
+        timer_id: u16 = 0,
+        interval_ms: u32 = 0,
+        active: bool = false,
+    };
+
     pub fn ops(self: *MockEventLoopOps) interfaces.EventLoopOps {
         global_mock_event_loop = self;
         return .{
             .registerRead = mockRegisterRead,
             .registerWrite = mockRegisterWrite,
             .unregister = mockUnregister,
+            .registerTimer = mockRegisterTimer,
+            .cancelTimer = mockCancelTimer,
             .wait = mockWait,
         };
     }
@@ -295,6 +308,24 @@ pub const MockEventLoopOps = struct {
         _ = ctx;
         const self = global_mock_event_loop orelse unreachable;
         self.unregister_count += 1;
+    }
+
+    fn mockRegisterTimer(_: *anyopaque, timer_id: u16, interval_ms: u32, _: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
+        const self = global_mock_event_loop orelse unreachable;
+        if (self.register_error) |err| return err;
+        if (self.timer_registered_count < self.timer_registered.len) {
+            self.timer_registered[self.timer_registered_count] = .{
+                .timer_id = timer_id,
+                .interval_ms = interval_ms,
+                .active = true,
+            };
+            self.timer_registered_count += 1;
+        }
+    }
+
+    fn mockCancelTimer(_: *anyopaque, _: u16) void {
+        const self = global_mock_event_loop orelse unreachable;
+        self.timer_cancel_count += 1;
     }
 
     fn mockWait(ctx: *anyopaque, _: ?u32) interfaces.EventLoopOps.WaitError!PriorityEventBuffer.Iterator {

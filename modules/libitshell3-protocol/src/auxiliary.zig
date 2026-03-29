@@ -1,5 +1,4 @@
 const std = @import("std");
-const json_mod = @import("json.zig");
 
 // ---- Flow Control (0x0500-0x05FF) ----
 
@@ -297,6 +296,7 @@ pub const ExtensionMessage = struct {
 // --- Tests ---
 
 test "ClientDisplayInfo: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ClientDisplayInfo{
         .display_refresh_hz = 120,
@@ -315,6 +315,7 @@ test "ClientDisplayInfo: JSON round-trip" {
 }
 
 test "FlowControlConfig: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = FlowControlConfig{
         .max_queue_age_ms = 10000,
@@ -330,6 +331,7 @@ test "FlowControlConfig: JSON round-trip" {
 }
 
 test "ClipboardWrite: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ClipboardWrite{
         .pane_id = 1,
@@ -346,6 +348,7 @@ test "ClipboardWrite: JSON round-trip" {
 }
 
 test "Subscribe: JSON round-trip with config" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = Subscribe{
         .pane_id = 0,
@@ -362,6 +365,7 @@ test "Subscribe: JSON round-trip with config" {
 }
 
 test "SnapshotRequest: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = SnapshotRequest{ .session_id = 1, .include_scrollback = false };
     const j = try json_mod.encode(allocator, original);
@@ -373,6 +377,7 @@ test "SnapshotRequest: JSON round-trip" {
 }
 
 test "ProcessExited: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ProcessExited{ .pane_id = 1, .exit_code = -9, .process_name = "make" };
     const j = try json_mod.encode(allocator, original);
@@ -393,6 +398,7 @@ test "EventMask: constants" {
 }
 
 test "RendererHealth: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = RendererHealth{
         .pane_id = 1,

@@ -1,7 +1,0 @@
-.{
-    .name = .libitshell3_transport_v2,
-    .version = "0.1.0",
-    .fingerprint = 0x9a8cc5d50f27137,
-    .paths = .{""},
-    .dependencies = .{},
-}

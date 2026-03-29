@@ -4,7 +4,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    _ = b.addModule("itshell3-transport-v2", .{
+    _ = b.addModule("itshell3-transport", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const lib = b.addLibrary(.{
-        .name = "itshell3-transport-v2",
+        .name = "itshell3-transport",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/root.zig"),
             .target = target,

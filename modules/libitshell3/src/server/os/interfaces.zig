@@ -65,6 +65,11 @@ pub const EventLoopOps = struct {
     registerWrite: *const fn (ctx: *anyopaque, fd: std.posix.fd_t, target: ?EventTarget) RegisterError!void,
     /// Unregister a file descriptor.
     unregister: *const fn (ctx: *anyopaque, fd: std.posix.fd_t) void,
+    /// Register a one-shot or recurring timer. The timer fires after interval_ms
+    /// and surfaces as a Filter.timer event with the given target.
+    registerTimer: *const fn (ctx: *anyopaque, timer_id: u16, interval_ms: u32, target: ?EventTarget) RegisterError!void,
+    /// Cancel a previously registered timer.
+    cancelTimer: *const fn (ctx: *anyopaque, timer_id: u16) void,
     /// Wait for events. Fills a PriorityEventBuffer and returns its iterator.
     wait: *const fn (ctx: *anyopaque, timeout_ms: ?u32) WaitError!PriorityEventBuffer.Iterator,
 

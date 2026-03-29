@@ -1,5 +1,4 @@
 const std = @import("std");
-const json_mod = @import("json.zig");
 
 // Direction: 0=right, 1=down, 2=left, 3=up
 pub const Direction = enum(u8) { right = 0, down = 1, left = 2, up = 3 };
@@ -232,6 +231,7 @@ pub const WindowResizeAck = struct {
 };
 
 test "SplitPaneRequest: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = SplitPaneRequest{ .session_id = 1, .pane_id = 1, .direction = 1, .ratio = 0.5 };
     const j = try json_mod.encode(allocator, original);
@@ -243,6 +243,7 @@ test "SplitPaneRequest: JSON round-trip" {
 }
 
 test "ClosePaneResponse: side_effect field" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ClosePaneResponse{ .status = 0, .side_effect = 1, .new_focus_pane_id = 0 };
     const j = try json_mod.encode(allocator, original);
@@ -253,6 +254,7 @@ test "ClosePaneResponse: side_effect field" {
 }
 
 test "ZoomPaneResponse: zoomed field" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ZoomPaneResponse{ .status = 0, .zoomed = true };
     const j = try json_mod.encode(allocator, original);
@@ -263,6 +265,7 @@ test "ZoomPaneResponse: zoomed field" {
 }
 
 test "SessionListChanged: event field" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = SessionListChanged{ .event = "created", .session_id = 1, .name = "main" };
     const j = try json_mod.encode(allocator, original);
@@ -273,6 +276,7 @@ test "SessionListChanged: event field" {
 }
 
 test "WindowResize: optional pixel fields omitted" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = WindowResize{ .session_id = 1, .cols = 120, .rows = 40 };
     const j = try json_mod.encode(allocator, original);
@@ -281,6 +285,7 @@ test "WindowResize: optional pixel fields omitted" {
 }
 
 test "ClientHealthChanged: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = ClientHealthChanged{
         .session_id = 1,

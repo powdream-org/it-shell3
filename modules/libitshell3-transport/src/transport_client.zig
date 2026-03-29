@@ -46,7 +46,7 @@ test "connect: succeeds when a listener is active" {
     const socket_path = helpers.generateTestSocketPath();
 
     var listener = try server.listen(socket_path);
-    defer listener.close();
+    defer listener.deinit();
 
     const conn = try connect(socket_path);
     std.posix.close(conn.fd);

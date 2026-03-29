@@ -50,15 +50,58 @@ pub const Listener = struct {
         return self.socket_path_storage[0..self.socket_path_length];
     }
 
+    /// Socket buffer size for accepted connections (256 KiB per spec).
+    pub const SOCKET_BUFFER_SIZE: u32 = 256 * 1024;
+
     /// Accepts a new client with UID verification, O_NONBLOCK, and buffer tuning.
     pub fn accept(self: *Listener) AcceptError!transport.SocketConnection {
-        _ = self;
-        // TODO: implement
-        return error.Accept;
+        const client_fd = std.posix.accept(self.listen_fd, null, null, 0) catch return error.Accept;
+        errdefer std.posix.close(client_fd);
+
+        // UID verification via getpeereid (macOS/BSD) or SO_PEERCRED (Linux).
+        if (comptime builtin.os.tag.isBSD()) {
+            var euid: std.posix.uid_t = undefined;
+            var egid: std.posix.gid_t = undefined;
+            if (getpeereid(client_fd, &euid, &egid) != 0) {
+                return error.GetPeerCredFailed;
+            }
+            const my_uid = std.c.getuid();
+            if (euid != my_uid) {
+                return error.UidMismatch;
+            }
+        } else if (comptime builtin.os.tag == .linux) {
+            var cred: std.os.linux.ucred = undefined;
+            var cred_len: u32 = @sizeOf(std.os.linux.ucred);
+            const rc = std.c.getsockopt(client_fd, std.posix.SOL.SOCKET, std.os.linux.SO.PEERCRED, @ptrCast(&cred), &cred_len);
+            if (rc != 0) {
+                return error.GetPeerCredFailed;
+            }
+            const my_uid = std.c.getuid();
+            if (cred.uid != my_uid) {
+                return error.UidMismatch;
+            }
+        }
+
+        // O_NONBLOCK on accepted fd.
+        setNonBlock(client_fd);
+
+        // Buffer tuning: SO_SNDBUF and SO_RCVBUF per protocol spec.
+        setSocketBufferSize(client_fd, SOCKET_BUFFER_SIZE);
+
+        return transport.SocketConnection{ .fd = client_fd };
+    }
+
+    fn setSocketBufferSize(fd_val: socket_t, size: u32) void {
+        const size_bytes: [4]u8 = @bitCast(size);
+        const SOL_SOCKET: i32 = if (builtin.os.tag == .linux) 1 else 0xFFFF;
+        const SO_SNDBUF: u32 = if (builtin.os.tag == .linux) 7 else 0x1001;
+        const SO_RCVBUF: u32 = if (builtin.os.tag == .linux) 8 else 0x1002;
+        std.posix.setsockopt(fd_val, SOL_SOCKET, SO_SNDBUF, &size_bytes) catch {};
+        std.posix.setsockopt(fd_val, SOL_SOCKET, SO_RCVBUF, &size_bytes) catch {};
     }
 
     /// Closes the listen fd and unlinks the socket file.
-    pub fn close(self: *Listener) void {
+    pub fn deinit(self: *Listener) void {
         std.posix.close(self.listen_fd);
         const path = self.socketPath();
         std.posix.unlink(path) catch {};
@@ -209,7 +252,7 @@ test "listen: succeeds on a fresh path and returns a valid Listener" {
     const socket_path = test_helpers.generateTestSocketPath();
 
     var listener = try listen(socket_path);
-    defer listener.close();
+    defer listener.deinit();
 
     try testing.expect(listener.fd() > 0 or listener.fd() == 0);
     try testing.expectEqualSlices(u8, socket_path, listener.socketPath());
@@ -271,7 +314,7 @@ test "Listener.close: closes fd and unlinks socket file" {
     };
     @memcpy(listener.socket_path_storage[0..socket_path.len], socket_path);
 
-    listener.close();
+    listener.deinit();
 
     // Verify socket file is removed: accessing it should fail.
     std.fs.cwd().access(socket_path, .{}) catch |err| {
@@ -298,5 +341,37 @@ test "Listener.close: tolerates already-removed socket file" {
     @memcpy(listener.socket_path_storage[0..ghost_path.len], ghost_path);
 
     // Should not panic even though the socket file does not exist.
-    listener.close();
+    listener.deinit();
+}
+
+test "Listener.accept: accepts a client connection" {
+    comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
+        @compileError("accept tests require BSD or Linux");
+
+    const test_helpers = @import("testing/helpers.zig");
+    const socket_path = test_helpers.generateTestSocketPath();
+
+    var listener = try listen(socket_path);
+    defer listener.deinit();
+
+    // Connect a client from another socket.
+    const client_fd = helper.newFd() catch return error.SocketCreate;
+    defer std.posix.close(client_fd);
+
+    const addr = makeAddr(socket_path);
+    std.posix.connect(client_fd, @ptrCast(&addr), @sizeOf(std.posix.sockaddr.un)) catch
+        return error.Accept;
+
+    // Accept should succeed with UID matching (same process).
+    var conn = try listener.accept();
+    defer conn.close();
+
+    // Verify the connection works by sending/receiving data.
+    _ = std.posix.write(client_fd, "hello") catch return error.Accept;
+    var buf: [16]u8 = undefined;
+    const result = conn.recv(&buf);
+    switch (result) {
+        .bytes_read => |n| try testing.expectEqualSlices(u8, "hello", buf[0..n]),
+        else => return error.TestUnexpectedResult,
+    }
 }

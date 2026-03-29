@@ -8,7 +8,6 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
     });
     _ = protocol_module;
 
@@ -18,7 +17,6 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/root.zig"),
             .target = target,
             .optimize = optimize,
-            .link_libc = true,
         }),
     });
     b.installArtifact(lib);
@@ -28,7 +26,6 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/root.zig"),
             .target = target,
             .optimize = optimize,
-            .link_libc = true,
         }),
     });
 

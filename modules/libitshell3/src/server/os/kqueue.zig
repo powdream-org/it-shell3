@@ -26,6 +26,8 @@ pub const KqueueContext = struct {
             .registerRead = kqRegisterRead,
             .registerWrite = kqRegisterWrite,
             .unregister = kqUnregister,
+            .registerTimer = kqRegisterTimer,
+            .cancelTimer = kqCancelTimer,
             .wait = kqWait,
         };
     }
@@ -138,6 +140,35 @@ fn kqUnregister(ctx: *anyopaque, fd: std.posix.fd_t) void {
         },
     };
     _ = std.posix.kevent(kq, &changes, &.{}, null) catch {};
+}
+
+fn kqRegisterTimer(ctx: *anyopaque, timer_id: u16, interval_ms: u32, target: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
+    if (comptime !builtin.os.tag.isBSD()) unreachable;
+    const kq = toKqCtx(ctx).kq_fd;
+    const udata = encodeTarget(target);
+    const change = [1]std.posix.Kevent{.{
+        .ident = @as(usize, timer_id),
+        .filter = std.c.EVFILT.TIMER,
+        .flags = std.c.EV.ADD | std.c.EV.ENABLE,
+        .fflags = 0,
+        .data = @as(isize, @intCast(interval_ms)),
+        .udata = udata,
+    }};
+    _ = std.posix.kevent(kq, &change, &.{}, null) catch return error.EventLoopError;
+}
+
+fn kqCancelTimer(ctx: *anyopaque, timer_id: u16) void {
+    if (comptime !builtin.os.tag.isBSD()) unreachable;
+    const kq = toKqCtx(ctx).kq_fd;
+    const change = [1]std.posix.Kevent{.{
+        .ident = @as(usize, timer_id),
+        .filter = std.c.EVFILT.TIMER,
+        .flags = std.c.EV.DELETE,
+        .fflags = 0,
+        .data = 0,
+        .udata = 0,
+    }};
+    _ = std.posix.kevent(kq, &change, &.{}, null) catch {};
 }
 
 fn kqWait(ctx: *anyopaque, timeout_ms: ?u32) interfaces.EventLoopOps.WaitError!PriorityEventBuffer.Iterator {

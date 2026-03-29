@@ -2,11 +2,11 @@
 
 ## Current State
 
-- **Step**: 2 (Scaffold & Build Verification)
+- **Step**: 5 (Spec Compliance Review)
 - **Cycle Type**: modification (Plan 6 — new features on existing codebase)
 - **Review Round**: 0
-- **Active Team**: (none)
-- **Team Directory**: (none)
+- **Active Team**: impl-team
+- **Team Directory**: `.claude/agents/impl-team/`
 
 ## Spec
 
@@ -37,8 +37,8 @@
 ## Progress — Round 1
 
 - [x] Step 1: Requirements Intake
-- [ ] Step 2: Scaffold & Build Verification
-- [ ] Step 3: Implementation Phase
+- [x] Step 2: Scaffold & Build Verification
+- [x] Step 3: Implementation Phase
 - [ ] Step 4: Code Simplify
 - [ ] Step 5: Spec Compliance Review
 - [ ] Step 6: Fix Cycle

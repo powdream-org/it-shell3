@@ -1,5 +1,4 @@
 const std = @import("std");
-const json_mod = @import("json.zig");
 
 /// PreeditStart (0x0400, S->C)
 pub const PreeditStart = struct {
@@ -64,6 +63,7 @@ pub const IMEError = struct {
 };
 
 test "PreeditStart: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = PreeditStart{
         .pane_id = 1,
@@ -80,6 +80,7 @@ test "PreeditStart: JSON round-trip" {
 }
 
 test "PreeditEnd: committed_text round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = PreeditEnd{ .pane_id = 1, .preedit_session_id = 42, .reason = "committed", .committed_text = "\xed\x95\x9c" };
     const j = try json_mod.encode(allocator, original);
@@ -91,6 +92,7 @@ test "PreeditEnd: committed_text round-trip" {
 }
 
 test "PreeditEnd: committed_text empty when cancelled" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = PreeditEnd{ .pane_id = 1, .preedit_session_id = 1, .reason = "cancelled" };
     const j = try json_mod.encode(allocator, original);
@@ -103,6 +105,7 @@ test "PreeditEnd: committed_text empty when cancelled" {
 }
 
 test "InputMethodSwitch: optional keyboard_layout omitted" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = InputMethodSwitch{ .pane_id = 1, .input_method = "korean_2set" };
     const j = try json_mod.encode(allocator, original);
@@ -111,6 +114,7 @@ test "InputMethodSwitch: optional keyboard_layout omitted" {
 }
 
 test "InputMethodAck: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const original = InputMethodAck{
         .pane_id = 1,

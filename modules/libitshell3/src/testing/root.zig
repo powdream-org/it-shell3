@@ -19,6 +19,11 @@ pub const mock_ime_engine_spec_test = @import("spec/mock_ime_engine_spec_test.zi
 pub const ring_buffer_spec_compliance_test = @import("spec/ring_buffer_spec_compliance_test.zig");
 pub const ring_buffer_integration_test = @import("spec/ring_buffer_integration_test.zig");
 pub const event_loop_spec_test = @import("spec/event_loop_spec_test.zig");
+pub const client_manager_spec_test = @import("spec/client_manager_spec_test.zig");
+pub const handshake_spec_test = @import("spec/handshake_spec_test.zig");
+pub const heartbeat_spec_test = @import("spec/heartbeat_spec_test.zig");
+pub const message_dispatch_spec_test = @import("spec/message_dispatch_spec_test.zig");
+pub const broadcast_spec_test = @import("spec/broadcast_spec_test.zig");
 
 // Re-exports
 pub const MockImeEngine = mock_ime_engine.MockImeEngine;

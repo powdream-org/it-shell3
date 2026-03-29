@@ -3,7 +3,7 @@ deno = "2.7.5"
 zig = "0.15.2"
 
 [env]
-TEST_MODULES = "modules/libitshell3-protocol modules/libitshell3-ime modules/libitshell3"
+TEST_MODULES = "modules/libitshell3-protocol modules/libitshell3-transport modules/libitshell3-ime modules/libitshell3"
 
 [tasks."test:macos"]
 description = "Run all module tests on macOS (Debug)"

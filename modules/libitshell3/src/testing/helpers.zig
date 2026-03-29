@@ -8,9 +8,6 @@ const core = @import("itshell3_core");
 const session_mod = core.session;
 const server = @import("itshell3_server");
 const session_manager_mod = server.state.session_manager;
-const protocol = @import("itshell3_protocol");
-const Listener = protocol.transport.Listener;
-const UnixTransport = protocol.transport.UnixTransport;
 
 // File-scope static mock engine. Persists across tests so the vtable pointer
 // stored in sessions remains valid. Exported for use by other test files.
@@ -69,7 +66,7 @@ test "tempSocketPath: generates valid unique paths" {
 // ── Integration Tests ─────────────────────────────────────────────────────────
 
 // Integration test: EventLoop with handler chain using mock OS ops.
-test "spec: daemon lifecycle — EventLoop with handler chain and mock OS ops" {
+test "spec: daemon lifecycle -- EventLoop with handler chain and mock OS ops" {
     if (comptime builtin.os.tag != .macos and builtin.os.tag != .linux) return;
 
     // 1. Create mock OS ops
@@ -130,7 +127,7 @@ test "spec: daemon lifecycle — EventLoop with handler chain and mock OS ops" {
 
     try std.testing.expect(el.running);
 
-    // 4. Run the event loop — should process the SIGTERM and stop.
+    // 4. Run the event loop -- should process the SIGTERM and stop.
     try el.run();
 
     try std.testing.expect(!el.running);
@@ -152,7 +149,7 @@ const c_pty = @cImport({
 // Integration test: real PTY fork and read using /bin/echo.
 // Uses /bin/echo (not a shell) so the child exits immediately.
 // Uses poll() with a timeout to prevent hanging.
-test "spec: PTY integration — real PTY fork and read with echo" {
+test "spec: PTY integration -- real PTY fork and read with echo" {
     var master_fd: std.posix.fd_t = undefined;
     var slave_fd: std.posix.fd_t = undefined;
 
@@ -162,7 +159,7 @@ test "spec: PTY integration — real PTY fork and read with echo" {
     }
     defer _ = c_pty.close(master_fd);
 
-    // 2. Fork /bin/echo "hello" — exits immediately after writing
+    // 2. Fork /bin/echo "hello" -- exits immediately after writing
     const pid = c_pty.fork();
     if (pid < 0) {
         _ = c_pty.close(slave_fd);

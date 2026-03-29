@@ -32,6 +32,9 @@ const TAG_NULL: u4 = 4;
 pub const EpollContext = struct {
     ep_fd: std.posix.fd_t,
     event_buffer: PriorityEventBuffer = .{},
+    /// Mapping from timer_id to the timerfd used for epoll-based timers.
+    /// Linux does not have kqueue-style EVFILT_TIMER, so we use timerfd_create.
+    timer_fds: [256]std.posix.fd_t = [_]std.posix.fd_t{-1} ** 256,
 
     pub fn init() error{EventLoopError}!EpollContext {
         if (comptime builtin.os.tag != .linux) @compileError("EpollContext is Linux only");
@@ -48,6 +51,8 @@ pub const EpollContext = struct {
             .registerRead = epRegisterRead,
             .registerWrite = epRegisterWrite,
             .unregister = epUnregister,
+            .registerTimer = epRegisterTimer,
+            .cancelTimer = epCancelTimer,
             .wait = epWait,
         };
     }
@@ -120,6 +125,53 @@ fn epUnregister(ctx: *anyopaque, fd: std.posix.fd_t) void {
     if (comptime builtin.os.tag != .linux) unreachable;
     const ep = toEpCtx(ctx).ep_fd;
     std.posix.epoll_ctl(ep, std.os.linux.EPOLL.CTL_DEL, fd, null) catch {};
+}
+
+fn epRegisterTimer(ctx: *anyopaque, timer_id: u16, interval_ms: u32, target: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {
+    if (comptime builtin.os.tag != .linux) unreachable;
+    const ep_ctx = toEpCtx(ctx);
+
+    if (timer_id >= ep_ctx.timer_fds.len) return error.EventLoopError;
+
+    if (ep_ctx.timer_fds[timer_id] >= 0) {
+        std.posix.epoll_ctl(ep_ctx.ep_fd, std.os.linux.EPOLL.CTL_DEL, ep_ctx.timer_fds[timer_id], null) catch {};
+        std.posix.close(ep_ctx.timer_fds[timer_id]);
+        ep_ctx.timer_fds[timer_id] = -1;
+    }
+
+    const tfd = std.posix.timerfd_create(std.os.linux.TFD.TIMER.CLOEXEC, .MONOTONIC) catch return error.EventLoopError;
+    errdefer std.posix.close(tfd);
+
+    const secs: u32 = interval_ms / 1000;
+    const nsecs: u32 = (interval_ms % 1000) * 1_000_000;
+    const spec = std.os.linux.itimerspec{
+        .it_interval = .{ .sec = secs, .nsec = nsecs },
+        .it_value = .{ .sec = secs, .nsec = nsecs },
+    };
+    _ = std.os.linux.timerfd_settime(tfd, .{}, &spec, null);
+
+    var ev = std.os.linux.epoll_event{
+        .events = std.os.linux.EPOLL.IN,
+        .data = .{ .u64 = epEncodeTarget(tfd, target) },
+    };
+    std.posix.epoll_ctl(ep_ctx.ep_fd, std.os.linux.EPOLL.CTL_ADD, tfd, &ev) catch {
+        std.posix.close(tfd);
+        return error.EventLoopError;
+    };
+
+    ep_ctx.timer_fds[timer_id] = tfd;
+}
+
+fn epCancelTimer(ctx: *anyopaque, timer_id: u16) void {
+    if (comptime builtin.os.tag != .linux) unreachable;
+    const ep_ctx = toEpCtx(ctx);
+    if (timer_id >= ep_ctx.timer_fds.len) return;
+    const tfd = ep_ctx.timer_fds[timer_id];
+    if (tfd >= 0) {
+        std.posix.epoll_ctl(ep_ctx.ep_fd, std.os.linux.EPOLL.CTL_DEL, tfd, null) catch {};
+        std.posix.close(tfd);
+        ep_ctx.timer_fds[timer_id] = -1;
+    }
 }
 
 fn epWait(ctx: *anyopaque, timeout_ms: ?u32) interfaces.EventLoopOps.WaitError!PriorityEventBuffer.Iterator {

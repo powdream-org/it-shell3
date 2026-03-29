@@ -1,6 +1,6 @@
 const std = @import("std");
 const cell_mod = @import("cell.zig");
-const json_mod = @import("json.zig");
+
 
 // --- Frame Header (20 bytes binary) ---
 
@@ -230,7 +230,9 @@ pub const FrameMetadata = struct {
 
 /// Encode JSON metadata blob: [json_len (u32 LE)] [json_data]
 pub fn encodeJsonMetadata(allocator: std.mem.Allocator, metadata: FrameMetadata, writer: anytype) !void {
-    const json_bytes = try json_mod.encode(allocator, metadata);
+    const json_bytes = try std.json.Stringify.valueAlloc(allocator, metadata, .{
+        .emit_null_optional_fields = false,
+    });
     defer allocator.free(json_bytes);
     var len_buf: [4]u8 = undefined;
     std.mem.writeInt(u32, &len_buf, @intCast(json_bytes.len), .little);
@@ -246,7 +248,9 @@ pub fn decodeJsonMetadata(reader: anytype, allocator: std.mem.Allocator) !std.js
     const json_bytes = try allocator.alloc(u8, json_len);
     defer allocator.free(json_bytes);
     try reader.readNoEof(json_bytes);
-    return json_mod.decode(FrameMetadata, allocator, json_bytes);
+    return std.json.parseFromSlice(FrameMetadata, allocator, json_bytes, .{
+        .ignore_unknown_fields = true,
+    });
 }
 
 /// Encode a complete FrameUpdate payload (after the 16-byte protocol header).
@@ -419,6 +423,7 @@ test "encodeDirtyRows/decodeDirtyRows: with grapheme entries" {
 }
 
 test "FrameMetadata: JSON round-trip" {
+    const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
     const metadata = FrameMetadata{
         .cursor = .{ .x = 5, .y = 10, .visible = true, .style = 0, .blinking = true },
