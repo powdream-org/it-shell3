@@ -24,6 +24,9 @@ pub const handshake_spec_test = @import("spec/handshake_spec_test.zig");
 pub const heartbeat_spec_test = @import("spec/heartbeat_spec_test.zig");
 pub const message_dispatch_spec_test = @import("spec/message_dispatch_spec_test.zig");
 pub const broadcast_spec_test = @import("spec/broadcast_spec_test.zig");
+pub const client_read_spec_test = @import("spec/client_read_spec_test.zig");
+pub const timer_handler_spec_test = @import("spec/timer_handler_spec_test.zig");
+pub const connection_state_spec_test = @import("spec/connection_state_spec_test.zig");
 
 // Re-exports
 pub const MockImeEngine = mock_ime_engine.MockImeEngine;

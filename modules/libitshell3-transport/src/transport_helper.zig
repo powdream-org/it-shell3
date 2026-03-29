@@ -16,3 +16,9 @@ pub fn makeAddr(socket_path: []const u8) std.posix.sockaddr.un {
     @memcpy(addr.path[0..socket_path.len], socket_path);
     return addr;
 }
+
+/// Sets O_NONBLOCK on a file descriptor.
+pub fn setNonBlock(fd: std.posix.fd_t) void {
+    const flags = std.posix.fcntl(fd, std.posix.F.GETFL, 0) catch return;
+    _ = std.posix.fcntl(fd, std.posix.F.SETFL, flags | @as(u32, @bitCast(std.posix.O{ .NONBLOCK = true }))) catch {};
+}

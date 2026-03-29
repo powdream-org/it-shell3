@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 5 (Spec Compliance Review)
+- **Step**: 7 (Coverage Audit)
 - **Cycle Type**: modification (Plan 6 — new features on existing codebase)
 - **Review Round**: 1
 - **Active Team**: impl-team
@@ -40,8 +40,8 @@
 - [x] Step 2: Scaffold & Build Verification
 - [x] Step 3: Implementation Phase
 - [x] Step 4: Code Simplify
-- [ ] Step 5: Spec Compliance Review
-- [ ] Step 6: Fix Cycle
+- [x] Step 5: Spec Compliance Review
+- [x] Step 6: Fix Cycle
 - [ ] Step 7: Coverage Audit
 - [ ] Step 8: Over-Engineering Review
 - [ ] Step 9: Commit & Report

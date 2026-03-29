@@ -69,8 +69,9 @@ pub const Listener = struct {
                 return error.UidMismatch;
             }
         } else if (comptime builtin.os.tag == .linux) {
-            var cred: std.os.linux.ucred = undefined;
-            var cred_len: u32 = @sizeOf(std.os.linux.ucred);
+            const Ucred = extern struct { pid: i32, uid: u32, gid: u32 };
+            var cred: Ucred = undefined;
+            var cred_len: u32 = @sizeOf(Ucred);
             const rc = std.c.getsockopt(client_fd, std.posix.SOL.SOCKET, std.os.linux.SO.PEERCRED, @ptrCast(&cred), &cred_len);
             if (rc != 0) {
                 return error.GetPeerCredFailed;
@@ -176,10 +177,7 @@ fn ensureDirectory(socket_path: []const u8, mode: std.posix.mode_t) !void {
     };
 }
 
-fn setNonBlock(fd: socket_t) void {
-    const flags = std.posix.fcntl(fd, std.posix.F.GETFL, 0) catch return;
-    _ = std.posix.fcntl(fd, std.posix.F.SETFL, flags | @as(u32, @bitCast(std.posix.O{ .NONBLOCK = true }))) catch {};
-}
+const setNonBlock = helper.setNonBlock;
 
 fn chmodSocket(socket_path: []const u8, mode: std.posix.mode_t) void {
     var path_buf: [MAX_SOCKET_PATH + 1]u8 = undefined;
@@ -348,6 +346,26 @@ test "Listener.close: tolerates already-removed socket file" {
 
     // Should not panic even though the socket file does not exist.
     listener.deinit();
+}
+
+test "listen: returns Bind when path parent is not a directory" {
+    comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
+        @compileError("listen tests require BSD or Linux");
+
+    // /dev/null exists but is a device file, not a directory.
+    // ensureDirectory sees PathAlreadyExists (OK), but bind fails with ENOTDIR.
+    const result = listen("/dev/null/itshell3-test.sock");
+    try testing.expectError(error.Bind, result);
+}
+
+test "listen: returns DirectoryCreate when parent path is not creatable" {
+    comptime if (!builtin.os.tag.isBSD() and builtin.os.tag != .linux)
+        @compileError("listen tests require BSD or Linux");
+
+    // The parent path /nonexistent/subdir does not exist and cannot be created
+    // because /nonexistent does not exist. mkdir fails with FileNotFound.
+    const result = listen("/nonexistent/subdir/itshell3-test.sock");
+    try testing.expectError(error.DirectoryCreate, result);
 }
 
 test "Listener.accept: accepts a client connection" {
