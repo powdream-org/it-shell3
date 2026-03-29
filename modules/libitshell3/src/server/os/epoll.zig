@@ -4,6 +4,8 @@ const interfaces = @import("interfaces.zig");
 const PriorityEventBuffer = @import("priority_event_buffer.zig").PriorityEventBuffer;
 const core = @import("itshell3_core");
 const types = core.types;
+const timer_handler = @import("../handlers/timer_handler.zig");
+const TIMER_FDS_SIZE = timer_handler.TIMER_FDS_SIZE;
 
 // ── Encoding constants ─────────────────────────────────────────────────────
 
@@ -34,7 +36,7 @@ pub const EpollContext = struct {
     event_buffer: PriorityEventBuffer = .{},
     /// Mapping from timer_id to the timerfd used for epoll-based timers.
     /// Linux does not have kqueue-style EVFILT_TIMER, so we use timerfd_create.
-    timer_fds: [256]std.posix.fd_t = [_]std.posix.fd_t{-1} ** 256,
+    timer_fds: [TIMER_FDS_SIZE]std.posix.fd_t = [_]std.posix.fd_t{-1} ** TIMER_FDS_SIZE,
 
     pub fn init() error{EventLoopError}!EpollContext {
         if (comptime builtin.os.tag != .linux) @compileError("EpollContext is Linux only");

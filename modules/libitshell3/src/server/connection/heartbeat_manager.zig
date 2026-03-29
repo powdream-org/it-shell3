@@ -14,9 +14,6 @@ pub const HEARTBEAT_INTERVAL_MS: u32 = 30_000;
 /// If no message of any kind is received within this window, disconnect.
 pub const HEARTBEAT_TIMEOUT_MS: i64 = 90_000;
 
-/// Timer ID for the shared heartbeat timer.
-pub const HEARTBEAT_TIMER_ID: u16 = 0xFF00;
-
 /// Result of a heartbeat tick for a single client.
 pub const HeartbeatTickResult = enum {
     /// Client is healthy, heartbeat sent.

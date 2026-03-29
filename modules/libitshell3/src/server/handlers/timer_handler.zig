@@ -16,9 +16,17 @@ const HeartbeatTickResult = heartbeat_manager_mod.HeartbeatTickResult;
 const MAX_CLIENTS = server.connection.client_manager.MAX_CLIENTS;
 
 /// Timer ID ranges for dispatching. Derived from MAX_CLIENTS to stay in sync.
+/// Each range is contiguous and non-overlapping:
+///   [HANDSHAKE_TIMER_BASE .. HANDSHAKE_TIMER_MAX] — one per client slot
+///   [READY_IDLE_TIMER_BASE .. READY_IDLE_TIMER_MAX] — one per client slot
+///   HEARTBEAT_TIMER_ID — single shared timer
+///   TIMER_FDS_SIZE — total number of timer fd slots needed
 pub const HANDSHAKE_TIMER_BASE: u16 = 0x0000;
-pub const READY_IDLE_TIMER_BASE: u16 = HANDSHAKE_TIMER_BASE + MAX_CLIENTS;
-pub const HEARTBEAT_TIMER_ID: u16 = heartbeat_manager_mod.HEARTBEAT_TIMER_ID;
+pub const HANDSHAKE_TIMER_MAX: u16 = HANDSHAKE_TIMER_BASE + MAX_CLIENTS - 1;
+pub const READY_IDLE_TIMER_BASE: u16 = HANDSHAKE_TIMER_MAX + 1;
+pub const READY_IDLE_TIMER_MAX: u16 = READY_IDLE_TIMER_BASE + MAX_CLIENTS - 1;
+pub const HEARTBEAT_TIMER_ID: u16 = READY_IDLE_TIMER_MAX + 1;
+pub const TIMER_FDS_SIZE: u16 = HEARTBEAT_TIMER_ID + 1;
 
 /// Callback for initiating client disconnect.
 pub const ClientDisconnectFn = *const fn (client_slot: u16) void;
@@ -50,11 +58,11 @@ pub fn chainHandle(context: *anyopaque, event: interfaces.Event, next: ?*const H
 fn handleTimer(ctx: *TimerHandlerContext, timer_id: u16) void {
     if (timer_id == HEARTBEAT_TIMER_ID) {
         handleHeartbeatTick(ctx);
-    } else if (timer_id >= HANDSHAKE_TIMER_BASE and timer_id < READY_IDLE_TIMER_BASE) {
+    } else if (timer_id >= HANDSHAKE_TIMER_BASE and timer_id <= HANDSHAKE_TIMER_MAX) {
         // Handshake timeout for a specific client slot.
         const client_slot = timer_id - HANDSHAKE_TIMER_BASE;
         handleHandshakeTimeout(ctx, client_slot);
-    } else if (timer_id >= READY_IDLE_TIMER_BASE and timer_id < READY_IDLE_TIMER_BASE + MAX_CLIENTS) {
+    } else if (timer_id >= READY_IDLE_TIMER_BASE and timer_id <= READY_IDLE_TIMER_MAX) {
         // READY idle timeout for a specific client slot.
         const client_slot = timer_id - READY_IDLE_TIMER_BASE;
         handleReadyIdleTimeout(ctx, client_slot);

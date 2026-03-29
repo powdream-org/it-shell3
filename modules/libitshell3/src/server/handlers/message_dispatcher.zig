@@ -34,6 +34,8 @@ pub const DispatcherContext = struct {
     /// Event loop operations for timer management.
     event_loop_ops: *const EventLoopOps,
     event_loop_context: *anyopaque,
+    /// Allocator for handshake processing and other dynamic allocations.
+    allocator: std.mem.Allocator,
 };
 
 /// Dispatch a decoded message to the appropriate handler.
@@ -73,7 +75,7 @@ fn handleClientHello(
     if (client.connection.state != .handshaking) return;
 
     const result = handshake_handler.processClientHello(
-        std.heap.page_allocator,
+        ctx.allocator,
         payload,
         client.connection.client_id,
         ctx.server_pid,
@@ -201,6 +203,7 @@ test "dispatch: unknown message type does not crash" {
         .disconnect_fn = disconnect_ctx.cb,
         .event_loop_ops = &noop_event_loop_ops,
         .event_loop_context = @ptrCast(&dummy_el_ctx),
+        .allocator = std.testing.allocator,
     };
 
     // Dispatch an operational message type (stub, should not crash).

@@ -140,7 +140,7 @@ test "spec: disconnect — initiateDisconnect is idempotent for DISCONNECTING st
     var client = ClientState.init(.{ .fd = 5 }, 1);
     _ = client.connection.transitionTo(.disconnecting);
 
-    const result = disconnect_handler.initiateDisconnect(&client, disconnect_handler.Reason.NORMAL);
+    const result = disconnect_handler.initiateDisconnect(&client);
     try std.testing.expectEqual(disconnect_handler.DisconnectResult.already_disconnecting, result);
 }
 

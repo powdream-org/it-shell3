@@ -39,7 +39,7 @@ pub const DisconnectResult = enum {
 /// Initiate a graceful disconnect for a client. Transitions the connection
 /// to DISCONNECTING state. The caller is responsible for sending the Disconnect
 /// message and scheduling teardown.
-pub fn initiateDisconnect(client: *ClientState, _: []const u8) DisconnectResult {
+pub fn initiateDisconnect(client: *ClientState) DisconnectResult {
     if (client.connection.state == .disconnecting) return .already_disconnecting;
     _ = client.connection.transitionTo(.disconnecting);
     return .transitioned;
@@ -81,7 +81,7 @@ pub fn buildDisconnectPayload(
 
 test "initiateDisconnect: transitions to disconnecting" {
     var client = ClientState.init(.{ .fd = 5 }, 1);
-    const result = initiateDisconnect(&client, Reason.NORMAL);
+    const result = initiateDisconnect(&client);
     try std.testing.expectEqual(DisconnectResult.transitioned, result);
     try std.testing.expectEqual(State.disconnecting, client.getState());
 }
@@ -89,7 +89,7 @@ test "initiateDisconnect: transitions to disconnecting" {
 test "initiateDisconnect: already disconnecting returns already_disconnecting" {
     var client = ClientState.init(.{ .fd = 5 }, 1);
     _ = client.connection.transitionTo(.disconnecting);
-    const result = initiateDisconnect(&client, Reason.NORMAL);
+    const result = initiateDisconnect(&client);
     try std.testing.expectEqual(DisconnectResult.already_disconnecting, result);
 }
 
