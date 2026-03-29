@@ -1,4 +1,4 @@
-# Step 12: Cleanup & ROADMAP Update
+# Step 15: Cleanup & ROADMAP Update
 
 ## Anti-Patterns
 
@@ -11,12 +11,12 @@
 
 ## Action
 
-### 12a. Update TODO.md
+### 15a. Update TODO.md
 
-Update TODO.md: set **Step** to 12 (Cleanup & ROADMAP Update), mark Step 11 as
+Update TODO.md: set **Step** to 15 (Cleanup & ROADMAP Update), mark Step 14 as
 `[x]`.
 
-### 12b. Update ROADMAP.md
+### 15b. Update ROADMAP.md
 
 Update `docs/superpowers/plans/ROADMAP.md`:
 
@@ -27,12 +27,12 @@ Update `docs/superpowers/plans/ROADMAP.md`:
 4. **Plan Summary**: Change the heading from `(Not Started)` to `(Done)` and
    update the summary with key deliverables if needed
 
-### 12c. Delete implementation artifacts
+### 15c. Delete implementation artifacts
 
 1. Delete `<target>/TODO.md`
-2. Delete `<target>/retrospective/` (SIPs have been processed in Step 11)
+2. Delete `<target>/retrospective/` (SIPs have been processed in Step 14)
 
-### 12d. Commit and push
+### 15d. Commit and push
 
 ```bash
 git add -u docs/superpowers/plans/ROADMAP.md

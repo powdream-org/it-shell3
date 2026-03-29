@@ -1,4 +1,4 @@
-# Step 7: Coverage Audit
+# Step 10: Coverage Audit
 
 ## Anti-Patterns
 
@@ -14,12 +14,12 @@
 
 ## Action
 
-### 7a. Update TODO.md
+### 10a. Update TODO.md
 
-Update TODO.md: set **Step** to 7 (Coverage Audit), mark Step 6 as `[x]`. Clear
+Update TODO.md: set **Step** to 10 (Coverage Audit), mark Step 9 as `[x]`. Clear
 **Active Issues** (all resolved).
 
-### 7b. Determine coverage approach
+### 10b. Determine coverage approach
 
 **Always re-measure.** Never trust previous coverage numbers — code changes
 between passes invalidate them. Even if returning from a regression loop, run
@@ -30,7 +30,7 @@ Read TODO.md's `Coverage exemption` field:
 - **No exemption** → Use instrumented coverage (kcov/llvm-cov)
 - **Exemption granted** → Use scenario-matrix audit
 
-### 7b. Instrumented coverage (default path)
+### 10c. Instrumented coverage (default path)
 
 Instruct the QA engineer (the QA engineer owns all coverage gap-closing tests —
 the implementer does not write gap tests). The QA reviewer audits the results:
@@ -54,7 +54,7 @@ If kcov fails and the owner grants an exemption, update TODO.md's
 `Coverage
 exemption` field and fall through to 7c.
 
-### 7c. Scenario-matrix audit (exempted modules only)
+### 10d. Scenario-matrix audit (exempted modules only)
 
 Instruct the QA engineer:
 
@@ -72,7 +72,7 @@ Perform a scenario-matrix coverage audit:
 The test name must clearly identify which scenario it covers.
 ```
 
-### 7d. Collect coverage results
+### 10e. Collect coverage results
 
 Record coverage numbers (or scenario count) in TODO.md for the final report.
 
@@ -84,21 +84,21 @@ Record coverage numbers (or scenario count) in TODO.md for the final report.
       matrix 100% covered
 - [ ] Exceptions documented with rationale
 - [ ] `mise run test:all` passes (with coverage)
-- [ ] If new tests revealed spec violations → returned to Step 5
+- [ ] If new tests revealed spec violations → returned to Step 8
 
 ## State Update
 
 Update TODO.md:
 
 - If spec violations discovered during test writing:
-  - **Step**: 5 (Spec Compliance Review) — regression path
-  - Note in TODO.md: "Returning to Step 5 — coverage tests revealed spec
+  - **Step**: 8 (Spec Compliance Review) — regression path
+  - Note in TODO.md: "Returning to Step 8 — coverage tests revealed spec
     violation"
 - Otherwise:
-  - **Step**: 8 (Over-Engineering Review)
-  - Mark Step 7 as `[x]`
+  - **Step**: 11 (Over-Engineering Review)
+  - Mark Step 10 as `[x]`
 
 ## Next
 
-- If spec violation discovered → Read `steps/05-spec-compliance.md`.
-- Otherwise → Read `steps/08-over-engineering-review.md`.
+- If spec violation discovered → Read `steps/08-spec-compliance.md`.
+- Otherwise → Read `steps/11-over-engineering-review.md`.

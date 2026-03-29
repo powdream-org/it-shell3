@@ -1,4 +1,4 @@
-# Step 5: Spec Compliance Review
+# Step 8: Spec Compliance Review
 
 ## Anti-Patterns
 
@@ -20,17 +20,17 @@
   implementer or QA engineer. If reviewers find issues, they go through Step 6 —
   the team leader never edits source files.
 - **Don't skip convention re-verification.** The development-reviewer must
-  re-verify after Step 4 fixes AND after any Step 6 fix cycle, since fixes can
+  re-verify after Step 7 fixes AND after any Step 9 fix cycle, since fixes can
   introduce new convention violations.
 
 ## Action
 
-### 5a. Update TODO.md
+### 8a. Update TODO.md
 
-Update TODO.md: set **Step** to 5 (Spec Compliance Review), mark Step 4 as
-`[x]`. Increment **Review Round** if returning from Step 8 regression.
+Update TODO.md: set **Step** to 8 (Spec Compliance Review), mark Step 7 as
+`[x]`. Increment **Review Round** if returning from Step 11 regression.
 
-### 5b. Spawn parallel reviews
+### 8b. Spawn parallel reviews
 
 Spawn **QA reviewer** and **development-reviewer** in parallel:
 
@@ -78,19 +78,19 @@ Re-verify all source files in <target>/src/ for convention violations.
 Zig version: run `mise current zig` to get the active version.
 Zig reference docs: docs/references/<version>/zig-language-reference.html
 
-This is a re-verification after Step 4 fixes. Check for any new violations
+This is a re-verification after Step 7 fixes. Check for any new violations
 introduced by simplify or convention fixes.
 Report all violations as a numbered [CONV] issue list.
 If no violations: "Clean pass — no convention violations found."
 ```
 
-### 5c. Collect results
+### 8c. Collect results
 
 Wait for both reviewers to report.
 
-- **If both clean** → Proceed to Step 7 (Coverage Audit).
+- **If both clean** → Proceed to Step 10 (Coverage Audit).
 - **If any issues found** → Merge issue lists (`[CODE]` + `[TEST]` + `[CONV]`)
-  and proceed to Step 6 (Fix Cycle).
+  and proceed to Step 9 (Fix Cycle).
 
 ## Gate
 
@@ -102,11 +102,11 @@ Wait for both reviewers to report.
 
 Update TODO.md:
 
-- If clean: **Step**: 7 (Coverage Audit), mark Step 5 as `[x]`
-- If issues: **Step**: 6 (Fix Cycle), mark Step 5 as `[x]`
+- If clean: **Step**: 10 (Coverage Audit), mark Step 8 as `[x]`
+- If issues: **Step**: 9 (Fix Cycle), mark Step 8 as `[x]`
 - **Review Round**: increment by 1
 
 ## Next
 
-- If clean → Read `steps/07-coverage-audit.md`.
-- If issues found → Read `steps/06-fix-cycle.md`.
+- If clean → Read `steps/10-coverage-audit.md`.
+- If issues found → Read `steps/09-fix-cycle.md`.

@@ -1,4 +1,4 @@
-# Step 11: Retrospective & Cleanup
+# Step 14: Retrospective & Cleanup
 
 ## Anti-Patterns
 
@@ -15,7 +15,7 @@
 
 ## Action
 
-### 11a. Review the cycle
+### 14a. Review the cycle
 
 Read TODO.md's Progress section end-to-end. Answer these questions:
 
@@ -31,7 +31,7 @@ Read TODO.md's Progress section end-to-end. Answer these questions:
    bottlenecking or micromanaging?
 6. **What worked well** — Approaches that should be preserved or reinforced.
 
-### 11b. Update implementation-learnings.md
+### 14b. Update implementation-learnings.md
 
 For any new toolchain or testing lessons discovered during this cycle, update
 `docs/insights/implementation-learnings.md`:
@@ -42,7 +42,7 @@ For any new toolchain or testing lessons discovered during this cycle, update
   description
 - Do NOT duplicate existing entries — check first
 
-### 11c. Review and finalize accumulated proposals
+### 14c. Review and finalize accumulated proposals
 
 Review SIPs accumulated via `/sip` during the cycle at
 `<target>/retrospective/skill-improvement-proposals.md`.
@@ -68,8 +68,8 @@ reason.
 
 ## State Update
 
-Update TODO.md: **Step**: 12 (Cleanup & ROADMAP Update). Mark Step 11 as `[x]`.
+Update TODO.md: **Step**: 15 (Cleanup & ROADMAP Update). Mark Step 14 as `[x]`.
 
 ## Next
 
-Read `steps/12-cleanup.md`.
+Read `steps/15-cleanup.md`.

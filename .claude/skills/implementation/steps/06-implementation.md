@@ -1,4 +1,4 @@
-# Step 3: Implementation Phase
+# Step 6: Implementation Phase
 
 ## Anti-Patterns
 
@@ -24,7 +24,7 @@
   - QA engineer: `src/testing/spec/*_spec_test.zig` ONLY (new files only)
   - Team leader does NOT wire imports — devops handles `src/testing/root.zig`
 - **Don't reduce QA engineer to a reviewer-only role.** QA engineer's primary
-  job in Step 3 is writing spec behavior tests — one test per scenario in the
+  job in Step 6 is writing spec behavior tests — one test per scenario in the
   spec's scenario matrix. QA engineer must report a test list with per-test spec
   requirement citations, not just a completion note. If QA engineer only reviews
   code without writing tests, the step has failed.
@@ -36,16 +36,16 @@
 
 ## Action
 
-### 3a. Update TODO.md
+### 6a. Update TODO.md
 
-Update TODO.md: set **Step** to 3 (Implementation Phase), mark Step 2 as `[x]`.
+Update TODO.md: set **Step** to 6 (Implementation Phase), mark Step 5 as `[x]`.
 
-### 3b. Check context budget
+### 6b. Check context budget
 
 Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
 `/compact` before spawning agents.
 
-### 3c. Prepare spawn context
+### 6c. Prepare spawn context
 
 Gather these for each agent:
 
@@ -61,7 +61,7 @@ Gather these for each agent:
 - Scenario matrix from the spec (or plan's test matrix)
 - Test output directory: `<target>/src/testing/spec/`
 
-### 3d. Spawn implementer and QA engineer in parallel
+### 6d. Spawn implementer and QA engineer in parallel
 
 Spawn both agents simultaneously from `.claude/agents/impl-team/`. They work
 independently — the implementer writes source code from the spec/plan; the QA
@@ -96,11 +96,11 @@ Read the spec and scenario matrix, then write all spec behavior tests. Report
 the complete test list with spec requirement citations when done.
 ```
 
-### 3e. Wait for completion
+### 6e. Wait for completion
 
 Wait for both agents to report completion. Do NOT proceed until both are done.
 
-### 3f. Wire tests, build, and run tests
+### 6f. Wire tests, build, and run tests
 
 Spawn the **devops** agent (`.claude/agents/impl-team/devops.md`):
 
@@ -126,10 +126,10 @@ indicate:
 resolve API mismatches. Check which side matches the spec — that side is
 correct; the other must adjust.
 
-**If tests compile but some fail:** Proceed to Step 4. Failures feed into the
-spec compliance review at Step 5.
+**If tests compile but some fail:** Proceed to Step 7. Failures feed into the
+spec compliance review at Step 8.
 
-### 3g. Monitor progress
+### 6g. Monitor progress
 
 During each agent's active phase:
 
@@ -137,11 +137,11 @@ During each agent's active phase:
 - Log any spec gaps discovered to TODO.md's "Spec Gap Log" section
 - Do NOT intervene unless asked or unless you observe clear spec violations
 
-### 3h. Keep team alive
+### 6h. Keep team alive
 
 Do NOT disband the team. All agents (implementer, QA engineer, QA reviewer,
-development-reviewer, devops) continue into Steps 4-8. They are disbanded in
-Step 9.
+development-reviewer, devops) continue into Steps 7-11. They are disbanded in
+Step 12.
 
 ## Gate
 
@@ -159,11 +159,11 @@ Step 9.
 
 Update TODO.md:
 
-- **Step**: 4 (Code Simplify)
+- **Step**: 7 (Code Simplify)
 - **Active Team**: impl-team
 - **Team Directory**: `.claude/agents/impl-team/`
-- Mark Step 3 as `[x]`
+- Mark Step 6 as `[x]`
 
 ## Next
 
-Read `steps/04-simplify.md`.
+Read `steps/07-simplify.md`.

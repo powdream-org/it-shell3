@@ -1,4 +1,4 @@
-# Step 10: Owner Review
+# Step 13: Owner Review
 
 ## Anti-Patterns
 
@@ -11,7 +11,7 @@
 
 ## Action
 
-### 10a. Support the owner's review
+### 13a. Support the owner's review
 
 The owner reviews the committed code. During this time, the team leader:
 
@@ -20,18 +20,18 @@ The owner reviews the committed code. During this time, the team leader:
 - **Applies immediate fixes** if the owner requests small changes (typos,
   formatting, trivial corrections)
 - **Logs larger issues** that the owner identifies — these may trigger a new
-  implementation cycle (back to Step 3)
+  implementation cycle (back to Step 6)
 - **Creates ADRs** if the owner identifies undocumented decisions (use the
   `/adr` skill)
 
-### 10b. Owner decision
+### 13b. Owner decision
 
 The owner signals one of:
 
 | Signal                   | Action                                                                                 |
 | ------------------------ | -------------------------------------------------------------------------------------- |
-| **Accepts**              | Proceed to Step 11 (Retrospective)                                                     |
-| **Requests changes**     | Log the changes, return to Step 3 with a new implementation cycle                      |
+| **Accepts**              | Proceed to Step 14 (Retrospective)                                                     |
+| **Requests changes**     | Log the changes, return to Step 6 with a new implementation cycle                      |
 | **Identifies spec gaps** | Report for design revision cycle; implementation waits or proceeds per owner direction |
 
 ## Gate
@@ -42,10 +42,10 @@ The owner signals one of:
 ## State Update
 
 - If accepted:
-  - **Step**: 11 (Retrospective & Cleanup)
-  - Mark Step 10 as `[x]`
+  - **Step**: 14 (Retrospective & Cleanup)
+  - Mark Step 13 as `[x]`
 - If changes requested:
-  - **Step**: 3 (Implementation Phase)
+  - **Step**: 6 (Implementation Phase)
   - Append a new `## Progress — Round N` section to TODO.md (do NOT reset
     previous round's marks — they are the audit trail)
   - **Carry forward**: Spec Gap Log, Coverage exemption, Plan path, Spec
@@ -56,5 +56,5 @@ The owner signals one of:
 
 ## Next
 
-- If accepted → Read `steps/11-retrospective.md`.
-- If changes requested → Read `steps/03-implementation.md`.
+- If accepted → Read `steps/14-retrospective.md`.
+- If changes requested → Read `steps/06-implementation.md`.

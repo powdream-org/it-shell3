@@ -1,4 +1,4 @@
-# Step 6: Fix Cycle
+# Step 9: Fix Cycle
 
 ## Anti-Patterns
 
@@ -19,18 +19,18 @@
 
 ## Action
 
-### 6a. Update TODO.md
+### 9a. Update TODO.md
 
-Update TODO.md: set **Step** to 6 (Fix Cycle), mark Step 5 as `[x]`. Record the
+Update TODO.md: set **Step** to 9 (Fix Cycle), mark Step 8 as `[x]`. Record the
 merged issue list in **Active Issues**.
 
-### 6b. Check context budget
+### 9b. Check context budget
 
 Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
 `/compact` before continuing. Fix cycles accumulate context with each iteration
 — especially if multiple rounds of 5 → 6 → 5 have occurred.
 
-### 6c. Route issues to the correct agent
+### 9c. Route issues to the correct agent
 
 **`[CODE]` and `[CONV]` issues → Implementer**
 (`.claude/agents/impl-team/implementer.md`):
@@ -57,7 +57,7 @@ Issues:
 
 If all issues are one type only, skip the other agent's message.
 
-### 6d. Monitor fix-and-verify loop
+### 9d. Monitor fix-and-verify loop
 
 Both agents work on their respective issues:
 
@@ -74,14 +74,14 @@ You (team leader) monitor but do NOT intervene unless:
   owner for decision
 - The owner needs to make a decision
 
-**Round limit:** The 5 → 6 → 5 loop runs automatically for up to **3 rounds**.
-If Step 5 still finds issues after Round 3, STOP and escalate to the owner. The
+**Round limit:** The 8 → 9 → 8 loop runs automatically for up to **3 rounds**.
+If Step 8 still finds issues after Round 3, STOP and escalate to the owner. The
 owner decides: (a) continue with another round, (b) accept remaining issues as
 known limitations, or (c) trigger a spec revision.
 
 Track the current round in TODO.md's `Review Round` field.
 
-### 6e. Verify all tests pass
+### 9e. Verify all tests pass
 
 Once all issues are resolved, spawn the **devops** agent
 (`.claude/agents/impl-team/devops.md`):
@@ -106,15 +106,15 @@ All tests must pass before proceeding.
 
 Update TODO.md:
 
-- **Step**: 5 (Spec Compliance Review) — yes, back to Step 5 for re-review
-- Mark Step 6 as `[x]` in the current round's progress
+- **Step**: 8 (Spec Compliance Review) — yes, back to Step 8 for re-review
+- Mark Step 9 as `[x]` in the current round's progress
 - Increment `Fix Iteration` in Fix Cycle State
 - Update `Active Issues` to reflect resolved/remaining issues
-- If starting a new verification round after Step 8 regression, append a new
+- If starting a new verification round after Step 11 regression, append a new
   `## Progress — Round N` section (do NOT reset previous marks)
 
 ## Next
 
-Read `steps/05-spec-compliance.md` — the QA reviewer does another full review to
-catch any issues introduced by the fixes. This loop (5 → 6 → 5) continues until
-Step 5 produces a clean pass.
+Read `steps/08-spec-compliance.md` — the QA reviewer does another full review to
+catch any issues introduced by the fixes. This loop (8 → 9 → 8) continues until
+Step 8 produces a clean pass.

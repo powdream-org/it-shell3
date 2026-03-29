@@ -75,6 +75,8 @@ compaction.**
      non-response.**
    - Resume from the current step: Read the corresponding step file.
 3. **If no TODO.md exists** → New cycle. Read `steps/01-requirements-intake.md`.
+   If a plan already exists, Step 1 will direct you to skip Step 2 and go
+   straight to Step 3 (Plan Verification).
 
 ## Step Index
 
@@ -82,26 +84,29 @@ Each step file contains: anti-patterns, action instructions, gate conditions,
 and TODO.md state update instructions. Read **only the current step's file** —
 do not pre-read future steps.
 
-| Step | File                                  | Summary                                              | Gate                                              |
-| ---- | ------------------------------------- | ---------------------------------------------------- | ------------------------------------------------- |
-| 1    | `steps/01-requirements-intake.md`     | Identify spec, plan, inputs; create TODO.md          | Owner approves, TODO.md created                   |
-| 2    | `steps/02-scaffold-and-build.md`      | Create project skeleton; verify build chain          | `mise run test:macos` passes                      |
-| 3    | `steps/03-implementation.md`          | Implementer + QA engineer parallel; devops builds    | Code compiles, tests executed                     |
-| 4    | `steps/04-simplify.md`                | `/simplify` + `/fix-code-convention-violations`      | Fixes applied, tests pass                         |
-| 5    | `steps/05-spec-compliance.md`         | QA reviewer + development-reviewer dual review       | Clean pass or `[CODE]`/`[TEST]`/`[CONV]` list     |
-| 6    | `steps/06-fix-cycle.md`               | Route issues to implementer/QA engineer; re-validate | All issues resolved → back to Step 5              |
-| 7    | `steps/07-coverage-audit.md`          | Measure coverage; fill gaps                          | Targets met or exemption granted                  |
-| 8    | `steps/08-over-engineering-review.md` | Principal architect reviews for KISS/YAGNI           | Clean → Step 9; code changed → back to Step 5     |
-| 9    | `steps/09-commit-and-report.md`       | Commit code; report to owner                         | All gates green, code committed                   |
-| 10   | `steps/10-owner-review.md`            | Owner evaluates; accepts or requests changes         | Owner accepts → Step 11; changes → back to Step 3 |
-| 11   | `steps/11-retrospective.md`           | Review cycle, update learnings                       | Learnings updated, SIPs processed                 |
-| 12   | `steps/12-cleanup.md`                 | Delete artifacts, update ROADMAP.md                  | ROADMAP updated, artifacts deleted, pushed        |
+| Step | File                                  | Summary                                              | Gate                                               |
+| ---- | ------------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| 1    | `steps/01-requirements-intake.md`     | Identify spec, plan, inputs; create TODO.md          | Owner approves, TODO.md created                    |
+| 2    | `steps/02-plan-writing.md`            | Write implementation plan via `/writing-impl-plan`   | Plan written and reviewed                          |
+| 3    | `steps/03-plan-verification.md`       | Verify plan against spec/code via review team        | All verifiers clean pass                           |
+| 4    | `steps/04-cycle-setup.md`             | Collect inputs, verify agents, owner approval        | Owner approved, ROADMAP updated                    |
+| 5    | `steps/05-scaffold-and-build.md`      | Create project skeleton; verify build chain          | `mise run test:macos` passes                       |
+| 6    | `steps/06-implementation.md`          | Implementer + QA engineer parallel; devops builds    | Code compiles, tests executed                      |
+| 7    | `steps/07-simplify.md`                | `/simplify` + `/fix-code-convention-violations`      | Fixes applied, tests pass                          |
+| 8    | `steps/08-spec-compliance.md`         | QA reviewer + development-reviewer dual review       | Clean pass or `[CODE]`/`[TEST]`/`[CONV]` list      |
+| 9    | `steps/09-fix-cycle.md`               | Route issues to implementer/QA engineer; re-validate | All issues resolved → back to Step 8               |
+| 10   | `steps/10-coverage-audit.md`          | Measure coverage; fill gaps                          | Targets met or exemption granted                   |
+| 11   | `steps/11-over-engineering-review.md` | Principal architect reviews for KISS/YAGNI           | Clean → Step 12; code changed → back to Step 8     |
+| 12   | `steps/12-commit-and-report.md`       | Commit code; report to owner                         | All gates green, code committed                    |
+| 13   | `steps/13-owner-review.md`            | Owner evaluates; accepts or requests changes         | Owner accepts → Step 14; changes → back to Step 6  |
+| 14   | `steps/14-retrospective.md`           | Review cycle, update learnings                       | Learnings updated, SIPs processed                  |
+| 15   | `steps/15-cleanup.md`                 | Delete artifacts, update ROADMAP.md                  | ROADMAP updated, artifacts deleted, pushed          |
 
 ## Regression Loop
 
-Steps 5 → 6 → 7 → 8 form a verification chain. If Step 8 (Over-Engineering
-Review) changes code, control returns to Step 5 (not Step 9). A single clean
-pass through 5 → 7 → 8 must complete before reaching Step 9.
+Steps 8 → 9 → 10 → 11 form a verification chain. If Step 11 (Over-Engineering
+Review) changes code, control returns to Step 8 (not Step 12). A single clean
+pass through 8 → 10 → 11 must complete before reaching Step 12.
 
 ## Document Authority
 
@@ -124,8 +129,9 @@ plan.
 These apply to ALL steps, not just one:
 
 - **Use skills for artifacts.** CTRs use `/cross-team-request`. ADRs use `/adr`.
-  Plans use `/writing-impl-plan`. Do not manually create these files — skills
-  handle placement, naming, and format automatically.
+  Plans use `/writing-impl-plan`. SIPs use `/sip`. Do not manually create or
+  edit artifact files — skills handle placement, naming, and format
+  automatically.
 - **Team leader is a facilitator, not a doer.** Never write code, plans, or CTRs
   directly. Delegate to subagents or skills. Describe WHAT needs to change, not
   HOW to change each line.
@@ -140,6 +146,7 @@ These apply to ALL steps, not just one:
     timestamps, plan scope, ROADMAP). Only explicit decision documents (ADR,
     design resolution, owner instruction) justify divergence from spec.
 - **Model selection.** Writing tasks (plans, CTRs, ADRs, spec tests) use opus.
+  Plan verification uses the impl-plan-review-team (opus + effort: max).
   Verification tasks (spec checking, compliance review) may use sonnet.
 
 ## Continuous Improvement Log

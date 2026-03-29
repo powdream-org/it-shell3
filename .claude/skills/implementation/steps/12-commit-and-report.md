@@ -1,4 +1,4 @@
-# Step 9: Commit & Report
+# Step 12: Commit & Report
 
 ## Anti-Patterns
 
@@ -8,18 +8,18 @@
   Agent-written code may contain surprises — the team leader is the last
   checkpoint before the owner sees it. (Lesson from IME v0.7 cycle)
 - **Don't commit the TODO.md.** It's a process artifact, not a deliverable. It
-  stays in the module directory for the owner review (Step 10) and is deleted
+  stays in the module directory for the owner review (Step 13) and is deleted
   after the owner accepts.
 - **Don't commit coverage reports.** They are gitignored and regenerated on
   demand.
 
 ## Action
 
-### 9a. Update TODO.md
+### 12a. Update TODO.md
 
-Update TODO.md: set **Step** to 9 (Commit & Report), mark Step 8 as `[x]`.
+Update TODO.md: set **Step** to 12 (Commit & Report), mark Step 11 as `[x]`.
 
-### 9b. Final gate verification
+### 12b. Final gate verification
 
 ALL of these must be true:
 
@@ -37,7 +37,7 @@ ALL of these must be true:
 
 If any gate fails, return to the appropriate step.
 
-### 9b. Disband the implementation team
+### 12c. Disband the implementation team
 
 Send shutdown to all team members (implementer, QA reviewer, over-engineering
 reviewer). Wait for confirmation.
@@ -47,7 +47,7 @@ Update TODO.md:
 - **Active Team**: (none)
 - **Team Directory**: (none)
 
-### 9c. Review staged diff
+### 12d. Review staged diff
 
 Stage all source files and tests (NOT TODO.md, NOT coverage reports):
 
@@ -68,7 +68,7 @@ Scan for:
 - Debug prints or TODO comments left in code
 - Files that shouldn't be committed (coverage reports, temporary files)
 
-### 9d. Commit
+### 12e. Commit
 
 Commit with a descriptive message following the project's commit convention (see
 `docs/conventions/commit-messages.md`):
@@ -82,7 +82,7 @@ EOF
 )"
 ```
 
-### 9e. Report to owner
+### 12f. Report to owner
 
 Present to the owner:
 
@@ -104,9 +104,9 @@ Present to the owner:
 
 Update TODO.md:
 
-- **Step**: 10 (Owner Review)
-- Mark Step 9 as `[x]`
+- **Step**: 13 (Owner Review)
+- Mark Step 12 as `[x]`
 
 ## Next
 
-Read `steps/10-owner-review.md`.
+Read `steps/13-owner-review.md`.

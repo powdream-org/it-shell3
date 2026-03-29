@@ -1,4 +1,4 @@
-# Step 4: Code Simplify & Convention Compliance
+# Step 7: Code Simplify & Convention Compliance
 
 ## Anti-Patterns
 
@@ -13,18 +13,18 @@
 
 ## Action
 
-### 4a. Update TODO.md
+### 7a. Update TODO.md
 
-Update TODO.md: set **Step** to 4 (Code Simplify & Convention Compliance), mark
-Step 3 as `[x]`.
+Update TODO.md: set **Step** to 7 (Code Simplify & Convention Compliance), mark
+Step 6 as `[x]`.
 
-### 4b. Check context budget
+### 7b. Check context budget
 
 Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
 `/compact` before proceeding. Step 4 spawns multiple agents while existing
 agents are still alive.
 
-### 4c. Run the `/simplify` skill
+### 7c. Run the `/simplify` skill
 
 Invoke the `/simplify` skill. This launches three parallel review agents on the
 current diff:
@@ -35,7 +35,7 @@ current diff:
 3. **Efficiency** — catches unnecessary work, missed concurrency, hot-path
    bloat, memory issues
 
-### 4d. Apply simplify fixes
+### 7d. Apply simplify fixes
 
 After all three agents report, aggregate findings and fix each issue directly.
 The implementer applies the fixes (they own the source code).
@@ -48,13 +48,13 @@ Rules for applying fixes:
 - Do NOT change public API signatures (types, method names) — those are
   spec-defined
 
-### 4e. Run `/fix-code-convention-violations`
+### 7e. Run `/fix-code-convention-violations`
 
 Invoke the `/fix-code-convention-violations` skill. This spawns the
 development-reviewer to detect convention violations, then routes fixes to the
 implementer (max 2 rounds).
 
-### 4f. Verify after all fixes
+### 7f. Verify after all fixes
 
 After both `/simplify` and `/fix-code-convention-violations` complete, spawn the
 **devops** agent (`.claude/agents/impl-team/devops.md`):
@@ -67,8 +67,8 @@ Report structured results.
 
 All tests must pass before proceeding.
 
-**Note:** Simplify and convention changes are tentative until Step 5 validates
-spec compliance. If Step 5 rejects a change (it introduced a spec violation),
+**Note:** Simplify and convention changes are tentative until Step 8 validates
+spec compliance. If Step 8 rejects a change (it introduced a spec violation),
 the implementer reverts it.
 
 ## Gate
@@ -82,9 +82,9 @@ the implementer reverts it.
 
 Update TODO.md:
 
-- **Step**: 5 (Spec Compliance Review)
-- Mark Step 4 as `[x]`
+- **Step**: 8 (Spec Compliance Review)
+- Mark Step 7 as `[x]`
 
 ## Next
 
-Read `steps/05-spec-compliance.md`.
+Read `steps/08-spec-compliance.md`.
