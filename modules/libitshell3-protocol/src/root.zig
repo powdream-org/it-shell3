@@ -14,7 +14,7 @@ pub const input = @import("input.zig");
 pub const message_type = @import("message_type.zig");
 pub const pane = @import("pane.zig");
 pub const preedit = @import("preedit.zig");
-pub const reader = @import("reader.zig");
+pub const message_reader = @import("message_reader.zig");
 pub const session = @import("session.zig");
 pub const writer = @import("writer.zig");
 
