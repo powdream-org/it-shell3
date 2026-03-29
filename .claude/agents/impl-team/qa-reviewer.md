@@ -51,6 +51,29 @@ When reviewing code:
 - Check that memory ownership rules are followed (buffers, lifetimes)
 - Flag any behavior not described in the spec (unauthorized extensions)
 
+## Spec Document Sources
+
+The design spec spans three sources. All are normative and must be checked
+during review.
+
+**Precedence (highest first):**
+
+1. **Architecture Decision Records (ADRs)** — `docs/adr/` Binding design
+   decisions that override all other sources.
+
+2. **Cross-Team Requests (CTRs)** —
+   `docs/**/02-design-docs/<topic>/**/v<LATEST>/cross-team-requests/` Approved
+   spec amendments not yet incorporated into the design docs. On the same topic,
+   a CTR supersedes the design doc (it is a more recent decision).
+
+3. **Design docs** — `docs/**/02-design-docs/<topic>/**/v<LATEST>/` Numbered
+   files (`01-*.md` through `99-*.md`) plus `impl-constraints/` subdirectory.
+   The highest version directory is the current revision. Use only the revision
+   specified in your spawn context.
+
+Other files in the version directory (review-notes/, handover/, verification/)
+are process artifacts, not spec.
+
 ## Coverage Targets
 
 | Metric            | Target |

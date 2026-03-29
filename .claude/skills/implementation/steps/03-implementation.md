@@ -2,8 +2,8 @@
 
 ## Anti-Patterns
 
-- **Don't proxy messages between implementer and QA.** They talk peer-to-peer.
-  See `02-team-collaboration.md` Section 5.
+- **Don't proxy messages between agents.** They talk peer-to-peer. See
+  `02-team-collaboration.md` Section 5.
 - **Don't micromanage.** Tell agents WHAT to build (spec references, file
   assignments), not HOW to write each line. "Change line 43 to X" is
   micromanagement — "implement the processKey pipeline per spec §2" is
@@ -15,20 +15,24 @@
   (unlike C's indeterminate value). Use `@splat(0)` or zero-initialization for
   buffers that may be read before full initialization. (Lesson Z3)
 - **Don't let agents invent behavior for spec gaps.** When a spec gap is
-  discovered, the implementer must STOP work on that area, report the gap to the
-  team leader, and wait for an owner decision. Implementing a guess violates the
-  spec-to-code contract (see `05-implementation-workflow.md` §5).
+  discovered, the agent must STOP work on that area, report the gap to the team
+  leader, and wait for an owner decision.
 - **Don't treat the plan as the spec.** The plan is a task breakdown. The design
-  spec is the architectural authority (see Document Authority in SKILL.md). When
-  spawning agents, state explicitly: "If the plan contradicts the design spec,
-  the spec wins."
-- **Don't spawn implementer and QA concurrently in the same workspace.** QA spec
-  tests were silently lost when both agents wrote to `testing/` at the same
-  time. Sequence them: implementer first, QA after implementer commits.
+  spec is the architectural authority (see Document Authority in SKILL.md).
+- **Don't let either agent touch the other's files.** File ownership is strict:
+  - Implementer: `src/**/*.zig` EXCEPT `src/testing/spec/`
+  - QA engineer: `src/testing/spec/*_spec_test.zig` ONLY (new files only)
+  - Team leader does NOT wire imports — devops handles `src/testing/root.zig`
+- **Don't reduce QA engineer to a reviewer-only role.** QA engineer's primary
+  job in Step 3 is writing spec behavior tests — one test per scenario in the
+  spec's scenario matrix. QA engineer must report a test list with per-test spec
+  requirement citations, not just a completion note. If QA engineer only reviews
+  code without writing tests, the step has failed.
 - **Don't trust Plan 1-4 code as spec-compliant.** Plans 1-4 predate the current
-  verification chain. Existing code may contain spec violations (wrong types,
-  field names, missing fields). Verify existing code against the spec — do not
-  assume prior plans got it right.
+  verification chain. Existing code may contain spec violations.
+- **Don't let QA engineer read implementation source code.** QA engineer derives
+  tests from the spec alone. Reading the implementation introduces bias — tests
+  end up confirming what the code does rather than what the spec says.
 
 ## Action
 
@@ -41,76 +45,91 @@ Update TODO.md: set **Step** to 3 (Implementation Phase), mark Step 2 as `[x]`.
 Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
 `/compact` before spawning agents.
 
-### 3b. Prepare spawn context
+### 3c. Prepare spawn context
 
 Gather these for each agent:
 
 **For the implementer:**
 
-- Spec document paths (from TODO.md)
-- Implementation plan path
-- PoC reference paths (if any)
+- TODO.md `## Spec` section (contains spec paths, plan path, PoC paths)
 - File assignments from the plan
 - `docs/insights/implementation-learnings.md` (Zig toolchain lessons)
 
-**For the QA reviewer:**
+**For the QA engineer:**
 
-- Same spec document paths
-- Integration test matrix from the plan (or spec scenario matrix)
-- Coverage approach (instrumented or scenario-matrix)
-- Module source path: `<target>/src/`
+- TODO.md `## Spec` section (contains spec paths)
+- Scenario matrix from the spec (or plan's test matrix)
+- Test output directory: `<target>/src/testing/spec/`
 
-### 3c. Spawn agents sequentially
+### 3d. Spawn implementer and QA engineer in parallel
 
-Spawn agents from `.claude/agents/impl-team/` in sequence — implementer first,
-QA after the implementer commits all source files.
+Spawn both agents simultaneously from `.claude/agents/impl-team/`. They work
+independently — the implementer writes source code from the spec/plan; the QA
+engineer writes spec behavior tests from the spec/scenario matrix.
 
-**Phase 1 — Implementer:**
+**Implementer** (`.claude/agents/impl-team/implementer.md`):
 
 ```
-You are implementing module <module>. Spec: <paths>. Plan: <path>.
-PoC: <paths or 'none'>. Source dir: <target>/src/.
+You are implementing module <module>. Source dir: <target>/src/.
+Read TODO.md's ## Spec section for all spec paths, plan path, and PoC paths.
+Also read: docs/insights/implementation-learnings.md
 CRITICAL: The design spec is the architectural authority, not the plan. If the
 plan's descriptions contradict the spec, the spec wins. Verify every public API
 against the spec section that defines it.
+FILE OWNERSHIP: You own all files under src/ EXCEPT src/testing/spec/ — do NOT
+create or modify any file in src/testing/spec/.
 Read the spec and plan, then begin implementation. Report when all source files
 and inline unit tests are complete.
 ```
 
-Wait for the implementer to report completion and verify their files compile:
-
-```bash
-mise run test:macos
-```
-
-**Phase 2 — QA Reviewer (after implementer completes):**
+**QA Engineer** (`.claude/agents/impl-team/qa-engineer.md`):
 
 ```
-You are QA for module <module>. The implementer has completed source files.
-Spec: <paths>. Test matrix: <path or inline>. Coverage approach:
-<instrumented/scenario-matrix>. Source dir: <target>/src/.
-CRITICAL: Your test cases MUST be derived from the design spec, not from the
-implementation or the plan. Each test should verify a spec requirement. A test
-that confirms 'the code does what the code does' is not a spec compliance test.
-Read the spec and test matrix, then begin writing tests. Report when all
-integration tests are complete.
+You are writing spec behavior tests for module <module>.
+Read TODO.md's ## Spec section for all spec paths.
+Output dir: <target>/src/testing/spec/.
+CRITICAL: Derive ALL test cases from the design spec and scenario matrix — NOT
+from the implementation code. You must NOT read implementation source files.
+FILE OWNERSHIP: You own ONLY src/testing/spec/*_spec_test.zig — do NOT create
+or modify any file outside this directory.
+Read the spec and scenario matrix, then write all spec behavior tests. Report
+the complete test list with spec requirement citations when done.
 ```
 
-Wait for the QA reviewer to report completion.
+### 3e. Wait for completion
 
-**Phase 3 — Post-completion verification:**
+Wait for both agents to report completion. Do NOT proceed until both are done.
 
-After both agents complete, verify:
+### 3f. Wire tests, build, and run tests
 
-1. **File existence**: Every file listed in both agents' completion reports
-   actually exists on disk. Run `ls` on each reported path.
-2. **Test count**: Run tests and verify the total test count matches the sum of
-   implementer-reported unit tests plus QA-reported integration tests.
+Spawn the **devops** agent (`.claude/agents/impl-team/devops.md`):
 
-If any files are missing or counts do not match, investigate immediately — do
-not proceed.
+```
+Wire QA engineer's spec test files into the test infrastructure, then build and
+run all tests.
+1. List all *_spec_test.zig files in <target>/src/testing/spec/
+2. Update src/testing/root.zig to @import each new file
+3. Run: mise run test:all -- --no-coverage
+4. Run: (cd <target> && zig fmt --check src/)
+Report structured results.
+```
 
-### 3d. Monitor progress
+**Expected:** Some QA engineer spec tests may FAIL. This is normal — spec tests
+are derived from the spec independently of the implementation. Failures
+indicate:
+
+- Implementation doesn't match the spec → implementation bug
+- Test assumes wrong API surface → test needs adjustment
+- Spec ambiguity → log as spec gap
+
+**If tests don't compile:** Coordinate between implementer and QA engineer to
+resolve API mismatches. Check which side matches the spec — that side is
+correct; the other must adjust.
+
+**If tests compile but some fail:** Proceed to Step 4. Failures feed into the
+spec compliance review at Step 5.
+
+### 3g. Monitor progress
 
 During each agent's active phase:
 
@@ -118,35 +137,22 @@ During each agent's active phase:
 - Log any spec gaps discovered to TODO.md's "Spec Gap Log" section
 - Do NOT intervene unless asked or unless you observe clear spec violations
 
-### 3e. Verify tests and formatting
+### 3h. Keep team alive
 
-Once both agents are complete and post-completion verification passes:
-
-```bash
-mise run test:macos
-mise run test:macos:release-safe
-(cd <target> && zig fmt --check src/)
-```
-
-Running tests in both Debug (default) and ReleaseSafe catches
-optimization-sensitive bugs that only manifest under optimization.
-
-If any check fails, send results to the relevant agent for fixing. Do NOT
-proceed until all pass.
-
-### 3f. Keep team alive
-
-Do NOT disband the team. The implementer and QA reviewer continue into Steps 4-8
-(simplify + verification chain). They are disbanded in Step 9.
+Do NOT disband the team. All agents (implementer, QA engineer, QA reviewer,
+development-reviewer, devops) continue into Steps 4-8. They are disbanded in
+Step 9.
 
 ## Gate
 
 - [ ] Implementer reports all source files complete with inline unit tests
-- [ ] QA reviewer reports all integration tests complete
-- [ ] Post-completion verification passed (all files exist, test counts match)
-- [ ] `mise run test:macos` passes (all unit + integration tests)
-- [ ] `mise run test:macos:release-safe` passes (optimization-sensitive bugs)
-- [ ] `zig fmt --check src/` passes (no formatting issues)
+- [ ] QA engineer reports all spec behavior tests with per-test requirement
+      citations
+- [ ] Devops has wired spec tests into `src/testing/root.zig`
+- [ ] Code compiles (`zig build` succeeds)
+- [ ] `zig fmt --check src/` passes
+- [ ] `mise run test:all -- --no-coverage` executed (failures acceptable at this
+      stage)
 - [ ] Spec gaps (if any) logged in TODO.md
 
 ## State Update

@@ -1,9 +1,10 @@
-# Step 4: Code Simplify
+# Step 4: Code Simplify & Convention Compliance
 
 ## Anti-Patterns
 
-- **Don't skip this step because "the code looks fine."** Fresh eyes (the three
-  parallel agents) catch patterns the implementer and QA reviewer are blind to.
+- **Don't skip this step because "the code looks fine."** Fresh eyes (the
+  `/simplify` agents and development-reviewer) catch patterns the implementer
+  and QA engineer are blind to.
 - **Don't argue with findings.** If a finding is a false positive or not worth
   fixing, skip it silently. Don't spend time debating.
 - **Don't let simplify expand scope.** The agents may suggest new abstractions
@@ -14,15 +15,16 @@
 
 ### 4a. Update TODO.md
 
-Update TODO.md: set **Step** to 4 (Code Simplify), mark Step 3 as `[x]`.
+Update TODO.md: set **Step** to 4 (Code Simplify & Convention Compliance), mark
+Step 3 as `[x]`.
 
 ### 4b. Check context budget
 
 Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
-`/compact` before proceeding. Step 4 spawns 3 new agents while the implementer +
-QA are still alive (5 agents total).
+`/compact` before proceeding. Step 4 spawns multiple agents while existing
+agents are still alive.
 
-### 4b. Run the `/simplify` skill
+### 4c. Run the `/simplify` skill
 
 Invoke the `/simplify` skill. This launches three parallel review agents on the
 current diff:
@@ -33,7 +35,7 @@ current diff:
 3. **Efficiency** — catches unnecessary work, missed concurrency, hot-path
    bloat, memory issues
 
-### 4c. Apply fixes
+### 4d. Apply simplify fixes
 
 After all three agents report, aggregate findings and fix each issue directly.
 The implementer applies the fixes (they own the source code).
@@ -46,28 +48,35 @@ Rules for applying fixes:
 - Do NOT change public API signatures (types, method names) — those are
   spec-defined
 
-### 4d. Verify after fixes
+### 4e. Run `/fix-code-convention-violations`
 
-If any code was changed:
+Invoke the `/fix-code-convention-violations` skill. This spawns the
+development-reviewer to detect convention violations, then routes fixes to the
+implementer (max 2 rounds).
 
-```bash
-mise run test:macos
-mise run test:macos:release-safe
-(cd <target> && zig fmt --check src/)
+### 4f. Verify after all fixes
+
+After both `/simplify` and `/fix-code-convention-violations` complete, spawn the
+**devops** agent (`.claude/agents/impl-team/devops.md`):
+
+```
+Run full test suite to verify simplify and convention fixes:
+mise run test:all -- --no-coverage
+Report structured results.
 ```
 
-All must pass before proceeding.
+All tests must pass before proceeding.
 
-**Note:** Simplify changes are tentative until Step 5 validates spec compliance.
-If Step 5 rejects a simplify change (it introduced a spec violation), the
-implementer reverts it.
+**Note:** Simplify and convention changes are tentative until Step 5 validates
+spec compliance. If Step 5 rejects a change (it introduced a spec violation),
+the implementer reverts it.
 
 ## Gate
 
 - [ ] `/simplify` skill completed (all three agents reported)
+- [ ] `/fix-code-convention-violations` completed
 - [ ] Applicable fixes applied
-- [ ] Tests pass in both Debug and ReleaseSafe (if code changed)
-- [ ] `zig fmt --check` passes (if code changed)
+- [ ] `mise run test:all -- --no-coverage` passes
 
 ## State Update
 

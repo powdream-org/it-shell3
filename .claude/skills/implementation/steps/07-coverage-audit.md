@@ -32,8 +32,8 @@ Read TODO.md's `Coverage exemption` field:
 
 ### 7b. Instrumented coverage (default path)
 
-Instruct the QA reviewer (the QA reviewer owns all coverage gap-closing tests —
-the implementer does not write gap tests):
+Instruct the QA engineer (the QA engineer owns all coverage gap-closing tests —
+the implementer does not write gap tests). The QA reviewer audits the results:
 
 ```
 Run instrumented coverage on <target>:
@@ -56,7 +56,7 @@ exemption` field and fall through to 7c.
 
 ### 7c. Scenario-matrix audit (exempted modules only)
 
-Instruct the QA reviewer:
+Instruct the QA engineer:
 
 ```
 Perform a scenario-matrix coverage audit:
@@ -83,7 +83,7 @@ Record coverage numbers (or scenario count) in TODO.md for the final report.
 - [ ] Targets met: line ≥ 95%, branch ≥ 90%, function = 100% — OR scenario
       matrix 100% covered
 - [ ] Exceptions documented with rationale
-- [ ] `mise run test:macos` and `mise run test:macos:release-safe` pass
+- [ ] `mise run test:all` passes (with coverage)
 - [ ] If new tests revealed spec violations → returned to Step 5
 
 ## State Update

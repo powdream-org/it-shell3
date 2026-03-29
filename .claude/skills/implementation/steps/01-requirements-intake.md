@@ -178,8 +178,9 @@ Ask the owner for any constraints not in the plan:
 ls -la .claude/agents/impl-team/
 ```
 
-Confirm that `implementer.md`, `qa-reviewer.md`, and `principal-architect.md`
-exist. If any are missing, report to the owner.
+Confirm that all required agents exist: `implementer.md`, `qa-engineer.md`,
+`qa-reviewer.md`, `development-reviewer.md`, `devops.md`, and
+`principal-architect.md`. If any are missing, report to the owner.
 
 ### 1g. Create TODO.md
 

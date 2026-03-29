@@ -92,13 +92,16 @@ everything still holds.
 
 Before returning to Step 5:
 
-```bash
-mise run test:macos
-mise run test:macos:release-safe
+Spawn the **devops** agent (`.claude/agents/impl-team/devops.md`):
+
+```
+Run full test suite to verify over-engineering fixes:
+mise run test:all -- --no-coverage
+Report structured results.
 ```
 
-Both Debug and ReleaseSafe must pass. If tests fail, the implementer fixes
-before proceeding to Step 5.
+All tests must pass. If tests fail, the implementer fixes before proceeding to
+Step 5.
 
 ## Gate
 

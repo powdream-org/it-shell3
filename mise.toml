@@ -61,6 +61,56 @@ docker run --rm --security-opt seccomp=unconfined \
 '
 """
 
+[tasks."test:all"]
+description = "Run all tests (macOS Debug + ReleaseSafe + Linux Debug), with coverage by default"
+run = """
+#!/usr/bin/env bash
+set -e
+COVERAGE=true
+for arg in "$@"; do
+  case "$arg" in
+    --no-coverage) COVERAGE=false ;;
+    --coverage) COVERAGE=true ;;
+  esac
+done
+
+echo "=== macOS Debug ==="
+for dir in $TEST_MODULES; do
+  echo "--- $(basename $dir) ---"
+  (cd $dir && zig build test --summary all)
+done
+
+echo "=== macOS ReleaseSafe ==="
+for dir in $TEST_MODULES; do
+  echo "--- $(basename $dir) ---"
+  (cd $dir && zig build test -Doptimize=ReleaseSafe --summary all)
+done
+
+echo "=== Linux Debug ==="
+docker run --rm --security-opt seccomp=unconfined \
+  -e TEST_MODULES="$TEST_MODULES" \
+  -v "$(pwd):/workspace" -w /workspace zig-kcov bash -c '
+  for dir in $TEST_MODULES; do
+    echo "--- $(basename $dir) ---"
+    (cd $dir && zig build test --summary all)
+  done
+'
+
+if [ "$COVERAGE" = true ]; then
+  echo "=== Coverage ==="
+  rm -rf coverage
+  docker run --rm --security-opt seccomp=unconfined \
+    -e TEST_MODULES="$TEST_MODULES" \
+    -v "$(pwd):/workspace" -w /workspace zig-kcov \
+    bash /workspace/scripts/coverage.sh
+fi
+
+echo "=== Format Check ==="
+for dir in $TEST_MODULES; do
+  (cd $dir && zig fmt --check src/)
+done
+"""
+
 [tasks."test:coverage"]
 description = "Measure code coverage via kcov in Linux Docker container"
 run = """
