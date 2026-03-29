@@ -16,6 +16,17 @@ CJK input support, built on libghostty.
 
 ## Architecture
 
+1. **Multiplexer Daemon (Server):**
+   - High-performance VT emulation powered by `libghostty`.
+   - Unicode/CJK composition via `libitshell3-ime`.
+   - Session and window management via `libitshell3`.
+2. **Client SDK (Zig):**
+   - A standalone static library (.a) used by the app layer.
+   - Abstracts the transport layer (Local Unix Socket vs. SSH Tunnel).
+3. **App Layer (Client):**
+   - Platform-specific UI layer (e.g., Swift for macOS).
+   - Direct invocation of the Client SDK via C FFI.
+
 ```
 Server (Daemon)                    Client (App)
 ┌─────────────────┐                ┌──────────────┐
@@ -31,13 +42,37 @@ Server (Daemon)                    Client (App)
 msg_type + length + sequence) with variable payload. Capability negotiation at
 handshake.
 
+### Client Connectivity Modes
+
+The Client SDK handles connecting to a daemon based on the target environment.
+
+**1. Local Mode (Direct Unix Socket)**
+
+- **Scenario:** Daemon running on the local macOS host.
+- **Mechanism:** Direct connection to the Unix Domain Socket.
+- **Benefit:** Lowest possible latency with zero encryption overhead.
+
+**2. Remote Mode (SSH + Unix Socket Bridge)**
+
+- **Scenario:** Daemon running on a remote server.
+- **Mechanism:** The SDK establishes a connection using `libssh2`, requests a
+  StreamLocal Forwarding channel through the SSH session, bridging the remote
+  Unix socket to the client.
+- **Benefit:** Secure, firewall-friendly access using existing SSH
+  infrastructure.
+
 ## Project Structure
 
 ```
 it-shell3/
+├── app/                        # Client UI applications
+│   └── macos/                  #   macOS App (Swift/Metal) — planned
+├── daemon/                     # Server daemon entry point
+│   └── build.zig               #   Daemon build script
 ├── modules/
 │   ├── libitshell3/            # Core: session/pane state, PTY, event loop
 │   ├── libitshell3-protocol/   # Wire protocol: messages, serialization
+│   ├── libitshell3-transport/  # Transport layer: Unix socket, SSH bridge
 │   └── libitshell3-ime/        # Native IME engine (Korean 2-set via libhangul)
 ├── vendors/
 │   ├── ghostty/                # Terminal engine (VT parser, Metal rendering)
@@ -49,16 +84,10 @@ it-shell3/
 
 **Applications** (it-shell3 client, it-shell3-daemon) are not yet started.
 
-## Current Status
+## Roadmap
 
-| Module               | Status                                    |
-| -------------------- | ----------------------------------------- |
-| libitshell3-protocol | Implemented (22 source files), 135+ tests |
-| libitshell3-ime      | Implemented (9 source files), 135+ tests  |
-| libitshell3          | Implemented (6 sub-modules)               |
-
-See [`ROADMAP.md`](docs/superpowers/plans/ROADMAP.md) for the full
-implementation plan.
+See [`ROADMAP.md`](docs/superpowers/plans/ROADMAP.md) for the current status and
+full implementation plan.
 
 ## Build & Test
 
@@ -101,6 +130,55 @@ produce ELF binaries and run coverage inside a Linux container.
 - `docs/modules/libitshell3-ime/` — IME design (7 documents)
 - `docs/insights/` — Cross-cutting architectural insights
 - `docs/conventions/` — Coding, naming, testing, commit conventions
+
+## Automated Header Generation (Planned)
+
+Functions and types intended for FFI are marked with `export` and `extern` in
+the Client SDK. The `daemon/build.zig` is configured to emit a C header
+automatically during the build process:
+
+```zig
+const lib = b.addStaticLibrary(.{
+    .name = "itshell3-client",
+    .root_source_file = b.path("../modules/libitshell3-client/src/root.zig"),
+});
+
+lib.emit_h = .emit; // Enables automatic header generation
+```
+
+## Build & Client SDK Integration (Planned)
+
+The `daemon/build.zig` defines separate targets for the server and the
+multi-architecture client SDK.
+
+```bash
+cd daemon
+
+# Build all client targets
+zig build client-libs
+
+# Create XCFramework for Apple platforms
+xcodebuild -create-xcframework \
+  -library ../artifacts/lib/macos-arm64/libitshell3-client.a -headers zig-out/include/ \
+  -library ../artifacts/lib/macos-x86_64/libitshell3-client.a -headers zig-out/include/ \
+  -library ../artifacts/lib/ios-arm64/libitshell3-client.a -headers zig-out/include/ \
+  -output ../artifacts/it-shell-sdk.xcframework
+```
+
+## Swift Integration (Planned)
+
+The Swift application uses an `extern struct` to pass connectivity requirements
+to the Zig SDK.
+
+```swift
+let config = itshell_config(
+    type: .ssh,
+    host: "dev.server.com",
+    user: "heejoon.kang",
+    socket_path: "/tmp/it-shell.sock"
+)
+itshell_connect(config)
+```
 
 ## License
 
