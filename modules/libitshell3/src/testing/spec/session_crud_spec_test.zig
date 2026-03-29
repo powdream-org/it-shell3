@@ -45,8 +45,8 @@ fn resetState() void {
 // ── CreateSession ──────────────────────────────────────────────────────────
 
 test "spec: session create -- allocates session with monotonic ID" {
-    // protocol 03 Section 1.2: CreateSessionResponse returns session_id (u32,
-    // server-assigned, monotonically increasing).
+    // protocol 03-session-pane-management (CreateSessionResponse): session_id
+    // is u32, server-assigned, monotonically increasing.
     resetState();
     const id1 = try sm.createSession("first", testImeEngine(), 0);
     const id2 = try sm.createSession("second", testImeEngine(), 0);
@@ -55,8 +55,8 @@ test "spec: session create -- allocates session with monotonic ID" {
 }
 
 test "spec: session create -- initial pane slot is allocated" {
-    // protocol 03 Section 1.2: CreateSessionResponse includes pane_id of
-    // initial pane. The session must have at least one pane slot reserved.
+    // protocol 03-session-pane-management (CreateSessionResponse): includes
+    // pane_id of initial pane. The session must have at least one pane slot reserved.
     resetState();
     const id = try sm.createSession("test", testImeEngine(), 0);
     const entry = sm.getSession(id).?;
@@ -65,7 +65,7 @@ test "spec: session create -- initial pane slot is allocated" {
 }
 
 test "spec: session create -- session name is stored correctly" {
-    // protocol 03 Section 1.4: ListSessionsResponse includes name.
+    // protocol 03-session-pane-management (ListSessionsResponse): includes name.
     resetState();
     const id = try sm.createSession("my-session", testImeEngine(), 0);
     const entry = sm.getSession(id).?;
@@ -73,7 +73,7 @@ test "spec: session create -- session name is stored correctly" {
 }
 
 test "spec: session create -- default input method is direct" {
-    // protocol 03 Section 1.6: AttachSessionResponse.active_input_method.
+    // protocol 03-session-pane-management (AttachSessionResponse): active_input_method.
     // daemon-architecture: default input method for new sessions is "direct".
     resetState();
     const id = try sm.createSession("test", testImeEngine(), 0);
@@ -82,7 +82,7 @@ test "spec: session create -- default input method is direct" {
 }
 
 test "spec: session create -- default keyboard layout is qwerty" {
-    // protocol 03 Section 1.6: AttachSessionResponse.active_keyboard_layout.
+    // protocol 03-session-pane-management (AttachSessionResponse): active_keyboard_layout.
     resetState();
     const id = try sm.createSession("test", testImeEngine(), 0);
     const entry = sm.getSession(id).?;
@@ -90,8 +90,8 @@ test "spec: session create -- default keyboard layout is qwerty" {
 }
 
 test "spec: session create -- max sessions returns error" {
-    // protocol 03 Section 1.2: non-zero status on error.
-    // daemon-architecture 02 state tree: MAX_SESSIONS capacity.
+    // protocol 03-session-pane-management (CreateSessionResponse): non-zero status on error.
+    // daemon-architecture 02-state-tree: MAX_SESSIONS capacity.
     resetState();
     var i: u32 = 0;
     while (i < MAX_SESSIONS) : (i += 1) {
@@ -102,7 +102,7 @@ test "spec: session create -- max sessions returns error" {
 }
 
 test "spec: session create -- focused pane set to initial pane" {
-    // daemon-architecture 02 state tree: session.focused_pane = initial pane slot.
+    // daemon-architecture 02-state-tree: session.focused_pane = initial pane slot.
     resetState();
     const id = try sm.createSession("test", testImeEngine(), 0);
     const entry = sm.getSession(id).?;
@@ -131,8 +131,8 @@ test "spec: session create -- session IDs never reused after destroy" {
 // ── ListSessions ───────────────────────────────────────────────────────────
 
 test "spec: session list -- returns all sessions with correct fields" {
-    // protocol 03 Section 1.4: ListSessionsResponse includes session_id,
-    // name, pane_count for each session.
+    // protocol 03-session-pane-management (ListSessionsResponse): includes
+    // session_id, name, pane_count for each session.
     resetState();
     const id1 = try sm.createSession("alpha", testImeEngine(), 0);
     const id2 = try sm.createSession("beta", testImeEngine(), 0);
@@ -147,7 +147,7 @@ test "spec: session list -- returns all sessions with correct fields" {
 }
 
 test "spec: session list -- empty when no sessions exist" {
-    // protocol 03 Section 1.4: sessions array may be empty.
+    // protocol 03-session-pane-management (ListSessionsResponse): sessions array may be empty.
     resetState();
     try std.testing.expectEqual(@as(u32, 0), sm.sessionCount());
 }
@@ -155,9 +155,9 @@ test "spec: session list -- empty when no sessions exist" {
 // ── RenameSession ──────────────────────────────────────────────────────────
 
 test "spec: session rename -- updates session name" {
-    // protocol 03 Section 1.11-1.12: RenameSessionRequest updates name,
-    // response status=0 on success.
-    // daemon-behavior 02 Section 7.1: state update BEFORE response.
+    // protocol 03-session-pane-management (RenameSessionRequest/Response): updates
+    // name, response status=0 on success.
+    // daemon-behavior 02-event-handling (session rename broadcast): state update BEFORE response.
     resetState();
     const id = try sm.createSession("old-name", testImeEngine(), 0);
     const entry = sm.getSession(id).?;
@@ -175,8 +175,8 @@ test "spec: session rename -- updates session name" {
 // ── DestroySession ─────────────────────────────────────────────────────────
 
 test "spec: session destroy -- removes session from manager" {
-    // protocol 03 Section 1.10: DestroySessionResponse status=0.
-    // daemon-behavior 02 Section 4: session destroy cascade.
+    // protocol 03-session-pane-management (DestroySessionResponse): status=0.
+    // daemon-behavior 02-event-handling (session destroy cascade).
     resetState();
     const id = try sm.createSession("doomed", testImeEngine(), 0);
     try std.testing.expectEqual(@as(u32, 1), sm.sessionCount());
@@ -187,14 +187,14 @@ test "spec: session destroy -- removes session from manager" {
 }
 
 test "spec: session destroy -- nonexistent session returns null" {
-    // protocol 03 Section 1.10: status=1 (session not found).
+    // protocol 03-session-pane-management (DestroySessionResponse): status=1 (session not found).
     resetState();
     const result = sm.destroySession(999);
     try std.testing.expect(result == null);
 }
 
 test "spec: session destroy -- does not affect other sessions" {
-    // daemon-behavior 02 Section 4: only the target session is destroyed.
+    // daemon-behavior 02-event-handling (session destroy cascade): only the target session is destroyed.
     resetState();
     const id1 = try sm.createSession("keep", testImeEngine(), 0);
     const id2 = try sm.createSession("destroy", testImeEngine(), 0);
@@ -207,7 +207,7 @@ test "spec: session destroy -- does not affect other sessions" {
 // ── Pane slot management within session ────────────────────────────────────
 
 test "spec: session pane slots -- allocate and free correctly" {
-    // daemon-architecture 02 Section 1.2: SessionEntry manages pane_slots[16].
+    // daemon-architecture 02-state-tree (SessionEntry): manages pane_slots[16].
     resetState();
     const id = try sm.createSession("test", testImeEngine(), 0);
     const entry = sm.getSession(id).?;
@@ -225,7 +225,7 @@ test "spec: session pane slots -- allocate and free correctly" {
 }
 
 test "spec: session pane slots -- pane count reflects occupied slots" {
-    // protocol 03 Section 1.4: ListSessionsResponse includes pane_count.
+    // protocol 03-session-pane-management (ListSessionsResponse): includes pane_count.
     resetState();
     const id = try sm.createSession("test", testImeEngine(), 0);
     const entry = sm.getSession(id).?;
@@ -298,7 +298,7 @@ fn peekMsgType(client: anytype) ?u16 {
 /// Drains queue items until one with the given msg_type is found, then returns
 /// its JSON payload. Returns null if no such item is in the queue.
 fn extractPayloadByMsgType(client: anytype, target_msg_type: u16, out: []u8) ?[]const u8 {
-    var iterations: u8 = 0;
+    var iterations: u32 = 0;
     while (iterations < 8) : (iterations += 1) {
         const mt = peekMsgType(client) orelse return null;
         if (mt == target_msg_type) {
@@ -309,10 +309,10 @@ fn extractPayloadByMsgType(client: anytype, target_msg_type: u16, out: []u8) ?[]
     return null;
 }
 
-fn makeTestContext(session_mgr: *SessionManager, client_mgr: *server.connection.client_manager.ClientManager) server.handlers.session_handler.SessionHandlerContext {
+fn makeTestContext(session_manager: *SessionManager, client_manager: *server.connection.client_manager.ClientManager) server.handlers.session_handler.SessionHandlerContext {
     return server.handlers.session_handler.SessionHandlerContext{
-        .session_manager = session_mgr,
-        .client_manager = client_mgr,
+        .session_manager = session_manager,
+        .client_manager = client_manager,
         .disconnect_fn = struct {
             fn cb(_: u16) void {}
         }.cb,
@@ -327,15 +327,15 @@ test "spec: session list handler -- response payload contains status 0" {
     // Strengthens the existing "returns empty list" test to verify the status
     // field is present and equals 0 in the JSON payload.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
-    const idx = try mgr.addClient(.{ .fd = 20 });
-    const client = mgr.getClient(idx).?;
+    const idx = try manager.addClient(.{ .fd = 20 });
+    const client = manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
 
     resetState();
-    var ctx = makeTestContext(&sm, &mgr);
+    var ctx = makeTestContext(&sm, &manager);
     server.handlers.session_handler.handleListSessions(&ctx, client, idx, 1);
 
     var payload_buf: [4096]u8 = undefined;
@@ -373,11 +373,11 @@ test "spec: session create -- SessionListChanged broadcast payload contains crea
     // broadcastToActive. Verify the notification builder produces the correct payload
     // and broadcast delivers it to a READY client.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
-    const idx = try mgr.addClient(.{ .fd = 22 });
-    const client = mgr.getClient(idx).?;
+    const idx = try manager.addClient(.{ .fd = 22 });
+    const client = manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
 
     resetState();
@@ -386,17 +386,17 @@ test "spec: session create -- SessionListChanged broadcast payload contains crea
     // Build and broadcast the SessionListChanged notification, as the handler
     // does after creating a session. This verifies both the notification format
     // and that broadcastToActive reaches READY clients.
-    var notif_buf: [server.handlers.protocol_envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
-    const notif_seq = client.connection.advanceSendSequence();
-    const notif = server.handlers.notification_builder.buildSessionListChanged(
+    var notification_buf: [server.handlers.protocol_envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    const notification_seq = client.connection.advanceSendSequence();
+    const notification = server.handlers.notification_builder.buildSessionListChanged(
         "created",
         sess_id,
         sm.getSession(sess_id).?.session.getName(),
-        notif_seq,
-        &notif_buf,
+        notification_seq,
+        &notification_buf,
     ) orelse return error.TestUnexpectedResult;
 
-    const result = server.connection.broadcast.broadcastToActive(&mgr, notif, null);
+    const result = server.connection.broadcast.broadcastToActive(&manager, notification, null);
     try std.testing.expectEqual(@as(u16, 1), result.sent_count);
 
     var buf: [4096]u8 = undefined;
@@ -414,18 +414,18 @@ test "spec: session create -- SessionListChanged broadcast payload contains crea
 test "spec: session destroy handler -- status=0 on success" {
     // protocol 03 DestroySessionResponse: status=0 on success.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
-    const idx = try mgr.addClient(.{ .fd = 23 });
-    const client = mgr.getClient(idx).?;
+    const idx = try manager.addClient(.{ .fd = 23 });
+    const client = manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
 
     resetState();
     const sess_id = try sm.createSession("doomed", testImeEngine(), 0);
 
-    var ctx = makeTestContext(&sm, &mgr);
+    var ctx = makeTestContext(&sm, &manager);
     server.handlers.session_handler.handleDestroySession(&ctx, client, idx, 1, sess_id, true);
 
     var payload_buf: [4096]u8 = undefined;
@@ -443,16 +443,16 @@ test "spec: session destroy handler -- status=0 on success" {
 test "spec: session destroy handler -- status=1 when session not found" {
     // protocol 03 DestroySessionResponse: status=1 = session not found.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
-    const idx = try mgr.addClient(.{ .fd = 24 });
-    const client = mgr.getClient(idx).?;
+    const idx = try manager.addClient(.{ .fd = 24 });
+    const client = manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
 
     resetState();
-    var ctx = makeTestContext(&sm, &mgr);
+    var ctx = makeTestContext(&sm, &manager);
     // Destroy a session that does not exist.
     server.handlers.session_handler.handleDestroySession(&ctx, client, idx, 1, 999, false);
 
@@ -471,11 +471,11 @@ test "spec: session destroy handler -- status=2 when processes running and force
     // (force=false). When force=false and a pane has is_running=true, the handler
     // must refuse with status=2.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
-    const idx = try mgr.addClient(.{ .fd = 25 });
-    const client = mgr.getClient(idx).?;
+    const idx = try manager.addClient(.{ .fd = 25 });
+    const client = manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
 
@@ -489,7 +489,7 @@ test "spec: session destroy handler -- status=2 when processes running and force
     // is_running defaults to true in Pane.init.
     entry.setPaneAtSlot(0, running_pane);
 
-    var ctx = makeTestContext(&sm, &mgr);
+    var ctx = makeTestContext(&sm, &manager);
     // force=false — must refuse because pane is running.
     server.handlers.session_handler.handleDestroySession(&ctx, client, idx, 1, sess_id, false);
 
@@ -515,15 +515,15 @@ test "spec: attach-or-create handler -- 'created' path response contains require
     // before enqueueing AttachOrCreateResponse (0x010D). We locate the response
     // by message type code.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
-    const idx = try mgr.addClient(.{ .fd = 26 });
-    const client = mgr.getClient(idx).?;
+    const idx = try manager.addClient(.{ .fd = 26 });
+    const client = manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
 
     resetState();
-    var ctx = makeTestContext(&sm, &mgr);
+    var ctx = makeTestContext(&sm, &manager);
     // No session named "new-sess" exists — handler must create it.
     server.handlers.session_handler.handleAttachOrCreate(&ctx, client, idx, 1, "new-sess");
 
@@ -554,18 +554,18 @@ test "spec: attach-or-create handler -- 'attached' path response contains requir
     // In the "attached" path, the handler enqueues the response directly
     // (no SessionListChanged broadcast). We locate by message type code.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
-    const idx = try mgr.addClient(.{ .fd = 27 });
-    const client = mgr.getClient(idx).?;
+    const idx = try manager.addClient(.{ .fd = 27 });
+    const client = manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
 
     resetState();
     // Pre-create the session so the handler takes the "attached" code path.
     _ = try sm.createSession("existing-sess", testImeEngine(), 0);
 
-    var ctx = makeTestContext(&sm, &mgr);
+    var ctx = makeTestContext(&sm, &manager);
     server.handlers.session_handler.handleAttachOrCreate(&ctx, client, idx, 1, "existing-sess");
 
     // Locate AttachOrCreateResponse (0x010D) in the queue.
@@ -594,17 +594,17 @@ test "spec: session attach handler -- transitions to OPERATING and sets attached
     // name, active_pane_id, active_input_method, active_keyboard_layout fields.
     // daemon-behavior 03 policies-and-procedures: READY -> OPERATING on attach.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
-    const idx = try mgr.addClient(.{ .fd = 28 });
-    const client = mgr.getClient(idx).?;
+    const idx = try manager.addClient(.{ .fd = 28 });
+    const client = manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
 
     resetState();
     const sess_id = try sm.createSession("attach-me", testImeEngine(), 0);
 
-    var ctx = makeTestContext(&sm, &mgr);
+    var ctx = makeTestContext(&sm, &manager);
     server.handlers.session_handler.handleAttachSession(&ctx, client, idx, 1, sess_id);
 
     // Verify state transition to OPERATING.
@@ -640,11 +640,11 @@ test "spec: swap panes handler -- accepts pane_a_id and pane_b_id parameters" {
     // The handler function signature accepts pane_a_id and pane_b_id — verify
     // that a successful swap with two distinct panes returns status=0.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
-    const idx = try mgr.addClient(.{ .fd = 29 });
-    const client = mgr.getClient(idx).?;
+    const idx = try manager.addClient(.{ .fd = 29 });
+    const client = manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
 
@@ -665,7 +665,7 @@ test "spec: swap panes handler -- accepts pane_a_id and pane_b_id parameters" {
 
     var pane_ctx = server.handlers.pane_handler.PaneHandlerContext{
         .session_manager = &sm,
-        .client_manager = &mgr,
+        .client_manager = &manager,
     };
     // Dispatch with pane_a_id / pane_b_id — the field names from protocol 03
     // SwapPanesRequest.
@@ -699,19 +699,19 @@ test "spec: forced detach response -- sequence is non-zero (server-assigned)" {
     // Set up: two clients attached to the same session. The requester destroys
     // the session. The peer must receive a DetachSessionResponse with sequence != 0.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
 
     // Requester.
-    const req_idx = try mgr.addClient(.{ .fd = 30 });
-    const requester = mgr.getClient(req_idx).?;
+    const req_idx = try manager.addClient(.{ .fd = 30 });
+    const requester = manager.getClient(req_idx).?;
     _ = requester.connection.transitionTo(.ready);
     _ = requester.connection.transitionTo(.operating);
 
     // Peer (attached to same session, will receive forced DetachSessionResponse).
-    const peer_idx = try mgr.addClient(.{ .fd = 31 });
-    const peer = mgr.getClient(peer_idx).?;
+    const peer_idx = try manager.addClient(.{ .fd = 31 });
+    const peer = manager.getClient(peer_idx).?;
     _ = peer.connection.transitionTo(.ready);
     _ = peer.connection.transitionTo(.operating);
 
@@ -720,7 +720,7 @@ test "spec: forced detach response -- sequence is non-zero (server-assigned)" {
     requester.connection.attached_session_id = sess_id;
     peer.connection.attached_session_id = sess_id;
 
-    var ctx = makeTestContext(&sm, &mgr);
+    var ctx = makeTestContext(&sm, &manager);
     // Requester destroys the session.
     server.handlers.session_handler.handleDestroySession(&ctx, requester, req_idx, 42, sess_id, true);
 
@@ -758,11 +758,11 @@ test "spec: session create -- SessionListChanged reaches requester via broadcast
     // requester, then (2) broadcast SessionListChanged via broadcastToActive.
     // Both items arrive in the requester's direct queue, response first.
     const helpers = test_mod.helpers;
-    var mgr = server.connection.client_manager.ClientManager{
+    var manager = server.connection.client_manager.ClientManager{
         .chunk_pool = helpers.testChunkPool(),
     };
-    const idx = try mgr.addClient(.{ .fd = 32 });
-    const client = mgr.getClient(idx).?;
+    const idx = try manager.addClient(.{ .fd = 32 });
+    const client = manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
 
     resetState();
@@ -787,16 +787,16 @@ test "spec: session create -- SessionListChanged reaches requester via broadcast
     try client.enqueueDirect(resp);
 
     // Step 2: Broadcast SessionListChanged — must arrive AFTER the response.
-    var notif_buf: [server.handlers.protocol_envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
-    const notif_seq = client.connection.advanceSendSequence();
-    const notif = server.handlers.notification_builder.buildSessionListChanged(
+    var notification_buf: [server.handlers.protocol_envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    const notification_seq = client.connection.advanceSendSequence();
+    const notification = server.handlers.notification_builder.buildSessionListChanged(
         "created",
         sess_id,
         sm.getSession(sess_id).?.session.getName(),
-        notif_seq,
-        &notif_buf,
+        notification_seq,
+        &notification_buf,
     ) orelse return error.TestUnexpectedResult;
-    const broadcast_result = server.connection.broadcast.broadcastToActive(&mgr, notif, null);
+    const broadcast_result = server.connection.broadcast.broadcastToActive(&manager, notification, null);
     try std.testing.expectEqual(@as(u16, 1), broadcast_result.sent_count);
 
     // Verify message 1: CreateSessionResponse with status=0 and session_id.

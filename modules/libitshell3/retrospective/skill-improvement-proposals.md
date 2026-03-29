@@ -240,3 +240,28 @@ discovered issues, not just Step 3 verification issues.
 - Add anti-pattern: "Don't self-triage. The team leader groups and presents
   issues; the owner decides dispositions. Pre-classifying issues as 'fix',
   'defer', or 'skip' bypasses the owner's judgment."
+
+## SIP-9: Used `test:macos` instead of `test:all` as specified in step files
+
+**Discovered during**: Step 9 (Fix Cycle)
+
+**What happened**: The step files (`09-fix-cycle.md`, `07-simplify.md`) specify
+`mise run test:all -- --no-coverage` as the verification command. The team
+leader used `mise run test:macos` instead, which only runs macOS Debug tests and
+skips ReleaseSafe. `test:all` runs Debug + ReleaseSafe on macOS (and Linux in
+Docker if available), catching optimization-dependent bugs that Debug misses.
+
+**Root cause**: The team leader substituted `test:macos` for speed, ignoring the
+explicit command in the step file. No step file says "use test:macos as
+fallback" — it always says `test:all`.
+
+**Affected steps**: Team leader behavior (cross-cutting). Steps 7, 9, and 10 all
+reference `test:all`.
+
+**Proposed changes**:
+
+- Add a cross-cutting rule in SKILL.md: "Always use the exact test command
+  specified in the step file. Do NOT substitute `test:macos` for `test:all` —
+  ReleaseSafe tests catch optimization-dependent bugs that Debug misses."
+- If Docker is unavailable, the team leader should run `test:macos` AND
+  `test:macos:release-safe` as a minimum substitute, and note the Linux skip.
