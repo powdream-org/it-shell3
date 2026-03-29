@@ -226,15 +226,23 @@ test "spec: connection state -- disconnecting rejects heartbeat" {
 
 // ── isOperationalMessageType range coverage ─────────────────────────────────
 
-test "spec: connection state -- extension range (0x0A00-0x0AFF) NOT operational" {
-    // Extensions are in range 0x0A00+ which is beyond 0x08FF
-    // They should NOT be classified as operational
+test "spec: connection state -- extension range (0x0A00-0x0AFF) operational in OPERATING" {
     const conn = makeConn(.operating);
-    // extension_list is 0x0A00 -- outside 0x0100-0x08FF range
-    // The isOperationalMessageType checks 0x0100-0x08FF only
-    try std.testing.expect(!conn.isMessageAllowed(.extension_list));
-    try std.testing.expect(!conn.isMessageAllowed(.extension_list_ack));
-    try std.testing.expect(!conn.isMessageAllowed(.extension_message));
+    try std.testing.expect(conn.isMessageAllowed(.extension_list));
+    try std.testing.expect(conn.isMessageAllowed(.extension_list_ack));
+    try std.testing.expect(conn.isMessageAllowed(.extension_message));
+}
+
+test "spec: connection state -- reserved ranges rejected in OPERATING" {
+    const conn = makeConn(.operating);
+    // 0x0900-0x09FF (Connection Health reserved) and 0x0B00-0x0FFF (reserved)
+    // are not defined in the MessageType enum, so test with raw values via
+    // the internal isOperationalMessageType logic boundary.
+    // Lifecycle range (0x0000-0x00FF) should also be rejected by the operational check.
+    try std.testing.expect(!conn.isMessageAllowed(@enumFromInt(0x0900)));
+    try std.testing.expect(!conn.isMessageAllowed(@enumFromInt(0x09FF)));
+    try std.testing.expect(!conn.isMessageAllowed(@enumFromInt(0x0B00)));
+    try std.testing.expect(!conn.isMessageAllowed(@enumFromInt(0x0FFF)));
 }
 
 // ── Capability management ───────────────────────────────────────────────────

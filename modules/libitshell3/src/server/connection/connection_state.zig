@@ -144,11 +144,14 @@ pub const ConnectionState = struct {
 };
 
 /// Returns true if the message type is an operational (non-lifecycle) type
-/// that should be allowed in OPERATING state. The operational ranges
-/// 0x0100-0x08FF are contiguous with no gaps.
+/// that should be allowed in OPERATING state. Covers 0x0100-0x08FF
+/// (session, pane, input, render, IME, flow control, CJK preedit,
+/// connection health) and 0x0A00-0x0AFF (extension negotiation).
 fn isOperationalMessageType(msg_type: MessageType) bool {
     const raw = @intFromEnum(msg_type);
-    return raw >= 0x0100 and raw <= 0x08FF;
+    if (raw >= 0x0100 and raw <= 0x08FF) return true;
+    if (raw >= 0x0A00 and raw <= 0x0AFF) return true;
+    return false;
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
