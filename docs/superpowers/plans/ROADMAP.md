@@ -331,12 +331,15 @@ into category-based sub-dispatchers matching the protocol message type ranges.
   dispatchers
 - `server/handlers/lifecycle_dispatcher.zig` — handshake, heartbeat, disconnect,
   error (0x00xx)
-- `server/handlers/session_pane_dispatcher.zig` — session + pane messages with
-  JSON parsing (0x01xx)
+- `server/handlers/session_pane_dispatcher.zig` — second-level split via
+  `raw & 0xC0`: session (0x0100-0x013F), pane (0x0140-0x017F), notification
+  (0x0180-0x019F)
 - Stub dispatchers for input (0x02xx), render (0x03xx), ime (0x04xx),
   flow_control (0x05xx) — ready for Plan 8/9
 - JSON parsing moves from top-level dispatcher into category dispatcher
 - No behavioral change — pure structural refactor
+
+**ADR:** ADR 00064 (Category-Based Message Dispatcher)
 
 **Design spec refs:** protocol 01-protocol-overview (message type ranges)
 
