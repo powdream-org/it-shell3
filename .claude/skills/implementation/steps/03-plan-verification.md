@@ -94,6 +94,10 @@ Update TODO.md:
 - Mark Step 3 as `[x]`
 - Log any spec gaps discovered in the Spec Gap Log
 
+Checkpoint: commit all changed artifacts (TODO.md, plan file, CTRs if any).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/04-cycle-setup.md`.

@@ -116,7 +116,11 @@ Update TODO.md:
 - `Active Team` → (none)
 - Mark `Step 5` as `[x]` (or `Step 5: Verification (Round N)` for Round 2+)
 
+Checkpoint: commit all changed artifacts (TODO.md, issues file).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 - If **any confirmed issues** → Read `steps/06-fix-round.md`
 - If **all dismissed** → Read `steps/07-commit-and-report.md`

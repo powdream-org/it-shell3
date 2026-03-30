@@ -46,6 +46,10 @@ Update TODO.md:
 - **Plan**: path to the written plan
 - Mark Step 2 as `[x]`
 
+Checkpoint: commit all changed artifacts (TODO.md, plan file).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/03-plan-verification.md`.

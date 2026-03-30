@@ -41,6 +41,10 @@ Update TODO.md:
 - `Current State` → `Step: 9 (Retrospective)`
 - Mark `Step 8` as `[x]` with summary of review artifacts produced
 
+Checkpoint: commit all changed artifacts (TODO.md, review notes, ADRs).
+
 ## Next
+
+**Owner input required** — wait for owner's explicit review completion signal.
 
 Read `steps/09-retrospective.md`.

@@ -122,7 +122,11 @@ Update TODO.md:
 - If starting a new verification round after Step 11 regression, append a new
   `## Progress — Round N` section (do NOT reset previous marks)
 
+Checkpoint: commit all changed artifacts (TODO.md, fixed source/test files).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/08-spec-compliance.md` — the QA reviewer does another full review to
 catch any issues introduced by the fixes. This loop (8 → 9 → 8) continues until

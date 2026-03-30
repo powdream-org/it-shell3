@@ -89,6 +89,10 @@ Update TODO.md:
 - **Step**: 6 (Implementation Phase)
 - Mark Step 5 as `[x]`
 
+Checkpoint: commit all changed artifacts (TODO.md, scaffold files).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/06-implementation.md`.

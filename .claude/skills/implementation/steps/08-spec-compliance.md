@@ -106,7 +106,11 @@ Update TODO.md:
 - If issues: **Step**: 9 (Fix Cycle), mark Step 8 as `[x]`
 - **Review Round**: increment by 1
 
+Checkpoint: commit all changed artifacts (TODO.md).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 - If clean → Read `steps/10-coverage-audit.md`.
 - If issues found → Read `steps/09-fix-cycle.md`.

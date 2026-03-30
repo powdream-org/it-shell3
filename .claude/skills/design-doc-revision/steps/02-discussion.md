@@ -37,6 +37,10 @@ Update TODO.md:
 - `Team Directory` → team directory path
 - Mark `Step 2` as `[x]`
 
+Checkpoint: commit all changed artifacts (TODO.md).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/03-resolution.md`.

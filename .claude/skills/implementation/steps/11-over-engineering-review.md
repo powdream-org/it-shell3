@@ -122,7 +122,11 @@ Update TODO.md:
   - **Step**: 8 (Spec Compliance Review) — regression loop
   - Note in TODO.md: "Returning to Step 8 after over-engineering fixes"
 
+Checkpoint: commit all changed artifacts (TODO.md, any simplified source files).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 - If clean -> Read `steps/12-commit-and-report.md`.
 - If code changed -> Read `steps/08-spec-compliance.md`.

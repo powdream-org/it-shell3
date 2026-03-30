@@ -77,6 +77,10 @@ change and commit with reason.
 
 Update TODO.md: **Step**: 15 (Cleanup & ROADMAP Update). Mark Step 14 as `[x]`.
 
+Checkpoint: commit all changed artifacts (TODO.md, learnings, skill edits).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/15-cleanup.md`.

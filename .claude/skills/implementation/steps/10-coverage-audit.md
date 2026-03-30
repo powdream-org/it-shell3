@@ -98,7 +98,11 @@ Update TODO.md:
   - **Step**: 11 (Over-Engineering Review)
   - Mark Step 10 as `[x]`
 
+Checkpoint: commit all changed artifacts (TODO.md, new test files).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 - If spec violation discovered → Read `steps/08-spec-compliance.md`.
 - Otherwise → Read `steps/11-over-engineering-review.md`.

@@ -79,6 +79,10 @@ Update TODO.md:
 - **Step**: 5 (Scaffold & Build Verification)
 - Mark Step 4 as `[x]`
 
+Checkpoint: commit all changed artifacts (TODO.md, ROADMAP.md).
+
 ## Next
+
+**Auto-proceed** — owner already approved in 4e.
 
 Read `steps/05-scaffold-and-build.md`.

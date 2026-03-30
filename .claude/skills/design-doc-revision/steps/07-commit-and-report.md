@@ -39,6 +39,10 @@ Update TODO.md:
 - `Active Team` → (none)
 - Mark `Step 7` as `[x]`
 
+(No separate checkpoint — code was just committed in this step.)
+
 ## Next
+
+**Auto-proceed** — no owner input required (owner review happens in Step 8).
 
 Read `steps/08-owner-review.md`.

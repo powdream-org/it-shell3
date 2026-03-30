@@ -60,7 +60,12 @@ Update TODO.md:
     Issues
   - Increment review round
 
+Checkpoint: commit all changed artifacts (TODO.md, any immediate fixes from
+owner).
+
 ## Next
+
+**Owner input required** — wait for owner's explicit accept/change signal.
 
 - If accepted → Read `steps/14-retrospective.md`.
 - If changes requested → Read `steps/06-implementation.md`.

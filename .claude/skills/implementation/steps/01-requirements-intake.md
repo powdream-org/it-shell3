@@ -103,6 +103,7 @@ Create `<target>/TODO.md` with this format:
 - [ ] Design spec identified and version(s) recorded
 - [ ] Plan existence checked
 - [ ] TODO.md created
+- [ ] ROADMAP Plan Index status updated to `In progress`
 
 ## State Update
 
@@ -111,7 +112,13 @@ Update TODO.md:
 - **Step**: 2 (Plan Writing) or 3 (Plan Verification)
 - Mark Step 1 as `[x]`
 
+Update ROADMAP Plan Index: set this plan's status to `**In progress**`.
+
+Checkpoint: commit all changed artifacts (TODO.md, ROADMAP.md).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 - If no plan → Read `steps/02-plan-writing.md`.
 - If plan exists → Read `steps/03-plan-verification.md`.

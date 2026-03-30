@@ -107,6 +107,10 @@ Update TODO.md:
 - **Step**: 13 (Owner Review)
 - Mark Step 12 as `[x]`
 
+(No separate checkpoint — code was just committed in 12e.)
+
 ## Next
+
+**Auto-proceed** — no owner input required (owner review happens in Step 13).
 
 Read `steps/13-owner-review.md`.

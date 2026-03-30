@@ -89,6 +89,10 @@ before spawning? (yes / no)"_ Wait for owner to run `/compact` and confirm.
 TODO.md is created with Current State already set to Step 2 — no additional
 update needed.
 
+Checkpoint: commit all changed artifacts (TODO.md).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/02-discussion.md`.

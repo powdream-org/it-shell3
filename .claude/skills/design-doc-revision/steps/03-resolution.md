@@ -40,6 +40,10 @@ Update TODO.md:
 - `Team Directory` → (none)
 - Mark `Step 3` as `[x]`
 
+Checkpoint: commit all changed artifacts (TODO.md, resolution document).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/04-writing.md`.

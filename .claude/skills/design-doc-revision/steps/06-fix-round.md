@@ -89,7 +89,11 @@ Update TODO.md:
 - If clean/deferred → `Current State` → `Step: 7 (Commit)`
 - Mark `Step 6` as `[x]`
 
+Checkpoint: commit all changed artifacts (TODO.md, issues file).
+
 ## Next
+
+**Auto-proceed** — for Rounds 1-3. **Owner input required** for Round 4+.
 
 - Fix round → Read `steps/04-writing.md`
 - Clean/deferred → Read `steps/07-commit-and-report.md`

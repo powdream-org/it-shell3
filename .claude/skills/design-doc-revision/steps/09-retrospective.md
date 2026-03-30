@@ -77,6 +77,10 @@ Update TODO.md:
 - Mark `Step 9` as `[x]`
 - `Current State` → `Step: 10 (Handover)`
 
+Checkpoint: commit all changed artifacts (TODO.md, skill edits).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/10-handover.md`.

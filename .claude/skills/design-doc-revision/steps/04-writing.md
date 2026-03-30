@@ -75,6 +75,10 @@ Update TODO.md:
 - `Team Directory` → (none)
 - Mark `Step 4` as `[x]`
 
+Checkpoint: commit all changed artifacts (TODO.md, written documents).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/05-verification.md`.

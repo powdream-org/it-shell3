@@ -33,6 +33,9 @@
 - **Don't let QA engineer read implementation source code.** QA engineer derives
   tests from the spec alone. Reading the implementation introduces bias — tests
   end up confirming what the code does rather than what the spec says.
+- **Don't serialize parallelizable tasks into one implementer.** If the plan's
+  dependency graph shows independent task groups, spawn one implementer per
+  group. Queuing all tasks behind a single agent wastes time.
 
 ## Action
 
@@ -164,6 +167,10 @@ Update TODO.md:
 - **Team Directory**: `.claude/agents/impl-team/`
 - Mark Step 6 as `[x]`
 
+Checkpoint: commit all changed artifacts (TODO.md, source files, test files).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/07-simplify.md`.

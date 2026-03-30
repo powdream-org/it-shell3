@@ -85,6 +85,10 @@ Update TODO.md:
 - **Step**: 8 (Spec Compliance Review)
 - Mark Step 7 as `[x]`
 
+Checkpoint: commit all changed artifacts (TODO.md, source files).
+
 ## Next
+
+**Auto-proceed** — no owner input required.
 
 Read `steps/08-spec-compliance.md`.
