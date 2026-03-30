@@ -70,20 +70,19 @@ graph TD
     P4 --> P5["Plan 5: IME Integration ✅"]
     P5 --> P5_5["Plan 5.5: Spec Alignment Audit ✅"]
     P5_5 --> P6["Plan 6: Message Infrastructure ✅"]
-    P6 --> P7["Plan 7: Session & Pane Ops"]
-    P7 --> P8["Plan 8: Input Pipeline"]
-    P8 --> P9["Plan 9: Frame Delivery & Policies"]
-    P5_5 --> P9
-    P9 --> P10["Plan 10: Cascades & Shutdown"]
-    P5_5 --> P11["Plan 11: SSH Transport"]
+    P6 --> P7["Plan 7: Session & Pane Ops 🔄"]
+    P7 --> P15["Plan 15: CTR Resolution"]
+    P15 --> P16["Plan 16: Post-Design Code Alignment"]
+    P16 --> P8["Plan 8: Input Pipeline"]
+    P16 --> P11["Plan 11: SSH Transport"]
     P3 --> P11
+    P8 --> P9["Plan 9: Frame Delivery & Policies"]
+    P9 --> P10["Plan 10: Cascades & Shutdown"]
     P10 --> P12_1["Plan 12.1: Daemon CLI Design"]
     P12_1 --> P12_2["Plan 12.2: Daemon CLI Impl"]
     P12_2 --> P13["Plan 13: Debug Subsystem"]
     P13 --> P14_1["Plan 14.1: macOS Client Design"]
     P14_1 --> P14_2["Plan 14.2: macOS Client Impl"]
-    P14_2 --> P15["Plan 15: CTR Resolution"]
-    P15 --> P16["Plan 16: Post-Design Code Alignment"]
 ```
 
 ---
@@ -258,7 +257,7 @@ broadcast infrastructure.
 **Depends on:** Plan 5.5 (ClientState type must be finalized before building
 connection lifecycle on top of it)
 
-### Plan 7: Session & Pane Operations (Not Started)
+### Plan 7: Session & Pane Operations (In Progress)
 
 **Scope:** Session CRUD (Create / List / Attach / Detach / Destroy / Rename /
 AttachOrCreate), Pane CRUD (Split / Close / Focus / Navigate / Resize / Equalize
@@ -517,6 +516,10 @@ updated first (Plan 15) before code can be modified.
   spec minimum
 - **ADR 00054** (per-instance socket directory): `os/socket_path.zig`
 - **ADR 00058** (inline buffers): verify code matches revised spec
+- **ADR 00062** (fixed-point resize ratio): `split_tree.zig` ratio f32 → u32,
+  `pane_handler.zig` resize handler, `message_dispatcher.zig` resize parsing
+- **ADR 00063** (text zoom as WindowResize): no code change needed (daemon
+  already treats WindowResize generically)
 
 **Depends on:** Plan 15 (specs must be updated before code follows)
 
