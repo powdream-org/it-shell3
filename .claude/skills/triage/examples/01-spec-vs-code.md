@@ -8,14 +8,12 @@ receiving layout-change notifications, but the protocol spec says the event is
 
 ### Why
 
-The protocol spec defines broadcast semantics for session events to ensure every
-attached client stays synchronized with the current layout state. If one client
-is excluded, its UI becomes stale — it shows the old pane layout until the user
-performs an action that triggers a full re-sync. This creates a class of bugs
-where the user sees different layouts on different terminal windows connected to
-the same session. The implementer likely added the exclusion to avoid "echo" —
-sending the requester a notification about their own action — but the spec makes
-no exception for the requester.
+After the user splits a pane, their own terminal window still shows the old
+layout. They have to detach and re-attach to see the new pane they just created.
+Every other terminal window connected to the same session updates immediately —
+only the window that performed the action is stale. This affects all
+user-initiated session events (split, close, resize, focus change) because every
+call site except session-restore excludes the requester.
 
 ### Who
 
@@ -30,57 +28,25 @@ never that the requester also received it.
 
 ### Where
 
-**Spec quote** (`docs/modules/libitshell3-protocol/server-client-protocols.md`,
-lines 847-855):
+**The broadcast flow:**
 
 ```
-## 6.3.2 Session Event Broadcasting
+Client sends SplitPane
+  → handler processes split
+  → broadcastSessionEvent(session, event, exclude=requester)
+                                                  ↑ PROBLEM: spec says no exclusion
 
-When a session-level event occurs (layout change, pane creation, pane
-destruction, focus change), the daemon MUST broadcast a SessionEvent
-message to ALL clients currently attached to the affected session.
-The broadcast is unconditional — no client filtering is applied.
-Each client independently decides whether to act on or ignore the
-event based on its local state.
+Inside broadcastSessionEvent:
+  for each attached client:
+    if client == excluded → SKIP          ← requester never gets the event
+    else                  → send event
 ```
 
-**Function code**
-(`modules/libitshell3/src/server/handlers/session_handler.zig`, lines 214-241):
+The spec sentence that matters (`server-client-protocols.md`, Section 6.3.2):
 
-```zig
-fn broadcastSessionEvent(
-    self: *SessionHandler,
-    session: *Session,
-    event: SessionEvent,
-    exclude_client: ?ClientId,
-) !void {
-    const attached_clients = session.getAttachedClients();
-    var message = protocol.Message.init(.session_event, .{
-        .session_id = session.id,
-        .event_type = event.event_type,
-        .payload = event.payload,
-    });
-
-    for (attached_clients) |client| {
-        if (exclude_client) |excluded| {
-            if (client.id == excluded) continue;  // ← the conflict
-        }
-        try self.transport.sendMessage(client.connection, message);
-    }
-
-    self.metrics.recordBroadcast(session.id, attached_clients.len);
-}
-```
-
-**Called function's signature** showing what `exclude_client` enables
-(`modules/libitshell3/src/server/transport.zig`, line 87):
-
-```zig
-/// Sends a message to a specific client connection.
-/// The caller is responsible for client filtering — this function
-/// performs no filtering of its own.
-pub fn sendMessage(self: *Transport, connection: *Connection, message: Message) !void
-```
+> When a session-level event occurs, the daemon MUST broadcast a SessionEvent
+> message to ALL clients currently attached to the affected session. The
+> broadcast is unconditional — no client filtering is applied.
 
 **Call-site inventory** — every place `broadcastSessionEvent` is called:
 
@@ -107,4 +73,3 @@ but are not limited to: remove the `exclude_client` parameter entirely (match
 the spec literally), keep the exclusion but update the spec to document it as
 intentional, or add a separate "acknowledgment" message for the requester while
 keeping the broadcast exclusion for the event stream.
-

@@ -52,10 +52,11 @@ A single sentence stating the conflict. This anchors the owner's attention.
 
 ### 2nd — Why (Background / Motivation / Conflict)
 
-Explain WHY this is a conflict, not just THAT it is one. Provide the
-motivational context: what design goal or requirement created the tension? What
-were the competing concerns? This helps the owner understand whether the issue
-is a bug, a design gap, or an intentional tradeoff that was never documented.
+Explain WHY this is a problem **in terms of concrete impact to the owner**. Not
+"the procedure requires X" (that's restating the rule) but "because of this, the
+owner had to re-read 15 minutes of evidence" or "the client UI shows stale
+layout until the user manually refreshes." The owner needs to FEEL why this
+matters, not be told a rule was violated.
 
 ### 3rd — Who (Parties in Conflict)
 
@@ -70,14 +71,24 @@ State whether this is pre-existing (carried from a previous revision or plan) or
 newly introduced. If pre-existing, say when it was introduced and why it was not
 caught earlier. Timeline affects urgency and blame-free disposition.
 
-### 5th — Where (FULL Evidence)
+### 5th — Where (Explained Evidence)
 
-This is the longest and most critical section. Provide ALL evidence the owner
-needs: full spec quotes with file paths and line numbers, full code blocks with
-file paths, full table rows, call-site inventories, state machine transitions.
-The owner must be able to make a decision WITHOUT opening any files. Summarized
-evidence is worthless — it forces the owner to investigate, which is the
-triager's job.
+This is the longest and most critical section. The owner must be able to make a
+decision WITHOUT opening any files.
+
+**Do NOT dump raw text.** Copying a full function or spec paragraph and saying
+"here it is" forces the owner to analyze it themselves. Instead:
+
+1. **Explain the flow first** — use pseudo code, flowcharts, or abstracted
+   paragraphs to show the overall behavior in a way a human can follow
+2. **Mark the conflict point** — show exactly WHERE in the flow the problem
+   occurs ("here is where it breaks")
+3. **Cite evidence minimally** — quote only the specific lines that matter, not
+   entire functions or paragraphs. Use file:line references so the owner CAN
+   look deeper if they choose to
+
+The goal: the owner understands the problem from your explanation, not from
+reading raw source material.
 
 ### 6th — How (Decision Required)
 

@@ -35,68 +35,25 @@ group).
 
 ### Where
 
-**Spec quote** (`docs/modules/libitshell3/daemon-behavior.md`, lines 423-441):
+The spec assumes a causal chain that does not exist in any kernel:
 
 ```
-## 7.4 Foreground Process Tracking
+What the spec assumes:
+  shell forks child → child calls tcsetpgrp() → kqueue fires NOTE_FORK → daemon updates foreground_pid
 
-The daemon MUST track which process currently owns the foreground of
-each PTY. This is used for pane title updates and safe pane teardown.
+What actually happens on macOS:
+  shell forks child → child calls tcsetpgrp() → [NO EVENT] → daemon never knows
 
-The daemon registers a kqueue EVFILT_PROC filter with NOTE_FORK on the
-PTY's initial child process (the shell). When the shell forks a child
-that calls tcsetpgrp() to become the foreground process group leader,
-the daemon receives a kevent notification and updates the pane's
-foreground_pid field.
-
-When a pane is closed by the user, the daemon sends SIGTERM to the
-process group identified by foreground_pid, waits up to 5 seconds,
-then sends SIGKILL if the group has not exited.
-
-The daemon MUST NOT poll /proc or use ptrace for foreground detection.
-These mechanisms are either unavailable (macOS has no /proc/pid/stat)
-or require elevated privileges.
+NOTE_FORK fires on fork(), not on tcsetpgrp(). These are different kernel operations.
 ```
 
-**Actual macOS kqueue behavior** (`man 2 kqueue` on macOS 14, EVFILT_PROC
-section, abridged):
+The spec (Section 7.4) says: "When the shell forks a child that calls
+`tcsetpgrp()` to become the foreground process group leader, the daemon receives
+a kevent notification." This conflates two distinct events — `fork(2)` (which
+kqueue can observe) and `tcsetpgrp()` (which no kqueue filter covers). There is
+no `NOTE_TCSETPGRP` or `NOTE_PGRP` flag.
 
-```
-EVFILT_PROC
-     Takes the process ID to monitor as the identifier. The events to
-     watch for are:
-
-     NOTE_EXIT      The process has exited.
-
-     NOTE_FORK      The process has called fork(2).
-
-     NOTE_EXEC      The process has executed a new process via
-                    execve(2) or similar call.
-
-     NOTE_SIGNAL    The process was sent a signal. Status can be
-                    checked via waitpid(2) or similar call.
-```
-
-There is no `NOTE_TCSETPGRP`, `NOTE_PGRP`, or any flag related to foreground
-process group changes. `NOTE_FORK` fires when `fork(2)` is called, period. A
-child process calling `tcsetpgrp()` to seize the foreground generates no kqueue
-event whatsoever. The spec conflates "fork" with "foreground process group
-change" -- they are distinct kernel operations.
-
-**Empirical verification** (test program on macOS 14.4):
-
-```zig
-// Register EVFILT_PROC with NOTE_FORK on shell PID
-// Then run: sleep 10 &; fg   (background then foreground)
-//
-// Result: NOTE_FORK fires when `sleep` is forked.
-//         NO event fires when `fg` calls tcsetpgrp().
-//         NO event fires when `sleep` becomes foreground PG leader.
-//
-// Conclusion: kqueue cannot observe tcsetpgrp() calls.
-```
-
-**Platform divergence for actual foreground PID detection:**
+**Platform comparison for actual foreground PID detection:**
 
 | Platform | Mechanism                      | Availability           |
 | -------- | ------------------------------ | ---------------------- |
@@ -113,15 +70,6 @@ changes is `tcgetpgrp(pty_fd)`, which returns the current foreground process
 group ID. But it is a synchronous query, not an event-driven notification. Using
 it requires periodic polling, which the spec explicitly prohibits in the final
 paragraph of Section 7.4.
-
-**Concrete impact:** Foreground process tracking is impossible with the
-mechanism specified in the daemon behavior spec. On macOS, `EVFILT_PROC` with
-`NOTE_FORK` does not fire on foreground process group changes. On Linux, kqueue
-does not exist at all. The only portable mechanism (`tcgetpgrp` polling) is
-explicitly prohibited by the spec. The spec must be revised to either allow
-polling-based detection (with a defined interval and jitter budget) or adopt a
-hybrid approach such as using `NOTE_FORK`/`NOTE_EXEC` to detect new processes
-and `tcgetpgrp` to confirm which one is foreground.
 
 ### How
 

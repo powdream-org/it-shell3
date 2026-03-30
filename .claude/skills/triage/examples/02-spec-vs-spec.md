@@ -9,13 +9,12 @@ valid implicit transition (detach-from-old, attach-to-new).
 
 ### Why
 
-This conflict represents a fundamental design disagreement about session
-switching. The ADR was written during Plan 2 to prevent accidental session
-switches — the concern was that a buggy client could silently hop between
-sessions, causing confusion. The state table was written during Plan 3 when the
-UX team requested seamless session switching without requiring an explicit
-detach step. Neither document references the other, so the conflict was never
-surfaced.
+The implementer has to pick one. If they follow the ADR, the state table row is
+dead — it describes a transition that will never happen, and every future reader
+will wonder why the row exists. If they follow the state table, the ADR is
+violated with no superseding record, making the decision log unreliable — future
+reviewers will flag the implementation as a bug against ADR-00038 and file
+issues that waste time.
 
 ### Who
 
@@ -30,54 +29,39 @@ or amended.
 
 ### Where
 
-**ADR-00038** (`docs/decisions/adr-00038-explicit-session-detach.md`, lines
-18-29):
+**The conflict as a decision tree:**
 
 ```
-## Decision
+Client in OPERATING state sends AttachSessionRequest for a different session:
 
-A client that is currently attached to a session (state: Attached) and
-sends a SessionAttach message for a different session MUST receive an
-error response with code ERR_ALREADY_ATTACHED. The client must
-explicitly send SessionDetach before attaching to a new session.
+  ADR-00038 path:    → reject with ERR_ALREADY_ATTACHED
+                       (client must explicitly detach first)
 
-## Rationale
+  State table path:  → implicit detach old, attach new → stay ATTACHED
+                       (seamless session switch)
 
-Implicit session switching creates a class of bugs where a client
-silently moves between sessions without the user's knowledge. Requiring
-explicit detach ensures the user confirms the session change.
+  These are mutually exclusive outcomes for the same input.
 ```
 
-**Protocol spec state table**
-(`docs/modules/libitshell3-protocol/server-client-protocols.md`, lines 312-330):
+**ADR-00038** key sentence
+(`docs/decisions/adr-00038-explicit-session-detach.md`):
 
-```
-### Table 4-1: Client State Machine
+> A client that is currently attached to a session and sends a SessionAttach
+> message for a different session MUST receive an error response with code
+> ERR_ALREADY_ATTACHED. The client must explicitly send SessionDetach before
+> attaching to a new session.
 
-| Current State  | Message Received | Next State  | Action                        |
-|----------------|------------------|-------------|-------------------------------|
-| Connected      | SessionAttach    | Attached    | Attach to requested session   |
-| Attached       | SessionDetach    | Connected   | Detach from current session   |
-| Attached       | SessionAttach    | Attached    | Detach old, attach new        |
-| Attached       | Disconnect       | Terminated  | Clean up resources            |
-| Connected      | Disconnect       | Terminated  | Clean up resources            |
-```
+**State table** key row (`server-client-protocols.md`, Table 4-1):
 
-The third row (`Attached + SessionAttach → Attached`) directly contradicts the
-ADR. The "Action" column says "Detach old, attach new" — an implicit transition
-that the ADR explicitly prohibits.
+| Current State | Message Received | Next State | Action                 |
+| ------------- | ---------------- | ---------- | ---------------------- |
+| Attached      | SessionAttach    | Attached   | Detach old, attach new |
 
-**ADR precedence rules** (`docs/conventions/artifacts/documents/10-adr.md`, line
-14): "An ADR is authoritative until explicitly superseded by a later ADR. Spec
-documents must not contradict active ADRs without an accompanying superseding
-ADR."
+**ADR precedence rule** (`docs/conventions/artifacts/documents/10-adr.md`):
 
-**Concrete impact:** If the implementation follows the state table, the code
-violates an active ADR with no superseding record, making the design history
-unreliable. If the implementation follows the ADR, the state table row
-(`Attached + SessionAttach → Attached`) is dead code that will confuse every
-future reader and reviewer. Either way, one document is wrong and must be
-updated.
+> An ADR is authoritative until explicitly superseded by a later ADR. Spec
+> documents must not contradict active ADRs without an accompanying superseding
+> ADR.
 
 ### How
 
@@ -86,5 +70,3 @@ involve: updating the ADR to supersede itself (if implicit switching is now
 desired), removing the state table row (if explicit detach is correct), or
 writing a new ADR that refines the policy (e.g., allow implicit switching only
 with a specific flag in the SessionAttach message).
-
----

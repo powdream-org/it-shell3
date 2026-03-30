@@ -1,4 +1,4 @@
-## Example 6: OS ↔ OS Conflict
+## Example 6: OS <-> OS Conflict
 
 ### What
 
@@ -14,15 +14,12 @@ leaking file descriptors on every client disconnect.
 
 ### Why
 
-Per-client heartbeat timers are required by the protocol spec for liveness
-detection. If a client misses three consecutive heartbeat responses, the daemon
-disconnects it and releases session attachment state. On macOS with kqueue, this
-works correctly — kernel timers are lightweight and cancel cleanly. On Linux,
-each timer is a real file descriptor that counts against `RLIMIT_NOFILE`
-(default 1024 on most distributions). A daemon serving a long-running session
-with frequent client reconnections (SSH drops, laptop sleep/wake cycles)
-accumulates leaked timerfd descriptors until it hits the fd limit and can no
-longer accept new client connections or open PTYs.
+Each client disconnect leaks one timerfd. After ~1000 reconnections, the daemon
+hits `RLIMIT_NOFILE` and can't accept new connections, open PTYs, or create
+timers. The daemon becomes unresponsive without crashing — a silent failure
+mode. The error surfaces as `error.SystemFdQuotaExceeded` on whichever syscall
+(`timerfd_create`, `accept`, or `openpty`) happens to run next, making root
+cause diagnosis difficult in production.
 
 ### Who
 
@@ -39,84 +36,27 @@ without accounting for timerfd lifecycle semantics.
 
 ### Where
 
-**kqueue timer registration** — clean, single kevent64 call
-(`modules/libitshell3/src/server/event_loop.zig`, lines 156-168):
+The asymmetry between kqueue and epoll timer resource models:
 
-```zig
-fn registerHeartbeatTimer(self: *EventLoop, client_id: ClientId) !TimerId {
-    const timer_id: u16 = self.next_timer_id;
-    self.next_timer_id += 1;
+```
+macOS kqueue timer:
+  register: one kevent64() call, no fd created
+  cancel:   EV_DELETE, kernel cleans up automatically
+  resource: zero fd cost per timer
 
-    var event = std.posix.Kevent64{
-        .ident = timer_id,
-        .filter = std.posix.system.EVFILT_TIMER,
-        .flags = std.posix.system.EV_ADD,
-        .fflags = std.posix.system.NOTE_SECONDS,
-        .data = 30,  // fire every 30 seconds
-        .udata = @intCast(client_id),
-        .ext = .{ 0, 0 },
-    };
-    try std.posix.kevent64(self.kqueue_fd, &.{event}, &.{}, null);
-    self.timer_to_client.put(timer_id, client_id);
-    return timer_id;
-}
+Linux epoll timer:
+  register: timerfd_create() → timerfd_settime() → epoll_ctl(ADD) — creates a REAL fd
+  cancel:   epoll_ctl(DEL) — but MUST also close(tfd), which current code DOESN'T DO
+  resource: 1 fd per timer, counts against RLIMIT_NOFILE (default 1024)
+
+The abstraction uses TimerId = u16, which maps naturally to kqueue identifiers
+but has no relationship to Linux fd values (i32).
 ```
 
-**Linux timerfd equivalent** — requires create, configure, register, plus
-cleanup (`modules/libitshell3/src/server/event_loop.zig`, lines 172-198):
-
-```zig
-fn registerHeartbeatTimer(self: *EventLoop, client_id: ClientId) !TimerId {
-    const timer_id: u16 = self.next_timer_id;
-    self.next_timer_id += 1;
-
-    const tfd = try std.posix.timerfd_create(.MONOTONIC, .{ .CLOEXEC = true });
-    // tfd is an i32 file descriptor — NOT a u16 identifier
-
-    const interval = std.os.linux.itimerspec{
-        .it_interval = .{ .tv_sec = 30, .tv_nsec = 0 },
-        .it_value = .{ .tv_sec = 30, .tv_nsec = 0 },
-    };
-    try std.posix.timerfd_settime(tfd, .{}, &interval, null);
-
-    var epoll_event = std.os.linux.epoll_event{
-        .events = std.os.linux.EPOLL.IN,
-        .data = .{ .fd = tfd },
-    };
-    try std.posix.epoll_ctl(self.epoll_fd, .ADD, tfd, &epoll_event);
-
-    // BUG: timer_id is u16 but tfd is i32 — truncation on cast
-    self.timer_to_client.put(timer_id, client_id);
-    self.timer_to_fd.put(timer_id, tfd);  // mapping exists but cancelTimer ignores it
-    return timer_id;
-}
-```
-
-**Abstraction layer interface** showing where it breaks
-(`modules/libitshell3/src/server/event_loop.zig`, lines 210-224):
-
-```zig
-pub const TimerId = u16;  // <-- assumes kqueue's identifier space
-
-pub fn cancelTimer(self: *EventLoop, timer_id: TimerId) void {
-    if (comptime builtin.os.tag == .macos) {
-        // kqueue: delete the filter — no resource leak, kernel cleans up
-        var event = std.posix.Kevent64{
-            .ident = timer_id,
-            .filter = std.posix.system.EVFILT_TIMER,
-            .flags = std.posix.system.EV_DELETE,
-            // ...
-        };
-        _ = std.posix.kevent64(self.kqueue_fd, &.{event}, &.{}, null);
-    } else {
-        // Linux: removes from epoll but DOES NOT close the timerfd
-        const tfd = self.timer_to_fd.get(timer_id) orelse return;
-        _ = std.posix.epoll_ctl(self.epoll_fd, .DEL, tfd, null);
-        // MISSING: std.posix.close(tfd);
-    }
-    _ = self.timer_to_client.remove(timer_id);
-}
-```
+The `cancelTimer` function on the Linux branch removes the timerfd from epoll
+(`epoll_ctl(.DEL)`) but never calls `close(tfd)`. The `timer_to_fd` mapping that
+could be used to find the fd is also never cleaned up. On macOS, `EV_DELETE` is
+a complete cleanup because kqueue timers are kernel-internal with no fd.
 
 **Resource cleanup on client disconnect — platform comparison:**
 
@@ -128,14 +68,6 @@ pub fn cancelTimer(self: *EventLoop, timer_id: TimerId) void {
 | Free timer-to-fd map     | N/A                        | `timer_to_fd.remove()` — MISSING  |
 | Inherited by fork        | No (kernel timer)          | Yes (fd inherited unless CLOEXEC) |
 | Counts against RLIMIT    | No                         | Yes (one fd per timer)            |
-
-**Concrete impact:** Timer leak on Linux because `cancelTimer(timer_id: u16)`
-removes the epoll registration but never calls `close()` on the timerfd. Each
-client disconnect leaks one file descriptor. After ~1000 connect/disconnect
-cycles the daemon hits `RLIMIT_NOFILE` and fails with
-`error.SystemFdQuotaExceeded` on the next `timerfd_create`, `accept`, or
-`openpty` call. On macOS, `EVFILT_TIMER` is a kernel-internal timer with no file
-descriptor, so `EV_DELETE` fully cleans up.
 
 ### How
 
