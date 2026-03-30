@@ -65,13 +65,13 @@ procedure:
 
 ### 6c. Decide next step
 
-| Condition              | Action                                                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Round 1–3**          | Automatic fix round. Go to Step 4.                                                                                             |
-| **Round 4+ non-CLEAN** | **STOP.** Report all outstanding issues to the owner. Request triage: which issues are blocking vs. acceptable. Owner decides: |
-|                        | → **Proceed**: Go to Step 4 for another fix round                                                                              |
-|                        | → **Declare clean**: Remaining issues are acceptable. Go to Step 7.                                                            |
-|                        | → **Declare deferred**: Known issues deferred to future version. Go to Step 7.                                                 |
+| Condition              | Action                                                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Round 1–3**          | Automatic fix round. Go to Step 4.                                                                                          |
+| **Round 4+ non-CLEAN** | **STOP.** Invoke `/triage` with all outstanding issues. Dispositions: Fix (another round), Declare clean, Declare deferred. |
+|                        | → **Proceed**: Go to Step 4 for another fix round                                                                           |
+|                        | → **Declare clean**: Remaining issues are acceptable. Go to Step 7.                                                         |
+|                        | → **Declare deferred**: Known issues deferred to future version. Go to Step 7.                                              |
 
 ## Gate
 

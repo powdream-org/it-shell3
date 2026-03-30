@@ -88,22 +88,8 @@ For each issue:
 
 - Both `confirm` → **confirmed** (true alarm)
 - Both `dismiss` → **dismissed**
-- One each → **contested** → MUST present to owner **one at a time**, with ALL
-  of the following before requesting a binding decision:
-  1. **File path** (full relative path from project root)
-  2. **Actual document text** (quoted, with line numbers)
-  3. **Confirm reviewer's reasoning** with specific evidence
-  4. **Dismiss reviewer's reasoning** with specific evidence
-  5. **Concrete breakdown** (RECOMMENDED): A step-by-step example (timeline,
-     message sequence, or code trace) that makes the issue self-evident.
-     Especially valuable for ordering rules, state machines, or terminology with
-     different meanings in different contexts.
-
-  Only THEN ask for the owner's binding decision on THIS issue. Proceed to the
-  next contested issue only after the owner responds.
-
-  **NEVER batch multiple contested issues in a single message.** **NEVER present
-  contested issues as one-line summaries.**
+- One each → **contested** → Invoke `/triage` to present contested issues to the
+  owner. Dispositions: Fix, Dismissed, Deferred to next revision.
 
 ### 5f. Cascaded re-raise monitoring (Round 3+)
 

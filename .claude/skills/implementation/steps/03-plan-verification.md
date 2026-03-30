@@ -60,22 +60,14 @@ For greenfield cycles, only spawn the spec-plan-verifier.
 
 ### 3b. Triage issues
 
-When verifiers report issues, triage per `docs/work-styles/06-issue-triage.md`:
+When verifiers report issues, invoke `/triage` with the issue list.
 
-- Group by component
-- Present one at a time with full context
-- Wait for owner disposition
+Dispositions for this step:
 
-Possible dispositions:
-
-- **[SPEC-PLAN] gap** → Delegate fix to subagent via `/writing-impl-plan` Revise
-  mode
-- **[SPEC-CODE] divergence** → Investigate: check for ADRs, design resolutions.
-  Spec wins by default. If unable to determine which side is correct, escalate
-  to owner. If fix belongs to a different plan, log in Spec Gap Log.
-- **[REDUNDANT] task** → Delegate plan revision via `/writing-impl-plan` Revise
-  mode
-- **CTR needed** → Use `/cross-team-request` skill
+- **Fix** → Delegate plan revision via `/writing-impl-plan` Revise mode
+- **Defer** → Log in Spec Gap Log
+- **CTR** → Spec needs updating, use `/cross-team-request`
+- **False alarm** → No action
 
 ### 3c. Re-verify after fixes
 

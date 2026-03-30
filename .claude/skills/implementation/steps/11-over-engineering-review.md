@@ -59,7 +59,9 @@ If no findings: report "Clean pass."
 ### 11d. Process findings
 
 - **If clean pass** -> Proceed to Step 12.
-- **If findings exist** -> Send to the implementer for fixing.
+- **If findings exist** -> Invoke `/triage` to present them to the owner.
+  Dispositions: Fix (simplify), Justified (keep), Defer. Then send
+  fix-dispositioned findings to the implementer.
 
 ### 11e. Fix findings (if any)
 

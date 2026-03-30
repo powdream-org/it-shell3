@@ -61,9 +61,11 @@ For each problem identified in 14b that is not already captured, run
   - Add a missing instruction if a step was unclear
   - Remove unnecessary steps if they wasted tokens
 
-Present each proposal to the owner with rationale. Wait for owner approval
-before editing any skill files. If approved: apply the change and commit with
-reason.
+Invoke `/triage` to present SIP proposals to the owner. Dispositions: 작은 수정,
+큰 수정, Skip, Defer.
+
+Wait for owner approval before editing any skill files. If approved: apply the
+change and commit with reason.
 
 ## Gate
 

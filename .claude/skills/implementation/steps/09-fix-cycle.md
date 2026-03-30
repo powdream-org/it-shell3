@@ -30,6 +30,15 @@ Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
 `/compact` before continuing. Fix cycles accumulate context with each iteration
 — especially if multiple rounds of 5 → 6 → 5 have occurred.
 
+### 9b-bis. Triage issues with owner
+
+Before routing, invoke `/triage` with the merged issue list ([CODE] + [TEST] +
+[CONV]).
+
+Dispositions for this step: Fix, Defer (Plan N), CTR, False alarm, Skip.
+
+After triage is complete, route fix-dispositioned issues to agents per 9c.
+
 ### 9c. Route issues to the correct agent
 
 **`[CODE]` and `[CONV]` issues → Implementer**
