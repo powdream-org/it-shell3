@@ -35,7 +35,7 @@ pub const PaneHandlerContext = struct {
 pub fn handleCreatePane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    client_slot: u16,
+    _: u16,
     sequence: u32,
     session_id: types.SessionId,
 ) void {
@@ -72,7 +72,7 @@ pub fn handleCreatePane(
     client.enqueueDirect(resp) catch {};
 
     // Broadcast LayoutChanged.
-    broadcastLayoutChanged(ctx, client, client_slot, entry);
+    broadcastLayoutChanged(ctx, client, entry);
 }
 
 // ── SplitPaneRequest (0x0142) ───────────────────────────────────────────────
@@ -82,7 +82,7 @@ pub fn handleCreatePane(
 pub fn handleSplitPane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    client_slot: u16,
+    _: u16,
     sequence: u32,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
@@ -166,7 +166,7 @@ pub fn handleSplitPane(
     client.enqueueDirect(resp) catch {};
 
     // Broadcast LayoutChanged.
-    broadcastLayoutChanged(ctx, client, client_slot, entry);
+    broadcastLayoutChanged(ctx, client, entry);
 }
 
 // ── ClosePaneRequest (0x0144) ───────────────────────────────────────────────
@@ -176,7 +176,7 @@ pub fn handleSplitPane(
 pub fn handleClosePane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    client_slot: u16,
+    _: u16,
     sequence: u32,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
@@ -250,7 +250,7 @@ pub fn handleClosePane(
     const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.close_pane_response), sequence, resp_json) orelse return;
     client.enqueueDirect(resp) catch {};
 
-    broadcastLayoutChanged(ctx, client, client_slot, entry);
+    broadcastLayoutChanged(ctx, client, entry);
 }
 
 // ── FocusPaneRequest (0x0146) ───────────────────────────────────────────────
@@ -259,7 +259,7 @@ pub fn handleClosePane(
 pub fn handleFocusPane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    client_slot: u16,
+    _: u16,
     sequence: u32,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
@@ -280,10 +280,7 @@ pub fn handleFocusPane(
         return;
     };
 
-    const previous_pane_id: types.PaneId = if (entry.session.focused_pane) |fp|
-        if (entry.getPaneAtSlot(fp)) |pane| pane.pane_id else 0
-    else
-        0;
+    const previous_pane_id = entry.getPaneIdOrNone(entry.session.focused_pane);
 
     const focus_changed = entry.session.focused_pane != target_slot;
     entry.session.focused_pane = target_slot;
@@ -296,7 +293,7 @@ pub fn handleFocusPane(
 
     // Broadcast LayoutChanged only if focus actually changed.
     if (focus_changed) {
-        broadcastLayoutChanged(ctx, client, client_slot, entry);
+        broadcastLayoutChanged(ctx, client, entry);
     }
 }
 
@@ -306,7 +303,7 @@ pub fn handleFocusPane(
 pub fn handleNavigatePane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    client_slot: u16,
+    _: u16,
     sequence: u32,
     session_id: types.SessionId,
     direction: types.Direction,
@@ -361,7 +358,7 @@ pub fn handleNavigatePane(
     client.enqueueDirect(resp) catch {};
 
     if (focus_changed) {
-        broadcastLayoutChanged(ctx, client, client_slot, entry);
+        broadcastLayoutChanged(ctx, client, entry);
     }
 }
 
@@ -371,7 +368,7 @@ pub fn handleNavigatePane(
 pub fn handleResizePane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    client_slot: u16,
+    _: u16,
     sequence: u32,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
@@ -419,7 +416,7 @@ pub fn handleResizePane(
     const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.resize_pane_response), sequence, ok_json) orelse return;
     client.enqueueDirect(resp) catch {};
 
-    broadcastLayoutChanged(ctx, client, client_slot, entry);
+    broadcastLayoutChanged(ctx, client, entry);
 }
 
 // ── EqualizeSplitsRequest (0x014C) ──────────────────────────────────────────
@@ -428,7 +425,7 @@ pub fn handleResizePane(
 pub fn handleEqualizeSplits(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    client_slot: u16,
+    _: u16,
     sequence: u32,
     session_id: types.SessionId,
 ) void {
@@ -447,7 +444,7 @@ pub fn handleEqualizeSplits(
     const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.equalize_splits_response), sequence, ok_json) orelse return;
     client.enqueueDirect(resp) catch {};
 
-    broadcastLayoutChanged(ctx, client, client_slot, entry);
+    broadcastLayoutChanged(ctx, client, entry);
 }
 
 // ── ZoomPaneRequest (0x014E) ────────────────────────────────────────────────
@@ -456,7 +453,7 @@ pub fn handleEqualizeSplits(
 pub fn handleZoomPane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    client_slot: u16,
+    _: u16,
     sequence: u32,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
@@ -484,7 +481,7 @@ pub fn handleZoomPane(
     const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.zoom_pane_response), sequence, resp_json) orelse return;
     client.enqueueDirect(resp) catch {};
 
-    broadcastLayoutChanged(ctx, client, client_slot, entry);
+    broadcastLayoutChanged(ctx, client, entry);
 }
 
 // ── SwapPanesRequest (0x0150) ───────────────────────────────────────────────
@@ -493,7 +490,7 @@ pub fn handleZoomPane(
 pub fn handleSwapPanes(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    client_slot: u16,
+    _: u16,
     sequence: u32,
     session_id: types.SessionId,
     pane_a_id: types.PaneId,
@@ -528,7 +525,7 @@ pub fn handleSwapPanes(
     const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.swap_panes_response), sequence, ok_json) orelse return;
     client.enqueueDirect(resp) catch {};
 
-    broadcastLayoutChanged(ctx, client, client_slot, entry);
+    broadcastLayoutChanged(ctx, client, entry);
 }
 
 // ── LayoutGetRequest (0x0152) ───────────────────────────────────────────────
@@ -551,8 +548,18 @@ pub fn handleLayoutGet(
         return;
     };
 
-    // Build the layout payload.
-    const layout_json = buildLayoutPayload(entry) orelse return;
+    // Build the layout tree JSON, then assemble the full response payload.
+    var tree_buf: [4096]u8 = @splat(0);
+    const tree_json = buildLayoutPayload(entry, &tree_buf) orelse return;
+
+    var json_buf: [6144]u8 = @splat(0);
+    const layout_json = std.fmt.bufPrint(&json_buf, "{{\"session_id\":{d},\"active_pane_id\":{d},\"zoomed_pane_present\":{},\"zoomed_pane_id\":{d},\"layout_tree\":{s}}}", .{
+        entry.session.session_id,
+        entry.getPaneIdOrNone(entry.session.focused_pane),
+        entry.isZoomed(),
+        entry.getPaneIdOrNone(entry.zoomed_pane),
+        tree_json,
+    }) catch return;
     const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.layout_get_response), sequence, layout_json) orelse return;
     client.enqueueDirect(resp) catch {};
 }
@@ -562,28 +569,20 @@ pub fn handleLayoutGet(
 fn broadcastLayoutChanged(
     ctx: *PaneHandlerContext,
     client: *ClientState,
-    _: u16,
     entry: *SessionEntry,
 ) void {
-    const layout_json = buildLayoutPayload(entry) orelse return;
+    var tree_buf: [4096]u8 = @splat(0);
+    const tree_json = buildLayoutPayload(entry, &tree_buf) orelse return;
 
     var notif_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
     const notif_seq = client.connection.advanceSendSequence();
-    const active_pane_id: types.PaneId = if (entry.session.focused_pane) |fp|
-        if (entry.getPaneAtSlot(fp)) |pane| pane.pane_id else 0
-    else
-        0;
-    const zoomed_pane_id: types.PaneId = if (entry.zoomed_pane) |zp|
-        if (entry.getPaneAtSlot(zp)) |pane| pane.pane_id else 0
-    else
-        0;
 
     const notif = notification_builder.buildLayoutChanged(
         entry.session.session_id,
-        active_pane_id,
+        entry.getPaneIdOrNone(entry.session.focused_pane),
         entry.isZoomed(),
-        zoomed_pane_id,
-        layout_json,
+        entry.getPaneIdOrNone(entry.zoomed_pane),
+        tree_json,
         notif_seq,
         &notif_buf,
     ) orelse return;
@@ -596,51 +595,20 @@ fn broadcastLayoutChanged(
     );
 }
 
-/// File-scope static buffer for layout tree serialization.
-var layout_tree_buf: [4096]u8 = undefined;
-/// File-scope static buffer for the full layout JSON payload.
-var layout_json_buf: [6144]u8 = undefined;
-
-pub fn buildLayoutPayload(entry: *SessionEntry) ?[]const u8 {
-    // Use a simple pane_id lookup function.
-    const lookup = struct {
-        var entry_ref: *SessionEntry = undefined;
-        fn lookupFn(slot: types.PaneSlot) types.PaneId {
-            if (entry_ref.getPaneAtSlot(slot)) |pane| return pane.pane_id;
-            return 0;
-        }
-    };
-    lookup.entry_ref = entry;
-
+/// Serializes the layout tree of a session entry into JSON. Returns only
+/// the tree node JSON (leaf/split), not the full LayoutChanged wrapper.
+/// Callers use notification_builder.buildLayoutChanged to assemble the
+/// complete notification payload.
+pub fn buildLayoutPayload(entry: *SessionEntry, out_buf: []u8) ?[]const u8 {
     // TODO(Plan 9): Use actual session dimensions.
-    const tree_json = notification_builder.serializeLayoutTree(
-        &entry.session.tree_nodes,
+    return notification_builder.serializeLayoutTree(
+        entry,
         80,
         24,
         entry.session.getActiveInputMethod(),
         entry.session.getActiveKeyboardLayout(),
-        lookup.lookupFn,
-        &layout_tree_buf,
-    ) orelse return null;
-
-    const active_pane_id: types.PaneId = if (entry.session.focused_pane) |fp|
-        if (entry.getPaneAtSlot(fp)) |pane| pane.pane_id else 0
-    else
-        0;
-    const zoomed_pane_id: types.PaneId = if (entry.zoomed_pane) |zp|
-        if (entry.getPaneAtSlot(zp)) |pane| pane.pane_id else 0
-    else
-        0;
-
-    const json = std.fmt.bufPrint(&layout_json_buf, "{{\"session_id\":{d},\"active_pane_id\":{d},\"zoomed_pane_present\":{},\"zoomed_pane_id\":{d},\"layout_tree\":{s}}}", .{
-        entry.session.session_id,
-        active_pane_id,
-        entry.isZoomed(),
-        zoomed_pane_id,
-        tree_json,
-    }) catch return null;
-
-    return json;
+        out_buf,
+    );
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -684,6 +652,30 @@ test "handleEqualizeSplits: equalizes split ratios" {
     }
 
     client.deinit();
+}
+
+test "buildLayoutPayload: returns only layout tree JSON without wrapper fields" {
+    const helpers = @import("itshell3_testing").helpers;
+    const S = struct {
+        var sm = SessionManager.init();
+    };
+    S.sm.reset();
+    _ = S.sm.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
+    const entry = S.sm.getSession(1).?;
+    const slot0: types.PaneSlot = 0;
+    entry.setPaneAtSlot(slot0, Pane.init(1, slot0, -1, 0, 80, 24));
+
+    var tree_buf: [4096]u8 = @splat(0);
+    const payload = buildLayoutPayload(entry, &tree_buf);
+    try std.testing.expect(payload != null);
+    const json = payload.?;
+
+    // The payload should be ONLY the layout tree (a leaf/split node), NOT a
+    // wrapper object containing session_id, active_pane_id, etc.
+    // If it contains "session_id", the payload is double-nested.
+    try std.testing.expect(std.mem.indexOf(u8, json, "\"session_id\"") == null);
+    // It should contain tree node content.
+    try std.testing.expect(std.mem.indexOf(u8, json, "\"type\":\"leaf\"") != null);
 }
 
 test "handleZoomPane: toggles zoom state" {

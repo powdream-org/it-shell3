@@ -247,16 +247,11 @@ pub fn handleAttachSession(
     }
 
     // Build response.
-    const active_pane_id: types.PaneId = if (entry.session.focused_pane) |fp|
-        if (entry.getPaneAtSlot(fp)) |pane| pane.pane_id else 0
-    else
-        0;
-
     var json_resp_buf: [1024]u8 = undefined;
     const resp_json = std.fmt.bufPrint(&json_resp_buf, "{{\"status\":0,\"session_id\":{d},\"name\":\"{s}\",\"active_pane_id\":{d},\"active_input_method\":\"{s}\",\"active_keyboard_layout\":\"{s}\",\"resize_policy\":\"latest\"}}", .{
         session_id,
         entry.session.getName(),
-        active_pane_id,
+        entry.getPaneIdOrNone(entry.session.focused_pane),
         entry.session.getActiveInputMethod(),
         entry.session.getActiveKeyboardLayout(),
     }) catch return;
@@ -265,23 +260,16 @@ pub fn handleAttachSession(
 
     // Send LayoutChanged notification to the requester.
     // TODO(Plan 9): Send initial I-frame from ring buffer.
-    if (pane_handler.buildLayoutPayload(entry)) |layout_json| {
-        const lc_active_pane_id: types.PaneId = if (entry.session.focused_pane) |fp|
-            if (entry.getPaneAtSlot(fp)) |pane| pane.pane_id else 0
-        else
-            0;
-        const lc_zoomed_pane_id: types.PaneId = if (entry.zoomed_pane) |zp|
-            if (entry.getPaneAtSlot(zp)) |pane| pane.pane_id else 0
-        else
-            0;
+    var tree_buf: [4096]u8 = @splat(0);
+    if (pane_handler.buildLayoutPayload(entry, &tree_buf)) |tree_json| {
         var lc_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
         const lc_seq = client.connection.advanceSendSequence();
         if (notification_builder.buildLayoutChanged(
             session_id,
-            lc_active_pane_id,
+            entry.getPaneIdOrNone(entry.session.focused_pane),
             entry.isZoomed(),
-            lc_zoomed_pane_id,
-            layout_json,
+            entry.getPaneIdOrNone(entry.zoomed_pane),
+            tree_json,
             lc_seq,
             &lc_buf,
         )) |lc_notif| {
@@ -491,17 +479,15 @@ pub fn handleAttachOrCreate(
         return;
     }
 
-    // Try to find existing session by name.
-    const action_taken: []const u8 = if (ctx.session_manager.findSessionByName(session_name)) |_|
-        "attached"
-    else
-        "created";
+    // Try to find existing session by name (single lookup).
+    const existing = ctx.session_manager.findSessionByName(session_name);
+    const action_taken: []const u8 = if (existing != null) "attached" else "created";
 
     // Track whether a new session was created so we can broadcast
     // SessionListChanged after the response (response-before-notification).
     var created_session_id: ?types.SessionId = null;
 
-    const target_session_id: types.SessionId = if (ctx.session_manager.findSessionByName(session_name)) |entry|
+    const target_session_id: types.SessionId = if (existing) |entry|
         entry.session.session_id
     else blk: {
         // Session not found — create a new one.
@@ -542,10 +528,7 @@ pub fn handleAttachOrCreate(
     }
 
     // Build AttachOrCreateResponse (0x010D) with action_taken.
-    const active_pane_id: types.PaneId = if (entry.session.focused_pane) |fp|
-        if (entry.getPaneAtSlot(fp)) |pane| pane.pane_id else 0
-    else
-        0;
+    const active_pane_id = entry.getPaneIdOrNone(entry.session.focused_pane);
 
     var json_resp_buf: [1024]u8 = undefined;
     const resp_json = std.fmt.bufPrint(&json_resp_buf, "{{\"status\":0,\"session_id\":{d},\"session_name\":\"{s}\",\"pane_id\":{d},\"active_pane_id\":{d},\"action_taken\":\"{s}\",\"active_input_method\":\"{s}\",\"active_keyboard_layout\":\"{s}\",\"resize_policy\":\"latest\"}}", .{

@@ -134,6 +134,18 @@ pub const SessionEntry = struct {
     pub fn isZoomed(self: *const SessionEntry) bool {
         return self.zoomed_pane != null;
     }
+
+    /// Sentinel value for "no pane" in wire payloads.
+    pub const NONE_PANE_ID_SENTINEL: types.PaneId = 0;
+
+    /// Returns the PaneId for a given optional slot, or NONE_PANE_ID_SENTINEL
+    /// if the slot is null or the slot has no pane.
+    pub fn getPaneIdOrNone(self: *const SessionEntry, slot: ?types.PaneSlot) types.PaneId {
+        const s = slot orelse return NONE_PANE_ID_SENTINEL;
+        // Use array access directly since self is const.
+        const pane = self.pane_slots[s] orelse return NONE_PANE_ID_SENTINEL;
+        return pane.pane_id;
+    }
 };
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -333,4 +345,24 @@ test "SessionEntry.unzoom: clears zoom state" {
     try std.testing.expect(entry.isZoomed());
     entry.unzoom();
     try std.testing.expect(!entry.isZoomed());
+}
+
+test "SessionEntry.getPaneIdOrNone: returns pane_id for occupied slot" {
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
+    var entry = SessionEntry.init(s);
+    const slot = try entry.allocPaneSlot();
+    entry.setPaneAtSlot(slot, Pane.init(42, slot, 10, 200, 80, 24));
+    try std.testing.expectEqual(@as(types.PaneId, 42), entry.getPaneIdOrNone(slot));
+}
+
+test "SessionEntry.getPaneIdOrNone: returns sentinel for null slot" {
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
+    const entry = SessionEntry.init(s);
+    try std.testing.expectEqual(SessionEntry.NONE_PANE_ID_SENTINEL, entry.getPaneIdOrNone(null));
+}
+
+test "SessionEntry.getPaneIdOrNone: returns sentinel for empty slot" {
+    const s = Session.init(1, "s", 0, testImeEngine(), 0);
+    const entry = SessionEntry.init(s);
+    try std.testing.expectEqual(SessionEntry.NONE_PANE_ID_SENTINEL, entry.getPaneIdOrNone(3));
 }

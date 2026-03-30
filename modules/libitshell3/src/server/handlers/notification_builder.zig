@@ -10,6 +10,8 @@ const envelope = @import("protocol_envelope.zig");
 const core = @import("itshell3_core");
 const types = core.types;
 const split_tree = core.split_tree;
+const server = @import("itshell3_server");
+const SessionEntry = server.state.session_entry.SessionEntry;
 
 /// Maximum size for notification JSON payloads.
 const MAX_NOTIFICATION_JSON: usize = 6144;
@@ -166,18 +168,17 @@ pub fn buildLayoutChanged(
 /// Serializes a split tree into the wire layout tree JSON format.
 /// Per protocol 03-session-pane-management (recursive layout tree).
 pub fn serializeLayoutTree(
-    tree: *const [types.MAX_TREE_NODES]?split_tree.SplitNodeData,
+    entry: *const SessionEntry,
     total_cols: u16,
     total_rows: u16,
     active_input_method: []const u8,
     active_keyboard_layout: []const u8,
-    pane_id_lookup: *const fn (slot: types.PaneSlot) types.PaneId,
     out_buf: []u8,
 ) ?[]const u8 {
     var stream = std.io.fixedBufferStream(out_buf);
     const writer = stream.writer();
     serializeNode(
-        tree,
+        entry,
         0,
         0,
         0,
@@ -185,14 +186,13 @@ pub fn serializeLayoutTree(
         @floatFromInt(total_rows),
         active_input_method,
         active_keyboard_layout,
-        pane_id_lookup,
         writer,
     ) catch return null;
     return stream.getWritten();
 }
 
 fn serializeNode(
-    tree: *const [types.MAX_TREE_NODES]?split_tree.SplitNodeData,
+    entry: *const SessionEntry,
     node_index: u8,
     x: f32,
     y: f32,
@@ -200,15 +200,14 @@ fn serializeNode(
     height: f32,
     active_input_method: []const u8,
     active_keyboard_layout: []const u8,
-    pane_id_lookup: *const fn (slot: types.PaneSlot) types.PaneId,
     writer: anytype,
 ) !void {
     if (node_index >= types.MAX_TREE_NODES) return;
-    const node = tree[node_index] orelse return;
+    const node = entry.session.tree_nodes[node_index] orelse return;
 
     switch (node) {
         .leaf => |slot| {
-            const pane_id = pane_id_lookup(slot);
+            const pane_id = entry.getPaneIdOrNone(slot);
             const cols: u16 = @intFromFloat(@round(width));
             const rows: u16 = @intFromFloat(@round(height));
             const x_off: u16 = @intFromFloat(@round(x));
@@ -245,15 +244,15 @@ fn serializeNode(
             switch (s.orientation) {
                 .horizontal => {
                     const left_width = width * s.ratio;
-                    try serializeNode(tree, left_index, x, y, left_width, height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
+                    try serializeNode(entry, left_index, x, y, left_width, height, active_input_method, active_keyboard_layout, writer);
                     try writer.writeAll(",\"second\":");
-                    try serializeNode(tree, right_index, x + left_width, y, width - left_width, height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
+                    try serializeNode(entry, right_index, x + left_width, y, width - left_width, height, active_input_method, active_keyboard_layout, writer);
                 },
                 .vertical => {
                     const top_height = height * s.ratio;
-                    try serializeNode(tree, left_index, x, y, width, top_height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
+                    try serializeNode(entry, left_index, x, y, width, top_height, active_input_method, active_keyboard_layout, writer);
                     try writer.writeAll(",\"second\":");
-                    try serializeNode(tree, right_index, x, y + top_height, width, height - top_height, active_input_method, active_keyboard_layout, pane_id_lookup, writer);
+                    try serializeNode(entry, right_index, x, y + top_height, width, height - top_height, active_input_method, active_keyboard_layout, writer);
                 },
             }
             try writer.writeAll("}");
@@ -313,25 +312,42 @@ test "buildPaneMetadataChanged: includes only changed fields" {
     try std.testing.expect(std.mem.indexOf(u8, payload_both, "\"cwd\"") != null);
 }
 
-fn testPaneIdLookup(slot: types.PaneSlot) types.PaneId {
-    // Simple identity mapping for tests.
-    return @as(types.PaneId, slot) + 1;
-}
-
 test "serializeLayoutTree: single leaf" {
-    const tree = split_tree.initSingleLeaf(0);
+    const helpers = @import("itshell3_testing").helpers;
+    const session_mod = core.session;
+    const Pane = server.state.pane.Pane;
+
+    var s = session_mod.Session.init(1, "s", 0, helpers.testImeEngine(), 0);
+    s.tree_nodes = split_tree.initSingleLeaf(0);
+    var entry = SessionEntry.init(s);
+    const slot: types.PaneSlot = 0;
+    entry.free_mask &= ~(@as(types.FreeMask, 1) << @as(u4, @intCast(slot)));
+    entry.setPaneAtSlot(slot, Pane.init(1, slot, -1, 0, 80, 24));
+
     var tree_buf: [4096]u8 = undefined;
-    const json = serializeLayoutTree(&tree, 80, 24, "direct", "qwerty", testPaneIdLookup, &tree_buf);
+    const json = serializeLayoutTree(&entry, 80, 24, "direct", "qwerty", &tree_buf);
     try std.testing.expect(json != null);
     try std.testing.expect(std.mem.indexOf(u8, json.?, "\"leaf\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, json.?, "\"pane_id\":1") != null);
 }
 
 test "serializeLayoutTree: two panes" {
-    var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    const helpers = @import("itshell3_testing").helpers;
+    const session_mod = core.session;
+    const Pane = server.state.pane.Pane;
+
+    var s = session_mod.Session.init(1, "s", 0, helpers.testImeEngine(), 0);
+    s.tree_nodes = split_tree.initSingleLeaf(0);
+    try split_tree.splitLeaf(&s.tree_nodes, 0, .horizontal, 0.5, 1);
+    var entry = SessionEntry.init(s);
+    // Occupy slots 0 and 1.
+    entry.free_mask &= ~(@as(types.FreeMask, 1) << @as(u4, 0));
+    entry.free_mask &= ~(@as(types.FreeMask, 1) << @as(u4, 1));
+    entry.setPaneAtSlot(0, Pane.init(1, 0, -1, 0, 40, 24));
+    entry.setPaneAtSlot(1, Pane.init(2, 1, -1, 0, 40, 24));
+
     var tree_buf: [4096]u8 = undefined;
-    const json = serializeLayoutTree(&tree, 80, 24, "direct", "qwerty", testPaneIdLookup, &tree_buf);
+    const json = serializeLayoutTree(&entry, 80, 24, "direct", "qwerty", &tree_buf);
     try std.testing.expect(json != null);
     try std.testing.expect(std.mem.indexOf(u8, json.?, "\"split\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, json.?, "\"first\"") != null);
