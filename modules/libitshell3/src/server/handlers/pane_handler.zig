@@ -39,11 +39,11 @@ pub fn handleCreatePane(
     sequence: u32,
     session_id: types.SessionId,
 ) void {
-    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     const entry = ctx.session_manager.getSession(session_id) orelse {
         const err = "{\"status\":1,\"error\":\"session not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.create_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.create_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -51,7 +51,7 @@ pub fn handleCreatePane(
     // Allocate a new pane slot.
     const new_slot = entry.allocPaneSlot() catch {
         const err = "{\"status\":8,\"error\":\"PANE_LIMIT_EXCEEDED\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.create_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.create_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -66,10 +66,10 @@ pub fn handleCreatePane(
     entry.session.focused_pane = new_slot;
 
     // Response to requester.
-    var json_buf: [128]u8 = undefined;
-    const resp_json = std.fmt.bufPrint(&json_buf, "{{\"status\":0,\"pane_id\":{d}}}", .{new_pane_id}) catch return;
-    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.create_pane_response), sequence, resp_json) orelse return;
-    client.enqueueDirect(resp) catch {};
+    var json_buffer: [128]u8 = undefined;
+    const response_json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"pane_id\":{d}}}", .{new_pane_id}) catch return;
+    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.create_pane_response), sequence, response_json) orelse return;
+    client.enqueueDirect(response) catch {};
 
     // Broadcast LayoutChanged.
     broadcastLayoutChanged(ctx, client, entry);
@@ -90,11 +90,11 @@ pub fn handleSplitPane(
     ratio: f32,
     focus_new: bool,
 ) void {
-    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     const entry = ctx.session_manager.getSession(session_id) orelse {
         const err = "{\"status\":1,\"error\":\"session not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -102,7 +102,7 @@ pub fn handleSplitPane(
     // Find the target pane's slot.
     const target_slot = entry.findPaneSlotByPaneId(target_pane_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -110,7 +110,7 @@ pub fn handleSplitPane(
     // Allocate a new pane slot.
     const new_slot = entry.allocPaneSlot() catch {
         const err = "{\"status\":8,\"error\":\"PANE_LIMIT_EXCEEDED\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -128,7 +128,7 @@ pub fn handleSplitPane(
     const leaf_index = split_tree.findLeafBySlot(&entry.session.tree_nodes, target_slot) orelse {
         entry.freePaneSlot(new_slot);
         const err = "{\"status\":7,\"error\":\"internal error\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -139,7 +139,7 @@ pub fn handleSplitPane(
     split_tree.splitLeaf(&entry.session.tree_nodes, leaf_index, orientation, ratio, new_slot) catch {
         entry.freePaneSlot(new_slot);
         const err = "{\"status\":3,\"error\":\"TOO_SMALL\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.split_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -160,10 +160,10 @@ pub fn handleSplitPane(
     }
 
     // Response to requester.
-    var json_buf: [128]u8 = undefined;
-    const resp_json = std.fmt.bufPrint(&json_buf, "{{\"status\":0,\"new_pane_id\":{d}}}", .{new_pane_id}) catch return;
-    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.split_pane_response), sequence, resp_json) orelse return;
-    client.enqueueDirect(resp) catch {};
+    var json_buffer: [128]u8 = undefined;
+    const response_json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"new_pane_id\":{d}}}", .{new_pane_id}) catch return;
+    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.split_pane_response), sequence, response_json) orelse return;
+    client.enqueueDirect(response) catch {};
 
     // Broadcast LayoutChanged.
     broadcastLayoutChanged(ctx, client, entry);
@@ -181,18 +181,18 @@ pub fn handleClosePane(
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
 ) void {
-    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     const entry = ctx.session_manager.getSession(session_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.close_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.close_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
 
     const target_slot = entry.findPaneSlotByPaneId(target_pane_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.close_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.close_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -209,17 +209,17 @@ pub fn handleClosePane(
         side_effect = 1;
         entry.freePaneSlot(target_slot);
 
-        var json_buf: [128]u8 = undefined;
-        const resp_json = std.fmt.bufPrint(&json_buf, "{{\"status\":0,\"side_effect\":1,\"new_focus_pane_id\":0}}", .{}) catch return;
-        const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.close_pane_response), sequence, resp_json) orelse return;
-        client.enqueueDirect(resp) catch {};
+        var json_buffer: [128]u8 = undefined;
+        const response_json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"side_effect\":1,\"new_focus_pane_id\":0}}", .{}) catch return;
+        const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.close_pane_response), sequence, response_json) orelse return;
+        client.enqueueDirect(response) catch {};
 
         // Session auto-destroy: broadcast SessionListChanged.
-        var notif_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+        var notification_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
         const name = entry.session.getName();
-        const notif_seq = client.connection.advanceSendSequence();
-        const notif = notification_builder.buildSessionListChanged("destroyed", session_id, name, notif_seq, &notif_buf) orelse return;
-        _ = broadcast_mod.broadcastToActive(ctx.client_manager, notif, null);
+        const notification_sequence = client.connection.advanceSendSequence();
+        const notification = notification_builder.buildSessionListChanged("destroyed", session_id, name, notification_sequence, &notification_buffer) orelse return;
+        _ = broadcast_mod.broadcastToActive(ctx.client_manager, notification, null);
 
         _ = ctx.session_manager.destroySession(session_id);
         return;
@@ -245,10 +245,10 @@ pub fn handleClosePane(
         }
     }
 
-    var json_buf: [128]u8 = undefined;
-    const resp_json = std.fmt.bufPrint(&json_buf, "{{\"status\":0,\"side_effect\":{d},\"new_focus_pane_id\":{d}}}", .{ side_effect, new_focus_pane_id }) catch return;
-    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.close_pane_response), sequence, resp_json) orelse return;
-    client.enqueueDirect(resp) catch {};
+    var json_buffer: [128]u8 = undefined;
+    const response_json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"side_effect\":{d},\"new_focus_pane_id\":{d}}}", .{ side_effect, new_focus_pane_id }) catch return;
+    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.close_pane_response), sequence, response_json) orelse return;
+    client.enqueueDirect(response) catch {};
 
     broadcastLayoutChanged(ctx, client, entry);
 }
@@ -264,18 +264,18 @@ pub fn handleFocusPane(
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
 ) void {
-    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     const entry = ctx.session_manager.getSession(session_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.focus_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.focus_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
 
     const target_slot = entry.findPaneSlotByPaneId(target_pane_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.focus_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.focus_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -286,10 +286,10 @@ pub fn handleFocusPane(
     entry.session.focused_pane = target_slot;
 
     // Response.
-    var json_buf: [128]u8 = undefined;
-    const resp_json = std.fmt.bufPrint(&json_buf, "{{\"status\":0,\"previous_pane_id\":{d}}}", .{previous_pane_id}) catch return;
-    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.focus_pane_response), sequence, resp_json) orelse return;
-    client.enqueueDirect(resp) catch {};
+    var json_buffer: [128]u8 = undefined;
+    const response_json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"previous_pane_id\":{d}}}", .{previous_pane_id}) catch return;
+    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.focus_pane_response), sequence, response_json) orelse return;
+    client.enqueueDirect(response) catch {};
 
     // Broadcast LayoutChanged only if focus actually changed.
     if (focus_changed) {
@@ -308,18 +308,18 @@ pub fn handleNavigatePane(
     session_id: types.SessionId,
     direction: types.Direction,
 ) void {
-    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     const entry = ctx.session_manager.getSession(session_id) orelse {
         const err = "{\"status\":1,\"error\":\"session not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.navigate_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.navigate_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
 
     const current_slot = entry.session.focused_pane orelse {
         const err = "{\"status\":7,\"error\":\"no focused pane\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.navigate_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.navigate_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -352,10 +352,10 @@ pub fn handleNavigatePane(
     };
 
     // Response.
-    var json_buf: [128]u8 = undefined;
-    const resp_json = std.fmt.bufPrint(&json_buf, "{{\"status\":0,\"focused_pane_id\":{d}}}", .{focused_pane_id}) catch return;
-    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.navigate_pane_response), sequence, resp_json) orelse return;
-    client.enqueueDirect(resp) catch {};
+    var json_buffer: [128]u8 = undefined;
+    const response_json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"focused_pane_id\":{d}}}", .{focused_pane_id}) catch return;
+    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.navigate_pane_response), sequence, response_json) orelse return;
+    client.enqueueDirect(response) catch {};
 
     if (focus_changed) {
         broadcastLayoutChanged(ctx, client, entry);
@@ -375,18 +375,18 @@ pub fn handleResizePane(
     direction: types.Direction,
     delta: i32,
 ) void {
-    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     const entry = ctx.session_manager.getSession(session_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.resize_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.resize_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
 
     const target_slot = entry.findPaneSlotByPaneId(target_pane_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.resize_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.resize_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -394,7 +394,7 @@ pub fn handleResizePane(
     // Find the adjacent split node.
     const split_index = split_tree.findAdjacentSplit(&entry.session.tree_nodes, target_slot, direction) orelse {
         const err = "{\"status\":2,\"error\":\"no split in that direction\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.resize_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.resize_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -413,8 +413,8 @@ pub fn handleResizePane(
 
     // Response.
     const ok_json = "{\"status\":0}";
-    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.resize_pane_response), sequence, ok_json) orelse return;
-    client.enqueueDirect(resp) catch {};
+    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.resize_pane_response), sequence, ok_json) orelse return;
+    client.enqueueDirect(response) catch {};
 
     broadcastLayoutChanged(ctx, client, entry);
 }
@@ -429,11 +429,11 @@ pub fn handleEqualizeSplits(
     sequence: u32,
     session_id: types.SessionId,
 ) void {
-    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     const entry = ctx.session_manager.getSession(session_id) orelse {
         const err = "{\"status\":1,\"error\":\"session not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.equalize_splits_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.equalize_splits_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -441,8 +441,8 @@ pub fn handleEqualizeSplits(
     split_tree.equalizeRatios(&entry.session.tree_nodes);
 
     const ok_json = "{\"status\":0}";
-    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.equalize_splits_response), sequence, ok_json) orelse return;
-    client.enqueueDirect(resp) catch {};
+    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.equalize_splits_response), sequence, ok_json) orelse return;
+    client.enqueueDirect(response) catch {};
 
     broadcastLayoutChanged(ctx, client, entry);
 }
@@ -458,28 +458,28 @@ pub fn handleZoomPane(
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
 ) void {
-    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     const entry = ctx.session_manager.getSession(session_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.zoom_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.zoom_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
 
     const target_slot = entry.findPaneSlotByPaneId(target_pane_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.zoom_pane_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.zoom_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
 
     entry.toggleZoom(target_slot);
 
-    var json_buf: [64]u8 = undefined;
-    const resp_json = std.fmt.bufPrint(&json_buf, "{{\"status\":0,\"zoomed\":{}}}", .{entry.isZoomed()}) catch return;
-    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.zoom_pane_response), sequence, resp_json) orelse return;
-    client.enqueueDirect(resp) catch {};
+    var json_buffer: [64]u8 = undefined;
+    const response_json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"zoomed\":{}}}", .{entry.isZoomed()}) catch return;
+    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.zoom_pane_response), sequence, response_json) orelse return;
+    client.enqueueDirect(response) catch {};
 
     broadcastLayoutChanged(ctx, client, entry);
 }
@@ -496,25 +496,25 @@ pub fn handleSwapPanes(
     pane_a_id: types.PaneId,
     pane_b_id: types.PaneId,
 ) void {
-    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     const entry = ctx.session_manager.getSession(session_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.swap_panes_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.swap_panes_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
 
     const slot_a = entry.findPaneSlotByPaneId(pane_a_id) orelse {
         const err = "{\"status\":1,\"error\":\"pane_a not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.swap_panes_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.swap_panes_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
 
     const slot_b = entry.findPaneSlotByPaneId(pane_b_id) orelse {
         const err = "{\"status\":2,\"error\":\"pane_b not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.swap_panes_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.swap_panes_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
@@ -522,8 +522,8 @@ pub fn handleSwapPanes(
     _ = split_tree.swapLeaves(&entry.session.tree_nodes, slot_a, slot_b);
 
     const ok_json = "{\"status\":0}";
-    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.swap_panes_response), sequence, ok_json) orelse return;
-    client.enqueueDirect(resp) catch {};
+    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.swap_panes_response), sequence, ok_json) orelse return;
+    client.enqueueDirect(response) catch {};
 
     broadcastLayoutChanged(ctx, client, entry);
 }
@@ -539,29 +539,29 @@ pub fn handleLayoutGet(
     sequence: u32,
     session_id: types.SessionId,
 ) void {
-    var resp_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
     const entry = ctx.session_manager.getSession(session_id) orelse {
         const err = "{\"status\":1,\"error\":\"session not found\"}";
-        const r = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.layout_get_response), sequence, err) orelse return;
+        const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.layout_get_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
 
     // Build the layout tree JSON, then assemble the full response payload.
-    var tree_buf: [4096]u8 = @splat(0);
-    const tree_json = buildLayoutPayload(entry, &tree_buf) orelse return;
+    var tree_buffer: [4096]u8 = @splat(0);
+    const tree_json = buildLayoutPayload(entry, &tree_buffer) orelse return;
 
-    var json_buf: [6144]u8 = @splat(0);
-    const layout_json = std.fmt.bufPrint(&json_buf, "{{\"session_id\":{d},\"active_pane_id\":{d},\"zoomed_pane_present\":{},\"zoomed_pane_id\":{d},\"layout_tree\":{s}}}", .{
+    var json_buffer: [6144]u8 = @splat(0);
+    const layout_json = std.fmt.bufPrint(&json_buffer, "{{\"session_id\":{d},\"active_pane_id\":{d},\"zoomed_pane_present\":{},\"zoomed_pane_id\":{d},\"layout_tree\":{s}}}", .{
         entry.session.session_id,
         entry.getPaneIdOrNone(entry.session.focused_pane),
         entry.isZoomed(),
         entry.getPaneIdOrNone(entry.zoomed_pane),
         tree_json,
     }) catch return;
-    const resp = envelope.wrapResponse(&resp_buf, @intFromEnum(MessageType.layout_get_response), sequence, layout_json) orelse return;
-    client.enqueueDirect(resp) catch {};
+    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.layout_get_response), sequence, layout_json) orelse return;
+    client.enqueueDirect(response) catch {};
 }
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
@@ -571,26 +571,26 @@ fn broadcastLayoutChanged(
     client: *ClientState,
     entry: *SessionEntry,
 ) void {
-    var tree_buf: [4096]u8 = @splat(0);
-    const tree_json = buildLayoutPayload(entry, &tree_buf) orelse return;
+    var tree_buffer: [4096]u8 = @splat(0);
+    const tree_json = buildLayoutPayload(entry, &tree_buffer) orelse return;
 
-    var notif_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
-    const notif_seq = client.connection.advanceSendSequence();
+    var notification_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    const notification_sequence = client.connection.advanceSendSequence();
 
-    const notif = notification_builder.buildLayoutChanged(
+    const notification = notification_builder.buildLayoutChanged(
         entry.session.session_id,
         entry.getPaneIdOrNone(entry.session.focused_pane),
         entry.isZoomed(),
         entry.getPaneIdOrNone(entry.zoomed_pane),
         tree_json,
-        notif_seq,
-        &notif_buf,
+        notification_sequence,
+        &notification_buffer,
     ) orelse return;
 
     _ = broadcast_mod.broadcastToSession(
         ctx.client_manager,
         entry.session.session_id,
-        notif,
+        notification,
         null,
     );
 }
@@ -599,7 +599,7 @@ fn broadcastLayoutChanged(
 /// the tree node JSON (leaf/split), not the full LayoutChanged wrapper.
 /// Callers use notification_builder.buildLayoutChanged to assemble the
 /// complete notification payload.
-pub fn buildLayoutPayload(entry: *SessionEntry, out_buf: []u8) ?[]const u8 {
+pub fn buildLayoutPayload(entry: *SessionEntry, out_buffer: []u8) ?[]const u8 {
     // TODO(Plan 9): Use actual session dimensions.
     return notification_builder.serializeLayoutTree(
         entry,
@@ -607,7 +607,7 @@ pub fn buildLayoutPayload(entry: *SessionEntry, out_buf: []u8) ?[]const u8 {
         24,
         entry.session.getActiveInputMethod(),
         entry.session.getActiveKeyboardLayout(),
-        out_buf,
+        out_buffer,
     );
 }
 
@@ -615,19 +615,19 @@ pub fn buildLayoutPayload(entry: *SessionEntry, out_buf: []u8) ?[]const u8 {
 
 test "handleEqualizeSplits: equalizes split ratios" {
     const helpers = @import("itshell3_testing").helpers;
-    var mgr = ClientManager{ .chunk_pool = helpers.testChunkPool() };
-    const idx = try mgr.addClient(.{ .fd = 10 });
-    const client = mgr.getClient(idx).?;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot_index = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot_index).?;
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
     client.connection.attached_session_id = 1;
 
     const S = struct {
-        var sm = SessionManager.init();
+        var session_manager = SessionManager.init();
     };
-    S.sm.reset();
-    _ = S.sm.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
-    const entry = S.sm.getSession(1).?;
+    S.session_manager.reset();
+    _ = S.session_manager.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
+    const entry = S.session_manager.getSession(1).?;
 
     // Set up a split with non-equal ratio.
     const slot0: types.PaneSlot = 0;
@@ -636,12 +636,12 @@ test "handleEqualizeSplits: equalizes split ratios" {
     entry.setPaneAtSlot(slot1, Pane.init(2, slot1, -1, 0, 80, 24));
     split_tree.splitLeaf(&entry.session.tree_nodes, 0, .horizontal, 0.3, slot1) catch unreachable;
 
-    var ctx = PaneHandlerContext{
-        .session_manager = &S.sm,
-        .client_manager = &mgr,
+    var context = PaneHandlerContext{
+        .session_manager = &S.session_manager,
+        .client_manager = &client_manager,
     };
 
-    handleEqualizeSplits(&ctx, client, idx, 1, 1);
+    handleEqualizeSplits(&context, client, slot_index, 1, 1);
 
     // Verify ratio is now 0.5.
     if (entry.session.tree_nodes[0]) |node| {
@@ -657,16 +657,16 @@ test "handleEqualizeSplits: equalizes split ratios" {
 test "buildLayoutPayload: returns only layout tree JSON without wrapper fields" {
     const helpers = @import("itshell3_testing").helpers;
     const S = struct {
-        var sm = SessionManager.init();
+        var session_manager = SessionManager.init();
     };
-    S.sm.reset();
-    _ = S.sm.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
-    const entry = S.sm.getSession(1).?;
+    S.session_manager.reset();
+    _ = S.session_manager.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
+    const entry = S.session_manager.getSession(1).?;
     const slot0: types.PaneSlot = 0;
     entry.setPaneAtSlot(slot0, Pane.init(1, slot0, -1, 0, 80, 24));
 
-    var tree_buf: [4096]u8 = @splat(0);
-    const payload = buildLayoutPayload(entry, &tree_buf);
+    var tree_buffer: [4096]u8 = @splat(0);
+    const payload = buildLayoutPayload(entry, &tree_buffer);
     try std.testing.expect(payload != null);
     const json = payload.?;
 
@@ -680,29 +680,29 @@ test "buildLayoutPayload: returns only layout tree JSON without wrapper fields" 
 
 test "handleZoomPane: toggles zoom state" {
     const helpers = @import("itshell3_testing").helpers;
-    var mgr = ClientManager{ .chunk_pool = helpers.testChunkPool() };
-    const idx = try mgr.addClient(.{ .fd = 10 });
-    const client = mgr.getClient(idx).?;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot_index = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot_index).?;
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
     client.connection.attached_session_id = 1;
 
     const S = struct {
-        var sm = SessionManager.init();
+        var session_manager = SessionManager.init();
     };
-    S.sm.reset();
-    _ = S.sm.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
-    const entry = S.sm.getSession(1).?;
+    S.session_manager.reset();
+    _ = S.session_manager.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
+    const entry = S.session_manager.getSession(1).?;
     const slot0: types.PaneSlot = 0;
     entry.setPaneAtSlot(slot0, Pane.init(1, slot0, -1, 0, 80, 24));
 
-    var ctx = PaneHandlerContext{
-        .session_manager = &S.sm,
-        .client_manager = &mgr,
+    var context = PaneHandlerContext{
+        .session_manager = &S.session_manager,
+        .client_manager = &client_manager,
     };
 
     try std.testing.expect(!entry.isZoomed());
-    handleZoomPane(&ctx, client, idx, 1, 1, 1);
+    handleZoomPane(&context, client, slot_index, 1, 1, 1);
     try std.testing.expect(entry.isZoomed());
 
     client.deinit();

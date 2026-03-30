@@ -268,9 +268,9 @@ test "buildSessionListChanged: produces valid envelope" {
     try std.testing.expect(result != null);
     const data = result.?;
     // Verify header.
-    const hdr = try protocol.header.Header.decode(data[0..protocol.header.HEADER_SIZE]);
-    try std.testing.expectEqual(@as(u16, @intFromEnum(MessageType.session_list_changed)), hdr.msg_type);
-    try std.testing.expect(!hdr.flags.response);
+    const header = try protocol.header.Header.decode(data[0..protocol.header.HEADER_SIZE]);
+    try std.testing.expectEqual(@as(u16, @intFromEnum(MessageType.session_list_changed)), header.msg_type);
+    try std.testing.expect(!header.flags.response);
     // Verify payload contains expected fields.
     const payload = data[protocol.header.HEADER_SIZE..];
     try std.testing.expect(std.mem.indexOf(u8, payload, "\"created\"") != null);
@@ -282,8 +282,8 @@ test "buildClientAttached: produces valid envelope" {
     const result = buildClientAttached(1, 42, "iPad", 3, 10, &buf);
     try std.testing.expect(result != null);
     const data = result.?;
-    const hdr = try protocol.header.Header.decode(data[0..protocol.header.HEADER_SIZE]);
-    try std.testing.expectEqual(@as(u16, @intFromEnum(MessageType.client_attached)), hdr.msg_type);
+    const header = try protocol.header.Header.decode(data[0..protocol.header.HEADER_SIZE]);
+    try std.testing.expectEqual(@as(u16, @intFromEnum(MessageType.client_attached)), header.msg_type);
 }
 
 test "buildClientDetached: produces valid envelope" {
@@ -358,6 +358,6 @@ test "buildLayoutChanged: produces valid envelope with layout tree" {
     var buf: ScratchBuf = undefined;
     const result = buildLayoutChanged(1, 5, false, 0, "{\"type\":\"leaf\"}", 3, &buf);
     try std.testing.expect(result != null);
-    const hdr = try protocol.header.Header.decode(result.?[0..protocol.header.HEADER_SIZE]);
-    try std.testing.expectEqual(@as(u16, @intFromEnum(MessageType.layout_changed)), hdr.msg_type);
+    const header = try protocol.header.Header.decode(result.?[0..protocol.header.HEADER_SIZE]);
+    try std.testing.expectEqual(@as(u16, @intFromEnum(MessageType.layout_changed)), header.msg_type);
 }

@@ -150,13 +150,13 @@ pub const SessionEntry = struct {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const test_mod = @import("itshell3_testing");
-const mock_ime = test_mod.mock_ime_engine;
-
-var test_mock_engine = mock_ime.MockImeEngine{};
-
 fn testImeEngine() session_mod.ImeEngine {
-    return test_mock_engine.engine();
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const S = struct {
+        var engine = mock_ime.MockImeEngine{};
+    };
+    return S.engine.engine();
 }
 
 test "SessionEntry.init: has all null pane_slots, free_mask = 0xFFFF, dirty = 0, latest_client_id = 0" {
