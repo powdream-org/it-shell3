@@ -44,6 +44,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`    | libitshell3 + docs   | **Done**        |
 | 6    | Message Infrastructure & Connection Lifecycle | `2026-03-28-libitshell3-message-infrastructure.md`  | libitshell3          | **Done**        |
 | 7    | Session & Pane Operations                     | `2026-03-29-libitshell3-session-pane-operations.md` | libitshell3          | **In progress** |
+| 7.5  | Message Dispatcher Refactor                   | (not yet written)                                   | libitshell3          | Not started     |
 | 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                   | libitshell3          | Not started     |
 | 9    | Frame Delivery & Runtime Policies             | (not yet written)                                   | libitshell3          | Not started     |
 | 10   | Cascades & Shutdown                           | (not yet written)                                   | libitshell3          | Not started     |
@@ -71,7 +72,8 @@ graph TD
     P5 --> P5_5["Plan 5.5: Spec Alignment Audit ✅"]
     P5_5 --> P6["Plan 6: Message Infrastructure ✅"]
     P6 --> P7["Plan 7: Session & Pane Ops 🔄"]
-    P7 --> P15["Plan 15: CTR Resolution"]
+    P7 --> P7_5["Plan 7.5: Dispatcher Refactor"]
+    P7_5 --> P15["Plan 15: CTR Resolution"]
     P15 --> P16["Plan 16: Post-Design Code Alignment"]
     P16 --> P8["Plan 8: Input Pipeline"]
     P16 --> P11["Plan 11: SSH Transport"]
@@ -317,6 +319,29 @@ carry the header per protocol spec Section 3. TODO comments in
 
 **Depends on:** Plan 6 (message dispatch + connection lifecycle required to
 route session/pane requests and send notifications)
+
+### Plan 7.5: Message Dispatcher Refactor (Not Started)
+
+**Scope:** Refactor `message_dispatcher.zig` from a single monolithic switch
+into category-based sub-dispatchers matching the protocol message type ranges.
+
+**Key deliverables:**
+
+- Top-level dispatcher: `@intFromEnum(msg_type) >> 8` switch to 6 category
+  dispatchers
+- `server/handlers/lifecycle_dispatcher.zig` — handshake, heartbeat, disconnect,
+  error (0x00xx)
+- `server/handlers/session_pane_dispatcher.zig` — session + pane messages with
+  JSON parsing (0x01xx)
+- Stub dispatchers for input (0x02xx), render (0x03xx), ime (0x04xx),
+  flow_control (0x05xx) — ready for Plan 8/9
+- JSON parsing moves from top-level dispatcher into category dispatcher
+- No behavioral change — pure structural refactor
+
+**Design spec refs:** protocol 01-protocol-overview (message type ranges)
+
+**Depends on:** Plan 7 (all session/pane handlers must be implemented before
+restructuring their dispatch)
 
 ### Plan 8: Input Pipeline & Preedit Wire Messages (Not Started)
 
