@@ -1,9 +1,8 @@
-//! Routes decoded protocol messages by msg_type to the appropriate handler.
-//! Handshake, heartbeat, disconnect, and error messages are handled directly.
-//! Session/pane/input/render messages are forwarded (stubs for future plans).
+//! Top-level message dispatcher: thin page-level router that shifts
+//! msg_type >> 8 to select one of six category dispatchers.
 //!
-//! Per daemon-architecture 01-module-structure (server/ component responsibilities)
-//! and protocol 01-protocol-overview (message type ranges).
+//! Per ADR 00064 (category-based message dispatcher) and
+//! protocol 01-protocol-overview (message type range definitions).
 
 const std = @import("std");
 const protocol = @import("itshell3_protocol");
@@ -14,20 +13,21 @@ const interfaces = server.os.interfaces;
 const EventLoopOps = interfaces.EventLoopOps;
 const ClientManager = server.connection.client_manager.ClientManager;
 const ClientState = server.connection.client_state.ClientState;
-const handshake_handler = server.connection.handshake_handler;
-const heartbeat_manager_mod = server.connection.heartbeat_manager;
-const HeartbeatManager = heartbeat_manager_mod.HeartbeatManager;
-const disconnect_handler = server.connection.disconnect_handler;
-const timer_handler = server.handlers.timer_handler;
-const session_handler = server.handlers.session_handler;
-const pane_handler = server.handlers.pane_handler;
+const HeartbeatManager = server.connection.heartbeat_manager.HeartbeatManager;
 const SessionManager = server.state.session_manager.SessionManager;
 const core = @import("itshell3_core");
+const lifecycle_dispatcher = @import("lifecycle_dispatcher.zig");
+const session_pane_dispatcher = @import("session_pane_dispatcher.zig");
+const input_dispatcher = @import("input_dispatcher.zig");
+const render_dispatcher = @import("render_dispatcher.zig");
+const ime_dispatcher = @import("ime_dispatcher.zig");
+const flow_control_dispatcher = @import("flow_control_dispatcher.zig");
 
 /// Timeout after which a READY client that hasn't attached a session is
 /// disconnected, per daemon-behavior spec.
 pub const READY_IDLE_TIMEOUT_MS: u32 = 60_000;
 
+/// Shared context for all dispatchers: server state references and callbacks.
 pub const DispatcherContext = struct {
     client_manager: *ClientManager,
     heartbeat_manager: *HeartbeatManager,
@@ -45,8 +45,18 @@ pub const DispatcherContext = struct {
     default_ime_engine: core.ImeEngine = undefined,
 };
 
-/// Routes a decoded message by type: handshake, heartbeat, disconnect, or error
-/// messages are handled directly; others are stubs for future plans.
+/// Uniform parameter struct passed to all category dispatchers.
+pub const CategoryDispatchParams = struct {
+    context: *DispatcherContext,
+    client: *ClientState,
+    client_slot: u16,
+    msg_type: MessageType,
+    header: Header,
+    payload: []const u8,
+};
+
+/// Routes a decoded message by page-level category (msg_type >> 8) to the
+/// appropriate category dispatcher.
 pub fn dispatch(
     ctx: *DispatcherContext,
     client_slot: u16,
@@ -55,297 +65,23 @@ pub fn dispatch(
     payload: []const u8,
 ) void {
     const client = ctx.client_manager.getClient(client_slot) orelse return;
-
-    switch (msg_type) {
-        .client_hello => handleClientHello(ctx, client, client_slot, payload),
-        .heartbeat => handleHeartbeat(client, payload),
-        .heartbeat_ack => handleHeartbeatAck(client, payload),
-        .disconnect => handleDisconnect(ctx, client_slot),
-        .@"error" => {
-            // Received an error from client -- transition to disconnecting.
-            _ = client.connection.transitionTo(.disconnecting);
-            ctx.disconnect_fn(client_slot);
-        },
-        // Session management messages (0x0100-0x013F).
-        .create_session_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                name: []const u8 = "",
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var session_ctx = makeSessionHandlerContext(ctx);
-            session_handler.handleCreateSession(&session_ctx, client, client_slot, header.sequence, parsed.value.name);
-        },
-        .list_sessions_request => {
-            var session_ctx = makeSessionHandlerContext(ctx);
-            session_handler.handleListSessions(&session_ctx, client, client_slot, header.sequence);
-        },
-        .rename_session_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-                name: []const u8,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var session_ctx = makeSessionHandlerContext(ctx);
-            session_handler.handleRenameSession(&session_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.name);
-        },
-        .attach_session_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var session_ctx = makeSessionHandlerContext(ctx);
-            session_handler.handleAttachSession(&session_ctx, client, client_slot, header.sequence, parsed.value.session_id);
-        },
-        .detach_session_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var session_ctx = makeSessionHandlerContext(ctx);
-            session_handler.handleDetachSession(&session_ctx, client, client_slot, header.sequence, parsed.value.session_id);
-        },
-        .destroy_session_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-                force: bool = false,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var session_ctx = makeSessionHandlerContext(ctx);
-            session_handler.handleDestroySession(&session_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.force);
-        },
-        .attach_or_create_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                name: []const u8,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var session_ctx = makeSessionHandlerContext(ctx);
-            session_handler.handleAttachOrCreate(&session_ctx, client, client_slot, header.sequence, parsed.value.name);
-        },
-        // Pane management messages (0x0140-0x017F).
-        .create_pane_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleCreatePane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id);
-        },
-        .split_pane_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-                pane_id: u32,
-                direction: []const u8,
-                ratio: f32 = 0.5,
-                focus_new: bool = true,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            const direction = parseDirection(parsed.value.direction) orelse return;
-            var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleSplitPane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_id, direction, parsed.value.ratio, parsed.value.focus_new);
-        },
-        .close_pane_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-                pane_id: u32,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleClosePane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_id);
-        },
-        .focus_pane_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-                pane_id: u32,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleFocusPane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_id);
-        },
-        .navigate_pane_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-                direction: []const u8,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            const direction = parseDirection(parsed.value.direction) orelse return;
-            var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleNavigatePane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, direction);
-        },
-        .resize_pane_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-                pane_id: u32,
-                direction: []const u8,
-                delta: i32,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            const direction = parseDirection(parsed.value.direction) orelse return;
-            var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleResizePane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_id, direction, parsed.value.delta);
-        },
-        .equalize_splits_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleEqualizeSplits(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id);
-        },
-        .zoom_pane_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-                pane_id: u32,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleZoomPane(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_id);
-        },
-        .swap_panes_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-                pane_a: u32,
-                pane_b: u32,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleSwapPanes(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id, parsed.value.pane_a, parsed.value.pane_b);
-        },
-        .layout_get_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleLayoutGet(&pane_ctx, client, client_slot, header.sequence, parsed.value.session_id);
-        },
-        else => {
-            // All other message types are stubs for future plans (input,
-            // render, IME, flow control, etc.).
-        },
-    }
-}
-
-fn makeSessionHandlerContext(ctx: *DispatcherContext) session_handler.SessionHandlerContext {
-    return .{
-        .session_manager = ctx.session_manager,
-        .client_manager = ctx.client_manager,
-        .disconnect_fn = ctx.disconnect_fn,
-        .default_ime_engine = ctx.default_ime_engine,
+    const params = CategoryDispatchParams{
+        .context = ctx,
+        .client = client,
+        .client_slot = client_slot,
+        .msg_type = msg_type,
+        .header = header,
+        .payload = payload,
     };
-}
-
-fn makePaneHandlerContext(ctx: *DispatcherContext) pane_handler.PaneHandlerContext {
-    return .{
-        .session_manager = ctx.session_manager,
-        .client_manager = ctx.client_manager,
-    };
-}
-
-/// Parses a direction string ("right", "left", "up", "down") into a Direction enum.
-fn parseDirection(direction_string: []const u8) ?core.types.Direction {
-    if (std.mem.eql(u8, direction_string, "right")) return .right;
-    if (std.mem.eql(u8, direction_string, "left")) return .left;
-    if (std.mem.eql(u8, direction_string, "up")) return .up;
-    if (std.mem.eql(u8, direction_string, "down")) return .down;
-    return null;
-}
-
-fn handleClientHello(
-    ctx: *DispatcherContext,
-    client: *ClientState,
-    client_slot: u16,
-    payload: []const u8,
-) void {
-    if (client.connection.state != .handshaking) return;
-
-    const result = handshake_handler.processClientHello(
-        ctx.allocator,
-        payload,
-        client.connection.client_id,
-        ctx.server_pid,
-    );
-
-    // Cancel the handshake timer regardless of outcome.
-    cancelHandshakeTimer(ctx, client, client_slot);
-
-    switch (result) {
-        .success => |data| {
-            // Transition to READY.
-            _ = client.connection.transitionTo(.ready);
-            // Enqueue the ServerHello response via direct queue with protocol header.
-            const envelope_mod = @import("protocol_envelope.zig");
-            var hello_buf: [envelope_mod.MAX_ENVELOPE_SIZE]u8 = undefined;
-            const hello_payload = data.getPayload();
-            const seq = client.connection.advanceSendSequence();
-            if (envelope_mod.wrapResponse(&hello_buf, @intFromEnum(MessageType.server_hello), seq, hello_payload)) |wrapped| {
-                client.enqueueDirect(wrapped) catch {};
-            } else {
-                // Fallback: send without header if wrapping fails.
-                client.enqueueDirect(hello_payload) catch {};
-            }
-
-            // Arm the 60s READY idle timer.
-            const ready_timer_id = timer_handler.READY_IDLE_TIMER_BASE + client_slot;
-            ctx.event_loop_ops.registerTimer(
-                ctx.event_loop_context,
-                ready_timer_id,
-                READY_IDLE_TIMEOUT_MS,
-                .{ .timer = .{ .timer_id = ready_timer_id } },
-            ) catch {};
-            client.ready_idle_timer_id = ready_timer_id;
-        },
-        .version_mismatch, .capability_required, .malformed_payload => |err_data| {
-            // Send error, transition to disconnecting.
-            _ = err_data;
-            _ = client.connection.transitionTo(.disconnecting);
-            ctx.disconnect_fn(client_slot);
-        },
+    switch (@intFromEnum(msg_type) >> 8) {
+        0x00 => lifecycle_dispatcher.dispatch(params),
+        0x01 => session_pane_dispatcher.dispatch(params),
+        0x02 => input_dispatcher.dispatch(params),
+        0x03 => render_dispatcher.dispatch(params),
+        0x04 => ime_dispatcher.dispatch(params),
+        0x05 => flow_control_dispatcher.dispatch(params),
+        else => {},
     }
-}
-
-/// Cancels the handshake timeout timer for a client slot.
-fn cancelHandshakeTimer(ctx: *DispatcherContext, client: *ClientState, client_slot: u16) void {
-    const timer_id = timer_handler.HANDSHAKE_TIMER_BASE + client_slot;
-    ctx.event_loop_ops.cancelTimer(ctx.event_loop_context, timer_id);
-    client.handshake_timer_id = null;
-}
-
-fn handleHeartbeat(client: *ClientState, payload: []const u8) void {
-    var parse_buf: [256]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&parse_buf);
-    const parsed = std.json.parseFromSlice(protocol.handshake.Heartbeat, fba.allocator(), payload, .{
-        .ignore_unknown_fields = true,
-    }) catch return;
-    defer parsed.deinit();
-
-    const echo_id = HeartbeatManager.processHeartbeat(client, parsed.value.ping_id);
-    var ack_json_buf: [128]u8 = undefined;
-    const ack_json = std.fmt.bufPrint(&ack_json_buf, "{{\"ping_id\":{d}}}", .{echo_id}) catch return;
-    const envelope_mod = @import("protocol_envelope.zig");
-    var ack_buf: [envelope_mod.MAX_ENVELOPE_SIZE]u8 = undefined;
-    const seq = client.connection.advanceSendSequence();
-    if (envelope_mod.wrapResponse(&ack_buf, @intFromEnum(MessageType.heartbeat_ack), seq, ack_json)) |wrapped| {
-        client.enqueueDirect(wrapped) catch {};
-    } else {
-        client.enqueueDirect(ack_json) catch {};
-    }
-}
-
-fn handleHeartbeatAck(client: *ClientState, payload: []const u8) void {
-    var parse_buf: [256]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&parse_buf);
-    const parsed = std.json.parseFromSlice(protocol.handshake.HeartbeatAck, fba.allocator(), payload, .{
-        .ignore_unknown_fields = true,
-    }) catch return;
-    defer parsed.deinit();
-
-    HeartbeatManager.processAck(client, parsed.value.ping_id);
-}
-
-fn handleDisconnect(ctx: *DispatcherContext, client_slot: u16) void {
-    const client = ctx.client_manager.getClient(client_slot) orelse return;
-    disconnect_handler.processIncomingDisconnect(client);
-    ctx.disconnect_fn(client_slot);
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -416,4 +152,15 @@ test "dispatch: unknown message type does not crash" {
     try std.testing.expect(!disconnect_called);
 
     mgr.getClient(idx).?.deinit();
+}
+
+test "dispatch: page-level routing covers all six categories" {
+    // Verify that the page-level shift produces the expected category index
+    // for representative message types from each range.
+    try std.testing.expectEqual(@as(u16, 0x00), @intFromEnum(MessageType.client_hello) >> 8);
+    try std.testing.expectEqual(@as(u16, 0x01), @intFromEnum(MessageType.create_session_request) >> 8);
+    try std.testing.expectEqual(@as(u16, 0x02), @intFromEnum(MessageType.key_event) >> 8);
+    try std.testing.expectEqual(@as(u16, 0x03), @intFromEnum(MessageType.frame_update) >> 8);
+    try std.testing.expectEqual(@as(u16, 0x04), @intFromEnum(MessageType.input_method_switch) >> 8);
+    try std.testing.expectEqual(@as(u16, 0x05), @intFromEnum(MessageType.pause_pane) >> 8);
 }

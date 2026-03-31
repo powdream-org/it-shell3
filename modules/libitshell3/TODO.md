@@ -2,11 +2,11 @@
 
 ## Current State
 
-- **Step**: 5 (Scaffold & Build Verification)
+- **Step**: 7 (Code Simplify & Convention Compliance)
 - **Cycle Type**: modification (Plan 7.5 — Message Dispatcher Refactor)
 - **Review Round**: 0
-- **Active Team**: (none)
-- **Team Directory**: (none)
+- **Active Team**: impl-team
+- **Team Directory**: .claude/agents/impl-team/
 
 ## Spec
 
@@ -36,8 +36,8 @@
 - [x] Step 2: Plan Writing
 - [x] Step 3: Plan Verification
 - [x] Step 4: Cycle Setup
-- [ ] Step 5: Scaffold & Build Verification
-- [ ] Step 6: Implementation Phase
+- [x] Step 5: Scaffold & Build Verification
+- [x] Step 6: Implementation Phase
 - [ ] Step 7: Code Simplify & Convention Compliance
 - [ ] Step 8: Spec Compliance Review
 - [ ] Step 9: Fix Cycle
