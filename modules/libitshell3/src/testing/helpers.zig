@@ -60,6 +60,32 @@ pub fn testImeEngine() session_mod.ImeEngine {
     return test_mock_engine.engine();
 }
 
+/// No-op event loop ops for dispatcher tests. File-scoped static so the
+/// vtable pointer address remains valid for the process lifetime.
+pub const noop_event_loop_ops = interfaces.EventLoopOps{
+    .registerRead = struct {
+        fn f(_: *anyopaque, _: std.posix.fd_t, _: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {}
+    }.f,
+    .registerWrite = struct {
+        fn f(_: *anyopaque, _: std.posix.fd_t, _: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {}
+    }.f,
+    .unregister = struct {
+        fn f(_: *anyopaque, _: std.posix.fd_t) void {}
+    }.f,
+    .registerTimer = struct {
+        fn f(_: *anyopaque, _: u16, _: u32, _: ?interfaces.EventTarget) interfaces.EventLoopOps.RegisterError!void {}
+    }.f,
+    .cancelTimer = struct {
+        fn f(_: *anyopaque, _: u16) void {}
+    }.f,
+    .wait = struct {
+        fn f(_: *anyopaque, _: ?u32) interfaces.EventLoopOps.WaitError!server_os.PriorityEventBuffer.Iterator {
+            const empty = &server_os.PriorityEventBuffer{};
+            return empty.iterator();
+        }
+    }.f,
+};
+
 /// Generate a unique temporary socket path for testing.
 /// Caller owns the returned slice and must free it with the provided allocator.
 pub fn tempSocketPath(allocator: std.mem.Allocator) ![]u8 {

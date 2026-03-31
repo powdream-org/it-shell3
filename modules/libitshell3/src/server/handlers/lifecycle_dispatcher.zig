@@ -11,8 +11,7 @@ const MessageType = protocol.message_type.MessageType;
 const server = @import("itshell3_server");
 const ClientState = server.connection.client_state.ClientState;
 const handshake_handler = server.connection.handshake_handler;
-const heartbeat_manager_mod = server.connection.heartbeat_manager;
-const HeartbeatManager = heartbeat_manager_mod.HeartbeatManager;
+const HeartbeatManager = server.connection.heartbeat_manager.HeartbeatManager;
 const disconnect_handler = server.connection.disconnect_handler;
 const timer_handler = server.handlers.timer_handler;
 const message_dispatcher = @import("message_dispatcher.zig");
@@ -80,9 +79,8 @@ fn handleClientHello(
             ) catch {};
             client.ready_idle_timer_id = ready_timer_id;
         },
-        .version_mismatch, .capability_required, .malformed_payload => |err_data| {
+        .version_mismatch, .capability_required, .malformed_payload => |_| {
             // Send error, transition to disconnecting.
-            _ = err_data;
             _ = client.connection.transitionTo(.disconnecting);
             ctx.disconnect_fn(client_slot);
         },
@@ -136,36 +134,8 @@ fn handleDisconnect(ctx: *DispatcherContext, client_slot: u16) void {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const interfaces = server.os.interfaces;
-const EventLoopOps = interfaces.EventLoopOps;
-const ClientManager = server.connection.client_manager.ClientManager;
-const Header = protocol.header.Header;
-
-const noop_event_loop_ops = EventLoopOps{
-    .registerRead = struct {
-        fn f(_: *anyopaque, _: std.posix.fd_t, _: ?interfaces.EventTarget) EventLoopOps.RegisterError!void {}
-    }.f,
-    .registerWrite = struct {
-        fn f(_: *anyopaque, _: std.posix.fd_t, _: ?interfaces.EventTarget) EventLoopOps.RegisterError!void {}
-    }.f,
-    .unregister = struct {
-        fn f(_: *anyopaque, _: std.posix.fd_t) void {}
-    }.f,
-    .registerTimer = struct {
-        fn f(_: *anyopaque, _: u16, _: u32, _: ?interfaces.EventTarget) EventLoopOps.RegisterError!void {}
-    }.f,
-    .cancelTimer = struct {
-        fn f(_: *anyopaque, _: u16) void {}
-    }.f,
-    .wait = struct {
-        fn f(_: *anyopaque, _: ?u32) EventLoopOps.WaitError!server.os.PriorityEventBuffer.Iterator {
-            const empty = &server.os.PriorityEventBuffer{};
-            return empty.iterator();
-        }
-    }.f,
-};
-
-test "lifecycle dispatch: unknown lifecycle message type does not crash" {
+test "dispatch: unknown lifecycle message type does not crash" {
+    const Header = protocol.header.Header;
     // server_hello is S->C; the server-side lifecycle dispatcher should ignore it.
     const params = CategoryDispatchParams{
         .context = undefined,
@@ -184,7 +154,11 @@ test "lifecycle dispatch: unknown lifecycle message type does not crash" {
     // No crash = success.
 }
 
-test "lifecycle dispatch: error message transitions to disconnecting" {
+test "dispatch: error message transitions to disconnecting" {
+    const ClientManager = server.connection.client_manager.ClientManager;
+    const Header = protocol.header.Header;
+    const noop_event_loop_ops = @import("itshell3_testing").helpers.noop_event_loop_ops;
+
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const client = mgr.getClient(idx).?;

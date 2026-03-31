@@ -86,33 +86,8 @@ pub fn dispatch(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-/// No-op event loop ops for tests.
-const noop_event_loop_ops = EventLoopOps{
-    .registerRead = struct {
-        fn f(_: *anyopaque, _: std.posix.fd_t, _: ?interfaces.EventTarget) EventLoopOps.RegisterError!void {}
-    }.f,
-    .registerWrite = struct {
-        fn f(_: *anyopaque, _: std.posix.fd_t, _: ?interfaces.EventTarget) EventLoopOps.RegisterError!void {}
-    }.f,
-    .unregister = struct {
-        fn f(_: *anyopaque, _: std.posix.fd_t) void {}
-    }.f,
-    .registerTimer = struct {
-        fn f(_: *anyopaque, _: u16, _: u32, _: ?interfaces.EventTarget) EventLoopOps.RegisterError!void {}
-    }.f,
-    .cancelTimer = struct {
-        fn f(_: *anyopaque, _: u16) void {}
-    }.f,
-    .wait = struct {
-        fn f(_: *anyopaque, _: ?u32) EventLoopOps.WaitError!server.os.PriorityEventBuffer.Iterator {
-            // Not used in these tests; provide a dummy empty buffer.
-            const empty = &server.os.PriorityEventBuffer{};
-            return empty.iterator();
-        }
-    }.f,
-};
-
 test "dispatch: unknown message type does not crash" {
+    const noop_event_loop_ops = @import("itshell3_testing").helpers.noop_event_loop_ops;
     var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
     const idx = try mgr.addClient(.{ .fd = 10 });
     const c = mgr.getClient(idx).?;

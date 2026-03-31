@@ -15,7 +15,7 @@ pub fn dispatch(_: CategoryDispatchParams) void {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-test "flow_control dispatch: stub does not crash on any flow control message" {
+test "dispatch: stub does not crash on any flow control message" {
     const protocol = @import("itshell3_protocol");
     const Header = protocol.header.Header;
     const params = CategoryDispatchParams{

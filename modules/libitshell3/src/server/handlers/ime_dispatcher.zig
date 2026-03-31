@@ -14,7 +14,7 @@ pub fn dispatch(_: CategoryDispatchParams) void {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-test "ime dispatch: stub does not crash on any IME message" {
+test "dispatch: stub does not crash on any IME message" {
     const protocol = @import("itshell3_protocol");
     const Header = protocol.header.Header;
     const params = CategoryDispatchParams{

@@ -224,7 +224,7 @@ fn makePaneHandlerContext(ctx: *DispatcherContext) pane_handler.PaneHandlerConte
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-test "session_pane dispatch: second-level split routes session range correctly" {
+test "dispatch: second-level split routes session range correctly" {
     // Verify that message types in 0x0100-0x013F route to the session sub-dispatcher.
     // create_session_request (0x0100) has sub-category bits (0x00 & 0xC0) >> 6 = 0.
     const raw = @intFromEnum(MessageType.create_session_request);
@@ -232,7 +232,7 @@ test "session_pane dispatch: second-level split routes session range correctly" 
     try std.testing.expectEqual(@as(u8, 0), sub);
 }
 
-test "session_pane dispatch: second-level split routes pane range correctly" {
+test "dispatch: second-level split routes pane range correctly" {
     // Verify that message types in 0x0140-0x017F route to the pane sub-dispatcher.
     // create_pane_request (0x0140) has sub-category bits (0x40 & 0xC0) >> 6 = 1.
     const raw = @intFromEnum(MessageType.create_pane_request);
@@ -240,7 +240,7 @@ test "session_pane dispatch: second-level split routes pane range correctly" {
     try std.testing.expectEqual(@as(u8, 1), sub);
 }
 
-test "session_pane dispatch: second-level split routes notification range correctly" {
+test "dispatch: second-level split routes notification range correctly" {
     // Verify that 0x0180+ maps to sub-category 2 (notification).
     // layout_changed (0x0180) has sub-category bits (0x80 & 0xC0) >> 6 = 2.
     const raw = @intFromEnum(MessageType.layout_changed);
@@ -248,7 +248,7 @@ test "session_pane dispatch: second-level split routes notification range correc
     try std.testing.expectEqual(@as(u8, 2), sub);
 }
 
-test "session_pane dispatch: direction integer conversion for valid values" {
+test "dispatch: direction integer conversion for valid values" {
     // Verify that all four direction integers (0-3) convert to the Direction enum.
     const Direction = core.types.Direction;
     try std.testing.expectEqual(Direction.right, std.meta.intToEnum(Direction, 0) catch unreachable);
@@ -257,7 +257,7 @@ test "session_pane dispatch: direction integer conversion for valid values" {
     try std.testing.expectEqual(Direction.up, std.meta.intToEnum(Direction, 3) catch unreachable);
 }
 
-test "session_pane dispatch: direction integer conversion rejects invalid value" {
+test "dispatch: direction integer conversion rejects invalid value" {
     // Verify that an out-of-range direction integer (4+) produces an error.
     // Use a runtime value to avoid comptime enum validation.
     const Direction = core.types.Direction;

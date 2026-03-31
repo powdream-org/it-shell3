@@ -2,24 +2,24 @@
 //!
 //! Validates the two-level dispatch architecture (ADR 00064) and two bugfixes:
 //!   1. AttachOrCreateRequest parses "session_name" (not "name") per protocol
-//!      spec 03-session-pane-management Section 1.13.
+//!      session-pane-management AttachOrCreate definition.
 //!   2. SplitPane, NavigatePane, ResizePane parse direction as integer (0-3)
-//!      per protocol spec 03-session-pane-management Sections 2.3/2.10/2.12.
+//!      per protocol session-pane-management direction conventions.
 //!
 //! Spec sources:
 //!   - ADR 00064 — Category-Based Message Dispatcher (structural decision)
-//!   - protocol 01-protocol-overview Section 4 — Message Type ID Allocation
-//!   - protocol 03-session-pane-management Section 1.13 — AttachOrCreateRequest
-//!   - protocol 03-session-pane-management Sections 2.3, 2.10, 2.12 — direction
-//!   - protocol 03-session-pane-management Conventions — direction integers
+//!   - protocol 01-protocol-overview message type ID allocation
+//!   - protocol 03-session-pane-management AttachOrCreate definition
+//!   - protocol 03-session-pane-management direction conventions
+//!   - protocol 03-session-pane-management pane operation definitions
 
 const std = @import("std");
 const protocol = @import("itshell3_protocol");
 const MessageType = protocol.message_type.MessageType;
 
-// ── Spec: Message Type Range Boundaries (protocol 01-protocol-overview Section 4) ──
+// ── Spec: Message Type Range Boundaries (protocol 01-protocol-overview) ──
 
-test "spec: category dispatch — message type ranges match protocol spec allocation" {
+test "spec: category dispatch — message type ranges match protocol allocation" {
     // Lifecycle: 0x0001-0x00FF
     try std.testing.expectEqual(@as(u16, 0x0001), @intFromEnum(MessageType.client_hello));
     try std.testing.expectEqual(@as(u16, 0x00FF), @intFromEnum(MessageType.@"error"));
@@ -235,7 +235,7 @@ test "spec: category dispatch — second-level split routes notifications to sub
 
 test "spec: category dispatch — window resize (0x0190) falls in sub-category 2" {
     // WindowResize (0x0190) and WindowResizeAck (0x0191) are in the notification
-    // range per protocol 01-protocol-overview Section 4.
+    // range per protocol 01-protocol-overview message type allocation.
     const raw_resize = @intFromEnum(MessageType.window_resize);
     const sub_resize = (raw_resize & 0xC0) >> 6;
     try std.testing.expectEqual(@as(u16, 2), sub_resize);
@@ -246,10 +246,10 @@ test "spec: category dispatch — window resize (0x0190) falls in sub-category 2
 }
 
 // ── Spec: Bugfix 1 — AttachOrCreateRequest "session_name" field ───────────────
-// Protocol 03-session-pane-management Section 1.13 defines the field as
-// "session_name", not "name".
+// Protocol 03-session-pane-management AttachOrCreate definition specifies the
+// field as "session_name", not "name".
 
-test "spec: AttachOrCreateRequest — JSON field is 'session_name' per protocol Section 1.13" {
+test "spec: AttachOrCreateRequest — JSON field is 'session_name' per protocol AttachOrCreate definition" {
     // The spec defines: {"session_name": "main", "cols": 80, "rows": 24, ...}
     // Parsing a JSON payload with "session_name" must succeed and extract the value.
     const payload = "{\"session_name\": \"main\", \"cols\": 80, \"rows\": 24}";
@@ -298,7 +298,7 @@ test "spec: AttachOrCreateRequest — 'name' field must NOT be the parsed field"
 }
 
 test "spec: AttachOrCreateRequest — empty session_name means attach to most recent" {
-    // Per Section 1.13: "Empty string = attach to most recently active session"
+    // Per protocol AttachOrCreate definition: "Empty string = attach to most recently active session"
     const payload = "{\"session_name\": \"\"}";
     const Parsed = struct {
         session_name: []const u8 = "",
@@ -313,10 +313,10 @@ test "spec: AttachOrCreateRequest — empty session_name means attach to most re
 }
 
 // ── Spec: Bugfix 2 — Direction as integer (0-3) ──────────────────────────────
-// Protocol 03-session-pane-management Conventions: "Directions use integers:
-// 0 = right, 1 = down, 2 = left, 3 = up"
+// Protocol 03-session-pane-management direction conventions: "Directions use
+// integers: 0 = right, 1 = down, 2 = left, 3 = up"
 
-test "spec: SplitPaneRequest — direction is integer per protocol Section 2.3" {
+test "spec: SplitPaneRequest — direction is integer per protocol direction conventions" {
     // The spec example: {"session_id": 1, "pane_id": 1, "direction": 0, ...}
     const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 0, \"ratio\": 0.5}";
     const Parsed = struct {
@@ -334,7 +334,7 @@ test "spec: SplitPaneRequest — direction is integer per protocol Section 2.3" 
     try std.testing.expectEqual(@as(u8, 0), result.value.direction); // 0 = right
 }
 
-test "spec: NavigatePaneRequest — direction is integer per protocol Section 2.9" {
+test "spec: NavigatePaneRequest — direction is integer per protocol direction conventions" {
     const payload = "{\"session_id\": 1, \"direction\": 1}";
     const Parsed = struct {
         session_id: u32,
@@ -349,7 +349,7 @@ test "spec: NavigatePaneRequest — direction is integer per protocol Section 2.
     try std.testing.expectEqual(@as(u8, 1), result.value.direction); // 1 = down
 }
 
-test "spec: ResizePaneRequest — direction is integer per protocol Section 2.11" {
+test "spec: ResizePaneRequest — direction is integer per protocol direction conventions" {
     const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 2, \"delta\": 5}";
     const Parsed = struct {
         session_id: u32,
@@ -471,8 +471,8 @@ test "spec: category dispatch — sub-category 3 (0x01C0-0x01FF) has no defined 
 // ── Spec: SplitPane direction field accepts all four integer values ────────────
 
 test "spec: SplitPaneRequest — direction 0 means right (vertical split, original left)" {
-    // Section 2.3: "right (0): Vertical split. Original pane becomes left,
-    // new pane appears on right."
+    // Per protocol SplitPane definition: "right (0): Vertical split. Original
+    // pane becomes left, new pane appears on right."
     const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 0, \"ratio\": 0.5}";
     const Parsed = struct { direction: u8 };
     const result = try std.json.parseFromSlice(Parsed, std.testing.allocator, payload, .{

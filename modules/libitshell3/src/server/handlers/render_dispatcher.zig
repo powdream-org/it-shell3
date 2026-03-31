@@ -14,7 +14,7 @@ pub fn dispatch(_: CategoryDispatchParams) void {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-test "render dispatch: stub does not crash on any render message" {
+test "dispatch: stub does not crash on any render message" {
     const protocol = @import("itshell3_protocol");
     const Header = protocol.header.Header;
     const params = CategoryDispatchParams{
