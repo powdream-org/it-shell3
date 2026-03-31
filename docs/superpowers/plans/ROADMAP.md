@@ -22,7 +22,7 @@ libhangul, POSIX (kqueue/epoll, forkpty, Unix sockets).
 
 | Module                | Source Files | Tests | Coverage (kcov) |
 | --------------------- | ------------ | ----- | --------------- |
-| libitshell3           | 85           | 801   | 95.40%          |
+| libitshell3           | 93           | 861   | 95.54%          |
 | libitshell3-protocol  | 16           | 187   | 93.03%          |
 | libitshell3-transport | 7            | 31    | 90.27%          |
 | libitshell3-ime       | 9            | 139   | 98.59%          |
@@ -34,29 +34,29 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 
 ## Plan Index
 
-| #    | Name                                          | Plan File                                               | Target Module        | Status          |
-| ---- | --------------------------------------------- | ------------------------------------------------------- | -------------------- | --------------- |
-| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`                  | libitshell3          | **Done**        |
-| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`         | libitshell3          | **Done**        |
-| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                    | libitshell3-protocol | **Done**        |
-| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`                 | libitshell3          | **Done**        |
-| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`             | libitshell3          | **Done**        |
-| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`        | libitshell3 + docs   | **Done**        |
-| 6    | Message Infrastructure & Connection Lifecycle | `2026-03-28-libitshell3-message-infrastructure.md`      | libitshell3          | **Done**        |
-| 7    | Session & Pane Operations                     | `2026-03-29-libitshell3-session-pane-operations.md`     | libitshell3          | **Done**        |
-| 7.5  | Message Dispatcher Refactor                   | `2026-03-31-libitshell3-message-dispatcher-refactor.md` | libitshell3          | **In progress** |
-| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                       | libitshell3          | Not started     |
-| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                       | libitshell3          | Not started     |
-| 10   | Cascades & Shutdown                           | (not yet written)                                       | libitshell3          | Not started     |
-| 11   | SSH Transport                                 | (not yet written)                                       | libitshell3-protocol | Not started     |
-| 12.1 | Daemon CLI — Design                           | (not yet written)                                       | daemon               | Not started     |
-| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                       | daemon               | Not started     |
-| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md`     | daemon               | Not started     |
-| 14.1 | macOS Client PoC — Design                     | (not yet written)                                       | app/macos            | Not started     |
-| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                       | app/macos            | Not started     |
-| 15   | Design Doc CTR Resolution                     | (not yet written)                                       | multi-module         | Not started     |
-| 16   | Post-Design Code Alignment                    | (not yet written)                                       | multi-module         | Not started     |
-| 17+  | Deferred Features                             | —                                                       | various              | Not started     |
+| #    | Name                                          | Plan File                                               | Target Module        | Status      |
+| ---- | --------------------------------------------- | ------------------------------------------------------- | -------------------- | ----------- |
+| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`                  | libitshell3          | **Done**    |
+| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`         | libitshell3          | **Done**    |
+| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                    | libitshell3-protocol | **Done**    |
+| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`                 | libitshell3          | **Done**    |
+| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`             | libitshell3          | **Done**    |
+| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`        | libitshell3 + docs   | **Done**    |
+| 6    | Message Infrastructure & Connection Lifecycle | `2026-03-28-libitshell3-message-infrastructure.md`      | libitshell3          | **Done**    |
+| 7    | Session & Pane Operations                     | `2026-03-29-libitshell3-session-pane-operations.md`     | libitshell3          | **Done**    |
+| 7.5  | Message Dispatcher Refactor                   | `2026-03-31-libitshell3-message-dispatcher-refactor.md` | libitshell3          | **Done**    |
+| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                       | libitshell3          | Not started |
+| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                       | libitshell3          | Not started |
+| 10   | Cascades & Shutdown                           | (not yet written)                                       | libitshell3          | Not started |
+| 11   | SSH Transport                                 | (not yet written)                                       | libitshell3-protocol | Not started |
+| 12.1 | Daemon CLI — Design                           | (not yet written)                                       | daemon               | Not started |
+| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                       | daemon               | Not started |
+| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md`     | daemon               | Not started |
+| 14.1 | macOS Client PoC — Design                     | (not yet written)                                       | app/macos            | Not started |
+| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                       | app/macos            | Not started |
+| 15   | Design Doc CTR Resolution                     | (not yet written)                                       | multi-module         | Not started |
+| 16   | Post-Design Code Alignment                    | (not yet written)                                       | multi-module         | Not started |
+| 17+  | Deferred Features                             | —                                                       | various              | Not started |
 
 ---
 
@@ -72,7 +72,7 @@ graph TD
     P5 --> P5_5["Plan 5.5: Spec Alignment Audit ✅"]
     P5_5 --> P6["Plan 6: Message Infrastructure ✅"]
     P6 --> P7["Plan 7: Session & Pane Ops ✅"]
-    P7 --> P7_5["Plan 7.5: Dispatcher Refactor"]
+    P7 --> P7_5["Plan 7.5: Dispatcher Refactor ✅"]
     P7_5 --> P15["Plan 15: CTR Resolution"]
     P15 --> P16["Plan 16: Post-Design Code Alignment"]
     P16 --> P8["Plan 8: Input Pipeline"]
@@ -320,7 +320,7 @@ carry the header per protocol spec Section 3. TODO comments in
 **Depends on:** Plan 6 (message dispatch + connection lifecycle required to
 route session/pane requests and send notifications)
 
-### Plan 7.5: Message Dispatcher Refactor (Not Started)
+### Plan 7.5: Message Dispatcher Refactor (Done)
 
 **Scope:** Refactor `message_dispatcher.zig` from a single monolithic switch
 into category-based sub-dispatchers matching the protocol message type ranges.
