@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 2 (Plan Writing)
+- **Step**: 3 (Plan Verification)
 - **Cycle Type**: modification (Plan 7.5 — Message Dispatcher Refactor)
 - **Review Round**: 0
 - **Active Team**: (none)
@@ -16,7 +16,8 @@
   - daemon-behavior v1.0-r8
   - server-client-protocols v1.0-r12
 - **Previous spec version(s)**: same (Plans 1-7 built against these versions)
-- **Plan**: pending — Step 2
+- **Plan**:
+  docs/superpowers/plans/2026-03-31-libitshell3-message-dispatcher-refactor.md
 - **PoC**: pending — Step 4
 - **Coverage exemption**: pending — Step 4
 
@@ -32,7 +33,7 @@
 ## Progress — Round 1
 
 - [x] Step 1: Requirements Intake
-- [ ] Step 2: Plan Writing
+- [x] Step 2: Plan Writing
 - [ ] Step 3: Plan Verification
 - [ ] Step 4: Cycle Setup
 - [ ] Step 5: Scaffold & Build Verification
