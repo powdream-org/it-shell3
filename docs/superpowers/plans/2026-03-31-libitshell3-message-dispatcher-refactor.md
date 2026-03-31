@@ -23,6 +23,10 @@ itshell3\_core)
   responsibilities
 - daemon-behavior v1.0-r8 02-event-handling — response-before-notification
   ordering
+- daemon-behavior v1.0-r8 03-policies-and-procedures — connection state machine,
+  heartbeat policy
+- server-client-protocols 03-session-pane-management — field definitions for
+  session/pane request messages
 
 ---
 
@@ -61,14 +65,35 @@ itshell3\_core)
 
 ## Tasks
 
-### Task 1: Define CategoryDispatchParams and refactor top-level dispatch
+### Task 1: Fix spec-code divergences in monolithic dispatcher
+
+**Files:** `src/server/handlers/message_dispatcher.zig` (modify)
+
+**Spec:** server-client-protocols 03-session-pane-management — Section 1.13
+(AttachOrCreate `session_name` field), Sections 2.3/2.10/2.12 (SplitPane,
+NavigatePane, ResizePane `direction` as integer 0-3).
+
+**Depends on:** None
+
+**Verification:**
+
+- AttachOrCreateRequest parses field `session_name` (not `name`) matching
+  protocol spec Section 1.13
+- SplitPaneRequest, NavigatePaneRequest, and ResizePaneRequest parse `direction`
+  as integer (not string), where 0=right, 1=down, 2=left, 3=up per protocol spec
+  Sections 2.3, 2.10, 2.12
+- The `parseDirection` string-comparison helper is removed (no longer needed)
+- All existing session and pane handler tests pass (updated to match spec field
+  names and types)
+
+### Task 2: Define CategoryDispatchParams and refactor top-level dispatch
 
 **Files:** `src/server/handlers/message_dispatcher.zig` (modify)
 
 **Spec:** ADR 00064 — CategoryDispatchParams struct definition and page-level
 switch. Protocol 01-protocol-overview §4 — message type range boundaries.
 
-**Depends on:** None
+**Depends on:** Task 1
 
 **Verification:**
 
@@ -76,23 +101,23 @@ switch. Protocol 01-protocol-overview §4 — message type range boundaries.
   top-level `dispatch()` that switches on `msg_type >> 8` with six arms (0x00
   through 0x05) plus an `else` catch-all
 - `DispatcherContext` struct is preserved with all existing fields
-- Helper functions (`makeSessionHandlerContext`, `makePaneHandlerContext`,
-  `parseDirection`) are removed from this file (they move to category
-  dispatchers in subsequent tasks)
+- Helper functions (`makeSessionHandlerContext`, `makePaneHandlerContext`) are
+  removed from this file (they move to category dispatchers in subsequent tasks;
+  `parseDirection` was already removed in Task 1)
 - The `READY_IDLE_TIMEOUT_MS` constant remains in this file
 - File compiles (category dispatcher imports may be stubs at this point)
 
-### Task 2: Create lifecycle dispatcher
+### Task 3: Create lifecycle dispatcher
 
 **Files:** `src/server/handlers/lifecycle_dispatcher.zig` (create),
 `src/server/handlers/message_dispatcher.zig` (modify — remove lifecycle
 functions)
 
 **Spec:** Protocol 01-protocol-overview §4 — Handshake & Lifecycle range
-(0x0001-0x00FF). daemon-behavior 02-event-handling — handshake state machine,
-heartbeat processing.
+(0x0001-0x00FF). daemon-behavior 03-policies-and-procedures — connection state
+machine (line 795), heartbeat policy (lines 711-714).
 
-**Depends on:** Task 1
+**Depends on:** Task 2
 
 **Verification:**
 
@@ -106,7 +131,7 @@ heartbeat processing.
 - `message_dispatcher.zig` no longer contains any lifecycle handling logic
 - Existing lifecycle tests pass (handshake, heartbeat, disconnect flows)
 
-### Task 3: Create session/pane dispatcher with second-level split
+### Task 4: Create session/pane dispatcher with second-level split
 
 **Files:** `src/server/handlers/session_pane_dispatcher.zig` (create),
 `src/server/handlers/message_dispatcher.zig` (modify — remove session/pane arms)
@@ -115,7 +140,7 @@ heartbeat processing.
 (0x0100-0x013F), pane (0x0140-0x017F), notification (0x0180-0x019F). Protocol
 01-protocol-overview §4 — Session & Pane Management range (0x0100-0x01FF).
 
-**Depends on:** Task 1
+**Depends on:** Task 2
 
 **Verification:**
 
@@ -127,14 +152,15 @@ heartbeat processing.
   AttachOrCreate) with JSON parsing
 - Pane arm dispatches all ten pane request types (CreatePane through LayoutGet)
   with JSON parsing
-- Notification arm is a no-op (server-to-client only; daemon does not receive
-  notifications)
-- `makeSessionHandlerContext`, `makePaneHandlerContext`, and `parseDirection`
-  helper functions reside in this file
+- Notification arm is a no-op for now: S→C notifications (0x0180-0x0185) need no
+  receive handler; WindowResize (0x0190) is C→S but deferred to Plan 9 (resize
+  debounce). A TODO(Plan 9) inline comment marks the location.
+- `makeSessionHandlerContext` and `makePaneHandlerContext` helper functions
+  reside in this file (note: `parseDirection` was removed in Task 1)
 - `message_dispatcher.zig` no longer contains any session/pane handling logic
 - All existing session and pane handler tests pass
 
-### Task 4: Create stub dispatchers for future plans
+### Task 5: Create stub dispatchers for future plans
 
 **Files:** `src/server/handlers/input_dispatcher.zig` (create),
 `src/server/handlers/render_dispatcher.zig` (create),
@@ -145,7 +171,7 @@ heartbeat processing.
 Render State (0x0300-0x03FF), CJK & IME (0x0400-0x04FF), Flow Control
 (0x0500-0x05FF).
 
-**Depends on:** Task 1
+**Depends on:** Task 2
 
 **Verification:**
 
@@ -157,14 +183,14 @@ Render State (0x0300-0x03FF), CJK & IME (0x0400-0x04FF), Flow Control
 - Dispatching a message type from any of these ranges does not crash (existing
   test for unknown message types still passes)
 
-### Task 5: Verify full integration and test suite
+### Task 6: Verify full integration and test suite
 
 **Files:** No new files — verification only
 
 **Spec:** ADR 00064 — "Pure structural refactor. No behavioral change — all
 existing tests continue to pass without modification."
 
-**Depends on:** Tasks 2, 3, 4
+**Depends on:** Tasks 3, 4, 5
 
 **Verification:**
 
@@ -180,22 +206,25 @@ existing tests continue to pass without modification."
 ## Dependency Graph
 
 ```
-Task 1 (CategoryDispatchParams + router)
-├── Task 2 (lifecycle dispatcher)
-├── Task 3 (session/pane dispatcher)
-└── Task 4 (stub dispatchers)
-         └── all three ──→ Task 5 (integration verification)
+Task 1 (bugfix: field name + direction type)
+└── Task 2 (CategoryDispatchParams + router)
+    ├── Task 3 (lifecycle dispatcher)
+    ├── Task 4 (session/pane dispatcher)
+    └── Task 5 (stub dispatchers)
+             └── all three ──→ Task 6 (integration verification)
 ```
 
-Tasks 2, 3, and 4 are independent of each other and can proceed in parallel
-after Task 1 completes.
+Task 1 fixes spec-code divergences on the monolithic dispatcher (easier to
+verify before restructuring). Tasks 3, 4, and 5 are independent of each other
+and can proceed in parallel after Task 2 completes.
 
 ## Summary
 
 | Task | Files                                                                                                | Spec Section                                   |
 | ---- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| 1    | `message_dispatcher.zig`                                                                             | ADR 00064, protocol §4                         |
-| 2    | `lifecycle_dispatcher.zig`, `message_dispatcher.zig`                                                 | Protocol §4 (0x00xx), daemon-behavior §2       |
-| 3    | `session_pane_dispatcher.zig`, `message_dispatcher.zig`                                              | ADR 00064 (second-level), protocol §4 (0x01xx) |
-| 4    | `input_dispatcher.zig`, `render_dispatcher.zig`, `ime_dispatcher.zig`, `flow_control_dispatcher.zig` | Protocol §4 (0x02xx-0x05xx)                    |
-| 5    | (verification only)                                                                                  | ADR 00064 (no behavioral change)               |
+| 1    | `message_dispatcher.zig`                                                                             | Protocol §3 (session_name, direction integer)  |
+| 2    | `message_dispatcher.zig`                                                                             | ADR 00064, protocol §4                         |
+| 3    | `lifecycle_dispatcher.zig`, `message_dispatcher.zig`                                                 | Protocol §4 (0x00xx), daemon-behavior §3       |
+| 4    | `session_pane_dispatcher.zig`, `message_dispatcher.zig`                                              | ADR 00064 (second-level), protocol §4 (0x01xx) |
+| 5    | `input_dispatcher.zig`, `render_dispatcher.zig`, `ime_dispatcher.zig`, `flow_control_dispatcher.zig` | Protocol §4 (0x02xx-0x05xx)                    |
+| 6    | (verification only)                                                                                  | ADR 00064 (no behavioral change)               |

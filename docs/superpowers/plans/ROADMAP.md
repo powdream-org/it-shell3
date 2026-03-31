@@ -393,6 +393,11 @@ debounce (250ms per pane, 5s hysteresis), I-frame scheduling timer.
 - `daemon-behavior/.../03-policies-and-procedures.md`
 - `daemon-behavior/.../impl-constraints/policies.md`
 
+**Note (from Plan 7.5):** WindowResize (0x0190) dispatch is stubbed as no-op in
+`session_pane_dispatcher.zig`. This plan must implement the WindowResize handler
+in the notification/window sub-dispatcher. TODO(Plan 9) inline comment marks the
+location.
+
 **Depends on:** Plan 8 (coalescing tiers respond to input activity) + Plan 5.5
 (spec alignment for frame types)
 
