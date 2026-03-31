@@ -25,7 +25,7 @@ const flow_control_dispatcher = @import("flow_control_dispatcher.zig");
 
 /// Timeout after which a READY client that hasn't attached a session is
 /// disconnected, per daemon-behavior spec.
-pub const READY_IDLE_TIMEOUT_MS: u32 = 60_000;
+pub const ready_idle_timeout_ms: u32 = 60_000;
 
 /// Shared context for all dispatchers: server state references and callbacks.
 pub const DispatcherContext = struct {
@@ -88,13 +88,13 @@ pub fn dispatch(
 
 test "dispatch: unknown message type does not crash" {
     const noop_event_loop_ops = @import("itshell3_testing").helpers.noop_event_loop_ops;
-    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
-    const idx = try mgr.addClient(.{ .fd = 10 });
-    const c = mgr.getClient(idx).?;
-    _ = c.connection.transitionTo(.ready);
-    _ = c.connection.transitionTo(.operating);
+    var client_manager = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
+    const idx = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(idx).?;
+    _ = client.connection.transitionTo(.ready);
+    _ = client.connection.transitionTo(.operating);
 
-    var hb_mgr = HeartbeatManager{};
+    var heartbeat_manager = HeartbeatManager{};
     var disconnect_called = false;
     const disconnect_ctx = struct {
         var flag: *bool = undefined;
@@ -106,8 +106,8 @@ test "dispatch: unknown message type does not crash" {
 
     var dummy_el_ctx: u8 = 0;
     var ctx = DispatcherContext{
-        .client_manager = &mgr,
-        .heartbeat_manager = &hb_mgr,
+        .client_manager = &client_manager,
+        .heartbeat_manager = &heartbeat_manager,
         .server_pid = 1234,
         .disconnect_fn = disconnect_ctx.cb,
         .event_loop_ops = &noop_event_loop_ops,
@@ -126,7 +126,7 @@ test "dispatch: unknown message type does not crash" {
     // No crash = success.
     try std.testing.expect(!disconnect_called);
 
-    mgr.getClient(idx).?.deinit();
+    client_manager.getClient(idx).?.deinit();
 }
 
 test "dispatch: page-level routing covers all six categories" {

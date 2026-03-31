@@ -17,7 +17,7 @@ const timer_handler = server.handlers.timer_handler;
 const message_dispatcher = @import("message_dispatcher.zig");
 const CategoryDispatchParams = message_dispatcher.CategoryDispatchParams;
 const DispatcherContext = message_dispatcher.DispatcherContext;
-const READY_IDLE_TIMEOUT_MS = message_dispatcher.READY_IDLE_TIMEOUT_MS;
+const ready_idle_timeout_ms = message_dispatcher.ready_idle_timeout_ms;
 
 /// Dispatches a lifecycle-category message to the appropriate handler.
 pub fn dispatch(params: CategoryDispatchParams) void {
@@ -74,7 +74,7 @@ fn handleClientHello(
             ctx.event_loop_ops.registerTimer(
                 ctx.event_loop_context,
                 ready_timer_id,
-                READY_IDLE_TIMEOUT_MS,
+                ready_idle_timeout_ms,
                 .{ .timer = .{ .timer_id = ready_timer_id } },
             ) catch {};
             client.ready_idle_timer_id = ready_timer_id;
@@ -96,8 +96,8 @@ fn cancelHandshakeTimer(ctx: *DispatcherContext, client: *ClientState, client_sl
 
 fn handleHeartbeat(client: *ClientState, payload: []const u8) void {
     var parse_buf: [256]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&parse_buf);
-    const parsed = std.json.parseFromSlice(protocol.handshake.Heartbeat, fba.allocator(), payload, .{
+    var fixed_buffer_allocator = std.heap.FixedBufferAllocator.init(&parse_buf);
+    const parsed = std.json.parseFromSlice(protocol.handshake.Heartbeat, fixed_buffer_allocator.allocator(), payload, .{
         .ignore_unknown_fields = true,
     }) catch return;
     defer parsed.deinit();
@@ -117,8 +117,8 @@ fn handleHeartbeat(client: *ClientState, payload: []const u8) void {
 
 fn handleHeartbeatAck(client: *ClientState, payload: []const u8) void {
     var parse_buf: [256]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&parse_buf);
-    const parsed = std.json.parseFromSlice(protocol.handshake.HeartbeatAck, fba.allocator(), payload, .{
+    var fixed_buffer_allocator = std.heap.FixedBufferAllocator.init(&parse_buf);
+    const parsed = std.json.parseFromSlice(protocol.handshake.HeartbeatAck, fixed_buffer_allocator.allocator(), payload, .{
         .ignore_unknown_fields = true,
     }) catch return;
     defer parsed.deinit();
@@ -159,13 +159,13 @@ test "dispatch: error message transitions to disconnecting" {
     const Header = protocol.header.Header;
     const noop_event_loop_ops = @import("itshell3_testing").helpers.noop_event_loop_ops;
 
-    var mgr = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
-    const idx = try mgr.addClient(.{ .fd = 10 });
-    const client = mgr.getClient(idx).?;
+    var client_manager = ClientManager{ .chunk_pool = @import("itshell3_testing").helpers.testChunkPool() };
+    const idx = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(idx).?;
     _ = client.connection.transitionTo(.ready);
     _ = client.connection.transitionTo(.operating);
 
-    var hb_mgr = HeartbeatManager{};
+    var heartbeat_manager = HeartbeatManager{};
     var disconnect_called = false;
     const disconnect_ctx_ns = struct {
         var flag: *bool = undefined;
@@ -177,8 +177,8 @@ test "dispatch: error message transitions to disconnecting" {
 
     var dummy_el_ctx: u8 = 0;
     var ctx = DispatcherContext{
-        .client_manager = &mgr,
-        .heartbeat_manager = &hb_mgr,
+        .client_manager = &client_manager,
+        .heartbeat_manager = &heartbeat_manager,
         .server_pid = 1234,
         .disconnect_fn = disconnect_ctx_ns.cb,
         .event_loop_ops = &noop_event_loop_ops,
