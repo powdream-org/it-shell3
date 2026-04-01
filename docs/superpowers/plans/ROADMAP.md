@@ -54,7 +54,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md`     | daemon               | Not started |
 | 14.1 | macOS Client PoC — Design                     | (not yet written)                                       | app/macos            | Not started |
 | 14.2 | macOS Client PoC — Implementation             | (not yet written)                                       | app/macos            | Not started |
-| 15   | Design Doc CTR Resolution                     | (not yet written)                                       | multi-module         | Not started |
+| 15   | Design Doc CTR Resolution                     | (not yet written)                                       | multi-module         | **Done**    |
 | 16   | Post-Design Code Alignment                    | (not yet written)                                       | multi-module         | Not started |
 | 17+  | Deferred Features                             | —                                                       | various              | Not started |
 
@@ -73,7 +73,7 @@ graph TD
     P5_5 --> P6["Plan 6: Message Infrastructure ✅"]
     P6 --> P7["Plan 7: Session & Pane Ops ✅"]
     P7 --> P7_5["Plan 7.5: Dispatcher Refactor ✅"]
-    P7_5 --> P15["Plan 15: CTR Resolution"]
+    P7_5 --> P15["Plan 15: CTR Resolution ✅"]
     P15 --> P16["Plan 16: Post-Design Code Alignment"]
     P16 --> P8["Plan 8: Input Pipeline"]
     P16 --> P11["Plan 11: SSH Transport"]
@@ -512,7 +512,7 @@ keyboard input.
 
 **Depends on:** Plan 14.1 (design must be complete before implementation)
 
-### Plan 15: Design Doc CTR Resolution (Not Started)
+### Plan 15: Design Doc CTR Resolution (Done)
 
 **Scope:** Apply all open CTRs to their target design docs via
 design-doc-revision cycles. Documentation-only plan — no source code changes.
