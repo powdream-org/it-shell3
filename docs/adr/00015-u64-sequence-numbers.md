@@ -1,7 +1,7 @@
 # 00015. u64 Sequence Numbers
 
 - Date: 2026-03-16
-- Status: Proposed
+- Status: Accepted
 
 ## Context
 

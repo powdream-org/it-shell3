@@ -273,4 +273,5 @@ Work in progress — session split point.
 - [x] Doc 03 owner review ✅ (11 cleanup items applied; ADR 00019 written;
       CTR-18/19/20 written; §8 Multi-Client Behavior deleted entirely; §9→§8
       renumbered; ADRs 00027/00028/00029 renumbered from 00040/00041/00042)
-- [ ] Final commit and handover
+- [x] Final commit and handover — handover-to-r13.md updated 2026-03-31
+      (implementation insights, CTR inventory, unified cycle context added)

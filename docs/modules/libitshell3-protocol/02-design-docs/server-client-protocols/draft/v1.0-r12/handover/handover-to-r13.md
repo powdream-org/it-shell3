@@ -1,7 +1,7 @@
 # Handover: Server-Client Protocols v1.0-r12 to v1.0-r13
 
-- **Date**: 2026-03-22
-- **Author**: owner
+- **Date**: 2026-03-31 (updated from 2026-03-22 original)
+- **Author**: team lead (original by owner)
 
 ---
 
@@ -37,6 +37,25 @@ entirely" but the protocol had a normative rule that MouseButton commits
 preedit. This contradiction is tracked in daemon CTR-04 (daemon team's
 responsibility to resolve).
 
+**Implementation validated the wire format design**: Plans 3, 6, 7, and 7.5
+implemented libitshell3-protocol (16 source files, 187 tests, 93.03% kcov
+coverage) and the daemon's protocol consumers. This surfaced additional gaps:
+
+- **Fixed-point resize ratio** (ADR 00062): The original cell-delta resize
+  format created a circular dependency on window dimensions. The wire format now
+  uses signed fixed-point percentage (x10^4). CTR-06 filed.
+- **CapsLock/NumLock preservation** (ADR 00059): Protocol defines modifier bits
+  correctly but the spec lacked a normative note requiring preservation through
+  the wire-to-IME path. CTR-05 filed.
+- **MAX_TREE_DEPTH correction**: Spec stated depth 16 (confusing MAX_PANES with
+  tree depth). Binary split tree with 16 panes yields depth 4. CTR-03 filed.
+- **Preedit session_id scope**: Spec described as "per pane" but implementation
+  uses per-session (one PreeditState on Session, not Pane). CTR-04 filed.
+- **Protocol/transport module split** (ADR 00060): libitshell3-protocol was
+  split into protocol (codec/framing) and libitshell3-transport (socket
+  lifecycle). Connection state machine moved to daemon. Doc 01 architecture
+  notes need updating.
+
 ## Design Philosophy
 
 **Protocol docs define wire format, not server behavior.** If a paragraph
@@ -66,15 +85,23 @@ when found; add cross-references to individual definitions instead.
 The r12 owner review cleanup is fully complete (all 6 docs, ~125 items). The
 main open items for r13:
 
+- **v1.0-r13 is part of a unified 4-topic cycle** (Plan 15): daemon-architecture
+  (v1.0-r9), daemon-behavior (v1.0-r9), server-client-protocols (v1.0-r13), and
+  IME interface-contract (v1.0-r11) are being revised simultaneously. Cross-
+  module consistency is critical — ADRs 00054 (socket directory), 00059
+  (CapsLock/NumLock), and 00062 (fixed-point ratio) span multiple topics.
 - **Section renumbering pass**: Doc 01 had §8 and §11 deleted — sections now
-  number 1–7, 9, 10, 12. Doc 05 has a §5.1 deletion gap (§5.2 remains alone) and
-  a §12 deletion gap (§11→§13). Apply sequential renumbering with a cross-doc
+  number 1-7, 9, 10, 12. Doc 05 has a §5.1 deletion gap (§5.2 remains alone) and
+  a §12 deletion gap (§11 to §13). Apply sequential renumbering with a cross-doc
   grep for stale references before committing.
 - **Deferred protocol items**: S4-02 (AttachOrCreateRequest merge, ADR 00003)
   and S4-03 (ClipboardWrite encoding symmetry, ADR 00004) were deferred from
   Round 4 verification. Pick up when ready.
 - **ADR numbering discipline**: When ADRs are cancelled, fill gaps from higher-
   numbered ADRs (as done for 00027-00029). Do not leave numbered gaps.
+- **Spec-code consistency**: Implementation TODO markers in libitshell3-protocol
+  source should be cross-referenced to ensure spec accurately describes
+  implemented behavior.
 
 ## New Conventions and Procedures
 
@@ -95,7 +122,36 @@ Established in r12 owner review cleanup:
 
 ## Pre-Discussion Research Tasks
 
+### CTRs to resolve (6 total)
+
+1. `01-daemon-per-instance-socket-directory.md` — Update socket path format to
+   per-instance directories (ADR 00054). Affects Doc 01 socket path spec.
+2. `02-daemon-field-length-validation.md` — Add byte-length constraints for
+   session/pane string fields (ADR 00058). Affects Doc 03 message definitions.
+3. `03-impl-max-tree-depth-correction.md` — Fix MAX_TREE_DEPTH from 16 to 4.
+   Affects Doc 03 layout tree format.
+4. `04-impl-preedit-session-id-per-session.md` — Correct preedit_session_id
+   scope from per-pane to per-session. Affects Doc 05.
+5. `05-impl-capslock-numlock-wire-preservation.md` — Add normative preservation
+   note for CapsLock/NumLock modifiers (ADR 00059). Affects Doc 04.
+6. `06-impl-fixed-point-resize-ratio.md` — Update ResizePaneRequest to signed
+   fixed-point ratio delta (ADR 00062). Affects Doc 03.
+
+### Deferred items from v1.0-r12
+
+- S4-02: AttachOrCreateRequest merge (ADR 00003) — merge into
+  AttachSessionRequest
+- S4-03: ClipboardWrite encoding symmetry (ADR 00004) — add encoding field
+
+### Research tasks
+
 1. **Section renumbering audit**: Before r13 editing begins, grep all 6 docs
    plus ADRs, CTRs, and insights files for section references (e.g., `§8`,
    `§11`, `§5.1`) that will be affected by the Doc 01 and Doc 05 renumbering.
    Map old numbers to new numbers before touching any file.
+2. **Cross-module CTR coordination**: CTRs 01, 05, and 06 have counterparts in
+   daemon-architecture/behavior CTRs. Changes must be consistent across all 4
+   topics in the unified cycle.
+3. **Implementation verification**: Cross-reference libitshell3-protocol source
+   (16 files, 187 tests) against spec to identify any additional divergences not
+   covered by existing CTRs.

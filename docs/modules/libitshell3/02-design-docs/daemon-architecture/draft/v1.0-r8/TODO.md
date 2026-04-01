@@ -18,7 +18,7 @@
 
 ## Current State
 
-- **Step**: 7 (Commit)
+- **Step**: 10 (Handover) — COMPLETE
 - **Verification Round**: 3 (CLEAN)
 - **Active Team**: (none)
 - **Team Directory**: (none)
@@ -46,5 +46,8 @@
       artifact), 2 fixed directly by owner. CLEAN.
 - [x] Step 6: Fix Round Decision — declared clean
 - [x] Step 7: Commit & Report
-- [ ] Step 8: Owner Review
-- [ ] Step 9: Retrospective
+- [x] Step 8: Owner Review — done (implementation Plans 1-7.5 served as review;
+      17 ADRs + 9 CTRs produced)
+- [x] Step 9: Retrospective — SIP-01 (dismissed issues registry) filed during
+      v1.0-r8 cycle
+- [x] Step 10: Handover — `handover/handover-to-r9.md` written 2026-03-31

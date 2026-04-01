@@ -85,6 +85,7 @@ graph TD
     P12_2 --> P13["Plan 13: Debug Subsystem"]
     P13 --> P14_1["Plan 14.1: macOS Client Design"]
     P14_1 --> P14_2["Plan 14.2: macOS Client Impl"]
+    P14_2 --> P17["Plan 17+: Deferred Features"]
 ```
 
 ---
@@ -521,20 +522,28 @@ design-doc-revision cycles. Documentation-only plan — no source code changes.
 - daemon-architecture v1.0-r8:
   - `01-daemon-per-instance-socket-directory.md` (ADR 00054)
   - `02-daemon-fixed-size-session-fields.md` (ADR 00052, 00058)
+  - `03-impl-transport-connection-rename.md`
+  - `04-impl-remove-sendv-result.md`
+  - `05-impl-message-reader-tiered-buffer.md`
+  - `06-impl-fixed-point-split-ratio.md`
 - daemon-behavior v1.0-r8:
   - `01-impl-static-allocation-connection-limit.md` (ADR 00052)
+  - `02-impl-operating-to-operating-transition.md`
+  - `03-impl-fixed-point-resize-handling.md`
 - server-client-protocols v1.0-r12:
   - `01-daemon-per-instance-socket-directory.md` (ADR 00054)
   - `02-daemon-field-length-validation.md` (ADR 00058)
   - `03-impl-max-tree-depth-correction.md` (MAX_TREE_DEPTH 16→4)
   - `04-impl-preedit-session-id-per-session.md` (per-pane→per-session)
   - `05-impl-capslock-numlock-wire-preservation.md` (ADR 00059)
+  - `06-impl-fixed-point-resize-ratio.md`
 - libitshell3-ime interface-contract v1.0-r10:
   - `01-impl-capslock-numlock-modifiers.md` (ADR 00059)
-- app (inbox):
+- app (inbox) — **deferred to Plan 14.1**:
   - `01-protocol-client-rendering-pipeline-from-v1.0.md`
 
-**Depends on:** Plan 14.2 (end-to-end validation may surface additional CTRs)
+**Depends on:** Plan 7.5 (all current message handlers must be implemented
+before resolving CTRs that affect message definitions)
 
 ### Plan 16: Post-Design Code Alignment (Not Started)
 
@@ -557,6 +566,8 @@ updated first (Plan 15) before code can be modified.
 **Depends on:** Plan 15 (specs must be updated before code follows)
 
 ### Plan 17+: Deferred Features
+
+> **Note:** Detailed ordering within Plan 17+ is TBD.
 
 Features deferred beyond the initial implementation scope:
 
