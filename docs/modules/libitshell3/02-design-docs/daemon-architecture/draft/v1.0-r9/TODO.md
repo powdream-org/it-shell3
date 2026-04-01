@@ -21,7 +21,7 @@
 
 ## Current State
 
-- **Step**: 7 (Commit)
+- **Step**: 8 (Owner Review)
 - **Verification Round**: 4 (CLEAN)
 - **Active Team**: (none)
 - **Team Directory**: (none)
@@ -54,7 +54,7 @@
       cross-ref)
 - [x] Step 5: Verification (Round 4) — CLEAN (both verifiers)
 - [x] Step 6: Fix Round Decision — declared clean
-- [ ] Step 7: Commit & Report
+- [x] Step 7: Commit & Report — committed 09c2ade
 - [ ] Step 8: Owner Review
 - [ ] Step 9: Retrospective
 - [ ] Step 10: Handover
