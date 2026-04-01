@@ -6,7 +6,13 @@
   fix team.
 - Do NOT write issues to `review-notes/` — verification issues go to
   `verification/round-{N}-issues.md`.
-- Do NOT auto-proceed past Round 3. Round 4+ requires owner escalation.
+- Do NOT auto-proceed past Round 2. Round 3+ requires owner escalation via
+  `/triage` (unless CLEAN — auto-declare clean).
+- Do NOT ask "should I proceed?" after a fix round. Round 1-2: auto-proceed.
+  Round 3+ CLEAN: auto-declare clean. Round 3+ non-CLEAN: auto-run Phase 1, then
+  `/triage`.
+- Do NOT ask the owner to confirm a CLEAN result. CLEAN is a fact reported by
+  verifiers, not a judgment requiring owner approval.
 - Do NOT forget to include the Dismissed Issues Summary in the issues file — it
   prevents re-raises in subsequent rounds.
 
@@ -65,19 +71,20 @@ procedure:
 
 ### 6c. Decide next step
 
-| Condition              | Action                                                                                                                      |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **Round 1–3**          | Automatic fix round. Go to Step 4.                                                                                          |
-| **Round 4+ non-CLEAN** | **STOP.** Invoke `/triage` with all outstanding issues. Dispositions: Fix (another round), Declare clean, Declare deferred. |
-|                        | → **Proceed**: Go to Step 4 for another fix round                                                                           |
-|                        | → **Declare clean**: Remaining issues are acceptable. Go to Step 7.                                                         |
-|                        | → **Declare deferred**: Known issues deferred to future version. Go to Step 7.                                              |
+| Condition              | Action                                                                                                                       |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Round 1–2**          | Automatic fix round. Go to Step 4.                                                                                           |
+| **Round 3+ CLEAN**     | Auto-declare clean. Go to Step 7.                                                                                            |
+| **Round 3+ non-CLEAN** | Run Phase 1 only. Invoke `/triage` with Phase 1 results. Dispositions: Fix (another round), Declare clean, Declare deferred. |
+|                        | → **Fix**: Go to Step 4 for another fix round                                                                                |
+|                        | → **Declare clean**: Remaining issues are acceptable. Go to Step 7.                                                          |
+|                        | → **Declare deferred**: Known issues deferred to future version. Go to Step 7.                                               |
 
 ## Gate
 
 - [ ] Issues file written to `verification/round-{N}-issues.md`
-- [ ] Round number checked against threshold (1–3 auto, 4+ owner)
-- [ ] If Round 4+: owner has responded with decision
+- [ ] Round number checked against threshold (1–2 auto, 3+ owner/CLEAN)
+- [ ] If Round 3+ non-CLEAN: owner has responded via `/triage`
 
 ## State Update
 

@@ -22,20 +22,40 @@ description: >
    first. Never choose for them. If the owner says "go in order," follow the
    table order.
 
-4. **Present one issue at a time** using the 5W1H priority order defined below.
-   The presentation must be self-contained — the owner decides WITHOUT opening
-   any files.
+4. **Prepare presentations via sub-agent.** Before presenting the first issue,
+   spawn a sub-agent (general-purpose, opus) to prepare all issue presentations.
+   The sub-agent:
+   1. Reads the quality example closest to each issue's conflict type (Section
+      3, `examples/` directory)
+   2. Reads all cited source files for each issue
+   3. Drafts the full 5W1H presentation for each issue, calibrated against the
+      quality examples — including flow diagrams, conflict point marking, and
+      minimal evidence citations
+   4. Returns all drafted presentations to the team leader
 
-5. **Wait for the owner's disposition.** Do not prompt, suggest, or nudge. The
+   **Why delegate:** The team leader's context window is precious. Reading 10+
+   source files and quality examples consumes significant context. The sub-agent
+   does the heavy reading and drafting; the team leader reviews and presents.
+
+   **Gate before presenting:** The team leader MUST NOT present any issue to the
+   owner until the sub-agent has returned all drafted presentations. Review each
+   draft for accuracy before presenting — the team leader is responsible for
+   correctness, not the sub-agent.
+
+5. **Present one issue at a time** using the drafted 5W1H presentation. The
+   presentation must be self-contained — the owner decides WITHOUT opening any
+   files.
+
+6. **Wait for the owner's disposition.** Do not prompt, suggest, or nudge. The
    owner may ask clarifying questions — answer them, then wait again.
 
-6. **Record the disposition verbatim.** Write down exactly what the owner
+7. **Record the disposition verbatim.** Write down exactly what the owner
    decided, using their words. Do not paraphrase into a different action.
 
-7. **Return to the group.** Present the next issue in the group. When a group is
+8. **Return to the group.** Present the next issue in the group. When a group is
    exhausted, let the owner pick the next group.
 
-8. **After all issues are dispositioned, collect and apply.** Summarize all
+9. **After all issues are dispositioned, collect and apply.** Summarize all
    dispositions in a single list, confirm with the owner, then execute. Never
    execute partial dispositions mid-triage.
 
@@ -140,3 +160,10 @@ the conflict type.
 **Skipping the group index.** Jumping straight to the first issue without
 showing the full landscape. The index lets the owner prioritize and may reveal
 that two issues are actually one.
+
+**Skipping quality examples.** Presenting issues using only the 5W1H headings
+without reading the examples first. The headings define structure; the examples
+define depth. Without calibrating against examples, presentations are too
+shallow for owner decision-making. The sub-agent in Step 4 reads examples on
+your behalf — but if you skip Step 4 and present directly, you will produce
+compressed summaries that force the owner to investigate.
