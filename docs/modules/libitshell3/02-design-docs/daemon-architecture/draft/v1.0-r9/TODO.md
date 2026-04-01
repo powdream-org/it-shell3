@@ -21,7 +21,7 @@
 
 ## Current State
 
-- **Step**: 8 (Owner Review)
+- **Step**: Complete
 - **Verification Round**: 4 (CLEAN)
 - **Active Team**: (none)
 - **Team Directory**: (none)
@@ -55,6 +55,7 @@
 - [x] Step 5: Verification (Round 4) — CLEAN (both verifiers)
 - [x] Step 6: Fix Round Decision — declared clean
 - [x] Step 7: Commit & Report — committed 09c2ade
-- [ ] Step 8: Owner Review
-- [ ] Step 9: Retrospective
-- [ ] Step 10: Handover
+- [x] Step 8: Owner Review — done (no review notes, no additional fixes)
+- [x] Step 9: Retrospective — 3 SIPs applied (step 6 threshold, triage quality
+      gate with sub-agent, CLEAN auto-declare). Skill files committed.
+- [x] Step 10: Handover — `handover/handover-to-r10.md` written
