@@ -7,16 +7,19 @@
 - Do NOT commit without reading the staged diff. If agents wrote the changes,
   read the modified files and check for stale content or missed coordinated
   updates before committing.
+- Do NOT write ADRs directly — invoke `/adr` for each ADR candidate. The skill
+  handles research, format, and placement.
 
 ## Action
 
 1. Disband any remaining agents (there should be none if previous steps were
    followed correctly, but verify).
 2. **ADR candidates**: Review the resolution document for `[ADR-CANDIDATE]`
-   tags. For each confirmed candidate, run `/adr` to create the ADR before
-   committing. **Status: Accepted** — these decisions have passed team
-   consensus, resolution verification, and spec integration. Do NOT use the
-   `/adr` skill's default "Proposed" status.
+   tags. For each confirmed candidate, **invoke `/adr`** to create the ADR
+   before committing. Do NOT write ADRs directly — the `/adr` skill handles
+   research, format, and placement. **Status: Accepted** — these decisions have
+   passed team consensus, resolution verification, and spec integration. Do NOT
+   use the `/adr` skill's default "Proposed" status.
 3. `git add` all files in the draft version directory.
 4. Commit with a descriptive message following commit conventions.
 5. Report to the owner:

@@ -5,18 +5,20 @@
 - Do NOT skip this step — handover captures context that would otherwise be lost
   between sessions.
 - Do NOT commit the handover in the same commit as spec docs.
+- Do NOT write the handover directly — invoke `/handover {topic}`. The skill
+  handles artifact inventory, format, placement, and design-principles update.
 - Do NOT write a handover that only lists research tasks. The handover MUST
   capture insights, design philosophy, and owner priorities — the "why" behind
   decisions that review notes and verification records do not contain.
 
 ## Action
 
-### 10a. Write the handover
+### 10a. Invoke the handover skill
 
-Run `/handover {topic} {version}` to write the handover document. The skill
-handles artifact inventory, format, and placement.
+**Invoke `/handover {topic}`**. Do NOT write the handover directly — the skill
+handles artifact inventory, format, placement, and design-principles update.
 
-The handover MUST explicitly carry forward:
+After the skill produces the handover, verify it carries forward:
 
 - **Next revision scope and inputs**: If the owner has stated what the next
   revision will cover (e.g., "r8 is the big restructure"), document this as

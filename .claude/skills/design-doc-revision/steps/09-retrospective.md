@@ -7,6 +7,9 @@
 - Do NOT commit skill file changes without reading the staged diff. Agent-
   written edits may contain stale content or miss coordinated updates across
   step files.
+- Do NOT write SIP entries directly — invoke `/sip <description>` for each
+  improvement proposal. The skill handles context detection, file creation, and
+  numbering.
 
 ## Purpose
 
@@ -38,8 +41,9 @@ Read TODO.md's Progress section end-to-end. For each step, answer:
 Review SIPs accumulated via `/sip` during the cycle at
 `retrospective/skill-improvement-proposals.md`.
 
-For each problem identified in 9a that is not already captured, run
-`/sip <description>` to add it now.
+For each problem identified in 9a that is not already captured, **invoke
+`/sip <description>`** to add it now. Do NOT write SIP entries directly — the
+`/sip` skill handles context detection, file creation, and numbering.
 
 - Draft a specific edit to the relevant step file:
   - Add a new anti-pattern if one was discovered

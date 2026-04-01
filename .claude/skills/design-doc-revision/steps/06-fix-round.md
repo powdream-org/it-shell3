@@ -71,14 +71,14 @@ procedure:
 
 ### 6c. Decide next step
 
-| Condition              | Action                                                                                                                       |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| **Round 1–2**          | Automatic fix round. Go to Step 4.                                                                                           |
-| **Round 3+ CLEAN**     | Auto-declare clean. Go to Step 7.                                                                                            |
-| **Round 3+ non-CLEAN** | Run Phase 1 only. Invoke `/triage` with Phase 1 results. Dispositions: Fix (another round), Declare clean, Declare deferred. |
-|                        | → **Fix**: Go to Step 4 for another fix round                                                                                |
-|                        | → **Declare clean**: Remaining issues are acceptable. Go to Step 7.                                                          |
-|                        | → **Declare deferred**: Known issues deferred to future version. Go to Step 7.                                               |
+| Condition              | Action                                                                                                                                       |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Round 1–2**          | Automatic fix round. Go to Step 4.                                                                                                           |
+| **Round 3+ CLEAN**     | Auto-declare clean. Go to Step 7.                                                                                                            |
+| **Round 3+ non-CLEAN** | Run Phase 1 only. **Invoke `/triage`** (do NOT present issues directly). Dispositions: Fix (another round), Declare clean, Declare deferred. |
+|                        | → **Fix**: Go to Step 4 for another fix round                                                                                                |
+|                        | → **Declare clean**: Remaining issues are acceptable. Go to Step 7.                                                                          |
+|                        | → **Declare deferred**: Known issues deferred to future version. Go to Step 7.                                                               |
 
 ## Gate
 
