@@ -141,7 +141,7 @@ pub fn onClientDisconnect(
     handlePreeditOwnerDisconnect(session, client_id, pty_fd, pty_ops, "client_disconnected");
 }
 
-/// Client detach: PreeditEnd reason is "client_disconnected" per spec Section 6.8.
+/// Client detach: PreeditEnd reason is "client_disconnected" per daemon-behavior (event-handling).
 pub fn onClientDetach(
     session: *session_mod.Session,
     client_id: types.ClientId,

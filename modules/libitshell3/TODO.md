@@ -2,9 +2,9 @@
 
 ## Current State
 
-- **Step**: 8 (Spec Compliance Review)
+- **Step**: 10 (Coverage Audit)
 - **Cycle Type**: modification (Plan 8 — Input Pipeline & Preedit Wire Messages)
-- **Review Round**: 1
+- **Review Round**: 2
 - **Active Team**: impl-team
 - **Team Directory**: .claude/agents/impl-team/
 
