@@ -45,7 +45,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 6    | Message Infrastructure & Connection Lifecycle | `2026-03-28-libitshell3-message-infrastructure.md`      | libitshell3          | **Done**        |
 | 7    | Session & Pane Operations                     | `2026-03-29-libitshell3-session-pane-operations.md`     | libitshell3          | **Done**        |
 | 7.5  | Message Dispatcher Refactor                   | `2026-03-31-libitshell3-message-dispatcher-refactor.md` | libitshell3          | **Done**        |
-| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                       | libitshell3          | **In progress** |
+| 8    | Input Pipeline & Preedit Wire Messages        | `2026-04-02-libitshell3-input-pipeline.md`              | libitshell3          | **In progress** |
 | 9    | Frame Delivery & Runtime Policies             | (not yet written)                                       | libitshell3          | Not started     |
 | 10   | Cascades & Shutdown                           | (not yet written)                                       | libitshell3          | Not started     |
 | 11   | SSH Transport                                 | (not yet written)                                       | libitshell3-protocol | Not started     |
@@ -347,7 +347,7 @@ into category-based sub-dispatchers matching the protocol message type ranges.
 **Depends on:** Plan 7 (all session/pane handlers must be implemented before
 restructuring their dispatch)
 
-### Plan 8: Input Pipeline & Preedit Wire Messages (Not Started)
+### Plan 8: Input Pipeline & Preedit Wire Messages (In Progress)
 
 **Scope:** KeyEvent handler (wire → IME → PTY), TextInput handler (bypass IME),
 PasteData handler, FocusEvent handler, preedit broadcasting (PreeditStart /

@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 1 (Requirements Intake)
+- **Step**: 3 (Plan Verification)
 - **Cycle Type**: modification (Plan 8 — Input Pipeline & Preedit Wire Messages)
 - **Review Round**: 0
 - **Active Team**: (none)
@@ -17,7 +17,7 @@
   - server-client-protocols v1.0-r13
 - **Previous spec version(s)**: daemon-architecture v1.0-r8, daemon-behavior
   v1.0-r8, server-client-protocols v1.0-r12
-- **Plan**: pending — Step 2
+- **Plan**: docs/superpowers/plans/2026-04-02-libitshell3-input-pipeline.md
 - **PoC**: pending — Step 4
 - **Coverage exemption**: pending — Step 4
 
@@ -32,8 +32,8 @@
 
 ## Progress — Round 1
 
-- [ ] Step 1: Requirements Intake
-- [ ] Step 2: Plan Writing
+- [x] Step 1: Requirements Intake
+- [x] Step 2: Plan Writing
 - [ ] Step 3: Plan Verification
 - [ ] Step 4: Cycle Setup
 - [ ] Step 5: Scaffold & Build Verification
