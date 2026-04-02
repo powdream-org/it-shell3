@@ -118,6 +118,37 @@ fn absDiff(a: u16, b: u16) u16 {
     return if (a >= b) a - b else b - a;
 }
 
+/// Computes the perpendicular overlap between two rects for a given direction.
+/// For left/right navigation, this is the vertical overlap; for up/down, the
+/// horizontal overlap.
+fn perpendicularOverlap(direction: types.Direction, a: Rect, b: Rect) u16 {
+    return switch (direction) {
+        .left, .right => intervalOverlap(
+            a.y,
+            a.bottom(),
+            b.y,
+            b.bottom(),
+        ),
+        .up, .down => intervalOverlap(
+            a.x,
+            a.right(),
+            b.x,
+            b.right(),
+        ),
+    };
+}
+
+/// Returns true if the candidate rect is edge-adjacent to the focused rect in
+/// the given direction (integer coordinates: adjacent edges are exactly equal).
+fn isEdgeAdjacent(direction: types.Direction, focused: Rect, candidate: Rect) bool {
+    return switch (direction) {
+        .left => candidate.right() == focused.x,
+        .right => candidate.x == focused.right(),
+        .up => candidate.bottom() == focused.y,
+        .down => candidate.y == focused.bottom(),
+    };
+}
+
 /// Find the adjacent pane in the given direction from focused.
 ///
 /// Algorithm (per daemon-architecture state-and-types spec):
@@ -149,31 +180,8 @@ pub fn findPaneInDirection(
         if (candidate_slot == focused) continue;
         const candidate_rect = rects[candidate_slot] orelse continue;
 
-        // Integer coordinates: adjacent edges are exactly equal.
-        const is_adjacent: bool = switch (direction) {
-            .left => candidate_rect.right() == focused_rect.x,
-            .right => candidate_rect.x == focused_rect.right(),
-            .up => candidate_rect.bottom() == focused_rect.y,
-            .down => candidate_rect.y == focused_rect.bottom(),
-        };
-        if (!is_adjacent) continue;
-
-        // Compute perpendicular overlap.
-        const overlap: u16 = switch (direction) {
-            .left, .right => intervalOverlap(
-                focused_rect.y,
-                focused_rect.bottom(),
-                candidate_rect.y,
-                candidate_rect.bottom(),
-            ),
-            .up, .down => intervalOverlap(
-                focused_rect.x,
-                focused_rect.right(),
-                candidate_rect.x,
-                candidate_rect.right(),
-            ),
-        };
-        if (overlap == 0) continue;
+        if (!isEdgeAdjacent(direction, focused_rect, candidate_rect)) continue;
+        if (perpendicularOverlap(direction, focused_rect, candidate_rect) == 0) continue;
 
         // Compute edge distance.
         const edge_distance: u16 = switch (direction) {
@@ -213,21 +221,7 @@ pub fn findPaneInDirection(
         const candidate_rect = rects[candidate_slot] orelse continue;
 
         // Must have perpendicular overlap with focused.
-        const overlap: u16 = switch (direction) {
-            .left, .right => intervalOverlap(
-                focused_rect.y,
-                focused_rect.bottom(),
-                candidate_rect.y,
-                candidate_rect.bottom(),
-            ),
-            .up, .down => intervalOverlap(
-                focused_rect.x,
-                focused_rect.right(),
-                candidate_rect.x,
-                candidate_rect.right(),
-            ),
-        };
-        if (overlap == 0) continue;
+        if (perpendicularOverlap(direction, focused_rect, candidate_rect) == 0) continue;
 
         // For wrap, pick furthest in the opposite direction.
         // "Furthest right" = highest right(), "Furthest left" = lowest x, etc.
@@ -439,4 +433,41 @@ test "computeRects: two pane vertical split geometry" {
     try std.testing.expectEqual(@as(u16, 12), r1.y);
     try std.testing.expectEqual(@as(u16, 80), r1.width);
     try std.testing.expectEqual(@as(u16, 12), r1.height);
+}
+
+test "perpendicularOverlap: horizontal direction uses vertical overlap" {
+    const a = Rect{ .x = 0, .y = 0, .width = 40, .height = 24 };
+    const b = Rect{ .x = 40, .y = 6, .width = 40, .height = 12 };
+    try std.testing.expectEqual(@as(u16, 12), perpendicularOverlap(.right, a, b));
+    try std.testing.expectEqual(@as(u16, 12), perpendicularOverlap(.left, a, b));
+}
+
+test "perpendicularOverlap: vertical direction uses horizontal overlap" {
+    const a = Rect{ .x = 0, .y = 0, .width = 40, .height = 12 };
+    const b = Rect{ .x = 20, .y = 12, .width = 60, .height = 12 };
+    try std.testing.expectEqual(@as(u16, 20), perpendicularOverlap(.down, a, b));
+    try std.testing.expectEqual(@as(u16, 20), perpendicularOverlap(.up, a, b));
+}
+
+test "perpendicularOverlap: no overlap returns zero" {
+    const a = Rect{ .x = 0, .y = 0, .width = 40, .height = 10 };
+    const b = Rect{ .x = 40, .y = 10, .width = 40, .height = 14 };
+    try std.testing.expectEqual(@as(u16, 0), perpendicularOverlap(.right, a, b));
+}
+
+test "isEdgeAdjacent: correctly detects adjacency in all directions" {
+    const center = Rect{ .x = 10, .y = 10, .width = 20, .height = 20 };
+    const left = Rect{ .x = 0, .y = 10, .width = 10, .height = 20 };
+    const right = Rect{ .x = 30, .y = 10, .width = 10, .height = 20 };
+    const above = Rect{ .x = 10, .y = 0, .width = 20, .height = 10 };
+    const below = Rect{ .x = 10, .y = 30, .width = 20, .height = 10 };
+
+    try std.testing.expect(isEdgeAdjacent(.left, center, left));
+    try std.testing.expect(isEdgeAdjacent(.right, center, right));
+    try std.testing.expect(isEdgeAdjacent(.up, center, above));
+    try std.testing.expect(isEdgeAdjacent(.down, center, below));
+
+    // Non-adjacent returns false.
+    try std.testing.expect(!isEdgeAdjacent(.left, center, right));
+    try std.testing.expect(!isEdgeAdjacent(.right, center, left));
 }

@@ -108,37 +108,27 @@ pub fn processClientHello(
     var negotiated_caps: [ConnectionState.MAX_CAPABILITIES][ConnectionState.MAX_CAPABILITY_NAME]u8 = undefined;
     var negotiated_caps_lengths: [ConnectionState.MAX_CAPABILITIES]u8 = [_]u8{0} ** ConnectionState.MAX_CAPABILITIES;
     var negotiated_caps_count: u8 = 0;
-
-    for (hello.capabilities) |client_cap| {
-        for (SERVER_CAPABILITIES) |server_cap| {
-            if (std.mem.eql(u8, client_cap, server_cap)) {
-                if (negotiated_caps_count < ConnectionState.MAX_CAPABILITIES and client_cap.len <= ConnectionState.MAX_CAPABILITY_NAME) {
-                    @memcpy(negotiated_caps[negotiated_caps_count][0..client_cap.len], client_cap);
-                    negotiated_caps_lengths[negotiated_caps_count] = @intCast(client_cap.len);
-                    negotiated_caps_count += 1;
-                }
-                break;
-            }
-        }
-    }
+    negotiateCapabilities(
+        SERVER_CAPABILITIES,
+        hello.capabilities,
+        ConnectionState.MAX_CAPABILITIES,
+        &negotiated_caps,
+        &negotiated_caps_lengths,
+        &negotiated_caps_count,
+    );
 
     // Negotiate render capabilities (intersection).
     var negotiated_render: [ConnectionState.MAX_RENDER_CAPABILITIES][ConnectionState.MAX_CAPABILITY_NAME]u8 = undefined;
     var negotiated_render_lengths: [ConnectionState.MAX_RENDER_CAPABILITIES]u8 = [_]u8{0} ** ConnectionState.MAX_RENDER_CAPABILITIES;
     var negotiated_render_count: u8 = 0;
-
-    for (hello.render_capabilities) |client_cap| {
-        for (SERVER_RENDER_CAPABILITIES) |server_cap| {
-            if (std.mem.eql(u8, client_cap, server_cap)) {
-                if (negotiated_render_count < ConnectionState.MAX_RENDER_CAPABILITIES and client_cap.len <= ConnectionState.MAX_CAPABILITY_NAME) {
-                    @memcpy(negotiated_render[negotiated_render_count][0..client_cap.len], client_cap);
-                    negotiated_render_lengths[negotiated_render_count] = @intCast(client_cap.len);
-                    negotiated_render_count += 1;
-                }
-                break;
-            }
-        }
-    }
+    negotiateCapabilities(
+        SERVER_RENDER_CAPABILITIES,
+        hello.render_capabilities,
+        ConnectionState.MAX_RENDER_CAPABILITIES,
+        &negotiated_render,
+        &negotiated_render_lengths,
+        &negotiated_render_count,
+    );
 
     // Check for required rendering mode: must have cell_data OR vt_fallback.
     var has_render_mode = false;
@@ -197,6 +187,30 @@ pub fn processClientHello(
     result.payload_length = @intCast(json_bytes.len);
 
     return .{ .success = result };
+}
+
+/// Computes the intersection of server and client capability lists. Populates
+/// `out_names`, `out_lengths`, and `out_count` with matching entries.
+fn negotiateCapabilities(
+    server_caps: []const []const u8,
+    client_caps: []const []const u8,
+    comptime max_entries: u8,
+    out_names: *[max_entries][ConnectionState.MAX_CAPABILITY_NAME]u8,
+    out_lengths: *[max_entries]u8,
+    out_count: *u8,
+) void {
+    for (client_caps) |client_cap| {
+        for (server_caps) |server_cap| {
+            if (std.mem.eql(u8, client_cap, server_cap)) {
+                if (out_count.* < max_entries and client_cap.len <= ConnectionState.MAX_CAPABILITY_NAME) {
+                    @memcpy(out_names[out_count.*][0..client_cap.len], client_cap);
+                    out_lengths[out_count.*] = @intCast(client_cap.len);
+                    out_count.* += 1;
+                }
+                break;
+            }
+        }
+    }
 }
 
 fn makeError(error_code: u32, detail: []const u8) ErrorData {
@@ -276,4 +290,32 @@ test "processClientHello: capability intersection" {
         },
         else => return error.TestUnexpectedResult,
     }
+}
+
+test "negotiateCapabilities: computes intersection correctly" {
+    const server_caps: []const []const u8 = &.{ "alpha", "beta", "gamma" };
+    const client_caps: []const []const u8 = &.{ "beta", "delta", "gamma" };
+
+    var names: [ConnectionState.MAX_CAPABILITIES][ConnectionState.MAX_CAPABILITY_NAME]u8 = undefined;
+    var lengths: [ConnectionState.MAX_CAPABILITIES]u8 = [_]u8{0} ** ConnectionState.MAX_CAPABILITIES;
+    var count: u8 = 0;
+
+    negotiateCapabilities(server_caps, client_caps, ConnectionState.MAX_CAPABILITIES, &names, &lengths, &count);
+
+    try std.testing.expectEqual(@as(u8, 2), count);
+    try std.testing.expectEqualSlices(u8, "beta", names[0][0..lengths[0]]);
+    try std.testing.expectEqualSlices(u8, "gamma", names[1][0..lengths[1]]);
+}
+
+test "negotiateCapabilities: empty client caps yields zero results" {
+    const server_caps: []const []const u8 = &.{ "alpha", "beta" };
+    const client_caps: []const []const u8 = &.{};
+
+    var names: [ConnectionState.MAX_CAPABILITIES][ConnectionState.MAX_CAPABILITY_NAME]u8 = undefined;
+    var lengths: [ConnectionState.MAX_CAPABILITIES]u8 = [_]u8{0} ** ConnectionState.MAX_CAPABILITIES;
+    var count: u8 = 0;
+
+    negotiateCapabilities(server_caps, client_caps, ConnectionState.MAX_CAPABILITIES, &names, &lengths, &count);
+
+    try std.testing.expectEqual(@as(u8, 0), count);
 }
