@@ -83,12 +83,12 @@ pub fn handlePtyRead(
 
         // Check for metadata changes after VT stream processing.
         // Title and CWD are updated by OSC sequences processed through
-        // the ghostty terminal. Compare against previous values to detect
-        // changes. Actual detection requires ghostty terminal pointers
-        // (non-null) which are set during pane creation.
-        // TODO(Plan 8): Implement actual title/cwd extraction from
-        // ghostty terminal after vtStream processing, and broadcast
-        // PaneMetadataChanged notification to session-scoped peers.
+        // the ghostty terminal. Actual detection requires ghostty terminal
+        // pointers (non-null) which are set during pane creation.
+        // TODO(Plan 9): Extract title/cwd from ghostty Terminal after VT
+        // stream processing. Compare against pane's cached values and
+        // broadcast PaneMetadataChanged if changed. Currently, ghostty
+        // terminal initialization happens later in the pipeline.
     }
 }
 

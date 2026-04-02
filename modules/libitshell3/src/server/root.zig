@@ -42,7 +42,9 @@ pub const ime = struct {
     pub const consumer = @import("ime/consumer.zig");
     pub const lifecycle = @import("ime/lifecycle.zig");
     pub const procedures = @import("ime/procedures.zig");
+    pub const inactivity_timer = @import("ime/inactivity_timer.zig");
     pub const ClientTracker = lifecycle.ClientTracker;
+    pub const InactivityTimer = inactivity_timer.InactivityTimer;
 };
 
 pub const state = struct {
@@ -70,6 +72,9 @@ pub const handlers = struct {
     pub const timer_handler = @import("handlers/timer_handler.zig");
     pub const protocol_envelope = @import("handlers/protocol_envelope.zig");
     pub const notification_builder = @import("handlers/notification_builder.zig");
+    pub const preedit_message_builder = @import("handlers/preedit_message_builder.zig");
+    pub const input_method_message_builder = @import("handlers/input_method_message_builder.zig");
+    pub const ime_error_builder = @import("handlers/ime_error_builder.zig");
     pub const handler_utils = @import("handlers/handler_utils.zig");
     pub const session_handler = @import("handlers/session_handler.zig");
     pub const pane_handler = @import("handlers/pane_handler.zig");

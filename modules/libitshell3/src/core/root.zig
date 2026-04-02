@@ -3,7 +3,6 @@
 //! or ghostty dependencies — pure domain logic.
 
 pub const types = @import("types.zig");
-pub const preedit_state = @import("preedit_state.zig");
 pub const split_tree = @import("split_tree.zig");
 pub const session = @import("session.zig");
 pub const navigation = @import("navigation.zig");
@@ -28,7 +27,7 @@ pub const KeyEvent = ime_engine.KeyEvent;
 pub const ImeResult = ime_engine.ImeResult;
 
 pub const Session = session.Session;
-pub const PreeditState = preedit_state.PreeditState;
+pub const PreeditState = session.PreeditState;
 pub const SplitNodeData = split_tree.SplitNodeData;
 
 const std = @import("std");

@@ -35,6 +35,7 @@ pub const session_crud_spec_test = @import("spec/session_crud_spec_test.zig");
 pub const category_dispatch_spec_test = @import("spec/category_dispatch_spec_test.zig");
 pub const lifecycle_dispatch_spec_test = @import("spec/lifecycle_dispatch_spec_test.zig");
 pub const plan16_alignment_spec_test = @import("spec/plan16_alignment_spec_test.zig");
+pub const input_pipeline_spec_test = @import("spec/input_pipeline_spec_test.zig");
 
 // Re-exports
 pub const MockImeEngine = mock_ime_engine.MockImeEngine;

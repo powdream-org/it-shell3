@@ -20,8 +20,10 @@ const ClientManager = server.connection.client_manager.ClientManager;
 const broadcast = server.connection.broadcast;
 const envelope = @import("protocol_envelope.zig");
 const notification_builder = @import("notification_builder.zig");
+const preedit_message_builder = @import("preedit_message_builder.zig");
 const handler_utils = @import("handler_utils.zig");
 const pane_handler = @import("pane_handler.zig");
+const procedures = server.ime.procedures;
 
 /// Context for session handler operations.
 pub const SessionHandlerContext = struct {
@@ -373,6 +375,9 @@ pub fn handleAttachSession(
 
     // Post-attach notifications.
     sendAttachNotifications(ctx, client, client_slot, entry, resolved.session_id, session_name, resolved.created_session_id);
+
+    // PreeditSync: if any pane has active composition, send to the new client.
+    sendPreeditSyncIfActive(client, entry);
 }
 
 // ── DetachSessionRequest (0x0106) ───────────────────────────────────────────
@@ -480,7 +485,25 @@ pub fn handleDestroySession(
     @memcpy(name_copy[0..name_length], entry.session.name[0..name_length]);
     const session_name = name_copy[0..name_length];
 
-    // TODO(Plan 8): 1. PreeditEnd to affected clients (if composition active).
+    // 1. PreeditEnd to affected clients (if composition active).
+    if (entry.session.preedit.owner != null) {
+        var preedit_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+        const preedit_sequence = client.connection.advanceSendSequence();
+        const focused_pane_id = entry.getPaneIdOrNone(entry.session.focused_pane);
+        if (preedit_message_builder.buildPreeditEnd(
+            focused_pane_id,
+            entry.session.preedit.session_id,
+            "session_destroyed",
+            "",
+            preedit_sequence,
+            &preedit_buf,
+        )) |preedit_msg| {
+            _ = broadcast.broadcastToSession(ctx.client_manager, session_id, preedit_msg, null);
+        }
+        entry.session.preedit.owner = null;
+        entry.session.setPreedit(null);
+        entry.session.preedit.incrementSessionId();
+    }
 
     // 2. DestroySessionResponse to requester.
     const ok_json = "{\"status\":0}";
@@ -536,6 +559,30 @@ pub fn handleDestroySession(
 
     // Destroy the session in the manager.
     _ = ctx.session_manager.destroySession(session_id);
+}
+
+/// Sends PreeditSync to a newly attached client if any pane in the session
+/// has an active composition. Per protocol 05-cjk-preedit-protocol PreeditSync.
+fn sendPreeditSyncIfActive(client: *ClientState, entry: *SessionEntry) void {
+    if (entry.session.preedit.owner) |owner| {
+        if (entry.session.current_preedit) |preedit_text| {
+            const pane_id = entry.getPaneIdOrNone(entry.session.focused_pane);
+            var sync_buf: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+            const sync_sequence = client.connection.advanceSendSequence();
+            if (preedit_message_builder.buildPreeditSync(
+                pane_id,
+                entry.session.preedit.session_id,
+                owner,
+                entry.session.getActiveInputMethod(),
+                preedit_text,
+                sync_sequence,
+                &sync_buf,
+            )) |msg| {
+                // Unicast to the joining client only.
+                client.enqueueDirect(msg) catch {};
+            }
+        }
+    }
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

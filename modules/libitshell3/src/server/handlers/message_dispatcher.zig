@@ -43,6 +43,8 @@ pub const DispatcherContext = struct {
     session_manager: *SessionManager = undefined,
     /// Default IME engine for session creation.
     default_ime_engine: core.ImeEngine = undefined,
+    /// PTY operations vtable for input handlers that write to PTY.
+    pty_ops: ?*const interfaces.PtyOps = null,
 };
 
 /// Uniform parameter struct passed to all category dispatchers.

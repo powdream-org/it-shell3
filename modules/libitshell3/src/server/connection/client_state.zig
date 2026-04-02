@@ -35,9 +35,7 @@ pub const ClientState = struct {
     /// Partial send offset for direct queue drain.
     direct_partial_offset: usize = 0,
 
-    /// Display info reported by the client.
-    // TODO(Plan 8): Populate from ClientDisplayInfo message (0x0505). Add
-    // remaining fields: preferred_max_fps, estimated_rtt_ms, bandwidth_hint.
+    /// Display info reported by the client via ClientDisplayInfo (0x0505).
     display_info: ClientDisplayInfo = .{},
 
     /// Pointer to the attached session (daemon-level field for direct access
@@ -60,10 +58,20 @@ pub const ClientState = struct {
     /// Whether this client slot is occupied.
     occupied: bool = false,
 
-    // TODO(Plan 8): Define fields from ClientDisplayInfo message (0x0505):
-    // display_refresh_hz, power_state, preferred_max_fps, transport_type,
-    // estimated_rtt_ms, bandwidth_hint.
-    pub const ClientDisplayInfo = struct {};
+    /// Display, power, and transport state reported by the client via
+    /// ClientDisplayInfo (0x0505). See protocol flow-control-and-auxiliary spec.
+    pub const ClientDisplayInfo = struct {
+        display_refresh_hz: u16 = 60,
+        power_state: PowerState = .ac,
+        preferred_max_fps: u16 = 0,
+        transport_type: TransportType = .local,
+        estimated_rtt_ms: u16 = 0,
+        bandwidth_hint: BandwidthHint = .local,
+
+        pub const PowerState = enum { ac, battery, low_battery };
+        pub const TransportType = enum { local, ssh_tunnel, unknown };
+        pub const BandwidthHint = enum { local, lan, wan, cellular };
+    };
 
     /// Initialize a new client state wrapping a SocketConnection.
     /// The `chunk_pool` reference is shared across all clients and must outlive
@@ -152,10 +160,16 @@ test "ClientState: ring_cursors all start as null" {
     }
 }
 
-test "ClientState: display_info field exists" {
+test "ClientState: display_info has correct defaults per protocol spec" {
     const testing_helpers = @import("itshell3_testing").helpers;
     const client = ClientState.init(.{ .fd = 7 }, 1, testing_helpers.testChunkPool());
-    _ = client.display_info;
+    const info = client.display_info;
+    try std.testing.expectEqual(@as(u16, 60), info.display_refresh_hz);
+    try std.testing.expectEqual(ClientState.ClientDisplayInfo.PowerState.ac, info.power_state);
+    try std.testing.expectEqual(@as(u16, 0), info.preferred_max_fps);
+    try std.testing.expectEqual(ClientState.ClientDisplayInfo.TransportType.local, info.transport_type);
+    try std.testing.expectEqual(@as(u16, 0), info.estimated_rtt_ms);
+    try std.testing.expectEqual(ClientState.ClientDisplayInfo.BandwidthHint.local, info.bandwidth_hint);
 }
 
 test "ClientState: attached_session defaults to null" {
