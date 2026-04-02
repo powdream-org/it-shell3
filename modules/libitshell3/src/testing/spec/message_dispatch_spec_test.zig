@@ -80,7 +80,7 @@ test "spec: dispatch — READY allows session management for transition to OPERA
 
     try std.testing.expect(conn.isMessageAllowed(.attach_session_request));
     try std.testing.expect(conn.isMessageAllowed(.create_session_request));
-    try std.testing.expect(conn.isMessageAllowed(.attach_or_create_request));
+    try std.testing.expect(conn.isMessageAllowed(.attach_session_request));
     try std.testing.expect(conn.isMessageAllowed(.list_sessions_request));
 }
 

@@ -20,12 +20,12 @@ pub const CreatePaneResponse = struct {
     @"error": ?[]const u8 = null,
 };
 
-/// 0x0142, C->S.
+/// 0x0142, C->S. Per ADR 00062, ratio is u32 fixed-point x10^4 (5000 = 50%).
 pub const SplitPaneRequest = struct {
     session_id: u32,
     pane_id: u32,
     direction: u8 = 0,
-    ratio: f32 = 0.5,
+    ratio: u32 = 5000,
     shell: ?[]const u8 = null,
     cwd: ?[]const u8 = null,
     focus_new: bool = true,
@@ -77,12 +77,13 @@ pub const NavigatePaneResponse = struct {
     focused_pane_id: u32 = 0,
 };
 
-/// 0x014A, C->S.
+/// 0x014A, C->S. Per ADR 00062, uses orientation (not direction) and
+/// delta_ratio in fixed-point x10^4 units.
 pub const ResizePaneRequest = struct {
     session_id: u32,
     pane_id: u32,
-    direction: u8 = 0,
-    delta: i16 = 0,
+    orientation: u8 = 0,
+    delta_ratio: i32 = 0,
 };
 
 /// 0x014B, S->C.
@@ -144,7 +145,7 @@ pub const LayoutNode = struct {
     active_input_method: ?[]const u8 = null,
     active_keyboard_layout: ?[]const u8 = null,
     orientation: ?[]const u8 = null,
-    ratio: ?f32 = null,
+    ratio: ?u32 = null,
     first: ?*const LayoutNode = null,
     second: ?*const LayoutNode = null,
 
@@ -238,13 +239,14 @@ pub const WindowResizeAck = struct {
 test "SplitPaneRequest: JSON round-trip" {
     const json_mod = @import("testing/helpers.zig");
     const allocator = std.testing.allocator;
-    const original = SplitPaneRequest{ .session_id = 1, .pane_id = 1, .direction = 1, .ratio = 0.5 };
+    const original = SplitPaneRequest{ .session_id = 1, .pane_id = 1, .direction = 1, .ratio = 5000 };
     const j = try json_mod.encode(allocator, original);
     defer allocator.free(j);
     const parsed = try json_mod.decode(SplitPaneRequest, allocator, j);
     defer parsed.deinit();
     try std.testing.expectEqual(@as(u32, 1), parsed.value.session_id);
     try std.testing.expectEqual(@as(u8, 1), parsed.value.direction);
+    try std.testing.expectEqual(@as(u32, 5000), parsed.value.ratio);
 }
 
 test "ClosePaneResponse: side_effect field" {

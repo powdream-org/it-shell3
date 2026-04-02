@@ -137,25 +137,26 @@ test "spec: attachment -- detach clears attached_session_id" {
     try std.testing.expectEqual(State.ready, conn.state);
 }
 
-// ── AttachOrCreate ─────────────────────────────────────────────────────────
+// ── AttachSession with create_if_missing ───────────────────────────────────
 
-test "spec: attachment -- READY allows AttachOrCreateRequest" {
-    // protocol 03-session-pane-management (attach-or-create message definition):
-    // AttachOrCreateRequest subject to same single-session-per-connection rule.
+test "spec: attachment -- create_if_missing uses same AttachSessionRequest message type" {
+    // protocol 03-session-pane-management (ADR 00003): AttachOrCreate merged
+    // into AttachSessionRequest. create_if_missing uses the same 0x0104
+    // message type, subject to the same state machine rules.
     const conn = makeConn(.ready);
-    try std.testing.expect(conn.isMessageAllowed(.attach_or_create_request));
+    try std.testing.expect(conn.isMessageAllowed(.attach_session_request));
 }
 
-test "spec: attachment -- AttachOrCreate allowed through filter in OPERATING state" {
+test "spec: attachment -- AttachSession allowed through filter in OPERATING state" {
     // ADR 00020 (session attachment model): ERR_SESSION_ALREADY_ATTACHED is
     // returned at the handler level, not at the message filter level. The
-    // message type 0x010C is in the operational range and must pass through
+    // message type 0x0104 is in the operational range and must pass through
     // the filter. The handler is responsible for returning the error status.
     // daemon-behavior 03-policies-and-procedures (client state transitions):
     // OPERATING allows session management messages (create, destroy, rename,
-    // list, attach_or_create).
+    // list, attach_session).
     const conn = makeConn(.operating);
-    try std.testing.expect(conn.isMessageAllowed(.attach_or_create_request));
+    try std.testing.expect(conn.isMessageAllowed(.attach_session_request));
 }
 
 // ── State transitions: OPERATING messages ──────────────────────────────────
@@ -241,18 +242,17 @@ test "spec: attachment -- send sequence starts at 1 and increments" {
     var conn = makeConn(.ready);
     const seq1 = conn.advanceSendSequence();
     const seq2 = conn.advanceSendSequence();
-    try std.testing.expectEqual(@as(u32, 1), seq1);
-    try std.testing.expectEqual(@as(u32, 2), seq2);
+    try std.testing.expectEqual(@as(u64, 1), seq1);
+    try std.testing.expectEqual(@as(u64, 2), seq2);
 }
 
-test "spec: attachment -- send sequence wraps from max to 1 skipping 0" {
-    // protocol 01-protocol-overview (wire header format): sequence wraps,
-    // skipping 0 (0 is reserved/sentinel).
+test "spec: attachment -- u64 sequence increments beyond u32 max without wrapping" {
+    // protocol v2: sequence is u64, no practical wrap concern.
     var conn = makeConn(.ready);
     conn.send_sequence = 0xFFFFFFFF;
     const seq = conn.advanceSendSequence();
-    try std.testing.expectEqual(@as(u32, 0xFFFFFFFF), seq);
-    try std.testing.expectEqual(@as(u32, 1), conn.send_sequence);
+    try std.testing.expectEqual(@as(u64, 0xFFFFFFFF), seq);
+    try std.testing.expectEqual(@as(u64, 0x100000000), conn.send_sequence);
 }
 
 // ── AttachOrCreate response format ────────────────────────────────────────
@@ -264,10 +264,10 @@ fn resetStaticSm() void {
     sm_static.reset();
 }
 
-test "spec: attachment -- AttachOrCreate 'created' path when session does not exist" {
-    // protocol 03-session-pane-management (attach-or-create response):
-    // AttachOrCreateResponse must include action_taken: "created" when a
-    // new session is created.
+test "spec: attachment -- AttachSession 'created' path when session does not exist" {
+    // protocol 03-session-pane-management (attach session response):
+    // AttachSessionResponse must include action_taken: "created" when a
+    // new session is created (create_if_missing=true).
     // Test: when no session with the given name exists, the handler must
     // create a new session. We verify the precondition (findSessionByName
     // returns null) that triggers the "created" code path.
@@ -284,14 +284,14 @@ test "spec: attachment -- AttachOrCreate 'created' path when session does not ex
     const entry = sm_static.getSession(id).?;
     try std.testing.expectEqual(@as(u8, 1), entry.paneCount());
 
-    // The response type code must be 0x010D.
-    try std.testing.expectEqual(@as(u16, 0x010D), @intFromEnum(MessageType.attach_or_create_response));
+    // The response type code must be 0x0105 (AttachSessionResponse).
+    try std.testing.expectEqual(@as(u16, 0x0105), @intFromEnum(MessageType.attach_session_response));
 }
 
-test "spec: attachment -- AttachOrCreate 'attached' path when session exists" {
-    // protocol 03-session-pane-management (attach-or-create response):
-    // AttachOrCreateResponse must include action_taken: "attached" when
-    // attaching to an existing session.
+test "spec: attachment -- AttachSession 'attached' path when session exists" {
+    // protocol 03-session-pane-management (attach session response):
+    // AttachSessionResponse must include action_taken: "attached" when
+    // attaching to an existing session (create_if_missing=true).
     // Test: when a session with the given name already exists,
     // findSessionByName returns it and the handler attaches (no creation).
     resetStaticSm();
@@ -304,8 +304,8 @@ test "spec: attachment -- AttachOrCreate 'attached' path when session exists" {
     try std.testing.expect(found != null);
     try std.testing.expectEqual(id, found.?.session.session_id);
 
-    // The response type code must be 0x010D.
-    try std.testing.expectEqual(@as(u16, 0x010D), @intFromEnum(MessageType.attach_or_create_response));
+    // The response type code must be 0x0105 (AttachSessionResponse).
+    try std.testing.expectEqual(@as(u16, 0x0105), @intFromEnum(MessageType.attach_session_response));
 }
 
 // ── DetachSession with wrong session_id ───────────────────────────────────

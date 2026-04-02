@@ -64,7 +64,7 @@ pub const ErrorCode = enum(u32) {
 /// 0x00FF. Error frame payload sent when a protocol or application error occurs.
 pub const ErrorResponse = struct {
     error_code: u32,
-    ref_sequence: u32 = 0,
+    ref_sequence: u64 = 0,
     detail: []const u8 = "",
 };
 

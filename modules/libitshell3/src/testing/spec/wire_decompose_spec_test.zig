@@ -29,12 +29,14 @@ test "spec: wire decompose — bit 3 maps to super_key" {
     try std.testing.expect(k.modifiers.super_key);
 }
 
-test "spec: wire decompose — bits 4-5 CapsLock NumLock not consumed" {
+test "spec: wire decompose — bits 4-5 CapsLock NumLock populated per ADR 00059" {
     const k = input.decomposeWireEvent(0x04, 0x30, .press);
     try std.testing.expect(!k.shift);
     try std.testing.expect(!k.modifiers.ctrl);
     try std.testing.expect(!k.modifiers.alt);
     try std.testing.expect(!k.modifiers.super_key);
+    try std.testing.expect(k.modifiers.caps_lock);
+    try std.testing.expect(k.modifiers.num_lock);
 }
 
 test "spec: wire decompose — all modifier bits combined" {

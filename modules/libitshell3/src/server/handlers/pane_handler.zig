@@ -36,7 +36,7 @@ pub fn handleCreatePane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
     _: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
 ) void {
     var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
@@ -83,11 +83,11 @@ pub fn handleSplitPane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
     _: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
     direction: types.Direction,
-    ratio: f32,
+    ratio: u32,
     focus_new: bool,
 ) void {
     var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
@@ -177,7 +177,7 @@ pub fn handleClosePane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
     _: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
 ) void {
@@ -260,7 +260,7 @@ pub fn handleFocusPane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
     _: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
 ) void {
@@ -304,7 +304,7 @@ pub fn handleNavigatePane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
     _: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
     direction: types.Direction,
 ) void {
@@ -364,16 +364,19 @@ pub fn handleNavigatePane(
 
 // ── ResizePaneRequest (0x014A) ──────────────────────────────────────────────
 
-/// Handles ResizePaneRequest.
+/// Handles ResizePaneRequest. Per ADR 00062, uses orientation (not direction)
+/// and delta_ratio in fixed-point x10^4 units. Finds nearest ancestor split
+/// matching orientation and applies new_ratio = old_ratio + delta_ratio,
+/// clamped to [MIN_RATIO, RATIO_SCALE - MIN_RATIO].
 pub fn handleResizePane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
     _: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
-    direction: types.Direction,
-    delta: i32,
+    orientation: types.Orientation,
+    delta_ratio: i32,
 ) void {
     var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
@@ -391,21 +394,28 @@ pub fn handleResizePane(
         return;
     };
 
-    // Find the adjacent split node.
-    const split_index = split_tree.findAdjacentSplit(&entry.session.tree_nodes, target_slot, direction) orelse {
-        const err = "{\"status\":2,\"error\":\"no split in that direction\"}";
+    // Find nearest ancestor split matching orientation.
+    // Use a direction-based lookup mapped from orientation.
+    const probe_direction: types.Direction = switch (orientation) {
+        .horizontal => .right,
+        .vertical => .down,
+    };
+    const split_index = split_tree.findAdjacentSplit(&entry.session.tree_nodes, target_slot, probe_direction) orelse {
+        const err = "{\"status\":2,\"error\":\"no split in that orientation\"}";
         const r = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.resize_pane_response), sequence, err) orelse return;
         client.enqueueDirect(r) catch {};
         return;
     };
 
-    // Adjust the ratio. Delta is in cells; convert to ratio delta.
-    // Use a rough conversion: delta / 80 for horizontal, delta / 24 for vertical.
-    const ratio_delta: f32 = @as(f32, @floatFromInt(delta)) / 80.0;
+    // Apply delta_ratio with integer arithmetic. Clamp to [MIN_RATIO, RATIO_SCALE - MIN_RATIO].
     if (entry.session.tree_nodes[split_index]) |*node| {
         switch (node.*) {
             .split => |*s| {
-                s.ratio = std.math.clamp(s.ratio + ratio_delta, 0.1, 0.9);
+                const old: i32 = @intCast(s.ratio);
+                const new_ratio = old + delta_ratio;
+                const min: i32 = @intCast(types.MIN_RATIO);
+                const max: i32 = @intCast(types.RATIO_SCALE - types.MIN_RATIO);
+                s.ratio = @intCast(std.math.clamp(new_ratio, min, max));
             },
             .leaf => {},
         }
@@ -426,7 +436,7 @@ pub fn handleEqualizeSplits(
     ctx: *PaneHandlerContext,
     client: *ClientState,
     _: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
 ) void {
     var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
@@ -454,7 +464,7 @@ pub fn handleZoomPane(
     ctx: *PaneHandlerContext,
     client: *ClientState,
     _: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
     target_pane_id: types.PaneId,
 ) void {
@@ -491,7 +501,7 @@ pub fn handleSwapPanes(
     ctx: *PaneHandlerContext,
     client: *ClientState,
     _: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
     pane_a_id: types.PaneId,
     pane_b_id: types.PaneId,
@@ -536,7 +546,7 @@ pub fn handleLayoutGet(
     ctx: *PaneHandlerContext,
     client: *ClientState,
     _: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
 ) void {
     var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
@@ -634,7 +644,7 @@ test "handleEqualizeSplits: equalizes split ratios" {
     entry.setPaneAtSlot(slot0, Pane.init(1, slot0, -1, 0, 80, 24));
     const slot1 = entry.allocPaneSlot() catch unreachable;
     entry.setPaneAtSlot(slot1, Pane.init(2, slot1, -1, 0, 80, 24));
-    split_tree.splitLeaf(&entry.session.tree_nodes, 0, .horizontal, 0.3, slot1) catch unreachable;
+    split_tree.splitLeaf(&entry.session.tree_nodes, 0, .horizontal, 3000, slot1) catch unreachable;
 
     var context = PaneHandlerContext{
         .session_manager = &S.session_manager,
@@ -643,10 +653,10 @@ test "handleEqualizeSplits: equalizes split ratios" {
 
     handleEqualizeSplits(&context, client, slot_index, 1, 1);
 
-    // Verify ratio is now 0.5.
+    // Verify ratio is now EQUAL_RATIO (5000).
     if (entry.session.tree_nodes[0]) |node| {
         switch (node) {
-            .split => |s| try std.testing.expectApproxEqAbs(@as(f32, 0.5), s.ratio, 0.001),
+            .split => |s| try std.testing.expectEqual(types.EQUAL_RATIO, s.ratio),
             .leaf => unreachable,
         }
     }

@@ -1,7 +1,7 @@
-//! Wraps JSON payloads with the 16-byte protocol header for outbound messages.
+//! Wraps JSON payloads with the 20-byte protocol header for outbound messages.
 //! Used by all handler modules to produce correctly framed wire messages.
 //!
-//! Per protocol 01-protocol-overview (16-byte header: magic 0x4954 + version +
+//! Per protocol 01-protocol-overview (20-byte header: magic 0x4954 + version +
 //! flags + msg_type + reserved + payload_length + sequence).
 
 const std = @import("std");
@@ -17,14 +17,14 @@ pub const MAX_ENVELOPE_PAYLOAD: usize = 8192;
 /// Total buffer size: header + max payload.
 pub const MAX_ENVELOPE_SIZE: usize = HEADER_SIZE + MAX_ENVELOPE_PAYLOAD;
 
-/// Wraps a JSON payload with a 16-byte protocol header. Returns the total
+/// Wraps a JSON payload with a 20-byte protocol header. Returns the total
 /// number of bytes written (header + payload) into `out_buf`, or null if the
 /// payload exceeds MAX_ENVELOPE_PAYLOAD.
 pub fn wrap(
     out_buf: []u8,
     msg_type: u16,
     flags: Flags,
-    sequence: u32,
+    sequence: u64,
     payload: []const u8,
 ) ?[]const u8 {
     const total = HEADER_SIZE + payload.len;
@@ -47,7 +47,7 @@ pub fn wrap(
 pub fn wrapResponse(
     out_buf: []u8,
     msg_type: u16,
-    sequence: u32,
+    sequence: u64,
     payload: []const u8,
 ) ?[]const u8 {
     return wrap(out_buf, msg_type, .{ .response = true }, sequence, payload);
@@ -57,7 +57,7 @@ pub fn wrapResponse(
 pub fn wrapNotification(
     out_buf: []u8,
     msg_type: u16,
-    sequence: u32,
+    sequence: u64,
     payload: []const u8,
 ) ?[]const u8 {
     return wrap(out_buf, msg_type, .{}, sequence, payload);
@@ -78,7 +78,7 @@ test "wrap: produces correct header and payload" {
     try std.testing.expectEqual(@as(u16, 0x0101), decoded.msg_type);
     try std.testing.expect(decoded.flags.response);
     try std.testing.expectEqual(@as(u32, @intCast(payload.len)), decoded.payload_length);
-    try std.testing.expectEqual(@as(u32, 42), decoded.sequence);
+    try std.testing.expectEqual(@as(u64, 42), decoded.sequence);
 
     // Verify payload bytes.
     try std.testing.expectEqualSlices(u8, payload, data[HEADER_SIZE..]);

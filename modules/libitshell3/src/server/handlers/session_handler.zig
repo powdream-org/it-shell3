@@ -1,9 +1,8 @@
 //! Handles session management requests: Create, List, Attach, Detach, Destroy,
-//! Rename, and AttachOrCreate. Each handler validates state, mutates
-//! SessionManager, sends a response to the requester, and broadcasts
-//! notifications to peers.
+//! and Rename. Each handler validates state, mutates SessionManager, sends a
+//! response to the requester, and broadcasts notifications to peers.
 //!
-//! Per protocol 03-session-pane-management (0x0100-0x010D) and
+//! Per protocol 03-session-pane-management (0x0100-0x010B) and
 //! daemon-behavior 02-event-handling (response-before-notification).
 
 const std = @import("std");
@@ -43,7 +42,7 @@ pub fn handleCreateSession(
     ctx: *SessionHandlerContext,
     client: *ClientState,
     client_slot: u16,
-    sequence: u32,
+    sequence: u64,
     request_name: []const u8,
 ) void {
     _ = client_slot;
@@ -99,7 +98,7 @@ pub fn handleListSessions(
     ctx: *SessionHandlerContext,
     client: *ClientState,
     client_slot: u16,
-    sequence: u32,
+    sequence: u64,
 ) void {
     _ = client_slot;
     var sessions: [types.MAX_SESSIONS]SessionInfo = undefined;
@@ -160,7 +159,7 @@ pub fn handleRenameSession(
     ctx: *SessionHandlerContext,
     client: *ClientState,
     client_slot: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
     new_name: []const u8,
 ) void {
@@ -202,14 +201,18 @@ pub fn handleRenameSession(
 
 // ── AttachSessionRequest (0x0104) ───────────────────────────────────────────
 
-/// Handles AttachSessionRequest. Transitions client to OPERATING, sets
+/// Handles AttachSessionRequest. Supports attach by session_id (direct lookup)
+/// and by session_name with create_if_missing (merged from former
+/// AttachOrCreate per ADR 00003). Transitions client to OPERATING, sets
 /// attachment, sends response + LayoutChanged + ClientAttached.
 pub fn handleAttachSession(
     ctx: *SessionHandlerContext,
     client: *ClientState,
     client_slot: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
+    session_name: []const u8,
+    create_if_missing: bool,
 ) void {
     var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
 
@@ -221,8 +224,46 @@ pub fn handleAttachSession(
         return;
     }
 
-    // Find session.
-    const entry = ctx.session_manager.getSession(session_id) orelse {
+    // Resolve target session: by session_id (if non-zero) or by session_name.
+    var action_taken: []const u8 = "attached";
+    var created_session_id: ?types.SessionId = null;
+
+    const target_session_id: types.SessionId = if (session_id != 0) session_id else blk: {
+        // Lookup by name.
+        if (ctx.session_manager.findSessionByName(session_name)) |existing| {
+            break :blk existing.session.session_id;
+        }
+
+        // Not found -- create if requested.
+        if (!create_if_missing) {
+            const err_json = "{\"status\":1,\"error\":\"session not found\"}";
+            const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.attach_session_response), sequence, err_json) orelse return;
+            client.enqueueDirect(response) catch {};
+            return;
+        }
+
+        const timestamp = std.time.milliTimestamp();
+        const new_session_id = ctx.session_manager.createSession(
+            session_name,
+            ctx.default_ime_engine,
+            timestamp,
+        ) catch {
+            const err_json = "{\"status\":7,\"error\":\"max sessions reached\"}";
+            const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.attach_session_response), sequence, err_json) orelse return;
+            client.enqueueDirect(response) catch {};
+            return;
+        };
+
+        // TODO(Plan 9+): Spawn shell process for the initial pane.
+        _ = ctx.session_manager.allocPaneId();
+
+        action_taken = "created";
+        created_session_id = new_session_id;
+        break :blk new_session_id;
+    };
+
+    // Find session entry.
+    const entry = ctx.session_manager.getSession(target_session_id) orelse {
         const err_json = "{\"status\":1,\"error\":\"session not found\"}";
         const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.attach_session_response), sequence, err_json) orelse return;
         client.enqueueDirect(response) catch {};
@@ -238,7 +279,7 @@ pub fn handleAttachSession(
     }
 
     // Set attachment.
-    client.connection.attached_session_id = session_id;
+    client.connection.attached_session_id = target_session_id;
     client.attached_session = entry;
 
     // Cancel ready idle timer.
@@ -246,17 +287,28 @@ pub fn handleAttachSession(
         client.ready_idle_timer_id = null;
     }
 
-    // Build response.
+    // Build response with action_taken and pane_id per ADR 00003.
+    const active_pane_id = entry.getPaneIdOrNone(entry.session.focused_pane);
     var json_response_buffer: [1024]u8 = undefined;
-    const response_json = std.fmt.bufPrint(&json_response_buffer, "{{\"status\":0,\"session_id\":{d},\"name\":\"{s}\",\"active_pane_id\":{d},\"active_input_method\":\"{s}\",\"active_keyboard_layout\":\"{s}\",\"resize_policy\":\"latest\"}}", .{
-        session_id,
+    const response_json = std.fmt.bufPrint(&json_response_buffer, "{{\"status\":0,\"action_taken\":\"{s}\",\"session_id\":{d},\"pane_id\":{d},\"name\":\"{s}\",\"active_pane_id\":{d},\"active_input_method\":\"{s}\",\"active_keyboard_layout\":\"{s}\",\"resize_policy\":\"latest\"}}", .{
+        action_taken,
+        target_session_id,
+        active_pane_id,
         entry.session.getName(),
-        entry.getPaneIdOrNone(entry.session.focused_pane),
+        active_pane_id,
         entry.session.getActiveInputMethod(),
         entry.session.getActiveKeyboardLayout(),
     }) catch return;
     const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.attach_session_response), sequence, response_json) orelse return;
     client.enqueueDirect(response) catch {};
+
+    // Broadcast SessionListChanged(event="created") after response if we created.
+    if (created_session_id) |new_id| {
+        var session_notification_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+        const session_notification_sequence = client.connection.advanceSendSequence();
+        const session_notification = notification_builder.buildSessionListChanged("created", new_id, session_name, session_notification_sequence, &session_notification_buffer) orelse return;
+        _ = broadcast.broadcastToActive(ctx.client_manager, session_notification, null);
+    }
 
     // Send LayoutChanged notification to the requester.
     // TODO(Plan 9): Send initial I-frame from ring buffer.
@@ -265,8 +317,8 @@ pub fn handleAttachSession(
         var layout_changed_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
         const layout_changed_sequence = client.connection.advanceSendSequence();
         if (notification_builder.buildLayoutChanged(
-            session_id,
-            entry.getPaneIdOrNone(entry.session.focused_pane),
+            target_session_id,
+            active_pane_id,
             entry.isZoomed(),
             entry.getPaneIdOrNone(entry.zoomed_pane),
             tree_json,
@@ -283,7 +335,7 @@ pub fn handleAttachSession(
     while (c < server.connection.client_manager.MAX_CLIENTS) : (c += 1) {
         const index: u16 = @intCast(c);
         if (ctx.client_manager.getClientConst(index)) |cs| {
-            if (cs.connection.state == .operating and cs.connection.attached_session_id == session_id) {
+            if (cs.connection.state == .operating and cs.connection.attached_session_id == target_session_id) {
                 attached_count += 1;
             }
         }
@@ -291,8 +343,8 @@ pub fn handleAttachSession(
 
     var notification_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
     const notification_sequence = client.connection.advanceSendSequence();
-    const notification = notification_builder.buildClientAttached(session_id, client.connection.client_id, "", attached_count, notification_sequence, &notification_buffer) orelse return;
-    _ = broadcast.broadcastToSession(ctx.client_manager, session_id, notification, client_slot);
+    const notification = notification_builder.buildClientAttached(target_session_id, client.connection.client_id, "", attached_count, notification_sequence, &notification_buffer) orelse return;
+    _ = broadcast.broadcastToSession(ctx.client_manager, target_session_id, notification, client_slot);
 }
 
 // ── DetachSessionRequest (0x0106) ───────────────────────────────────────────
@@ -303,7 +355,7 @@ pub fn handleDetachSession(
     ctx: *SessionHandlerContext,
     client: *ClientState,
     client_slot: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
 ) void {
     var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
@@ -361,7 +413,7 @@ pub fn handleDestroySession(
     ctx: *SessionHandlerContext,
     client: *ClientState,
     client_slot: u16,
-    sequence: u32,
+    sequence: u64,
     session_id: types.SessionId,
     force: bool,
 ) void {
@@ -456,121 +508,6 @@ pub fn handleDestroySession(
 
     // Destroy the session in the manager.
     _ = ctx.session_manager.destroySession(session_id);
-}
-
-// ── AttachOrCreateRequest (0x010C) ──────────────────────────────────────────
-
-/// Handles AttachOrCreateRequest. Finds or creates session by name,
-/// then attaches.
-pub fn handleAttachOrCreate(
-    ctx: *SessionHandlerContext,
-    client: *ClientState,
-    client_slot: u16,
-    sequence: u32,
-    session_name: []const u8,
-) void {
-    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
-
-    // Per ADR 00020: already attached returns error.
-    if (client.connection.state == .operating) {
-        const err_json = "{\"status\":3,\"error\":\"already attached to a session\"}";
-        const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.attach_or_create_response), sequence, err_json) orelse return;
-        client.enqueueDirect(response) catch {};
-        return;
-    }
-
-    // Try to find existing session by name (single lookup).
-    const existing = ctx.session_manager.findSessionByName(session_name);
-    const action_taken: []const u8 = if (existing != null) "attached" else "created";
-
-    // Track whether a new session was created so we can broadcast
-    // SessionListChanged after the response (response-before-notification).
-    var created_session_id: ?types.SessionId = null;
-
-    const target_session_id: types.SessionId = if (existing) |entry|
-        entry.session.session_id
-    else blk: {
-        // Session not found — create a new one.
-        const timestamp = std.time.milliTimestamp();
-        const new_session_id = ctx.session_manager.createSession(
-            session_name,
-            ctx.default_ime_engine,
-            timestamp,
-        ) catch {
-            const err_json = "{\"status\":7,\"error\":\"max sessions reached\"}";
-            const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.attach_or_create_response), sequence, err_json) orelse return;
-            client.enqueueDirect(response) catch {};
-            return;
-        };
-
-        // TODO(Plan 9+): Spawn shell process for the initial pane.
-        _ = ctx.session_manager.allocPaneId();
-
-        created_session_id = new_session_id;
-        break :blk new_session_id;
-    };
-
-    // Attach to the session (existing or newly created).
-    const entry = ctx.session_manager.getSession(target_session_id) orelse return;
-
-    if (!client.connection.transitionTo(.operating)) {
-        const err_json = "{\"status\":7,\"error\":\"internal error\"}";
-        const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.attach_or_create_response), sequence, err_json) orelse return;
-        client.enqueueDirect(response) catch {};
-        return;
-    }
-
-    client.connection.attached_session_id = target_session_id;
-    client.attached_session = entry;
-
-    if (client.ready_idle_timer_id) |_| {
-        client.ready_idle_timer_id = null;
-    }
-
-    // Build AttachOrCreateResponse (0x010D) with action_taken.
-    const active_pane_id = entry.getPaneIdOrNone(entry.session.focused_pane);
-
-    var json_response_buffer: [1024]u8 = undefined;
-    const response_json = std.fmt.bufPrint(&json_response_buffer, "{{\"status\":0,\"session_id\":{d},\"session_name\":\"{s}\",\"pane_id\":{d},\"active_pane_id\":{d},\"action_taken\":\"{s}\",\"active_input_method\":\"{s}\",\"active_keyboard_layout\":\"{s}\",\"resize_policy\":\"latest\"}}", .{
-        target_session_id,
-        entry.session.getName(),
-        active_pane_id,
-        active_pane_id,
-        action_taken,
-        entry.session.getActiveInputMethod(),
-        entry.session.getActiveKeyboardLayout(),
-    }) catch return;
-    const response = envelope.wrapResponse(&response_buffer, @intFromEnum(MessageType.attach_or_create_response), sequence, response_json) orelse return;
-    client.enqueueDirect(response) catch {};
-
-    // Broadcast SessionListChanged(event="created") after response
-    // (response-before-notification per daemon-behavior 02-event-handling).
-    if (created_session_id) |new_id| {
-        var notification_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
-        const notification_sequence = client.connection.advanceSendSequence();
-        const notification = notification_builder.buildSessionListChanged("created", new_id, session_name, notification_sequence, &notification_buffer) orelse return;
-        _ = broadcast.broadcastToActive(ctx.client_manager, notification, null);
-    }
-
-    // TODO(Plan 9): Send LayoutChanged notification to requester.
-    // TODO(Plan 9): Send initial I-frame from ring buffer.
-
-    // Broadcast ClientAttached to other session peers.
-    var attached_count: u32 = 0;
-    var c: u32 = 0;
-    while (c < server.connection.client_manager.MAX_CLIENTS) : (c += 1) {
-        const index: u16 = @intCast(c);
-        if (ctx.client_manager.getClientConst(index)) |cs| {
-            if (cs.connection.state == .operating and cs.connection.attached_session_id == target_session_id) {
-                attached_count += 1;
-            }
-        }
-    }
-
-    var client_attached_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
-    const client_attached_sequence = client.connection.advanceSendSequence();
-    const client_attached_notification = notification_builder.buildClientAttached(target_session_id, client.connection.client_id, "", attached_count, client_attached_sequence, &client_attached_buffer) orelse return;
-    _ = broadcast.broadcastToSession(ctx.client_manager, target_session_id, client_attached_notification, client_slot);
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -714,7 +651,7 @@ test "handleAttachSession: already attached returns error" {
         .default_ime_engine = helpers.testImeEngine(),
     };
 
-    handleAttachSession(&context, client, slot_index, 1, 2);
+    handleAttachSession(&context, client, slot_index, 1, 2, "", false);
 
     // Client should still be in OPERATING with session 1.
     try std.testing.expectEqual(@as(u32, 1), client.connection.attached_session_id);

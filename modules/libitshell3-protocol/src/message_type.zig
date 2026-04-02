@@ -25,8 +25,6 @@ pub const MessageType = enum(u16) {
     destroy_session_response = 0x0109,
     rename_session_request = 0x010A,
     rename_session_response = 0x010B,
-    attach_or_create_request = 0x010C,
-    attach_or_create_response = 0x010D,
 
     // Pane Management (0x0140-0x017F)
     create_pane_request = 0x0140,

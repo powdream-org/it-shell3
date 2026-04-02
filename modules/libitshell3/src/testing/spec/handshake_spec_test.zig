@@ -72,23 +72,23 @@ test "spec: state machine — HANDSHAKING cannot go directly to OPERATING" {
 test "spec: sequence — send sequence starts at 1" {
     // Protocol spec 01-protocol-overview: sequence starts at 1.
     const conn = ConnectionState.init(.{ .fd = 5 }, 1);
-    try std.testing.expectEqual(@as(u32, 1), conn.send_sequence);
+    try std.testing.expectEqual(@as(u64, 1), conn.send_sequence);
 }
 
-test "spec: sequence — send sequence wraps from 0xFFFFFFFF to 1 (skips 0)" {
-    // Protocol spec 01-protocol-overview: wraps at 0xFFFFFFFF -> 1.
+test "spec: sequence — u64 sequence increments beyond u32 max without wrapping" {
+    // Protocol v2: sequence is u64, no practical wrap concern.
     var conn = ConnectionState.init(.{ .fd = 5 }, 1);
     conn.send_sequence = 0xFFFFFFFF;
     const seq = conn.advanceSendSequence();
-    try std.testing.expectEqual(@as(u32, 0xFFFFFFFF), seq);
-    try std.testing.expectEqual(@as(u32, 1), conn.send_sequence);
+    try std.testing.expectEqual(@as(u64, 0xFFFFFFFF), seq);
+    try std.testing.expectEqual(@as(u64, 0x100000000), conn.send_sequence);
 }
 
 test "spec: sequence — advanceSendSequence returns current then increments" {
     var conn = ConnectionState.init(.{ .fd = 5 }, 1);
-    try std.testing.expectEqual(@as(u32, 1), conn.advanceSendSequence());
-    try std.testing.expectEqual(@as(u32, 2), conn.advanceSendSequence());
-    try std.testing.expectEqual(@as(u32, 3), conn.advanceSendSequence());
+    try std.testing.expectEqual(@as(u64, 1), conn.advanceSendSequence());
+    try std.testing.expectEqual(@as(u64, 2), conn.advanceSendSequence());
+    try std.testing.expectEqual(@as(u64, 3), conn.advanceSendSequence());
 }
 
 // ── Spec: Message Validation Per State ───────────────────────────────────────
@@ -114,7 +114,7 @@ test "spec: message validation — READY allows heartbeat, session attach/create
     try std.testing.expect(conn.isMessageAllowed(.attach_session_request));
     try std.testing.expect(conn.isMessageAllowed(.create_session_request));
     try std.testing.expect(conn.isMessageAllowed(.list_sessions_request));
-    try std.testing.expect(conn.isMessageAllowed(.attach_or_create_request));
+    try std.testing.expect(conn.isMessageAllowed(.attach_session_request));
     try std.testing.expect(conn.isMessageAllowed(.client_display_info));
     // KeyEvent is not allowed in READY (no attached session).
     try std.testing.expect(!conn.isMessageAllowed(.key_event));

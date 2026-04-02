@@ -26,6 +26,13 @@ pub fn build(b: *std.Build) void {
     });
     const transport_mod = transport_dep.module("itshell3-transport");
 
+    const ime_dep = b.dependency("itshell3-ime", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const ime_artifact = ime_dep.artifact("itshell3-ime");
+    const ime_mod = ime_artifact.root_module;
+
     // --- Internal named modules ---
     const core_mod = b.createModule(.{
         .root_source_file = b.path("src/core/root.zig"),
@@ -70,6 +77,7 @@ pub fn build(b: *std.Build) void {
         }
         entry.mod.addImport("itshell3_protocol", protocol_mod);
         entry.mod.addImport("itshell3_transport", transport_mod);
+        entry.mod.addImport("itshell3_ime", ime_mod);
         entry.mod.addImport("ghostty", ghostty_vt);
     }
 
@@ -78,6 +86,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "ghostty", .module = ghostty_vt },
         .{ .name = "itshell3_protocol", .module = protocol_mod },
         .{ .name = "itshell3_transport", .module = transport_mod },
+        .{ .name = "itshell3_ime", .module = ime_mod },
         .{ .name = "itshell3_core", .module = core_mod },
         .{ .name = "itshell3_server", .module = server_mod },
         .{ .name = "itshell3_input", .module = input_mod },

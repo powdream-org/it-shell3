@@ -104,7 +104,7 @@ test "routeKeyEvent: HID keycode > HID_KEYCODE_MAX bypasses IME" {
     const result = routeKeyEvent(eng, key, &.{});
     switch (result) {
         .bypassed => |k| {
-            try std.testing.expectEqual(@as(u16, 0xE8), k.hid_keycode);
+            try std.testing.expectEqual(@as(u8, 0xE8), k.hid_keycode);
         },
         else => return error.TestUnexpectedResult,
     }

@@ -74,7 +74,7 @@ test "spec: connection state -- ready allows session creation" {
     const conn = makeConn(.ready);
     try std.testing.expect(conn.isMessageAllowed(.create_session_request));
     try std.testing.expect(conn.isMessageAllowed(.list_sessions_request));
-    try std.testing.expect(conn.isMessageAllowed(.attach_or_create_request));
+    try std.testing.expect(conn.isMessageAllowed(.attach_session_request));
 }
 
 test "spec: connection state -- ready allows client_display_info" {

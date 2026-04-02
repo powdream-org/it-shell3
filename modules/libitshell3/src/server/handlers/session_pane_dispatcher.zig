@@ -63,11 +63,13 @@ fn dispatchSession(params: CategoryDispatchParams) void {
         },
         .attach_session_request => {
             const parsed = std.json.parseFromSlice(struct {
-                session_id: u32,
+                session_id: u32 = 0,
+                session_name: []const u8 = "",
+                create_if_missing: bool = false,
             }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
             defer parsed.deinit();
             var session_ctx = makeSessionHandlerContext(ctx);
-            session_handler.handleAttachSession(&session_ctx, client, client_slot, sequence, parsed.value.session_id);
+            session_handler.handleAttachSession(&session_ctx, client, client_slot, sequence, parsed.value.session_id, parsed.value.session_name, parsed.value.create_if_missing);
         },
         .detach_session_request => {
             const parsed = std.json.parseFromSlice(struct {
@@ -85,14 +87,6 @@ fn dispatchSession(params: CategoryDispatchParams) void {
             defer parsed.deinit();
             var session_ctx = makeSessionHandlerContext(ctx);
             session_handler.handleDestroySession(&session_ctx, client, client_slot, sequence, parsed.value.session_id, parsed.value.force);
-        },
-        .attach_or_create_request => {
-            const parsed = std.json.parseFromSlice(struct {
-                session_name: []const u8,
-            }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
-            defer parsed.deinit();
-            var session_ctx = makeSessionHandlerContext(ctx);
-            session_handler.handleAttachOrCreate(&session_ctx, client, client_slot, sequence, parsed.value.session_name);
         },
         else => {},
     }
@@ -119,7 +113,7 @@ fn dispatchPane(params: CategoryDispatchParams) void {
                 session_id: u32,
                 pane_id: u32,
                 direction: u8,
-                ratio: f32 = 0.5,
+                ratio: u32 = 5000,
                 focus_new: bool = true,
             }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
             defer parsed.deinit();
@@ -159,13 +153,13 @@ fn dispatchPane(params: CategoryDispatchParams) void {
             const parsed = std.json.parseFromSlice(struct {
                 session_id: u32,
                 pane_id: u32,
-                direction: u8,
-                delta: i32,
+                orientation: u8,
+                delta_ratio: i32,
             }, ctx.allocator, payload, .{ .ignore_unknown_fields = true }) catch return;
             defer parsed.deinit();
-            const direction = std.meta.intToEnum(core.types.Direction, parsed.value.direction) catch return;
+            const orientation_enum = std.meta.intToEnum(core.types.Orientation, parsed.value.orientation) catch return;
             var pane_ctx = makePaneHandlerContext(ctx);
-            pane_handler.handleResizePane(&pane_ctx, client, client_slot, sequence, parsed.value.session_id, parsed.value.pane_id, direction, parsed.value.delta);
+            pane_handler.handleResizePane(&pane_ctx, client, client_slot, sequence, parsed.value.session_id, parsed.value.pane_id, orientation_enum, parsed.value.delta_ratio);
         },
         .equalize_splits_request => {
             const parsed = std.json.parseFromSlice(struct {

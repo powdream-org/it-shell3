@@ -369,18 +369,20 @@ test "spec: session -- DetachSessionResponse with error JSON round-trip" {
     try std.testing.expectEqualStrings("session destroyed", parsed.value.@"error".?);
 }
 
-test "spec: session -- AttachOrCreateRequest with cwd and shell" {
-    const original = session.AttachOrCreateRequest{
+test "spec: session -- AttachSessionRequest with create_if_missing, cwd, and shell" {
+    const original = session.AttachSessionRequest{
         .session_name = "my-session",
+        .create_if_missing = true,
         .shell = "/bin/zsh",
         .cwd = "/home/user",
     };
     const j = try json_mod.encode(allocator, original);
     defer allocator.free(j);
-    const parsed = try json_mod.decode(session.AttachOrCreateRequest, allocator, j);
+    const parsed = try json_mod.decode(session.AttachSessionRequest, allocator, j);
     defer parsed.deinit();
-    try std.testing.expectEqualStrings("/bin/zsh", parsed.value.shell);
-    try std.testing.expectEqualStrings("/home/user", parsed.value.cwd);
+    try std.testing.expectEqualStrings("/bin/zsh", parsed.value.shell.?);
+    try std.testing.expectEqualStrings("/home/user", parsed.value.cwd.?);
+    try std.testing.expect(parsed.value.create_if_missing);
 }
 
 test "spec: session -- ListSessionsRequest empty struct JSON round-trip" {
@@ -712,12 +714,12 @@ test "spec: pane -- NavigatePaneResponse JSON round-trip" {
 }
 
 test "spec: pane -- ResizePaneRequest JSON round-trip" {
-    const original = pane.ResizePaneRequest{ .session_id = 1, .pane_id = 1, .direction = 1, .delta = -5 };
+    const original = pane.ResizePaneRequest{ .session_id = 1, .pane_id = 1, .orientation = 1, .delta_ratio = -500 };
     const j = try json_mod.encode(allocator, original);
     defer allocator.free(j);
     const parsed = try json_mod.decode(pane.ResizePaneRequest, allocator, j);
     defer parsed.deinit();
-    try std.testing.expectEqual(@as(i16, -5), parsed.value.delta);
+    try std.testing.expectEqual(@as(i32, -500), parsed.value.delta_ratio);
 }
 
 test "spec: pane -- ResizePaneResponse with error JSON round-trip" {

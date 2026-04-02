@@ -72,7 +72,6 @@ test "spec: category dispatch — page selector routes session/pane to 0x01" {
         .detach_session_request,
         .destroy_session_request,
         .rename_session_request,
-        .attach_or_create_request,
         .create_pane_request,
         .split_pane_request,
         .close_pane_request,
@@ -177,8 +176,6 @@ test "spec: category dispatch — second-level split routes session messages to 
         .destroy_session_response,
         .rename_session_request,
         .rename_session_response,
-        .attach_or_create_request,
-        .attach_or_create_response,
     };
     for (session_types) |mt| {
         const raw = @intFromEnum(mt);
@@ -318,12 +315,12 @@ test "spec: AttachOrCreateRequest — empty session_name means attach to most re
 
 test "spec: SplitPaneRequest — direction is integer per protocol direction conventions" {
     // The spec example: {"session_id": 1, "pane_id": 1, "direction": 0, ...}
-    const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 0, \"ratio\": 0.5}";
+    const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 0, \"ratio\": 5000}";
     const Parsed = struct {
         session_id: u32,
         pane_id: u32,
         direction: u8,
-        ratio: f32 = 0.5,
+        ratio: u32 = 5000,
     };
     const result = std.json.parseFromSlice(Parsed, std.testing.allocator, payload, .{
         .ignore_unknown_fields = true,
@@ -437,29 +434,28 @@ test "spec: category dispatch — sub-category 3 (0x01C0-0x01FF) has no defined 
     // Verify no existing MessageType falls in this range.
     const all_01xx = [_]MessageType{
         // Session
-        .create_session_request,   .create_session_response,
-        .list_sessions_request,    .list_sessions_response,
-        .attach_session_request,   .attach_session_response,
-        .detach_session_request,   .detach_session_response,
-        .destroy_session_request,  .destroy_session_response,
-        .rename_session_request,   .rename_session_response,
-        .attach_or_create_request, .attach_or_create_response,
+        .create_session_request,  .create_session_response,
+        .list_sessions_request,   .list_sessions_response,
+        .attach_session_request,  .attach_session_response,
+        .detach_session_request,  .detach_session_response,
+        .destroy_session_request, .destroy_session_response,
+        .rename_session_request,  .rename_session_response,
         // Pane
-        .create_pane_request,      .create_pane_response,
-        .split_pane_request,       .split_pane_response,
-        .close_pane_request,       .close_pane_response,
-        .focus_pane_request,       .focus_pane_response,
-        .navigate_pane_request,    .navigate_pane_response,
-        .resize_pane_request,      .resize_pane_response,
-        .equalize_splits_request,  .equalize_splits_response,
-        .zoom_pane_request,        .zoom_pane_response,
-        .swap_panes_request,       .swap_panes_response,
-        .layout_get_request,       .layout_get_response,
+        .create_pane_request,     .create_pane_response,
+        .split_pane_request,      .split_pane_response,
+        .close_pane_request,      .close_pane_response,
+        .focus_pane_request,      .focus_pane_response,
+        .navigate_pane_request,   .navigate_pane_response,
+        .resize_pane_request,     .resize_pane_response,
+        .equalize_splits_request, .equalize_splits_response,
+        .zoom_pane_request,       .zoom_pane_response,
+        .swap_panes_request,      .swap_panes_response,
+        .layout_get_request,      .layout_get_response,
         // Notification
-        .layout_changed,           .pane_metadata_changed,
-        .session_list_changed,     .client_attached,
-        .client_detached,          .client_health_changed,
-        .window_resize,            .window_resize_ack,
+        .layout_changed,          .pane_metadata_changed,
+        .session_list_changed,    .client_attached,
+        .client_detached,         .client_health_changed,
+        .window_resize,           .window_resize_ack,
     };
     for (all_01xx) |mt| {
         const raw = @intFromEnum(mt);
@@ -473,7 +469,7 @@ test "spec: category dispatch — sub-category 3 (0x01C0-0x01FF) has no defined 
 test "spec: SplitPaneRequest — direction 0 means right (vertical split, original left)" {
     // Per protocol SplitPane definition: "right (0): Vertical split. Original
     // pane becomes left, new pane appears on right."
-    const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 0, \"ratio\": 0.5}";
+    const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 0, \"ratio\": 5000}";
     const Parsed = struct { direction: u8 };
     const result = try std.json.parseFromSlice(Parsed, std.testing.allocator, payload, .{
         .ignore_unknown_fields = true,
@@ -483,7 +479,7 @@ test "spec: SplitPaneRequest — direction 0 means right (vertical split, origin
 }
 
 test "spec: SplitPaneRequest — direction 1 means down (horizontal split, original top)" {
-    const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 1, \"ratio\": 0.5}";
+    const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 1, \"ratio\": 5000}";
     const Parsed = struct { direction: u8 };
     const result = try std.json.parseFromSlice(Parsed, std.testing.allocator, payload, .{
         .ignore_unknown_fields = true,
@@ -493,7 +489,7 @@ test "spec: SplitPaneRequest — direction 1 means down (horizontal split, origi
 }
 
 test "spec: SplitPaneRequest — direction 2 means left (vertical split, new pane left)" {
-    const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 2, \"ratio\": 0.5}";
+    const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 2, \"ratio\": 5000}";
     const Parsed = struct { direction: u8 };
     const result = try std.json.parseFromSlice(Parsed, std.testing.allocator, payload, .{
         .ignore_unknown_fields = true,
@@ -503,7 +499,7 @@ test "spec: SplitPaneRequest — direction 2 means left (vertical split, new pan
 }
 
 test "spec: SplitPaneRequest — direction 3 means up (horizontal split, new pane top)" {
-    const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 3, \"ratio\": 0.5}";
+    const payload = "{\"session_id\": 1, \"pane_id\": 1, \"direction\": 3, \"ratio\": 5000}";
     const Parsed = struct { direction: u8 };
     const result = try std.json.parseFromSlice(Parsed, std.testing.allocator, payload, .{
         .ignore_unknown_fields = true,

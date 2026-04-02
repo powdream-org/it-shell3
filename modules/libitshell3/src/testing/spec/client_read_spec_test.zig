@@ -25,7 +25,7 @@ const TestState = struct {
     dispatched_count: u32 = 0,
     last_msg_type: u16 = 0,
     last_client_slot: u16 = 0,
-    last_sequence: u32 = 0,
+    last_sequence: u64 = 0,
     disconnect_count: u32 = 0,
     disconnect_slot: u16 = 0,
 };

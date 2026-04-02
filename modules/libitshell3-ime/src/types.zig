@@ -33,7 +33,9 @@ pub const KeyEvent = struct {
         ctrl: bool = false,
         alt: bool = false,
         super_key: bool = false,
-        _padding: u5 = 0,
+        caps_lock: bool = false,
+        num_lock: bool = false,
+        _padding: u3 = 0,
     };
 
     /// Maximum valid USB HID keycode for the Keyboard/Keypad page (0x07).
@@ -216,6 +218,37 @@ test "KeyEvent: HID_KEYCODE_MAX" {
 
 test "KeyEvent.Modifiers: packed struct is 1 byte" {
     try std.testing.expectEqual(@as(usize, 1), @sizeOf(KeyEvent.Modifiers));
+}
+
+test "KeyEvent.Modifiers: bit layout with caps_lock and num_lock" {
+    const caps = KeyEvent.Modifiers{ .caps_lock = true };
+    try std.testing.expectEqual(@as(u8, 0b01000), @as(u8, @bitCast(caps)));
+
+    const num = KeyEvent.Modifiers{ .num_lock = true };
+    try std.testing.expectEqual(@as(u8, 0b10000), @as(u8, @bitCast(num)));
+
+    const all = KeyEvent.Modifiers{ .ctrl = true, .alt = true, .super_key = true, .caps_lock = true, .num_lock = true };
+    try std.testing.expectEqual(@as(u8, 0b11111), @as(u8, @bitCast(all)));
+}
+
+test "KeyEvent: hasCompositionBreakingModifier caps_lock does not break" {
+    const key = KeyEvent{
+        .hid_keycode = 0x04,
+        .modifiers = .{ .caps_lock = true },
+        .shift = false,
+        .action = .press,
+    };
+    try std.testing.expect(!key.hasCompositionBreakingModifier());
+}
+
+test "KeyEvent: hasCompositionBreakingModifier num_lock does not break" {
+    const key = KeyEvent{
+        .hid_keycode = 0x04,
+        .modifiers = .{ .num_lock = true },
+        .shift = false,
+        .action = .press,
+    };
+    try std.testing.expect(!key.hasCompositionBreakingModifier());
 }
 
 test "ImeResult: default is all-null" {

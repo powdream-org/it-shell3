@@ -26,7 +26,7 @@ pub fn buildSessionListChanged(
     event: []const u8,
     session_id: types.SessionId,
     session_name: []const u8,
-    sequence: u32,
+    sequence: u64,
     out_buf: *ScratchBuf,
 ) ?[]const u8 {
     var json_buf: [MAX_NOTIFICATION_JSON]u8 = undefined;
@@ -52,7 +52,7 @@ pub fn buildClientAttached(
     client_id: types.ClientId,
     client_name: []const u8,
     attached_clients: u32,
-    sequence: u32,
+    sequence: u64,
     out_buf: *ScratchBuf,
 ) ?[]const u8 {
     var json_buf: [MAX_NOTIFICATION_JSON]u8 = undefined;
@@ -80,7 +80,7 @@ pub fn buildClientDetached(
     client_name: []const u8,
     reason: []const u8,
     attached_clients: u32,
-    sequence: u32,
+    sequence: u64,
     out_buf: *ScratchBuf,
 ) ?[]const u8 {
     var json_buf: [MAX_NOTIFICATION_JSON]u8 = undefined;
@@ -108,7 +108,7 @@ pub fn buildPaneMetadataChanged(
     pane_id: types.PaneId,
     title: ?[]const u8,
     cwd: ?[]const u8,
-    sequence: u32,
+    sequence: u64,
     out_buf: *ScratchBuf,
 ) ?[]const u8 {
     var json_buf: [MAX_NOTIFICATION_JSON]u8 = undefined;
@@ -145,7 +145,7 @@ pub fn buildLayoutChanged(
     zoomed_pane_present: bool,
     zoomed_pane_id: types.PaneId,
     layout_tree_json: []const u8,
-    sequence: u32,
+    sequence: u64,
     out_buf: *ScratchBuf,
 ) ?[]const u8 {
     var json_buf: [MAX_NOTIFICATION_JSON]u8 = undefined;
@@ -182,8 +182,8 @@ pub fn serializeLayoutTree(
         0,
         0,
         0,
-        @floatFromInt(total_cols),
-        @floatFromInt(total_rows),
+        total_cols,
+        total_rows,
         active_input_method,
         active_keyboard_layout,
         writer,
@@ -194,10 +194,10 @@ pub fn serializeLayoutTree(
 fn serializeNode(
     entry: *const SessionEntry,
     node_index: u8,
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
     active_input_method: []const u8,
     active_keyboard_layout: []const u8,
     writer: anytype,
@@ -208,48 +208,41 @@ fn serializeNode(
     switch (node) {
         .leaf => |slot| {
             const pane_id = entry.getPaneIdOrNone(slot);
-            const cols: u16 = @intFromFloat(@round(width));
-            const rows: u16 = @intFromFloat(@round(height));
-            const x_off: u16 = @intFromFloat(@round(x));
-            const y_off: u16 = @intFromFloat(@round(y));
             try writer.print("{{\"type\":\"leaf\",\"pane_id\":{d},\"cols\":{d},\"rows\":{d},\"x_off\":{d},\"y_off\":{d},\"preedit_active\":false,\"active_input_method\":\"{s}\",\"active_keyboard_layout\":\"{s}\"}}", .{
                 pane_id,
-                cols,
-                rows,
-                x_off,
-                y_off,
+                width,
+                height,
+                x,
+                y,
                 active_input_method,
                 active_keyboard_layout,
             });
         },
         .split => |s| {
             const orientation_string: []const u8 = if (s.orientation == .horizontal) "horizontal" else "vertical";
-            const cols: u16 = @intFromFloat(@round(width));
-            const rows: u16 = @intFromFloat(@round(height));
-            const x_off: u16 = @intFromFloat(@round(x));
-            const y_off: u16 = @intFromFloat(@round(y));
 
-            try writer.print("{{\"type\":\"split\",\"orientation\":\"{s}\",\"ratio\":{d:.6},\"cols\":{d},\"rows\":{d},\"x_off\":{d},\"y_off\":{d},\"first\":", .{
+            try writer.print("{{\"type\":\"split\",\"orientation\":\"{s}\",\"ratio\":{d},\"cols\":{d},\"rows\":{d},\"x_off\":{d},\"y_off\":{d},\"first\":", .{
                 orientation_string,
                 s.ratio,
-                cols,
-                rows,
-                x_off,
-                y_off,
+                width,
+                height,
+                x,
+                y,
             });
 
             const left_index = split_tree.leftChild(node_index);
             const right_index = split_tree.rightChild(node_index);
 
+            // Integer arithmetic per spec: child_size = parent_size * ratio / RATIO_SCALE
             switch (s.orientation) {
                 .horizontal => {
-                    const left_width = width * s.ratio;
+                    const left_width: u16 = @intCast(@as(u32, width) * s.ratio / types.RATIO_SCALE);
                     try serializeNode(entry, left_index, x, y, left_width, height, active_input_method, active_keyboard_layout, writer);
                     try writer.writeAll(",\"second\":");
                     try serializeNode(entry, right_index, x + left_width, y, width - left_width, height, active_input_method, active_keyboard_layout, writer);
                 },
                 .vertical => {
-                    const top_height = height * s.ratio;
+                    const top_height: u16 = @intCast(@as(u32, height) * s.ratio / types.RATIO_SCALE);
                     try serializeNode(entry, left_index, x, y, width, top_height, active_input_method, active_keyboard_layout, writer);
                     try writer.writeAll(",\"second\":");
                     try serializeNode(entry, right_index, x, y + top_height, width, height - top_height, active_input_method, active_keyboard_layout, writer);
@@ -338,7 +331,7 @@ test "serializeLayoutTree: two panes" {
 
     var s = session_mod.Session.init(1, "s", 0, helpers.testImeEngine(), 0);
     s.tree_nodes = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&s.tree_nodes, 0, .horizontal, 0.5, 1);
+    try split_tree.splitLeaf(&s.tree_nodes, 0, .horizontal, 5000, 1);
     var entry = SessionEntry.init(s);
     // Occupy slots 0 and 1.
     entry.free_mask &= ~(@as(types.FreeMask, 1) << @as(u4, 0));
@@ -352,6 +345,10 @@ test "serializeLayoutTree: two panes" {
     try std.testing.expect(std.mem.indexOf(u8, json.?, "\"split\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, json.?, "\"first\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, json.?, "\"second\"") != null);
+    // Per ADR 00062: ratio must be integer (5000), not float (0.500000).
+    try std.testing.expect(std.mem.indexOf(u8, json.?, "\"ratio\":5000") != null);
+    // Must NOT contain a decimal point in the ratio value.
+    try std.testing.expect(std.mem.indexOf(u8, json.?, "\"ratio\":0.") == null);
 }
 
 test "buildLayoutChanged: produces valid envelope with layout tree" {

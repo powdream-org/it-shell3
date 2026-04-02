@@ -34,29 +34,29 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 
 ## Plan Index
 
-| #    | Name                                          | Plan File                                               | Target Module        | Status      |
-| ---- | --------------------------------------------- | ------------------------------------------------------- | -------------------- | ----------- |
-| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`                  | libitshell3          | **Done**    |
-| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`         | libitshell3          | **Done**    |
-| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                    | libitshell3-protocol | **Done**    |
-| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`                 | libitshell3          | **Done**    |
-| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`             | libitshell3          | **Done**    |
-| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`        | libitshell3 + docs   | **Done**    |
-| 6    | Message Infrastructure & Connection Lifecycle | `2026-03-28-libitshell3-message-infrastructure.md`      | libitshell3          | **Done**    |
-| 7    | Session & Pane Operations                     | `2026-03-29-libitshell3-session-pane-operations.md`     | libitshell3          | **Done**    |
-| 7.5  | Message Dispatcher Refactor                   | `2026-03-31-libitshell3-message-dispatcher-refactor.md` | libitshell3          | **Done**    |
-| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                       | libitshell3          | Not started |
-| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                       | libitshell3          | Not started |
-| 10   | Cascades & Shutdown                           | (not yet written)                                       | libitshell3          | Not started |
-| 11   | SSH Transport                                 | (not yet written)                                       | libitshell3-protocol | Not started |
-| 12.1 | Daemon CLI — Design                           | (not yet written)                                       | daemon               | Not started |
-| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                       | daemon               | Not started |
-| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md`     | daemon               | Not started |
-| 14.1 | macOS Client PoC — Design                     | (not yet written)                                       | app/macos            | Not started |
-| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                       | app/macos            | Not started |
-| 15   | Design Doc CTR Resolution                     | (not yet written)                                       | multi-module         | **Done**    |
-| 16   | Post-Design Code Alignment                    | (not yet written)                                       | multi-module         | Not started |
-| 17+  | Deferred Features                             | —                                                       | various              | Not started |
+| #    | Name                                          | Plan File                                               | Target Module        | Status          |
+| ---- | --------------------------------------------- | ------------------------------------------------------- | -------------------- | --------------- |
+| 1    | Foundation                                    | `2026-03-25-libitshell3-foundation.md`                  | libitshell3          | **Done**        |
+| 2    | ghostty Integration                           | `2026-03-25-libitshell3-ghostty-integration.md`         | libitshell3          | **Done**        |
+| 3    | Wire Protocol                                 | `2026-03-25-libitshell3-protocol.md`                    | libitshell3-protocol | **Done**        |
+| 4    | Ring Buffer + Frame Delivery                  | `2026-03-26-libitshell3-ring-buffer.md`                 | libitshell3          | **Done**        |
+| 5    | IME Integration                               | `2026-03-26-libitshell3-ime-integration.md`             | libitshell3          | **Done**        |
+| 5.5  | Spec Alignment Audit                          | `2026-03-27-libitshell3-spec-alignment-audit.md`        | libitshell3 + docs   | **Done**        |
+| 6    | Message Infrastructure & Connection Lifecycle | `2026-03-28-libitshell3-message-infrastructure.md`      | libitshell3          | **Done**        |
+| 7    | Session & Pane Operations                     | `2026-03-29-libitshell3-session-pane-operations.md`     | libitshell3          | **Done**        |
+| 7.5  | Message Dispatcher Refactor                   | `2026-03-31-libitshell3-message-dispatcher-refactor.md` | libitshell3          | **Done**        |
+| 8    | Input Pipeline & Preedit Wire Messages        | (not yet written)                                       | libitshell3          | Not started     |
+| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                       | libitshell3          | Not started     |
+| 10   | Cascades & Shutdown                           | (not yet written)                                       | libitshell3          | Not started     |
+| 11   | SSH Transport                                 | (not yet written)                                       | libitshell3-protocol | Not started     |
+| 12.1 | Daemon CLI — Design                           | (not yet written)                                       | daemon               | Not started     |
+| 12.2 | Daemon CLI — Implementation                   | (not yet written)                                       | daemon               | Not started     |
+| 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md`     | daemon               | Not started     |
+| 14.1 | macOS Client PoC — Design                     | (not yet written)                                       | app/macos            | Not started     |
+| 14.2 | macOS Client PoC — Implementation             | (not yet written)                                       | app/macos            | Not started     |
+| 15   | Design Doc CTR Resolution                     | (not yet written)                                       | multi-module         | **Done**        |
+| 16   | Post-Design Code Alignment                    | `2026-04-02-libitshell3-post-design-code-alignment.md`  | multi-module         | **In progress** |
+| 17+  | Deferred Features                             | —                                                       | various              | Not started     |
 
 ---
 
@@ -545,23 +545,37 @@ design-doc-revision cycles. Documentation-only plan — no source code changes.
 **Depends on:** Plan 7.5 (all current message handlers must be implemented
 before resolving CTRs that affect message definitions)
 
-### Plan 16: Post-Design Code Alignment (Not Started)
+### Plan 16: Post-Design Code Alignment (In Progress)
 
 **Scope:** Code changes blocked on spec updates. Requires design docs to be
 updated first (Plan 15) before code can be modified.
 
-**Known items (by CTR source):**
+**Confirmed work items (post-research audit):**
 
+- **ADR 00015** (u64 sequence / 20-byte header): `header.zig` HEADER_SIZE 16→20,
+  VERSION 1→2, sequence u32→u64 across all handlers, dispatchers, connection
+  state, protocol envelope, notification builders, frame serializer, tests
+  (~100+ locations across libitshell3-protocol and libitshell3)
+- **ADR 00062** (fixed-point resize ratio): `split_tree.zig` ratio f32→u32,
+  `pane_handler.zig` resize handler, `session_pane_dispatcher.zig` wire parsing,
+  `notification_builder.zig` JSON serialization, `equalizeRatios` 0.5→5000
+- **RN-01/ADR 00003** (AttachOrCreate merge): delete message types
+  0x010C/0x010D, add optional fields to AttachSessionRequest (session_name,
+  create_if_missing, shell, cwd), add action_taken to AttachSessionResponse,
+  merge handler logic, update dispatcher routing, rewrite tests
 - **ADR 00059** (CapsLock/NumLock in KeyEvent): update `core/ime_engine.zig`
-  Modifiers, `input/wire_decompose.zig`, libitshell3-ime engine
-- **ADR 00052** (static allocation): review `MAX_CLIENTS` value against revised
-  spec minimum
-- **ADR 00054** (per-instance socket directory): `os/socket_path.zig`
-- **ADR 00058** (inline buffers): verify code matches revised spec
-- **ADR 00062** (fixed-point resize ratio): `split_tree.zig` ratio f32 → u32,
-  `pane_handler.zig` resize handler, `message_dispatcher.zig` resize parsing
-- **ADR 00063** (text zoom as WindowResize): no code change needed (daemon
-  already treats WindowResize generically)
+  Modifiers (add caps_lock, num_lock, change padding u5→u3),
+  `input/wire_decompose.zig` (preserve bits 4-5), fix tests
+
+**Already aligned (no work needed):**
+
+- **ADR 00052** (MAX_CLIENTS=64): code matches v1.0-r9 spec
+- **ADR 00054** (per-instance socket directory): deferred to Plan 12
+- **ADR 00058** (inline buffers): fully compliant
+- **ADR 00060** (Connection→SocketConnection rename): already applied
+- **ADR 00061** (MessageReader tiered buffer): already implemented
+- **CTR-04** (SendvResult removal): already done
+- **ADR 00063** (text zoom as WindowResize): no code change needed
 
 **Depends on:** Plan 15 (specs must be updated before code follows)
 

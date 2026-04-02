@@ -31,10 +31,11 @@ pub const ConnectionState = struct {
     negotiated_render_caps_count: u8 = 0,
     /// Session this connection is attached to (0 = not attached).
     attached_session_id: u32 = 0,
-    /// Server-side send sequence counter. Starts at 1, wraps 0xFFFFFFFF -> 1.
-    send_sequence: u32 = 1,
+    /// Server-side send sequence counter. Starts at 1. With u64 there is no
+    /// practical wrap concern (584 years at 1 billion messages per second).
+    send_sequence: u64 = 1,
     /// Last received sequence from client (for debugging/logging).
-    recv_sequence_last: u32 = 0,
+    recv_sequence_last: u64 = 0,
 
     pub const MAX_CAPABILITIES: u8 = 16;
     pub const MAX_RENDER_CAPABILITIES: u8 = 8;
@@ -71,10 +72,10 @@ pub const ConnectionState = struct {
         return valid;
     }
 
-    /// Returns the current sequence and increments. Wraps to 1, skipping 0.
-    pub fn advanceSendSequence(self: *ConnectionState) u32 {
+    /// Returns the current sequence and increments.
+    pub fn advanceSendSequence(self: *ConnectionState) u64 {
         const seq = self.send_sequence;
-        self.send_sequence = if (self.send_sequence == 0xFFFFFFFF) 1 else self.send_sequence + 1;
+        self.send_sequence += 1;
         return seq;
     }
 
@@ -93,7 +94,7 @@ pub const ConnectionState = struct {
                 .@"error" => true,
                 .client_display_info => true,
                 // Session attach/create/list messages are valid in READY
-                .create_session_request, .list_sessions_request, .attach_session_request, .attach_or_create_request => true,
+                .create_session_request, .list_sessions_request, .attach_session_request => true,
                 else => false,
             },
             .operating => switch (msg_type) {
@@ -154,7 +155,7 @@ test "ConnectionState.init: starts in handshaking state" {
     const conn = ConnectionState.init(.{ .fd = 5 }, 42);
     try std.testing.expectEqual(State.handshaking, conn.state);
     try std.testing.expectEqual(@as(u32, 42), conn.client_id);
-    try std.testing.expectEqual(@as(u32, 1), conn.send_sequence);
+    try std.testing.expectEqual(@as(u64, 1), conn.send_sequence);
     try std.testing.expectEqual(@as(u32, 0), conn.attached_session_id);
 }
 
@@ -201,16 +202,16 @@ test "ConnectionState.transitionTo: disconnecting is terminal" {
 
 test "ConnectionState.advanceSendSequence: starts at 1 and increments" {
     var conn = ConnectionState.init(.{ .fd = 5 }, 1);
-    try std.testing.expectEqual(@as(u32, 1), conn.advanceSendSequence());
-    try std.testing.expectEqual(@as(u32, 2), conn.advanceSendSequence());
-    try std.testing.expectEqual(@as(u32, 3), conn.advanceSendSequence());
+    try std.testing.expectEqual(@as(u64, 1), conn.advanceSendSequence());
+    try std.testing.expectEqual(@as(u64, 2), conn.advanceSendSequence());
+    try std.testing.expectEqual(@as(u64, 3), conn.advanceSendSequence());
 }
 
-test "ConnectionState.advanceSendSequence: wraps from max to 1" {
+test "ConnectionState.advanceSendSequence: u64 sequence beyond u32 max" {
     var conn = ConnectionState.init(.{ .fd = 5 }, 1);
-    conn.send_sequence = 0xFFFFFFFF;
-    try std.testing.expectEqual(@as(u32, 0xFFFFFFFF), conn.advanceSendSequence());
-    try std.testing.expectEqual(@as(u32, 1), conn.advanceSendSequence());
+    conn.send_sequence = 0x1_0000_0000;
+    try std.testing.expectEqual(@as(u64, 0x1_0000_0000), conn.advanceSendSequence());
+    try std.testing.expectEqual(@as(u64, 0x1_0000_0001), conn.advanceSendSequence());
 }
 
 test "ConnectionState.isMessageAllowed: handshaking only allows ClientHello and Error" {

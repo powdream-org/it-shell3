@@ -34,8 +34,8 @@ test "spec: envelope -- magic bytes are 0x49 0x54 at offsets 0-1" {
     try std.testing.expectEqual(@as(u8, 0x54), buf[1]);
 }
 
-test "spec: envelope -- version byte is 1 at offset 2" {
-    // protocol 01 Section 3.1: Offset 2, Size 1, currently 1.
+test "spec: envelope -- version byte is 2 at offset 2" {
+    // protocol 01 Section 3.1: Offset 2, Size 1, currently 2 (v2 header).
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.list_sessions_response),
         .flags = .{},
@@ -44,7 +44,7 @@ test "spec: envelope -- version byte is 1 at offset 2" {
     };
     var buf: [header_mod.HEADER_SIZE]u8 = undefined;
     hdr.encode(&buf);
-    try std.testing.expectEqual(@as(u8, 1), buf[2]);
+    try std.testing.expectEqual(@as(u8, 2), buf[2]);
 }
 
 test "spec: envelope -- flags at offset 3 default to JSON encoding" {
@@ -138,7 +138,7 @@ test "spec: envelope -- decode rejects nonzero reserved flags" {
     var buf: [header_mod.HEADER_SIZE]u8 = [_]u8{0} ** header_mod.HEADER_SIZE;
     buf[0] = 0x49;
     buf[1] = 0x54;
-    buf[2] = 1;
+    buf[2] = 2; // v2
     buf[3] = 0xF0; // reserved bits set
     const result = Header.decode(&buf);
     try std.testing.expectError(error.ReservedFlagsSet, result);
@@ -149,7 +149,7 @@ test "spec: envelope -- decode rejects nonzero reserved field" {
     var buf: [header_mod.HEADER_SIZE]u8 = [_]u8{0} ** header_mod.HEADER_SIZE;
     buf[0] = 0x49;
     buf[1] = 0x54;
-    buf[2] = 1;
+    buf[2] = 2; // v2
     buf[3] = 0;
     std.mem.writeInt(u16, buf[6..8], 1, .little); // nonzero reserved
     const result = Header.decode(&buf);
@@ -200,7 +200,7 @@ test "spec: envelope -- session response types use JSON encoding" {
         .detach_session_response,
         .destroy_session_response,
         .rename_session_response,
-        .attach_or_create_response,
+        .attach_session_response,
     };
     for (response_types) |mt| {
         try std.testing.expectEqual(MessageType.Encoding.json, mt.expectedEncoding());

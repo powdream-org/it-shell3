@@ -254,8 +254,8 @@ test "spec: session message types -- correct protocol codes" {
     try std.testing.expectEqual(@as(u16, 0x0109), @intFromEnum(MessageType.destroy_session_response));
     try std.testing.expectEqual(@as(u16, 0x010A), @intFromEnum(MessageType.rename_session_request));
     try std.testing.expectEqual(@as(u16, 0x010B), @intFromEnum(MessageType.rename_session_response));
-    try std.testing.expectEqual(@as(u16, 0x010C), @intFromEnum(MessageType.attach_or_create_request));
-    try std.testing.expectEqual(@as(u16, 0x010D), @intFromEnum(MessageType.attach_or_create_response));
+    // AttachOrCreate (0x010C/0x010D) removed per ADR 00003; merged into
+    // AttachSessionRequest/Response (0x0104/0x0105) with create_if_missing flag.
 }
 
 // ── Handler-level tests: response payload content ─────────────────────────
@@ -507,12 +507,12 @@ test "spec: session destroy handler -- status=2 when processes running and force
 
 // ── TEST-4 & TEST-9: handleAttachOrCreate response field names ────────────
 
-test "spec: attach-or-create handler -- 'created' path response contains required fields" {
-    // protocol 03 AttachOrCreateResponse: action_taken="created", session_id,
-    // pane_id, session_name fields.
+test "spec: attach-session handler -- 'created' path response contains required fields" {
+    // protocol 03 AttachSessionResponse: action_taken="created", session_id,
+    // pane_id, session_name fields (when create_if_missing=true).
     //
     // In the "created" code path, the handler broadcasts SessionListChanged
-    // before enqueueing AttachOrCreateResponse (0x010D). We locate the response
+    // before enqueueing AttachSessionResponse (0x0105). We locate the response
     // by message type code.
     const helpers = test_mod.helpers;
     var manager = server.connection.client_manager.ClientManager{
@@ -524,23 +524,23 @@ test "spec: attach-or-create handler -- 'created' path response contains require
 
     resetState();
     var ctx = makeTestContext(&sm, &manager);
-    // No session named "new-sess" exists — handler must create it.
-    server.handlers.session_handler.handleAttachOrCreate(&ctx, client, idx, 1, "new-sess");
+    // No session named "new-sess" exists — handler must create it (create_if_missing=true).
+    server.handlers.session_handler.handleAttachSession(&ctx, client, idx, 1, 0, "new-sess", true);
 
-    // Locate the AttachOrCreateResponse (0x010D) in the queue.
+    // Locate the AttachSessionResponse (0x0105) in the queue.
     var payload_buf: [4096]u8 = undefined;
     const payload = extractPayloadByMsgType(
         client,
-        @intFromEnum(MessageType.attach_or_create_response),
+        @intFromEnum(MessageType.attach_session_response),
         &payload_buf,
     ) orelse return error.TestUnexpectedResult;
 
-    // protocol 03 AttachOrCreateResponse: action_taken field.
+    // protocol 03 AttachSessionResponse: action_taken field.
     try std.testing.expect(std.mem.indexOf(u8, payload, "\"action_taken\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, payload, "\"created\"") != null);
-    // protocol 03 AttachOrCreateResponse: session_name field.
-    try std.testing.expect(std.mem.indexOf(u8, payload, "\"session_name\"") != null);
-    // protocol 03 AttachOrCreateResponse: pane_id field.
+    // protocol 03 AttachSessionResponse: name field.
+    try std.testing.expect(std.mem.indexOf(u8, payload, "\"name\"") != null);
+    // protocol 03 AttachSessionResponse: pane_id field.
     try std.testing.expect(std.mem.indexOf(u8, payload, "\"pane_id\"") != null);
     // status=0 on success.
     try std.testing.expect(std.mem.indexOf(u8, payload, "\"status\":0") != null);
@@ -548,9 +548,10 @@ test "spec: attach-or-create handler -- 'created' path response contains require
     client.deinit();
 }
 
-test "spec: attach-or-create handler -- 'attached' path response contains required fields" {
-    // protocol 03 AttachOrCreateResponse: action_taken="attached" when session
-    // with the given name already exists. session_name and pane_id fields present.
+test "spec: attach-session handler -- 'attached' path response contains required fields" {
+    // protocol 03 AttachSessionResponse: action_taken="attached" when session
+    // with the given name already exists (create_if_missing=true).
+    // name and pane_id fields present.
     // In the "attached" path, the handler enqueues the response directly
     // (no SessionListChanged broadcast). We locate by message type code.
     const helpers = test_mod.helpers;
@@ -566,22 +567,22 @@ test "spec: attach-or-create handler -- 'attached' path response contains requir
     _ = try sm.createSession("existing-sess", testImeEngine(), 0);
 
     var ctx = makeTestContext(&sm, &manager);
-    server.handlers.session_handler.handleAttachOrCreate(&ctx, client, idx, 1, "existing-sess");
+    server.handlers.session_handler.handleAttachSession(&ctx, client, idx, 1, 0, "existing-sess", true);
 
-    // Locate AttachOrCreateResponse (0x010D) in the queue.
+    // Locate AttachSessionResponse (0x0105) in the queue.
     var payload_buf: [4096]u8 = undefined;
     const payload = extractPayloadByMsgType(
         client,
-        @intFromEnum(MessageType.attach_or_create_response),
+        @intFromEnum(MessageType.attach_session_response),
         &payload_buf,
     ) orelse return error.TestUnexpectedResult;
 
-    // protocol 03 AttachOrCreateResponse: action_taken="attached".
+    // protocol 03 AttachSessionResponse: action_taken="attached".
     try std.testing.expect(std.mem.indexOf(u8, payload, "\"action_taken\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, payload, "\"attached\"") != null);
-    // protocol 03 AttachOrCreateResponse: session_name field.
-    try std.testing.expect(std.mem.indexOf(u8, payload, "\"session_name\"") != null);
-    // protocol 03 AttachOrCreateResponse: pane_id field.
+    // protocol 03 AttachSessionResponse: name field.
+    try std.testing.expect(std.mem.indexOf(u8, payload, "\"name\"") != null);
+    // protocol 03 AttachSessionResponse: pane_id field.
     try std.testing.expect(std.mem.indexOf(u8, payload, "\"pane_id\"") != null);
 
     client.deinit();
@@ -605,7 +606,7 @@ test "spec: session attach handler -- transitions to OPERATING and sets attached
     const sess_id = try sm.createSession("attach-me", testImeEngine(), 0);
 
     var ctx = makeTestContext(&sm, &manager);
-    server.handlers.session_handler.handleAttachSession(&ctx, client, idx, 1, sess_id);
+    server.handlers.session_handler.handleAttachSession(&ctx, client, idx, 1, sess_id, "", false);
 
     // Verify state transition to OPERATING.
     try std.testing.expectEqual(
@@ -661,7 +662,7 @@ test "spec: swap panes handler -- accepts pane_a_id and pane_b_id parameters" {
 
     // Build a two-leaf split tree.
     const split_tree = core.split_tree;
-    try split_tree.splitLeaf(&entry.session.tree_nodes, 0, .horizontal, 0.5, slot1);
+    try split_tree.splitLeaf(&entry.session.tree_nodes, 0, .horizontal, 5000, slot1);
 
     var pane_ctx = server.handlers.pane_handler.PaneHandlerContext{
         .session_manager = &sm,

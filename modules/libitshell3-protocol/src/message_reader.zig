@@ -288,7 +288,7 @@ const TestChunkPool = struct {
     }
 };
 
-fn makeHeader(msg_type: u16, payload_length: u32, sequence: u32) [header_mod.HEADER_SIZE]u8 {
+fn makeHeader(msg_type: u16, payload_length: u32, sequence: u64) [header_mod.HEADER_SIZE]u8 {
     var buf: [header_mod.HEADER_SIZE]u8 = undefined;
     const hdr = header_mod.Header{
         .msg_type = msg_type,
@@ -329,8 +329,8 @@ test "MessageReader: feed and extract complete frame" {
 test "MessageReader: partial header returns null" {
     var test_pool = TestChunkPool.init();
     var reader = MessageReader{ .pool = test_pool.selfWire() };
-    // Feed only 8 bytes of a 16-byte header.
-    const partial = [_]u8{ 0x49, 0x54, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00 };
+    // Feed only 8 bytes of a 20-byte header.
+    const partial = [_]u8{ 0x49, 0x54, 0x02, 0x00, 0x00, 0x01, 0x00, 0x00 };
     try reader.feed(&partial);
     try std.testing.expect(reader.nextMessage() == null);
     try std.testing.expectEqual(@as(u32, 8), reader.length);

@@ -59,10 +59,22 @@ pub const MAX_PANE_CWD: u16 = 4096;
 /// Derived from the platform's PATH_MAX (1024 on macOS, 4096 on Linux).
 pub const MAX_FOREGROUND_PROCESS: u16 = @intCast(std.posix.PATH_MAX);
 
+// ── Fixed-point ratio constants (per ADR 00062) ────────────────────────────
+
+/// Scale factor for fixed-point ratios (x 10^4). A ratio of 5000 = 50%.
+pub const RATIO_SCALE: u32 = 10_000;
+
+/// Minimum allowed ratio value (5% = 500 / 10000).
+pub const MIN_RATIO: u32 = 500;
+
+/// Equal split ratio value (50% = 5000 / 10000).
+pub const EQUAL_RATIO: u32 = 5000;
+
 // ── Layout enums ────────────────────────────────────────────────────────────
 
-/// Split orientation for the binary pane tree.
-pub const Orientation = enum { horizontal, vertical };
+/// Split orientation for the binary pane tree. Integer tags match protocol
+/// wire format: 0=horizontal, 1=vertical.
+pub const Orientation = enum(u8) { horizontal = 0, vertical = 1 };
 
 /// Directional navigation. Integer tags match protocol wire format
 /// and ghostty's GHOSTTY_SPLIT_DIRECTION: 0=right, 1=down, 2=left, 3=up.
@@ -77,6 +89,12 @@ pub const FreeMask = u16;
 pub const DirtyMask = u16;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
+
+test "constants: fixed-point ratio constants" {
+    try std.testing.expectEqual(@as(u32, 10_000), RATIO_SCALE);
+    try std.testing.expectEqual(@as(u32, 500), MIN_RATIO);
+    try std.testing.expectEqual(@as(u32, 5000), EQUAL_RATIO);
+}
 
 test "constants: have expected values" {
     try std.testing.expectEqual(@as(u8, 16), MAX_PANES);

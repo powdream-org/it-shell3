@@ -63,7 +63,7 @@ pub fn serializeAndWrite(
         .msg_type = 0x0300,
         .flags = Flags{ .encoding = .binary },
         .payload_length = @intCast(payload_len),
-        .sequence = @intCast(next_sequence.* & 0xFFFFFFFF),
+        .sequence = next_sequence.*,
     };
     hdr.encode(scratch[0..protocol.header.HEADER_SIZE]);
 

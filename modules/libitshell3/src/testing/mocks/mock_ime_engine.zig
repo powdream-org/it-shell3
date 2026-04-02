@@ -184,7 +184,7 @@ test "MockImeEngine: last_process_key tracks last key" {
     const key = KeyEvent{ .hid_keycode = 0x15, .modifiers = .{ .ctrl = true }, .shift = true, .action = .press };
     _ = eng.processKey(key);
     try std.testing.expect(mock.last_process_key != null);
-    try std.testing.expectEqual(@as(u16, 0x15), mock.last_process_key.?.hid_keycode);
+    try std.testing.expectEqual(@as(u8, 0x15), mock.last_process_key.?.hid_keycode);
     try std.testing.expect(mock.last_process_key.?.modifiers.ctrl);
     try std.testing.expect(mock.last_process_key.?.shift);
 }

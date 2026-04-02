@@ -7,5 +7,6 @@
         .ghostty = .{ .path = "../../vendors/ghostty" },
         .@"itshell3-protocol" = .{ .path = "../libitshell3-protocol" },
         .@"itshell3-transport" = .{ .path = "../libitshell3-transport" },
+        .@"itshell3-ime" = .{ .path = "../libitshell3-ime" },
     },
 }

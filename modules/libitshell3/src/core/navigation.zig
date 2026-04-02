@@ -1,27 +1,28 @@
 //! Directional pane navigation using bounding-rect geometry.
 //! Computes layout rectangles from the split tree and finds the best
 //! neighbor pane in a given direction, with wrap-around.
+//! All geometry uses integer arithmetic (cell coordinates).
 
 const std = @import("std");
 const types = @import("types.zig");
 const split_tree = @import("split_tree.zig");
 
-pub const SplitNodeData = split_tree.SplitNodeData;
+const SplitNodeData = split_tree.SplitNodeData;
 
-/// Axis-aligned bounding rectangle for a pane's screen region.
+/// Axis-aligned bounding rectangle for a pane's screen region (cell units).
 pub const Rect = struct {
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
 
     /// Right edge x-coordinate.
-    pub fn right(self: Rect) f32 {
+    pub fn right(self: Rect) u16 {
         return self.x + self.width;
     }
 
     /// Bottom edge y-coordinate.
-    pub fn bottom(self: Rect) f32 {
+    pub fn bottom(self: Rect) u16 {
         return self.y + self.height;
     }
 };
@@ -38,8 +39,8 @@ pub fn computeRects(
     const root_rect = Rect{
         .x = 0,
         .y = 0,
-        .width = @floatFromInt(total_cols),
-        .height = @floatFromInt(total_rows),
+        .width = total_cols,
+        .height = total_rows,
     };
     computeRectsNode(tree, 0, root_rect, &rects);
     return rects;
@@ -62,34 +63,39 @@ fn computeRectsNode(
             const left_idx = split_tree.leftChild(node_idx);
             const right_idx = split_tree.rightChild(node_idx);
 
-            // horizontal orientation: left/right split (side by side)
-            // vertical orientation: top/bottom split (stacked)
+            // Integer arithmetic per spec: child_size = parent_size * ratio / RATIO_SCALE
             const left_rect: Rect = switch (s.orientation) {
-                .horizontal => Rect{
-                    .x = rect.x,
-                    .y = rect.y,
-                    .width = rect.width * s.ratio,
-                    .height = rect.height,
+                .horizontal => blk: {
+                    const left_width: u16 = @intCast(@as(u32, rect.width) * s.ratio / types.RATIO_SCALE);
+                    break :blk Rect{
+                        .x = rect.x,
+                        .y = rect.y,
+                        .width = left_width,
+                        .height = rect.height,
+                    };
                 },
-                .vertical => Rect{
-                    .x = rect.x,
-                    .y = rect.y,
-                    .width = rect.width,
-                    .height = rect.height * s.ratio,
+                .vertical => blk: {
+                    const top_height: u16 = @intCast(@as(u32, rect.height) * s.ratio / types.RATIO_SCALE);
+                    break :blk Rect{
+                        .x = rect.x,
+                        .y = rect.y,
+                        .width = rect.width,
+                        .height = top_height,
+                    };
                 },
             };
             const right_rect: Rect = switch (s.orientation) {
                 .horizontal => Rect{
-                    .x = rect.x + rect.width * s.ratio,
+                    .x = rect.x + left_rect.width,
                     .y = rect.y,
-                    .width = rect.width * (1.0 - s.ratio),
+                    .width = rect.width - left_rect.width,
                     .height = rect.height,
                 },
                 .vertical => Rect{
                     .x = rect.x,
-                    .y = rect.y + rect.height * s.ratio,
+                    .y = rect.y + left_rect.height,
                     .width = rect.width,
-                    .height = rect.height * (1.0 - s.ratio),
+                    .height = rect.height - left_rect.height,
                 },
             };
             computeRectsNode(tree, left_idx, left_rect, rects);
@@ -100,11 +106,16 @@ fn computeRectsNode(
 
 /// Returns the length of the overlap between intervals [a0, a1) and [b0, b1).
 /// Returns 0 if they do not overlap.
-fn intervalOverlap(a0: f32, a1: f32, b0: f32, b1: f32) f32 {
+fn intervalOverlap(a0: u16, a1: u16, b0: u16, b1: u16) u16 {
     const lo = @max(a0, b0);
     const hi = @min(a1, b1);
     if (hi > lo) return hi - lo;
-    return 0.0;
+    return 0;
+}
+
+/// Unsigned absolute difference.
+fn absDiff(a: u16, b: u16) u16 {
+    return if (a >= b) a - b else b - a;
 }
 
 /// Find the adjacent pane in the given direction from focused.
@@ -125,13 +136,11 @@ pub fn findPaneInDirection(
     focused: types.PaneSlot,
     direction: types.Direction,
 ) ?types.PaneSlot {
-    const epsilon: f32 = 0.5;
-
     const rects = computeRects(tree, total_cols, total_rows);
     const focused_rect = rects[focused] orelse return null;
 
     var best_slot: ?types.PaneSlot = null;
-    var best_distance: f32 = std.math.inf(f32);
+    var best_distance: u16 = std.math.maxInt(u16);
 
     // Collect direct neighbors: edge adjacent in `direction` with perpendicular overlap.
     var slot: u32 = 0;
@@ -140,16 +149,17 @@ pub fn findPaneInDirection(
         if (candidate_slot == focused) continue;
         const candidate_rect = rects[candidate_slot] orelse continue;
 
+        // Integer coordinates: adjacent edges are exactly equal.
         const is_adjacent: bool = switch (direction) {
-            .left => @abs(candidate_rect.right() - focused_rect.x) < epsilon,
-            .right => @abs(candidate_rect.x - focused_rect.right()) < epsilon,
-            .up => @abs(candidate_rect.bottom() - focused_rect.y) < epsilon,
-            .down => @abs(candidate_rect.y - focused_rect.bottom()) < epsilon,
+            .left => candidate_rect.right() == focused_rect.x,
+            .right => candidate_rect.x == focused_rect.right(),
+            .up => candidate_rect.bottom() == focused_rect.y,
+            .down => candidate_rect.y == focused_rect.bottom(),
         };
         if (!is_adjacent) continue;
 
         // Compute perpendicular overlap.
-        const overlap: f32 = switch (direction) {
+        const overlap: u16 = switch (direction) {
             .left, .right => intervalOverlap(
                 focused_rect.y,
                 focused_rect.bottom(),
@@ -163,14 +173,14 @@ pub fn findPaneInDirection(
                 candidate_rect.right(),
             ),
         };
-        if (overlap <= 0.0) continue;
+        if (overlap == 0) continue;
 
-        // Compute edge distance (distance between focused edge and candidate's adjacent edge).
-        const edge_distance: f32 = switch (direction) {
-            .left => @abs(focused_rect.x - candidate_rect.right()),
-            .right => @abs(candidate_rect.x - focused_rect.right()),
-            .up => @abs(focused_rect.y - candidate_rect.bottom()),
-            .down => @abs(candidate_rect.y - focused_rect.bottom()),
+        // Compute edge distance.
+        const edge_distance: u16 = switch (direction) {
+            .left => absDiff(focused_rect.x, candidate_rect.right()),
+            .right => absDiff(candidate_rect.x, focused_rect.right()),
+            .up => absDiff(focused_rect.y, candidate_rect.bottom()),
+            .down => absDiff(candidate_rect.y, focused_rect.bottom()),
         };
 
         // Pick best: shortest edge distance, tie-break: lowest slot index.
@@ -193,7 +203,8 @@ pub fn findPaneInDirection(
     };
 
     var wrap_slot: ?types.PaneSlot = null;
-    var wrap_extreme: f32 = -1.0; // sentinel
+    var wrap_extreme: u16 = 0;
+    var wrap_found = false;
 
     var s2: u32 = 0;
     while (s2 < types.MAX_PANES) : (s2 += 1) {
@@ -202,7 +213,7 @@ pub fn findPaneInDirection(
         const candidate_rect = rects[candidate_slot] orelse continue;
 
         // Must have perpendicular overlap with focused.
-        const overlap: f32 = switch (direction) {
+        const overlap: u16 = switch (direction) {
             .left, .right => intervalOverlap(
                 focused_rect.y,
                 focused_rect.bottom(),
@@ -216,21 +227,29 @@ pub fn findPaneInDirection(
                 candidate_rect.right(),
             ),
         };
-        if (overlap <= 0.0) continue;
+        if (overlap == 0) continue;
 
         // For wrap, pick furthest in the opposite direction.
-        const metric: f32 = switch (opposite) {
+        // "Furthest right" = highest right(), "Furthest left" = lowest x, etc.
+        const metric: u16 = switch (opposite) {
             .right => candidate_rect.right(),
-            .left => -candidate_rect.x,
+            .left => candidate_rect.x,
             .down => candidate_rect.bottom(),
-            .up => -candidate_rect.y,
+            .up => candidate_rect.y,
         };
 
-        const is_better = wrap_extreme < 0.0 or metric > wrap_extreme or
-            (metric == wrap_extreme and (wrap_slot == null or candidate_slot < wrap_slot.?));
-        if (is_better) {
+        // For left/up: lowest value is "furthest"; for right/down: highest value.
+        const metric_is_better: bool = switch (opposite) {
+            .right, .down => !wrap_found or metric > wrap_extreme or
+                (metric == wrap_extreme and (wrap_slot == null or candidate_slot < wrap_slot.?)),
+            .left, .up => !wrap_found or metric < wrap_extreme or
+                (metric == wrap_extreme and (wrap_slot == null or candidate_slot < wrap_slot.?)),
+        };
+
+        if (metric_is_better) {
             wrap_extreme = metric;
             wrap_slot = candidate_slot;
+            wrap_found = true;
         }
     }
 
@@ -261,7 +280,7 @@ test "findPaneInDirection: single pane navigate any direction returns null" {
 
 test "findPaneInDirection: two panes horizontal split navigate left/right" {
     var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    try split_tree.splitLeaf(&tree, 0, .horizontal, 5000, 1);
 
     try std.testing.expectEqual(
         @as(?types.PaneSlot, 1),
@@ -275,7 +294,7 @@ test "findPaneInDirection: two panes horizontal split navigate left/right" {
 
 test "findPaneInDirection: two panes horizontal split no vertical neighbor wraps to null" {
     var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    try split_tree.splitLeaf(&tree, 0, .horizontal, 5000, 1);
 
     const result_up = findPaneInDirection(&tree, 80, 24, 0, .up);
     const result_down = findPaneInDirection(&tree, 80, 24, 0, .down);
@@ -285,7 +304,7 @@ test "findPaneInDirection: two panes horizontal split no vertical neighbor wraps
 
 test "findPaneInDirection: two panes vertical split navigate down/up" {
     var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .vertical, 0.5, 1);
+    try split_tree.splitLeaf(&tree, 0, .vertical, 5000, 1);
 
     try std.testing.expectEqual(
         @as(?types.PaneSlot, 1),
@@ -299,9 +318,9 @@ test "findPaneInDirection: two panes vertical split navigate down/up" {
 
 test "findPaneInDirection: three panes left half + right half split top/bottom" {
     var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    try split_tree.splitLeaf(&tree, 0, .horizontal, 5000, 1);
     const right_node = split_tree.findLeafBySlot(&tree, 1).?;
-    try split_tree.splitLeaf(&tree, right_node, .vertical, 0.5, 2);
+    try split_tree.splitLeaf(&tree, right_node, .vertical, 5000, 2);
 
     const right_from_0 = findPaneInDirection(&tree, 80, 24, 0, .right);
     try std.testing.expect(right_from_0 != null);
@@ -314,11 +333,11 @@ test "findPaneInDirection: three panes left half + right half split top/bottom" 
 
 test "findPaneInDirection: tie-break equal distance selects lowest slot index" {
     var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    try split_tree.splitLeaf(&tree, 0, .horizontal, 5000, 1);
     const left_node = split_tree.findLeafBySlot(&tree, 0).?;
-    try split_tree.splitLeaf(&tree, left_node, .vertical, 0.5, 2);
+    try split_tree.splitLeaf(&tree, left_node, .vertical, 5000, 2);
     const right_node = split_tree.findLeafBySlot(&tree, 1).?;
-    try split_tree.splitLeaf(&tree, right_node, .vertical, 0.5, 3);
+    try split_tree.splitLeaf(&tree, right_node, .vertical, 5000, 3);
 
     const right_from_0 = findPaneInDirection(&tree, 80, 24, 0, .right);
     try std.testing.expectEqual(@as(?types.PaneSlot, 1), right_from_0);
@@ -332,7 +351,7 @@ test "findPaneInDirection: tie-break equal distance selects lowest slot index" {
 
 test "findPaneInDirection: wrap-around navigating past edge" {
     var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .vertical, 0.5, 1);
+    try split_tree.splitLeaf(&tree, 0, .vertical, 5000, 1);
 
     const up_from_0 = findPaneInDirection(&tree, 80, 24, 0, .up);
     try std.testing.expectEqual(@as(?types.PaneSlot, 1), up_from_0);
@@ -343,9 +362,9 @@ test "findPaneInDirection: wrap-around navigating past edge" {
 
 test "findPaneInDirection: non-adjacent pane wraps" {
     var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    try split_tree.splitLeaf(&tree, 0, .horizontal, 5000, 1);
     const right_node = split_tree.findLeafBySlot(&tree, 1).?;
-    try split_tree.splitLeaf(&tree, right_node, .vertical, 0.5, 2);
+    try split_tree.splitLeaf(&tree, right_node, .vertical, 5000, 2);
 
     const right_from_1 = findPaneInDirection(&tree, 80, 24, 1, .right);
     try std.testing.expectEqual(@as(?types.PaneSlot, 0), right_from_1);
@@ -358,14 +377,13 @@ test "findPaneInDirection: shortest edge distance wins over greatest overlap" {
     //   Pane 2: right-bottom, 75% height (40,6 40x18)
     //
     // From pane 0, navigating right: both pane 1 and pane 2 are edge-adjacent
-    // (edge distance ~0). Pane 2 has greater perpendicular overlap (18 rows vs
-    // 6 rows). Under a "greatest overlap" algorithm, pane 2 would be selected.
-    // Under the correct "shortest edge distance" algorithm, both have equal
-    // edge distance, so tie-break by lowest slot index selects pane 1.
+    // (edge distance 0). Pane 2 has greater perpendicular overlap (18 rows vs
+    // 6 rows). Under the correct "shortest edge distance" algorithm, both have
+    // equal edge distance, so tie-break by lowest slot index selects pane 1.
     var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    try split_tree.splitLeaf(&tree, 0, .horizontal, 5000, 1);
     const right_node = split_tree.findLeafBySlot(&tree, 1).?;
-    try split_tree.splitLeaf(&tree, right_node, .vertical, 0.25, 2);
+    try split_tree.splitLeaf(&tree, right_node, .vertical, 2500, 2);
 
     // Verify geometry: pane 2 has greater overlap with pane 0 than pane 1.
     const rects = computeRects(&tree, 80, 24);
@@ -387,38 +405,38 @@ test "findPaneInDirection: shortest edge distance wins over greatest overlap" {
 
 test "computeRects: two pane horizontal split geometry" {
     var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .horizontal, 0.5, 1);
+    try split_tree.splitLeaf(&tree, 0, .horizontal, 5000, 1);
 
     const rects = computeRects(&tree, 80, 24);
     const r0 = rects[0].?;
     const r1 = rects[1].?;
 
-    try std.testing.expectApproxEqAbs(@as(f32, 0.0), r0.x, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 0.0), r0.y, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 40.0), r0.width, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 24.0), r0.height, 0.01);
+    try std.testing.expectEqual(@as(u16, 0), r0.x);
+    try std.testing.expectEqual(@as(u16, 0), r0.y);
+    try std.testing.expectEqual(@as(u16, 40), r0.width);
+    try std.testing.expectEqual(@as(u16, 24), r0.height);
 
-    try std.testing.expectApproxEqAbs(@as(f32, 40.0), r1.x, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 0.0), r1.y, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 40.0), r1.width, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 24.0), r1.height, 0.01);
+    try std.testing.expectEqual(@as(u16, 40), r1.x);
+    try std.testing.expectEqual(@as(u16, 0), r1.y);
+    try std.testing.expectEqual(@as(u16, 40), r1.width);
+    try std.testing.expectEqual(@as(u16, 24), r1.height);
 }
 
 test "computeRects: two pane vertical split geometry" {
     var tree = split_tree.initSingleLeaf(0);
-    try split_tree.splitLeaf(&tree, 0, .vertical, 0.5, 1);
+    try split_tree.splitLeaf(&tree, 0, .vertical, 5000, 1);
 
     const rects = computeRects(&tree, 80, 24);
     const r0 = rects[0].?;
     const r1 = rects[1].?;
 
-    try std.testing.expectApproxEqAbs(@as(f32, 0.0), r0.x, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 0.0), r0.y, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 80.0), r0.width, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 12.0), r0.height, 0.01);
+    try std.testing.expectEqual(@as(u16, 0), r0.x);
+    try std.testing.expectEqual(@as(u16, 0), r0.y);
+    try std.testing.expectEqual(@as(u16, 80), r0.width);
+    try std.testing.expectEqual(@as(u16, 12), r0.height);
 
-    try std.testing.expectApproxEqAbs(@as(f32, 0.0), r1.x, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 12.0), r1.y, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 80.0), r1.width, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 12.0), r1.height, 0.01);
+    try std.testing.expectEqual(@as(u16, 0), r1.x);
+    try std.testing.expectEqual(@as(u16, 12), r1.y);
+    try std.testing.expectEqual(@as(u16, 80), r1.width);
+    try std.testing.expectEqual(@as(u16, 12), r1.height);
 }

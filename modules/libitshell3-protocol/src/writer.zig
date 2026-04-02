@@ -4,7 +4,7 @@
 const std = @import("std");
 const header_mod = @import("header.zig");
 
-/// Writes a complete protocol frame (16-byte header followed by payload) to
+/// Writes a complete protocol frame (20-byte header followed by payload) to
 /// `writer`. The caller is responsible for setting `hdr.payload_length` to
 /// match `payload.len`.
 pub fn writeFrame(writer: anytype, hdr: header_mod.Header, payload: []const u8) @TypeOf(writer).Error!void {
@@ -29,11 +29,11 @@ test "writeFrame: produces correct bytes" {
     try writeFrame(fbs.writer(), hdr, "abc");
 
     const written = fbs.getWritten();
-    // Should be header (16) + payload (3) = 19 bytes
-    try std.testing.expectEqual(@as(usize, 19), written.len);
+    // Should be header (20) + payload (3) = 23 bytes
+    try std.testing.expectEqual(@as(usize, 23), written.len);
     // Magic bytes
     try std.testing.expectEqual(@as(u8, 0x49), written[0]);
     try std.testing.expectEqual(@as(u8, 0x54), written[1]);
     // Payload follows header
-    try std.testing.expectEqualSlices(u8, "abc", written[16..19]);
+    try std.testing.expectEqualSlices(u8, "abc", written[20..23]);
 }

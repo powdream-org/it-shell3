@@ -1,15 +1,15 @@
-//! 16-byte fixed protocol header: magic (0x4954) + version + flags +
+//! 20-byte fixed protocol header: magic (0x4954) + version + flags +
 //! msg_type + reserved + payload_length + sequence. Precedes every message
 //! on the wire.
 
 const std = @import("std");
 
 /// Wire size of the protocol header in bytes.
-pub const HEADER_SIZE: usize = 16;
+pub const HEADER_SIZE: usize = 20;
 /// Two-byte magic identifying an it-shell3 protocol frame ("IT").
 pub const MAGIC: [2]u8 = .{ 0x49, 0x54 }; // "IT"
 /// Current protocol version.
-pub const VERSION: u8 = 1;
+pub const VERSION: u8 = 2;
 /// Maximum allowed payload size (16 MiB).
 pub const MAX_PAYLOAD_SIZE: u32 = 16 * 1024 * 1024; // 16 MiB
 
@@ -27,7 +27,7 @@ pub const Header = struct {
     msg_type: u16,
     flags: Flags,
     payload_length: u32,
-    sequence: u32,
+    sequence: u64,
 
     pub fn encode(self: Header, buf: *[HEADER_SIZE]u8) void {
         buf[0] = MAGIC[0];
@@ -37,7 +37,7 @@ pub const Header = struct {
         std.mem.writeInt(u16, buf[4..6], self.msg_type, .little);
         std.mem.writeInt(u16, buf[6..8], 0, .little); // reserved
         std.mem.writeInt(u32, buf[8..12], self.payload_length, .little);
-        std.mem.writeInt(u32, buf[12..16], self.sequence, .little);
+        std.mem.writeInt(u64, buf[12..20], self.sequence, .little);
     }
 
     pub fn decode(buf: *const [HEADER_SIZE]u8) HeaderError!Header {
@@ -58,7 +58,7 @@ pub const Header = struct {
             .msg_type = std.mem.readInt(u16, buf[4..6], .little),
             .flags = flags,
             .payload_length = payload_length,
-            .sequence = std.mem.readInt(u32, buf[12..16], .little),
+            .sequence = std.mem.readInt(u64, buf[12..20], .little),
         };
     }
 };
@@ -72,8 +72,8 @@ pub const HeaderError = error{
     PayloadTooLarge,
 };
 
-test "Header: size is 16 bytes" {
-    try std.testing.expectEqual(@as(usize, 16), HEADER_SIZE);
+test "Header: size is 20 bytes" {
+    try std.testing.expectEqual(@as(usize, 20), HEADER_SIZE);
 }
 
 test "Flags: packed struct is exactly 1 byte" {
@@ -168,5 +168,22 @@ test "Header.decode: sequence number 0 is valid" {
     var buf: [HEADER_SIZE]u8 = undefined;
     hdr.encode(&buf);
     const decoded = try Header.decode(&buf);
-    try std.testing.expectEqual(@as(u32, 0), decoded.sequence);
+    try std.testing.expectEqual(@as(u64, 0), decoded.sequence);
+}
+
+test "Header.encode/Header.decode: u64 sequence values beyond u32 max" {
+    const large_seq: u64 = 0x1_0000_0001; // larger than u32 max
+    const hdr = Header{ .msg_type = 0x0001, .flags = .{}, .payload_length = 0, .sequence = large_seq };
+    var buf: [HEADER_SIZE]u8 = undefined;
+    hdr.encode(&buf);
+    const decoded = try Header.decode(&buf);
+    try std.testing.expectEqual(large_seq, decoded.sequence);
+}
+
+test "Header.decode: version check uses VERSION=2" {
+    var buf: [HEADER_SIZE]u8 = std.mem.zeroes([HEADER_SIZE]u8);
+    buf[0] = MAGIC[0];
+    buf[1] = MAGIC[1];
+    buf[2] = 1; // old version
+    try std.testing.expectError(error.UnsupportedVersion, Header.decode(&buf));
 }

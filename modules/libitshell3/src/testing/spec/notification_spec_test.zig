@@ -57,13 +57,13 @@ test "spec: notification encoding -- all notifications use JSON" {
 
 // ── Protocol header structure ──────────────────────────────────────────────
 
-test "spec: notification header -- 16 bytes with magic 0x4954" {
-    // protocol 01 Section 3.1: every message begins with 16-byte header.
+test "spec: notification header -- 20 bytes with magic 0x4954" {
+    // protocol 01 Section 3.1: every message begins with 20-byte header (v2).
     // Magic bytes: 0x49 0x54 (ASCII "IT").
-    try std.testing.expectEqual(@as(usize, 16), header_mod.HEADER_SIZE);
+    try std.testing.expectEqual(@as(usize, 20), header_mod.HEADER_SIZE);
     try std.testing.expectEqual(@as(u8, 0x49), header_mod.MAGIC[0]);
     try std.testing.expectEqual(@as(u8, 0x54), header_mod.MAGIC[1]);
-    try std.testing.expectEqual(@as(u8, 1), header_mod.VERSION);
+    try std.testing.expectEqual(@as(u8, 2), header_mod.VERSION);
 }
 
 test "spec: notification header -- encode and decode round-trips" {
