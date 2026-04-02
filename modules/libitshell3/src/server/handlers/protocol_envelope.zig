@@ -17,6 +17,9 @@ pub const MAX_ENVELOPE_PAYLOAD: usize = 8192;
 /// Total buffer size: header + max payload.
 pub const MAX_ENVELOPE_SIZE: usize = HEADER_SIZE + MAX_ENVELOPE_PAYLOAD;
 
+/// Scratch buffer type for message building. Shared by all builder modules.
+pub const ScratchBuf = [MAX_ENVELOPE_SIZE]u8;
+
 /// Wraps a JSON payload with a 20-byte protocol header. Returns the total
 /// number of bytes written (header + payload) into `out_buf`, or null if the
 /// payload exceeds MAX_ENVELOPE_PAYLOAD.

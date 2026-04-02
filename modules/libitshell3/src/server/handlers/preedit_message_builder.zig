@@ -11,8 +11,8 @@ const envelope = @import("protocol_envelope.zig");
 const core = @import("itshell3_core");
 const types = core.types;
 
-/// Scratch buffer type for preedit message building.
-pub const ScratchBuf = [envelope.MAX_ENVELOPE_SIZE]u8;
+/// Scratch buffer type alias for preedit message building.
+pub const ScratchBuf = envelope.ScratchBuf;
 
 /// Maximum size for preedit JSON payloads.
 const MAX_PREEDIT_JSON: usize = 1024;

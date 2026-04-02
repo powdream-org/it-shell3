@@ -9,6 +9,7 @@ const protocol = @import("itshell3_protocol");
 const MessageType = protocol.message_type.MessageType;
 const message_dispatcher = @import("message_dispatcher.zig");
 const CategoryDispatchParams = message_dispatcher.CategoryDispatchParams;
+const handler_utils = @import("handler_utils.zig");
 const server = @import("itshell3_server");
 const core = @import("itshell3_core");
 const types = core.types;
@@ -19,6 +20,7 @@ const procedures = server.ime.procedures;
 const BroadcastContext = procedures.BroadcastContext;
 const preedit_builder = server.handlers.preedit_message_builder;
 const broadcast_mod = server.connection.broadcast;
+const envelope = @import("protocol_envelope.zig");
 
 /// Dispatches an input-category message with priority ordering.
 /// P1: KeyEvent (0x0200), TextInput (0x0201) — highest priority.
@@ -64,17 +66,21 @@ pub fn priorityOf(msg_type: MessageType) InputPriority {
     };
 }
 
+/// Toggle bindings for input method switching (Phase 0 shortcut check).
+const toggle_bindings = [_]input.ToggleBinding{
+    .{ .hid_keycode = 0xE6, .toggle_method = "korean_2set" }, // Right Alt
+};
+
 // ── KeyEvent (0x0200) ──────────────────────────────────────────────────────
 
 fn handleKeyEvent(params: CategoryDispatchParams) void {
     const client = params.client;
     const payload = params.payload;
 
-    // Parse wire fields from JSON payload.
-    const keycode = extractU16Field(payload, "keycode") orelse return;
-    const action_raw = extractU8Field(payload, "action") orelse 0;
-    const modifiers = extractU8Field(payload, "modifiers") orelse 0;
-    const pane_id = extractU32Field(payload, "pane_id") orelse 0;
+    const keycode = handler_utils.extractU16Field(payload, "\"keycode\":") orelse return;
+    const action_raw = handler_utils.extractU8Field(payload, "\"action\":") orelse 0;
+    const modifiers = handler_utils.extractU8Field(payload, "\"modifiers\":") orelse 0;
+    const pane_id = handler_utils.extractU32Field(payload, "\"pane_id\":") orelse 0;
 
     // Convert action to enum.
     const action: core.KeyEvent.Action = switch (action_raw) {
@@ -88,15 +94,22 @@ fn handleKeyEvent(params: CategoryDispatchParams) void {
     const key = input.decomposeWireEvent(keycode, modifiers, action);
 
     // Resolve target session entry.
-    const entry = resolveSessionEntry(params, pane_id) orelse return;
+    const entry = handler_utils.resolveSessionByPaneId(
+        params.context.session_manager,
+        client,
+        pane_id,
+    ) orelse return;
+
+    const client_id = client.getClientId();
+    const pty_ops = params.context.pty_ops orelse &handler_utils.no_op_pty_ops;
 
     // Update latest_client_id on the session entry.
-    entry.latest_client_id = client.getClientId();
+    entry.latest_client_id = client_id;
 
     // Preedit ownership transfer if a different client is composing.
     const session = &entry.session;
     if (session.preedit.owner) |owner| {
-        if (owner != client.getClientId()) {
+        if (owner != client_id) {
             var seq = params.header.sequence;
             const resolved_pane_id = if (pane_id == 0)
                 entry.getPaneIdOrNone(session.focused_pane)
@@ -110,21 +123,16 @@ fn handleKeyEvent(params: CategoryDispatchParams) void {
             };
             const focused = entry.focusedPane();
             const pty_fd: std.posix.fd_t = if (focused) |p| p.pty_fd else -1;
-            const pty_ops = params.context.pty_ops orelse &no_op_pty_ops;
-            procedures.ownershipTransferWithBroadcast(session, pty_fd, pty_ops, client.getClientId(), &bc);
+            procedures.ownershipTransferWithBroadcast(session, pty_fd, pty_ops, client_id, &bc);
         }
     }
 
     // Route through Phase 0 + Phase 1.
-    const toggle_bindings = [_]input.ToggleBinding{
-        .{ .hid_keycode = 0xE6, .toggle_method = "korean_2set" }, // Right Alt
-    };
     const result = input.handleKeyEvent(session.ime_engine, key, &toggle_bindings);
 
     // Phase 2: consume the result.
     const focused = entry.focusedPane();
     const pty_fd: std.posix.fd_t = if (focused) |p| p.pty_fd else -1;
-    const pty_ops = params.context.pty_ops orelse &no_op_pty_ops;
 
     switch (result) {
         .consumed => |ime_result| {
@@ -162,7 +170,7 @@ fn broadcastPreeditState(
         if (session.preedit.owner == null) {
             // New composition -- set owner and send PreeditStart.
             session.preedit.owner = params.client.getClientId();
-            var start_buf: preedit_builder.ScratchBuf = undefined;
+            var start_buf: envelope.ScratchBuf = undefined;
             seq += 1;
             if (preedit_builder.buildPreeditStart(
                 pane_id,
@@ -181,7 +189,7 @@ fn broadcastPreeditState(
             }
         }
         // Send PreeditUpdate.
-        var update_buf: preedit_builder.ScratchBuf = undefined;
+        var update_buf: envelope.ScratchBuf = undefined;
         seq += 1;
         if (preedit_builder.buildPreeditUpdate(
             pane_id,
@@ -200,7 +208,7 @@ fn broadcastPreeditState(
     } else {
         // Preedit cleared -- send PreeditEnd if there was an owner.
         if (session.preedit.owner != null) {
-            var end_buf: preedit_builder.ScratchBuf = undefined;
+            var end_buf: envelope.ScratchBuf = undefined;
             seq += 1;
             if (preedit_builder.buildPreeditEnd(
                 pane_id,
@@ -226,15 +234,19 @@ fn broadcastPreeditState(
 fn handleTextInput(params: CategoryDispatchParams) void {
     const payload = params.payload;
 
-    const pane_id = extractU32Field(payload, "pane_id") orelse 0;
-    const text = extractStringField(payload, "text") orelse return;
+    const pane_id = handler_utils.extractU32Field(payload, "\"pane_id\":") orelse 0;
+    const text = handler_utils.extractStringField(payload, "\"text\":\"") orelse return;
 
     // Validate text length.
     if (text.len > 65535) return;
 
-    const entry = resolveSessionEntry(params, pane_id) orelse return;
+    const entry = handler_utils.resolveSessionByPaneId(
+        params.context.session_manager,
+        params.client,
+        pane_id,
+    ) orelse return;
     const pane = resolvePaneInEntry(entry, pane_id) orelse return;
-    const pty_ops = params.context.pty_ops orelse &no_op_pty_ops;
+    const pty_ops = params.context.pty_ops orelse &handler_utils.no_op_pty_ops;
 
     // Write directly to PTY (bypass IME).
     _ = pty_ops.write(pane.pty_fd, text) catch {};
@@ -247,15 +259,19 @@ fn handleTextInput(params: CategoryDispatchParams) void {
 fn handlePasteData(params: CategoryDispatchParams) void {
     const payload = params.payload;
 
-    const pane_id = extractU32Field(payload, "pane_id") orelse 0;
-    const bracketed_paste = extractBoolField(payload, "bracketed_paste") orelse false;
-    const first_chunk = extractBoolField(payload, "first_chunk") orelse true;
-    const final_chunk = extractBoolField(payload, "final_chunk") orelse true;
-    const data = extractStringField(payload, "data") orelse return;
+    const pane_id = handler_utils.extractU32Field(payload, "\"pane_id\":") orelse 0;
+    const bracketed_paste = handler_utils.extractBoolField(payload, "\"bracketed_paste\":") orelse false;
+    const first_chunk = handler_utils.extractBoolField(payload, "\"first_chunk\":") orelse true;
+    const final_chunk = handler_utils.extractBoolField(payload, "\"final_chunk\":") orelse true;
+    const data = handler_utils.extractStringField(payload, "\"data\":\"") orelse return;
 
-    const entry = resolveSessionEntry(params, pane_id) orelse return;
+    const entry = handler_utils.resolveSessionByPaneId(
+        params.context.session_manager,
+        params.client,
+        pane_id,
+    ) orelse return;
     const pane = resolvePaneInEntry(entry, pane_id) orelse return;
-    const pty_ops = params.context.pty_ops orelse &no_op_pty_ops;
+    const pty_ops = params.context.pty_ops orelse &handler_utils.no_op_pty_ops;
 
     // Bracketed paste prefix.
     if (first_chunk and bracketed_paste) {
@@ -278,12 +294,16 @@ fn handlePasteData(params: CategoryDispatchParams) void {
 fn handleFocusEvent(params: CategoryDispatchParams) void {
     const payload = params.payload;
 
-    const pane_id = extractU32Field(payload, "pane_id") orelse 0;
-    const focused = extractBoolField(payload, "focused") orelse true;
+    const pane_id = handler_utils.extractU32Field(payload, "\"pane_id\":") orelse 0;
+    const focused = handler_utils.extractBoolField(payload, "\"focused\":") orelse true;
 
-    const entry = resolveSessionEntry(params, pane_id) orelse return;
+    const entry = handler_utils.resolveSessionByPaneId(
+        params.context.session_manager,
+        params.client,
+        pane_id,
+    ) orelse return;
     const pane = resolvePaneInEntry(entry, pane_id) orelse return;
-    const pty_ops = params.context.pty_ops orelse &no_op_pty_ops;
+    const pty_ops = params.context.pty_ops orelse &handler_utils.no_op_pty_ops;
 
     // Focus reporting (CSI ? 1004 h). The terminal's focus reporting mode
     // is tracked by ghostty. Since we don't have direct access to the mode
@@ -301,25 +321,6 @@ fn handleFocusEvent(params: CategoryDispatchParams) void {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-fn resolveSessionEntry(
-    params: CategoryDispatchParams,
-    pane_id: types.PaneId,
-) ?*server.state.session_entry.SessionEntry {
-    if (pane_id == 0) {
-        return params.client.attached_session;
-    }
-    const session_manager = params.context.session_manager;
-    var i: u32 = 0;
-    while (i < types.MAX_SESSIONS) : (i += 1) {
-        if (session_manager.findSessionBySlot(i)) |entry| {
-            if (entry.findPaneSlotByPaneId(pane_id) != null) {
-                return entry;
-            }
-        }
-    }
-    return null;
-}
-
 fn resolvePaneInEntry(
     entry: *server.state.session_entry.SessionEntry,
     pane_id: types.PaneId,
@@ -333,79 +334,6 @@ fn resolvePaneInEntry(
     return null;
 }
 
-/// No-op PTY operations fallback.
-fn noOpWrite(_: std.posix.fd_t, data: []const u8) interfaces.PtyOps.WriteError!usize {
-    return data.len;
-}
-
-fn noOpRead(_: std.posix.fd_t, _: []u8) interfaces.PtyOps.ReadError!usize {
-    return 0;
-}
-
-fn noOpFork(_: u16, _: u16) interfaces.PtyOps.ForkPtyError!interfaces.PtyOps.ForkPtyResult {
-    return .{ .master_fd = -1, .child_pid = 0 };
-}
-
-fn noOpResize(_: std.posix.fd_t, _: u16, _: u16) interfaces.PtyOps.ResizeError!void {}
-
-fn noOpClose(_: std.posix.fd_t) void {}
-
-const no_op_pty_ops = interfaces.PtyOps{
-    .forkPty = noOpFork,
-    .resize = noOpResize,
-    .close = noOpClose,
-    .read = noOpRead,
-    .write = noOpWrite,
-};
-
-fn extractU32Field(payload: []const u8, field: []const u8) ?u32 {
-    var search_buf: [64]u8 = undefined;
-    const search = std.fmt.bufPrint(&search_buf, "\"{s}\":", .{field}) catch return null;
-    const pos = std.mem.indexOf(u8, payload, search) orelse return null;
-    const after = payload[pos + search.len ..];
-    var start: usize = 0;
-    while (start < after.len and (after[start] == ' ' or after[start] == '\t')) : (start += 1) {}
-    if (start >= after.len) return null;
-    var end = start;
-    while (end < after.len and after[end] >= '0' and after[end] <= '9') : (end += 1) {}
-    if (end == start) return null;
-    return std.fmt.parseInt(u32, after[start..end], 10) catch null;
-}
-
-fn extractU16Field(payload: []const u8, field: []const u8) ?u16 {
-    const val = extractU32Field(payload, field) orelse return null;
-    if (val > std.math.maxInt(u16)) return null;
-    return @intCast(val);
-}
-
-fn extractU8Field(payload: []const u8, field: []const u8) ?u8 {
-    const val = extractU32Field(payload, field) orelse return null;
-    if (val > std.math.maxInt(u8)) return null;
-    return @intCast(val);
-}
-
-fn extractBoolField(payload: []const u8, field: []const u8) ?bool {
-    var search_buf: [64]u8 = undefined;
-    const search = std.fmt.bufPrint(&search_buf, "\"{s}\":", .{field}) catch return null;
-    const pos = std.mem.indexOf(u8, payload, search) orelse return null;
-    const after = payload[pos + search.len ..];
-    var start: usize = 0;
-    while (start < after.len and (after[start] == ' ' or after[start] == '\t')) : (start += 1) {}
-    if (start >= after.len) return null;
-    if (after.len - start >= 4 and std.mem.eql(u8, after[start .. start + 4], "true")) return true;
-    if (after.len - start >= 5 and std.mem.eql(u8, after[start .. start + 5], "false")) return false;
-    return null;
-}
-
-fn extractStringField(payload: []const u8, field: []const u8) ?[]const u8 {
-    var search_buf: [64]u8 = undefined;
-    const search = std.fmt.bufPrint(&search_buf, "\"{s}\":\"", .{field}) catch return null;
-    const pos = std.mem.indexOf(u8, payload, search) orelse return null;
-    const after = payload[pos + search.len ..];
-    const end = std.mem.indexOf(u8, after, "\"") orelse return null;
-    return after[0..end];
-}
-
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 test "priorityOf: correct priority tiers per spec" {
@@ -415,19 +343,8 @@ test "priorityOf: correct priority tiers per spec" {
     try std.testing.expectEqual(InputPriority.p5_focus, priorityOf(.focus_event));
 }
 
-test "extractU32Field: parses integer from JSON" {
-    const payload = "{\"pane_id\":42}";
-    try std.testing.expectEqual(@as(?u32, 42), extractU32Field(payload, "pane_id"));
-}
-
-test "extractStringField: extracts string value" {
-    const payload = "{\"text\":\"Hello\"}";
-    const text = extractStringField(payload, "text");
-    try std.testing.expect(text != null);
-    try std.testing.expectEqualSlices(u8, "Hello", text.?);
-}
-
-test "extractBoolField: parses booleans" {
-    try std.testing.expectEqual(@as(?bool, true), extractBoolField("{\"focused\":true}", "focused"));
-    try std.testing.expectEqual(@as(?bool, false), extractBoolField("{\"focused\":false}", "focused"));
+test "toggle_bindings: contains right alt for korean_2set" {
+    try std.testing.expectEqual(@as(usize, 1), toggle_bindings.len);
+    try std.testing.expectEqual(@as(u16, 0xE6), toggle_bindings[0].hid_keycode);
+    try std.testing.expectEqualSlices(u8, "korean_2set", toggle_bindings[0].toggle_method);
 }

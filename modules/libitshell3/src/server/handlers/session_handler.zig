@@ -119,19 +119,7 @@ pub fn handleListSessions(
         const info = &sessions[i];
 
         // Count attached clients for this session.
-        var attached_count: u32 = 0;
-        const client_manager = ctx.client_manager;
-        var c: u32 = 0;
-        while (c < server.connection.client_manager.MAX_CLIENTS) : (c += 1) {
-            const index: u16 = @intCast(c);
-            if (client_manager.getClientConst(index)) |cs| {
-                if (cs.connection.state == .operating and
-                    cs.connection.attached_session_id == info.session_id)
-                {
-                    attached_count += 1;
-                }
-            }
-        }
+        const attached_count = handler_utils.countAttachedClients(ctx.client_manager, info.session_id);
 
         writer.print("{{\"session_id\":{d},\"name\":\"{s}\",\"created_at\":{d},\"pane_count\":{d},\"attached_clients\":{d}}}", .{
             info.session_id,
@@ -298,16 +286,7 @@ fn sendAttachNotifications(
     }
 
     // Broadcast ClientAttached to other session peers.
-    var attached_count: u32 = 0;
-    var c: u32 = 0;
-    while (c < server.connection.client_manager.MAX_CLIENTS) : (c += 1) {
-        const index: u16 = @intCast(c);
-        if (ctx.client_manager.getClientConst(index)) |cs| {
-            if (cs.connection.state == .operating and cs.connection.attached_session_id == target_session_id) {
-                attached_count += 1;
-            }
-        }
-    }
+    const attached_count = handler_utils.countAttachedClients(ctx.client_manager, target_session_id);
 
     var notification_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
     const notification_sequence = client.connection.advanceSendSequence();
@@ -420,16 +399,7 @@ pub fn handleDetachSession(
     client.enqueueDirect(response) catch {};
 
     // Count remaining attached clients.
-    var attached_count: u32 = 0;
-    var c: u32 = 0;
-    while (c < server.connection.client_manager.MAX_CLIENTS) : (c += 1) {
-        const index: u16 = @intCast(c);
-        if (ctx.client_manager.getClientConst(index)) |cs| {
-            if (cs.connection.state == .operating and cs.connection.attached_session_id == session_id) {
-                attached_count += 1;
-            }
-        }
-    }
+    const attached_count = handler_utils.countAttachedClients(ctx.client_manager, session_id);
 
     // Broadcast ClientDetached to remaining session peers.
     var notification_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;

@@ -19,32 +19,25 @@ pub const InactivityTimer = struct {
     /// since epoch. null = no active composition being tracked.
     last_input_timestamp: ?i64,
 
-    /// Whether the timer is currently active (tracking a composition).
-    active: bool,
-
     pub fn init() InactivityTimer {
         return .{
             .last_input_timestamp = null,
-            .active = false,
         };
     }
 
     /// Starts or resets the timer. Called on every KeyEvent from the preedit owner.
     pub fn reset(self: *InactivityTimer, timestamp: i64) void {
         self.last_input_timestamp = timestamp;
-        self.active = true;
     }
 
     /// Cancels the timer. Called when preedit ends for any reason.
     pub fn cancel(self: *InactivityTimer) void {
         self.last_input_timestamp = null;
-        self.active = false;
     }
 
     /// Whether the inactivity timeout has elapsed. Returns true if the
     /// timer is active and `current_time - last_input_timestamp >= 30s`.
     pub fn isTimedOut(self: *const InactivityTimer, current_time: i64) bool {
-        if (!self.active) return false;
         const last = self.last_input_timestamp orelse return false;
         return (current_time - last) >= PREEDIT_INACTIVITY_TIMEOUT_MS;
     }
@@ -54,22 +47,19 @@ pub const InactivityTimer = struct {
 
 test "InactivityTimer.init: starts inactive" {
     const timer = InactivityTimer.init();
-    try std.testing.expect(!timer.active);
     try std.testing.expect(timer.last_input_timestamp == null);
 }
 
 test "InactivityTimer.reset: activates and sets timestamp" {
     var timer = InactivityTimer.init();
     timer.reset(1000);
-    try std.testing.expect(timer.active);
     try std.testing.expectEqual(@as(?i64, 1000), timer.last_input_timestamp);
 }
 
-test "InactivityTimer.cancel: deactivates and clears timestamp" {
+test "InactivityTimer.cancel: clears timestamp" {
     var timer = InactivityTimer.init();
     timer.reset(1000);
     timer.cancel();
-    try std.testing.expect(!timer.active);
     try std.testing.expect(timer.last_input_timestamp == null);
 }
 

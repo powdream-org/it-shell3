@@ -10,9 +10,6 @@ pub const handleKeyEvent = key_router.handleKeyEvent;
 pub const RouteResult = key_router.RouteResult;
 pub const ToggleBinding = key_router.ToggleBinding;
 
-/// Backward-compatible alias for spec tests pending rename.
-pub const routeKeyEvent = key_router.handleKeyEvent;
-
 const std = @import("std");
 test {
     std.testing.refAllDecls(@This());

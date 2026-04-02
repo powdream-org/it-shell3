@@ -9,6 +9,7 @@ const protocol = @import("itshell3_protocol");
 const MessageType = protocol.message_type.MessageType;
 const message_dispatcher = @import("message_dispatcher.zig");
 const CategoryDispatchParams = message_dispatcher.CategoryDispatchParams;
+const handler_utils = @import("handler_utils.zig");
 const envelope = @import("protocol_envelope.zig");
 const server = @import("itshell3_server");
 const ClientState = server.connection.client_state.ClientState;
@@ -33,23 +34,22 @@ fn handleClientDisplayInfo(params: CategoryDispatchParams) void {
     const payload = params.payload;
     const sequence = params.header.sequence;
 
-    // Parse fields from JSON payload.
-    if (extractU16Field(payload, "display_refresh_hz")) |hz| {
+    if (handler_utils.extractU16Field(payload, "\"display_refresh_hz\":")) |hz| {
         client.display_info.display_refresh_hz = hz;
     }
-    if (extractStringField(payload, "power_state")) |ps| {
+    if (handler_utils.extractStringField(payload, "\"power_state\":\"")) |ps| {
         client.display_info.power_state = parsePowerState(ps);
     }
-    if (extractU16Field(payload, "preferred_max_fps")) |fps| {
+    if (handler_utils.extractU16Field(payload, "\"preferred_max_fps\":")) |fps| {
         client.display_info.preferred_max_fps = fps;
     }
-    if (extractStringField(payload, "transport_type")) |tt| {
+    if (handler_utils.extractStringField(payload, "\"transport_type\":\"")) |tt| {
         client.display_info.transport_type = parseTransportType(tt);
     }
-    if (extractU16Field(payload, "estimated_rtt_ms")) |rtt| {
+    if (handler_utils.extractU16Field(payload, "\"estimated_rtt_ms\":")) |rtt| {
         client.display_info.estimated_rtt_ms = rtt;
     }
-    if (extractStringField(payload, "bandwidth_hint")) |bw| {
+    if (handler_utils.extractStringField(payload, "\"bandwidth_hint\":\"")) |bw| {
         client.display_info.bandwidth_hint = parseBandwidthHint(bw);
     }
 
@@ -94,35 +94,6 @@ fn parseBandwidthHint(value: []const u8) ClientDisplayInfo.BandwidthHint {
     if (std.mem.eql(u8, value, "wan")) return .wan;
     if (std.mem.eql(u8, value, "cellular")) return .cellular;
     return .local;
-}
-
-fn extractU16Field(payload: []const u8, field: []const u8) ?u16 {
-    const val = extractU32Field(payload, field) orelse return null;
-    if (val > std.math.maxInt(u16)) return null;
-    return @intCast(val);
-}
-
-fn extractU32Field(payload: []const u8, field: []const u8) ?u32 {
-    var search_buf: [64]u8 = undefined;
-    const search = std.fmt.bufPrint(&search_buf, "\"{s}\":", .{field}) catch return null;
-    const pos = std.mem.indexOf(u8, payload, search) orelse return null;
-    const after = payload[pos + search.len ..];
-    var start: usize = 0;
-    while (start < after.len and (after[start] == ' ' or after[start] == '\t')) : (start += 1) {}
-    if (start >= after.len) return null;
-    var end = start;
-    while (end < after.len and after[end] >= '0' and after[end] <= '9') : (end += 1) {}
-    if (end == start) return null;
-    return std.fmt.parseInt(u32, after[start..end], 10) catch null;
-}
-
-fn extractStringField(payload: []const u8, field: []const u8) ?[]const u8 {
-    var search_buf: [64]u8 = undefined;
-    const search = std.fmt.bufPrint(&search_buf, "\"{s}\":\"", .{field}) catch return null;
-    const pos = std.mem.indexOf(u8, payload, search) orelse return null;
-    const after = payload[pos + search.len ..];
-    const end = std.mem.indexOf(u8, after, "\"") orelse return null;
-    return after[0..end];
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

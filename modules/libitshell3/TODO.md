@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 7 (Code Simplify)
+- **Step**: 8 (Spec Compliance Review)
 - **Cycle Type**: modification (Plan 8 — Input Pipeline & Preedit Wire Messages)
 - **Review Round**: 0
 - **Active Team**: impl-team
@@ -44,7 +44,7 @@
 - [x] Step 4: Cycle Setup
 - [x] Step 5: Scaffold & Build Verification
 - [x] Step 6: Implementation Phase
-- [ ] Step 7: Code Simplify & Convention Compliance
+- [x] Step 7: Code Simplify & Convention Compliance
 - [ ] Step 8: Spec Compliance Review
 - [ ] Step 9: Fix Cycle
 - [ ] Step 10: Coverage Audit

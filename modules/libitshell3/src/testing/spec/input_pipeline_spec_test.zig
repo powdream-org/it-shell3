@@ -49,7 +49,7 @@ test "spec: key event — normal key through Phase 1 produces committed text" {
 
 test "spec: key event — pane_id 0 routes to focused pane" {
     // Validates: protocol 04 KeyEvent pane_id=0 routes to session's focused pane.
-    // daemon-behavior 03 Section 2.8 KeyEvent pane_id Routing.
+    // daemon-behavior (policies-and-procedures) KeyEvent pane_id routing.
     // This is a behavioral contract: omitted or 0 pane_id means focused pane.
     var mock = MockImeEngine{ .results = &.{.{}} };
     const result = input.handleKeyEvent(mock.engine(), .{
@@ -170,7 +170,7 @@ test "spec: focus event — gained and lost focus are distinct" {
 
 // ---------------------------------------------------------------------------
 // 5. PreeditStart/Update/End lifecycle
-//    Spec: protocol 05-cjk-preedit-protocol Sections 2.1-2.3
+//    Spec: protocol 05-cjk-preedit-protocol (preedit lifecycle messages)
 // ---------------------------------------------------------------------------
 
 test "spec: preedit start — composition begins with correct session_id" {
@@ -231,7 +231,7 @@ test "spec: preedit end — cancelled reason has empty committed_text" {
 test "spec: preedit end — pane_closed reason on pane close" {
     // Validates: protocol 05 PreeditEnd reason="pane_closed" when pane
     // closed during active composition.
-    // daemon-behavior 03 Section 8.3: non-last pane close cancels via reset.
+    // daemon-behavior (policies-and-procedures) non-last pane close cancels via reset.
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 1;
@@ -245,7 +245,7 @@ test "spec: preedit end — pane_closed reason on pane close" {
 }
 
 test "spec: preedit end — session_id incremented after PreeditEnd" {
-    // Validates: daemon-behavior 02 Section 8 ordering constraint:
+    // Validates: daemon-behavior (event-handling) ordering constraint:
     // preedit.session_id incremented AFTER PreeditEnd sent.
     // PreeditEnd carries the old session_id.
     var mock = MockImeEngine{};
@@ -262,7 +262,7 @@ test "spec: preedit end — session_id incremented after PreeditEnd" {
 
 // ---------------------------------------------------------------------------
 // 6. PreeditSync — late-joining client
-//    Spec: protocol 05-cjk-preedit-protocol Section 2.4
+//    Spec: protocol 05-cjk-preedit-protocol (PreeditSync snapshot)
 // ---------------------------------------------------------------------------
 
 test "spec: preedit sync — contains full snapshot for late-joining client" {
@@ -283,13 +283,13 @@ test "spec: preedit sync — contains full snapshot for late-joining client" {
 
 // ---------------------------------------------------------------------------
 // 7. InputMethodSwitch + InputMethodAck
-//    Spec: protocol 05-cjk-preedit-protocol Sections 3.1-3.3,
-//    daemon-behavior 02 Section 8.4, daemon-behavior 03 Section 8.6
+//    Spec: protocol 05-cjk-preedit-protocol (input method switch protocol),
+//    daemon-behavior (event-handling, policies-and-procedures) switch handling
 // ---------------------------------------------------------------------------
 
 test "spec: input method switch — commit_current true flushes to PTY then switches" {
-    // Validates: protocol 05 Section 3.1 server behavior step 1+3+4.
-    // daemon-behavior 02 Section 8.4 commit_current=true path.
+    // Validates: protocol (cjk-preedit-protocol) server behavior for InputMethodSwitch, commit_current=true path.
+    // daemon-behavior (event-handling) commit_current=true handling.
     var mock = MockImeEngine{ .set_active_input_method_result = .{ .committed_text = "sw", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.setPreedit("comp");
@@ -304,8 +304,8 @@ test "spec: input method switch — commit_current true flushes to PTY then swit
 }
 
 test "spec: input method switch — commit_current false cancels preedit" {
-    // Validates: protocol 05 Section 3.1 server behavior step 2.
-    // daemon-behavior 02 Section 8.4 commit_current=false path.
+    // Validates: protocol (cjk-preedit-protocol) server behavior for InputMethodSwitch, commit_current=false path.
+    // daemon-behavior (event-handling) commit_current=false handling.
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 5;
@@ -325,7 +325,7 @@ test "spec: input method switch — commit_current false cancels preedit" {
 }
 
 test "spec: input method switch — PreeditEnd before InputMethodAck ordering" {
-    // Validates: daemon-behavior 02 Section 8.4 ordering constraint:
+    // Validates: daemon-behavior (event-handling) ordering constraint:
     // PreeditEnd MUST precede InputMethodAck.
     // Verified by: commit_current=true produces flush (PreeditEnd trigger)
     // before setActiveInputMethod (InputMethodAck trigger).
@@ -343,9 +343,9 @@ test "spec: input method switch — PreeditEnd before InputMethodAck ordering" {
 }
 
 test "spec: input method switch — session-level scope applies to all panes" {
-    // Validates: protocol 05 Section 3.1 "The server identifies the session
-    // from pane_id, then applies the input method switch to the entire session."
-    // Protocol 05 Section 3.3: per-session, no per-pane override.
+    // Validates: protocol (cjk-preedit-protocol) session-level input method switch scope —
+    // the server identifies the session from pane_id and applies switch to the entire session.
+    // Per-session scope, no per-pane override.
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
@@ -359,7 +359,7 @@ test "spec: input method switch — session-level scope applies to all panes" {
 }
 
 test "spec: new session — default input method is direct" {
-    // Validates: protocol 05 Section 3.3 normative requirement:
+    // Validates: protocol (cjk-preedit-protocol) normative requirement:
     // new sessions MUST initialize with input_method: "direct".
     var mock = MockImeEngine{ .active_input_method = "direct" };
     const s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -368,12 +368,13 @@ test "spec: new session — default input method is direct" {
 
 // ---------------------------------------------------------------------------
 // 8. Preedit exclusivity invariant
-//    Spec: protocol 05 Section 1.1, daemon-behavior 03 Section 7.1
+//    Spec: protocol 05-cjk-preedit-protocol (preedit exclusivity),
+//    daemon-behavior (policies-and-procedures) single-owner model
 // ---------------------------------------------------------------------------
 
 test "spec: preedit exclusivity — at most one pane per session has active preedit" {
-    // Validates: protocol 05 Section 1.1 preedit exclusivity invariant.
-    // daemon-behavior 03 Section 7.1 single-owner model.
+    // Validates: protocol (cjk-preedit-protocol) preedit exclusivity invariant.
+    // daemon-behavior (policies-and-procedures) single-owner model.
     // Active preedit is on Session.focused_pane only.
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -388,11 +389,11 @@ test "spec: preedit exclusivity — at most one pane per session has active pree
 
 // ---------------------------------------------------------------------------
 // 9. Preedit ownership transfer (last-writer-wins)
-//    Spec: daemon-behavior 02 Section 8.1, daemon-behavior 03 Section 7.2
+//    Spec: daemon-behavior (event-handling, policies-and-procedures) ownership transfer
 // ---------------------------------------------------------------------------
 
 test "spec: ownership transfer — flush old owner, increment session_id, set new owner" {
-    // Validates: daemon-behavior 02 Section 8.1 ordering constraints:
+    // Validates: daemon-behavior (event-handling) ownership transfer ordering constraints:
     // PreeditEnd for old BEFORE PreeditStart for new.
     // session_id increments between End and Start.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "c", .preedit_changed = true } };
@@ -412,7 +413,7 @@ test "spec: ownership transfer — flush old owner, increment session_id, set ne
 }
 
 test "spec: ownership transfer — committed text in terminal before PreeditEnd" {
-    // Validates: daemon-behavior 02 Section 8.1 constraint 2:
+    // Validates: daemon-behavior (event-handling) ownership transfer constraint:
     // Committed text in terminal BEFORE PreeditEnd sent.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "text", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -429,12 +430,12 @@ test "spec: ownership transfer — committed text in terminal before PreeditEnd"
 
 // ---------------------------------------------------------------------------
 // 10. Focus change during composition
-//     Spec: protocol 05 Section 6.7, daemon-behavior 02 Section 8.2,
-//     daemon-behavior 03 Section 8.1
+//     Spec: protocol 05-cjk-preedit-protocol (focus change during composition),
+//     daemon-behavior (event-handling, policies-and-procedures) focus change handling
 // ---------------------------------------------------------------------------
 
 test "spec: focus change — flushes preedit to old pane PTY" {
-    // Validates: daemon-behavior 02 Section 8.2 constraint 1:
+    // Validates: daemon-behavior (event-handling) focus change constraint:
     // Committed text written to old pane's PTY BEFORE focus update.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "old", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -449,8 +450,8 @@ test "spec: focus change — flushes preedit to old pane PTY" {
 }
 
 test "spec: focus change — PreeditEnd reason is focus_changed" {
-    // Validates: protocol 05 Section 6.7 PreeditEnd reason="focus_changed".
-    // daemon-behavior 02 Section 8.2 observable effects.
+    // Validates: protocol (cjk-preedit-protocol) PreeditEnd reason="focus_changed".
+    // daemon-behavior (event-handling) focus change observable effects.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "f", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 1;
@@ -465,7 +466,7 @@ test "spec: focus change — PreeditEnd reason is focus_changed" {
 }
 
 test "spec: focus change — no composition restoration on focus return" {
-    // Validates: daemon-behavior 02 Section 8.2 invariant:
+    // Validates: daemon-behavior (event-handling) focus change invariant:
     // No composition restoration. Matches ibus-hangul/fcitx5-hangul.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "x", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -486,12 +487,13 @@ test "spec: focus change — no composition restoration on focus return" {
 
 // ---------------------------------------------------------------------------
 // 11. Client disconnect during composition
-//     Spec: protocol 05 Section 6.2, daemon-behavior 02 Section 6
+//     Spec: protocol 05-cjk-preedit-protocol (client disconnect during composition),
+//     daemon-behavior (event-handling) client disconnect handling
 // ---------------------------------------------------------------------------
 
 test "spec: client disconnect — owner disconnect flushes and clears" {
-    // Validates: protocol 05 Section 6.2 server behavior steps 2-4.
-    // daemon-behavior 02 Section 6.1 constraint 1+3.
+    // Validates: protocol (cjk-preedit-protocol) server behavior on client disconnect.
+    // daemon-behavior (event-handling) client disconnect constraints.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "d", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 5;
@@ -505,7 +507,7 @@ test "spec: client disconnect — owner disconnect flushes and clears" {
 }
 
 test "spec: client disconnect — non-owner disconnect is no-op for preedit" {
-    // Validates: daemon-behavior 02 Section 6.2 — if disconnecting client
+    // Validates: daemon-behavior (event-handling) — if disconnecting client
     // was not the preedit owner, no preedit-related messages sent.
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -520,7 +522,7 @@ test "spec: client disconnect — non-owner disconnect is no-op for preedit" {
 }
 
 test "spec: client disconnect — committed text to PTY before PreeditEnd" {
-    // Validates: daemon-behavior 02 Section 6.1 constraint 3:
+    // Validates: daemon-behavior (event-handling) client disconnect constraint:
     // Committed text written to PTY BEFORE PreeditEnd.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "pre", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -535,7 +537,7 @@ test "spec: client disconnect — committed text to PTY before PreeditEnd" {
 }
 
 test "spec: session detach — preedit resolved same as disconnect" {
-    // Validates: daemon-behavior 02 Section 6.4 — DetachSessionRequest
+    // Validates: daemon-behavior (event-handling) — DetachSessionRequest
     // follows same preedit resolution as unexpected disconnect.
     // Reason string "client_disconnected" is reused.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "det", .preedit_changed = true } };
@@ -552,11 +554,12 @@ test "spec: session detach — preedit resolved same as disconnect" {
 
 // ---------------------------------------------------------------------------
 // 12. Pane close during composition
-//     Spec: protocol 05 Section 6.1, daemon-behavior 03 Sections 8.3-8.4
+//     Spec: protocol 05-cjk-preedit-protocol (pane close during composition),
+//     daemon-behavior (policies-and-procedures) pane close handling
 // ---------------------------------------------------------------------------
 
 test "spec: pane close non-last — reset not flush, preedit cancelled" {
-    // Validates: daemon-behavior 03 Section 8.3 — non-last pane uses
+    // Validates: daemon-behavior (policies-and-procedures) non-last pane close —
     // engine.reset() (cancel, NOT commit to PTY).
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -572,7 +575,7 @@ test "spec: pane close non-last — reset not flush, preedit cancelled" {
 }
 
 test "spec: pane close non-last — session_id incremented" {
-    // Validates: daemon-behavior 02 Section 3.3 invariant:
+    // Validates: daemon-behavior (event-handling) pane close invariant:
     // Preedit session_id MUST increment after PreeditEnd.
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -587,13 +590,13 @@ test "spec: pane close non-last — session_id incremented" {
 
 // ---------------------------------------------------------------------------
 // 13. Alternate screen switch during composition
-//     Spec: protocol 05 Section 6.4, daemon-behavior 02 Section 8.6,
-//     daemon-behavior 03 Section 8.2
+//     Spec: protocol 05-cjk-preedit-protocol (alternate screen during composition),
+//     daemon-behavior (event-handling, policies-and-procedures) screen switch handling
 // ---------------------------------------------------------------------------
 
 test "spec: alternate screen — flush and clear preedit" {
-    // Validates: daemon-behavior 03 Section 8.2 — preedit commit to PTY
-    // MUST precede screen switch processing.
+    // Validates: daemon-behavior (policies-and-procedures) alternate screen switch —
+    // preedit commit to PTY MUST precede screen switch processing.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "alt", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.setPreedit("comp");
@@ -608,12 +611,12 @@ test "spec: alternate screen — flush and clear preedit" {
 
 // ---------------------------------------------------------------------------
 // 14. Mouse click during composition
-//     Spec: protocol 05 Section 6.10, daemon-behavior 02 Section 8.5,
-//     daemon-behavior 03 Section 8.8
+//     Spec: protocol 05-cjk-preedit-protocol (mouse events during composition),
+//     daemon-behavior (event-handling, policies-and-procedures) mouse event handling
 // ---------------------------------------------------------------------------
 
 test "spec: mouse click — flushes preedit before forwarding" {
-    // Validates: protocol 05 Section 6.10 — MouseButton commits active
+    // Validates: protocol (cjk-preedit-protocol) mouse click — MouseButton commits active
     // preedit before forwarding. PreeditEnd reason="committed".
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "click", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -626,7 +629,7 @@ test "spec: mouse click — flushes preedit before forwarding" {
 }
 
 test "spec: mouse scroll — does NOT commit preedit" {
-    // Validates: protocol 05 Section 6.10 — MouseScroll is viewport-only.
+    // Validates: protocol (cjk-preedit-protocol) mouse scroll is viewport-only.
     // The server MUST NOT commit preedit on scroll.
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -640,11 +643,12 @@ test "spec: mouse scroll — does NOT commit preedit" {
 
 // ---------------------------------------------------------------------------
 // 15. Error recovery
-//     Spec: protocol 05 Section 9.1, daemon-behavior 02 Section 8.10
+//     Spec: protocol 05-cjk-preedit-protocol (error recovery),
+//     daemon-behavior (event-handling) IME error recovery handling
 // ---------------------------------------------------------------------------
 
 test "spec: error recovery — returns to known-good state without crashing" {
-    // Validates: daemon-behavior 02 Section 8.10 — daemon returns to
+    // Validates: daemon-behavior (event-handling) error recovery — daemon returns to
     // known-good state (no active composition, no preedit owner).
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -662,9 +666,9 @@ test "spec: error recovery — returns to known-good state without crashing" {
 }
 
 test "spec: error recovery — PreeditEnd reason is cancelled" {
-    // Validates: protocol 05 Section 9.1 — server sends PreeditEnd with
+    // Validates: protocol (cjk-preedit-protocol) error recovery — server sends PreeditEnd with
     // reason="cancelled" on invalid composition state.
-    // daemon-behavior 02 Section 8.10 — observable: PreeditEnd(reason="cancelled").
+    // daemon-behavior (event-handling) error recovery observable: PreeditEnd(reason="cancelled").
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 7;
@@ -681,11 +685,11 @@ test "spec: error recovery — PreeditEnd reason is cancelled" {
 
 // ---------------------------------------------------------------------------
 // 16. Input processing priority
-//     Spec: daemon-behavior 02 Section 9, daemon-behavior 03 Section 6
+//     Spec: daemon-behavior (event-handling, policies-and-procedures) input priority
 // ---------------------------------------------------------------------------
 
 test "spec: input priority — KeyEvent and TextInput are highest priority" {
-    // Validates: daemon-behavior 03 Section 6 — 5-tier priority table.
+    // Validates: daemon-behavior (policies-and-procedures) 5-tier priority table.
     // Priority 1: KeyEvent, TextInput (affects what user sees immediately).
     // Priority 4: PasteData (bulk, latency-tolerant).
     // Priority 5: FocusEvent (advisory, no immediate visual consequence).
@@ -703,20 +707,20 @@ test "spec: input priority — KeyEvent and TextInput are highest priority" {
 
 // ---------------------------------------------------------------------------
 // 17. Preedit inactivity timeout
-//     Spec: daemon-behavior 02 Section 8.8, daemon-behavior 03 Section 7.5
+//     Spec: daemon-behavior (event-handling, policies-and-procedures) inactivity timeout
 // ---------------------------------------------------------------------------
 
 test "spec: preedit inactivity timeout — 30 second policy value" {
-    // Validates: daemon-behavior 03 Section 7.5 policy:
+    // Validates: daemon-behavior (policies-and-procedures) inactivity timeout policy:
     // Inactivity timeout = 30s. No input from preedit owner -> commit and clear.
-    // daemon-behavior 02 Section 8.8 observable:
+    // daemon-behavior (event-handling) observable:
     // PreeditEnd(reason="timeout", preedit_session_id=N).
     const PREEDIT_INACTIVITY_TIMEOUT_SECONDS: u32 = 30;
     try std.testing.expectEqual(@as(u32, 30), PREEDIT_INACTIVITY_TIMEOUT_SECONDS);
 }
 
 test "spec: preedit inactivity timeout — committed text to PTY before PreeditEnd" {
-    // Validates: daemon-behavior 02 Section 8.8 constraint 1:
+    // Validates: daemon-behavior (event-handling) inactivity timeout constraint:
     // Committed text written to PTY BEFORE PreeditEnd.
     // We verify via flush + PTY write.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "timeout", .preedit_changed = true } };
@@ -735,13 +739,14 @@ test "spec: preedit inactivity timeout — committed text to PTY before PreeditE
 
 // ---------------------------------------------------------------------------
 // 18. Client eviction during composition
-//     Spec: protocol 05 Section 6.2 (T=300s), daemon-behavior 02 Section 8.7
+//     Spec: protocol 05-cjk-preedit-protocol (client eviction, T=300s timeout),
+//     daemon-behavior (event-handling) client eviction handling
 // ---------------------------------------------------------------------------
 
 test "spec: client eviction — preedit committed before disconnect" {
-    // Validates: daemon-behavior 02 Section 8.7 — preedit committed to PTY
+    // Validates: daemon-behavior (event-handling) client eviction — preedit committed to PTY
     // BEFORE PreeditEnd. PreeditEnd reason="client_evicted".
-    // Protocol 05 Section 6.2: T=300s eviction timeout.
+    // protocol (cjk-preedit-protocol): T=300s eviction timeout.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "evict", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 5;
@@ -757,13 +762,14 @@ test "spec: client eviction — preedit committed before disconnect" {
 
 // ---------------------------------------------------------------------------
 // 19. DestroySession cascade with preedit
-//     Spec: daemon-behavior 02 Section 4, protocol 05 Section 6.1
+//     Spec: daemon-behavior (event-handling) session destroy cascade,
+//     protocol 05-cjk-preedit-protocol (pane close during composition)
 // ---------------------------------------------------------------------------
 
 test "spec: destroy session — PreeditEnd before DestroySessionResponse" {
-    // Validates: daemon-behavior 02 Section 4.1 constraint 1:
+    // Validates: daemon-behavior (event-handling) session destroy constraint:
     // PreeditEnd BEFORE DestroySessionResponse.
-    // Protocol 05 Section 6.1: PreeditEnd(reason=pane_closed) before PaneClose.
+    // protocol (cjk-preedit-protocol): PreeditEnd(reason=pane_closed) before PaneClose.
     // For session destroy: PreeditEnd(reason="session_destroyed").
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -779,11 +785,12 @@ test "spec: destroy session — PreeditEnd before DestroySessionResponse" {
 
 // ---------------------------------------------------------------------------
 // 20. Rapid keystroke burst coalescing
-//     Spec: protocol 05 Section 6.5, daemon-behavior 02 Section 8.9
+//     Spec: protocol 05-cjk-preedit-protocol (rapid keystroke burst),
+//     daemon-behavior (event-handling) burst keystroke ordering
 // ---------------------------------------------------------------------------
 
 test "spec: rapid keystroke burst — all keys processed in order" {
-    // Validates: daemon-behavior 02 Section 8.9 constraint 1:
+    // Validates: daemon-behavior (event-handling) burst keystroke constraint:
     // All KeyEvents processed in arrival order through IME engine.
     var mock = MockImeEngine{ .results = &.{
         .{ .preedit_text = "a", .preedit_changed = true },
@@ -802,7 +809,7 @@ test "spec: rapid keystroke burst — all keys processed in order" {
 }
 
 test "spec: rapid keystroke burst — committed text written to PTY in order" {
-    // Validates: daemon-behavior 02 Section 8.9 constraint 3:
+    // Validates: daemon-behavior (event-handling) burst keystroke constraint:
     // Committed text from each keystroke written to PTY in order.
     var mock = MockImeEngine{ .results = &.{
         .{ .committed_text = "a" },
@@ -824,11 +831,12 @@ test "spec: rapid keystroke burst — committed text written to PTY in order" {
 
 // ---------------------------------------------------------------------------
 // 21. Concurrent preedit and resize
-//     Spec: protocol 05 Section 6.3, daemon-behavior 03 Section 8.7
+//     Spec: protocol 05-cjk-preedit-protocol (concurrent resize during composition),
+//     daemon-behavior (policies-and-procedures) resize handling
 // ---------------------------------------------------------------------------
 
 test "spec: concurrent resize — preedit continues uninterrupted" {
-    // Validates: daemon-behavior 03 Section 8.7 — no PreeditEnd or
+    // Validates: daemon-behavior (policies-and-procedures) concurrent resize — no PreeditEnd or
     // PreeditUpdate sent. Composition continues. Preedit is re-overlaid
     // at export time using updated cursor position.
     var mock = MockImeEngine{};
@@ -846,12 +854,13 @@ test "spec: concurrent resize — preedit continues uninterrupted" {
 
 // ---------------------------------------------------------------------------
 // 22. AmbiguousWidthConfig
-//     Spec: protocol 05 Section 4.1, daemon-behavior 03 Section 2.9
+//     Spec: protocol 05-cjk-preedit-protocol (AmbiguousWidthConfig),
+//     daemon-behavior (policies-and-procedures) ambiguous width handling
 // ---------------------------------------------------------------------------
 
 test "spec: ambiguous width — valid values are 1 and 2" {
-    // Validates: protocol 05 Section 4.1 — ambiguous_width: 1 = single-width
-    // (Western default), 2 = double-width (East Asian default).
+    // Validates: protocol (cjk-preedit-protocol) AmbiguousWidthConfig —
+    // ambiguous_width: 1 = single-width (Western default), 2 = double-width (East Asian default).
     const single_width: u8 = 1;
     const double_width: u8 = 2;
     try std.testing.expect(single_width == 1);
@@ -859,7 +868,7 @@ test "spec: ambiguous width — valid values are 1 and 2" {
 }
 
 test "spec: ambiguous width — scope values per_pane, per_session, global" {
-    // Validates: protocol 05 Section 4.1 — scope field accepts three values.
+    // Validates: protocol (cjk-preedit-protocol) AmbiguousWidthConfig scope field accepts three values.
     // This verifies the contract: scope determines which terminals are affected.
     const scopes = [_][]const u8{ "per_pane", "per_session", "global" };
     try std.testing.expectEqual(@as(usize, 3), scopes.len);
@@ -867,11 +876,11 @@ test "spec: ambiguous width — scope values per_pane, per_session, global" {
 
 // ---------------------------------------------------------------------------
 // 23. IMEError codes
-//     Spec: protocol 05 Section 9.3
+//     Spec: protocol 05-cjk-preedit-protocol (IMEError codes)
 // ---------------------------------------------------------------------------
 
 test "spec: IME error — unknown input method code 0x0001" {
-    // Validates: protocol 05 Section 9.3 error codes table.
+    // Validates: protocol (cjk-preedit-protocol) IMEError codes table.
     const IME_ERROR_UNKNOWN_INPUT_METHOD: u16 = 0x0001;
     const IME_ERROR_PANE_NOT_EXIST: u16 = 0x0002;
     const IME_ERROR_INVALID_TRANSITION: u16 = 0x0003;
@@ -887,11 +896,11 @@ test "spec: IME error — unknown input method code 0x0001" {
 
 // ---------------------------------------------------------------------------
 // 24. PreeditEnd reason values
-//     Spec: protocol 05 Section 2.3
+//     Spec: protocol 05-cjk-preedit-protocol (PreeditEnd reason enumeration)
 // ---------------------------------------------------------------------------
 
 test "spec: preedit end — all seven reason values are distinct" {
-    // Validates: protocol 05 Section 2.3 reason values enumeration.
+    // Validates: protocol (cjk-preedit-protocol) PreeditEnd reason values enumeration.
     const reasons = [_][]const u8{
         "committed",
         "cancelled",
@@ -911,11 +920,11 @@ test "spec: preedit end — all seven reason values are distinct" {
 
 // ---------------------------------------------------------------------------
 // 25. Multi-client conflict resolution
-//     Spec: protocol 05 Section 5.1
+//     Spec: protocol 05-cjk-preedit-protocol (multi-client conflict resolution)
 // ---------------------------------------------------------------------------
 
 test "spec: multi-client conflict — replaced_by_other_client produces PreeditEnd then PreeditStart" {
-    // Validates: protocol 05 Section 5.1 — for replaced_by_other_client,
+    // Validates: protocol (cjk-preedit-protocol) multi-client conflict — for replaced_by_other_client,
     // PreeditEnd for previous owner, then PreeditStart for new owner.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "a", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -934,7 +943,7 @@ test "spec: multi-client conflict — replaced_by_other_client produces PreeditE
 }
 
 test "spec: multi-client conflict — client_disconnected produces PreeditEnd only" {
-    // Validates: protocol 05 Section 5.1 — for client_disconnected,
+    // Validates: protocol (cjk-preedit-protocol) multi-client conflict — for client_disconnected,
     // only PreeditEnd is sent, no new owner takes over.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "b", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -950,11 +959,11 @@ test "spec: multi-client conflict — client_disconnected produces PreeditEnd on
 
 // ---------------------------------------------------------------------------
 // 26. Session snapshot preedit format
-//     Spec: protocol 05 Section 7.1-7.2
+//     Spec: protocol 05-cjk-preedit-protocol (session snapshot preedit format)
 // ---------------------------------------------------------------------------
 
 test "spec: session snapshot — preedit text available for serialization" {
-    // Validates: protocol 05 Section 7.1 — snapshot format includes
+    // Validates: protocol (cjk-preedit-protocol) session snapshot format — includes
     // preedit.active, session_id, owner_client_id, preedit_text at pane level.
     // ime.input_method and ime.keyboard_layout at session level.
     var mock = MockImeEngine{ .active_input_method = "korean_2set" };
@@ -971,7 +980,7 @@ test "spec: session snapshot — preedit text available for serialization" {
 }
 
 test "spec: session restore — preedit text committed to PTY on restore" {
-    // Validates: protocol 05 Section 7.2 — on daemon restart, preedit text
+    // Validates: protocol (cjk-preedit-protocol) session restore — on daemon restart, preedit text
     // is committed to PTY. Composition session is not resumed.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "\xed\x95\x9c", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -989,11 +998,12 @@ test "spec: session restore — preedit text committed to PTY on restore" {
 
 // ---------------------------------------------------------------------------
 // 27. Screen switch during composition
-//     Spec: protocol 05 Section 6.4, daemon-behavior 02 Section 8.6
+//     Spec: protocol 05-cjk-preedit-protocol (alternate screen during composition),
+//     daemon-behavior (event-handling) screen switch ordering
 // ---------------------------------------------------------------------------
 
 test "spec: screen switch — PreeditEnd committed before FrameUpdate with alternate screen" {
-    // Validates: daemon-behavior 02 Section 8.6 constraint 1:
+    // Validates: daemon-behavior (event-handling) screen switch constraint:
     // PreeditEnd BEFORE FrameUpdate with screen=alternate.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "scr", .preedit_changed = true } };
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -1009,11 +1019,11 @@ test "spec: screen switch — PreeditEnd committed before FrameUpdate with alter
 
 // ---------------------------------------------------------------------------
 // 28. Single-path rendering model
-//     Spec: protocol 05 Sections 1.1, 8.1, 11.1
+//     Spec: protocol 05-cjk-preedit-protocol (single-path rendering model)
 // ---------------------------------------------------------------------------
 
 test "spec: single-path rendering — preedit rendered through cell data not dedicated messages" {
-    // Validates: protocol 05 Section 1.1 — dedicated preedit messages
+    // Validates: protocol (cjk-preedit-protocol) single-path rendering — dedicated preedit messages
     // (0x0400-0x04FF) are lifecycle/metadata only, NOT for rendering.
     // Preedit rendering is through cell data in I/P-frames.
     // A client that does not negotiate "preedit" capability still renders
@@ -1028,11 +1038,11 @@ test "spec: single-path rendering — preedit rendered through cell data not ded
 
 // ---------------------------------------------------------------------------
 // 29. Message ordering (PreeditUpdate before FrameUpdate)
-//     Spec: protocol 05 Section 11.2
+//     Spec: protocol 05-cjk-preedit-protocol (message ordering)
 // ---------------------------------------------------------------------------
 
 test "spec: message ordering — PreeditUpdate sent before FrameUpdate for composition keystroke" {
-    // Validates: protocol 05 Section 11.2 — for a single composition keystroke:
+    // Validates: protocol (cjk-preedit-protocol) message ordering — for a single composition keystroke:
     // 1. PreeditUpdate (lifecycle/metadata, sent first for observers)
     // 2. FrameUpdate (cell data via ring, includes preedit cells)
     // For composition end:
@@ -1054,11 +1064,11 @@ test "spec: message ordering — PreeditUpdate sent before FrameUpdate for compo
 
 // ---------------------------------------------------------------------------
 // 30. Inter-session switch preedit resolution
-//     Spec: daemon-behavior 02 Section 8.3
+//     Spec: daemon-behavior (event-handling) inter-session switch preedit resolution
 // ---------------------------------------------------------------------------
 
 test "spec: inter-session switch — preedit resolved on old session before attach to new" {
-    // Validates: daemon-behavior 02 Section 8.3 constraint 1:
+    // Validates: daemon-behavior (event-handling) inter-session switch constraint:
     // Preedit resolved on session A BEFORE attach to session B.
     // PreeditEnd for session A precedes AttachSessionResponse for session B.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "old", .preedit_changed = true } };
@@ -1076,11 +1086,11 @@ test "spec: inter-session switch — preedit resolved on old session before atta
 
 // ---------------------------------------------------------------------------
 // 31. Response-Before-Notification with PreeditEnd exemption
-//     Spec: daemon-behavior 02 Section 1.1
+//     Spec: daemon-behavior (event-handling) response-before-notification ordering
 // ---------------------------------------------------------------------------
 
 test "spec: response-before-notification — PreeditEnd is Phase 1 preamble not notification" {
-    // Validates: daemon-behavior 02 Section 1.1 exemption:
+    // Validates: daemon-behavior (event-handling) response-before-notification exemption:
     // PreeditEnd is an IME composition-resolution preamble (Phase 1),
     // not a notification. Three-phase model:
     // Phase 1 (IME cleanup via PreeditEnd) -> Phase 2 (response) -> Phase 3 (notifications).
@@ -1101,11 +1111,11 @@ test "spec: response-before-notification — PreeditEnd is Phase 1 preamble not 
 
 // ---------------------------------------------------------------------------
 // 32. Non-composing input from non-owner
-//     Spec: daemon-behavior 03 Section 7.4
+//     Spec: daemon-behavior (policies-and-procedures) non-composing input from non-owner
 // ---------------------------------------------------------------------------
 
 test "spec: non-composing input from non-owner — owner preedit committed first" {
-    // Validates: daemon-behavior 03 Section 7.4 — regular (non-composing)
+    // Validates: daemon-behavior (policies-and-procedures) non-composing input — regular (non-composing)
     // KeyEvents from any client are always processed normally. If a non-owner
     // sends a regular key, the owner's preedit is committed first.
     var mock = MockImeEngine{ .flush_result = .{ .committed_text = "owned", .preedit_changed = true } };
@@ -1124,11 +1134,11 @@ test "spec: non-composing input from non-owner — owner preedit committed first
 
 // ---------------------------------------------------------------------------
 // 33. Preedit session_id monotonically increasing
-//     Spec: protocol 05 Section 2.1
+//     Spec: protocol 05-cjk-preedit-protocol (preedit session_id counter)
 // ---------------------------------------------------------------------------
 
 test "spec: preedit session_id — monotonically increasing counter per session" {
-    // Validates: protocol 05 Section 2.1 — preedit_session_id is a
+    // Validates: protocol (cjk-preedit-protocol) preedit_session_id is a
     // monotonically increasing counter per session.
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
@@ -1143,11 +1153,11 @@ test "spec: preedit session_id — monotonically increasing counter per session"
 
 // ---------------------------------------------------------------------------
 // 34. Readonly client observation
-//     Spec: protocol 05 Section 1.1
+//     Spec: protocol 05-cjk-preedit-protocol (readonly client observation)
 // ---------------------------------------------------------------------------
 
 test "spec: readonly client — receives all preedit S->C messages as observer" {
-    // Validates: protocol 05 Section 1.1 — readonly clients receive ALL
+    // Validates: protocol (cjk-preedit-protocol) readonly client observation — readonly clients receive ALL
     // preedit-related S->C messages (PreeditStart, PreeditUpdate, PreeditEnd,
     // PreeditSync, InputMethodAck) as observers. Readonly clients MUST NOT
     // send InputMethodSwitch — server rejects with ERR_ACCESS_DENIED.
@@ -1165,11 +1175,11 @@ test "spec: readonly client — receives all preedit S->C messages as observer" 
 
 // ---------------------------------------------------------------------------
 // 35. ClientDisplayInfo
-//     Spec: protocol 06 Section 1.2
+//     Spec: protocol 06-flow-control-and-auxiliary (ClientDisplayInfo)
 // ---------------------------------------------------------------------------
 
 test "spec: client display info — runtime message not handshake-only" {
-    // Validates: protocol 06 Section 1.2 — ClientDisplayInfo is a runtime
+    // Validates: protocol (flow-control-and-auxiliary) ClientDisplayInfo is a runtime
     // message, not handshake-only. Client may send it at any time.
     // Fields: display_refresh_hz, power_state, preferred_max_fps,
     // transport_type, estimated_rtt_ms, bandwidth_hint.
@@ -1183,11 +1193,11 @@ test "spec: client display info — runtime message not handshake-only" {
 
 // ---------------------------------------------------------------------------
 // 36. Input method identifiers
-//     Spec: protocol 04 Section 2.1
+//     Spec: protocol 04-input-and-renderstate (input method identifiers)
 // ---------------------------------------------------------------------------
 
 test "spec: input method identifiers — v1 supports direct and korean_2set" {
-    // Validates: protocol 04 Section 2.1 input method identifiers table.
+    // Validates: protocol (input-and-renderstate) input method identifiers table.
     // v1 Support: "direct" (yes), "korean_2set" (yes).
     var mock = MockImeEngine{};
     const eng = mock.engine();
@@ -1202,13 +1212,13 @@ test "spec: input method identifiers — v1 supports direct and korean_2set" {
 
 // ---------------------------------------------------------------------------
 // 37. Preedit in pane exit cascade ordering
-//     Spec: daemon-behavior 02 Section 3.1
+//     Spec: daemon-behavior (event-handling) pane exit cascade ordering
 // ---------------------------------------------------------------------------
 
 test "spec: pane exit cascade — PreeditEnd before LayoutChanged" {
-    // Validates: daemon-behavior 02 Section 3.1 constraint 2:
+    // Validates: daemon-behavior (event-handling) pane exit cascade constraint:
     // PreeditEnd BEFORE LayoutChanged (no LayoutChanged while preedit active).
-    // Constraint 5: PreeditEnd carries old preedit session_id.
+    // PreeditEnd carries old preedit session_id.
     var mock = MockImeEngine{};
     var s = Session.init(1, "t", 0, mock.engine(), 0);
     s.preedit.owner = 1;
@@ -1226,14 +1236,13 @@ test "spec: pane exit cascade — PreeditEnd before LayoutChanged" {
 
 // ---------------------------------------------------------------------------
 // 38. Last-pane session auto-destroy
-//     Spec: daemon-behavior 02 Section 3.4-3.5
+//     Spec: daemon-behavior (event-handling) last-pane session auto-destroy
 // ---------------------------------------------------------------------------
 
 test "spec: last pane exit — PreeditEnd reason is session_destroyed" {
-    // Validates: daemon-behavior 02 Section 3.2 conditional suffix:
+    // Validates: daemon-behavior (event-handling) last pane exit:
     // Last pane: PreeditEnd(reason="session_destroyed").
-    // daemon-behavior 02 Section 3.3: PreeditEnd reason MUST be
-    // "session_destroyed" for last pane.
+    // PreeditEnd reason MUST be "session_destroyed" for last pane.
     // Structurally tested: the session's engine.deactivate() is called
     // (not reset) for last pane.
     var mock = MockImeEngine{ .deactivate_result = .{ .committed_text = "bye", .preedit_changed = true } };

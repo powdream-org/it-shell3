@@ -10,8 +10,8 @@ const envelope = @import("protocol_envelope.zig");
 const core = @import("itshell3_core");
 const types = core.types;
 
-/// Scratch buffer type for message building.
-pub const ScratchBuf = [envelope.MAX_ENVELOPE_SIZE]u8;
+/// Scratch buffer type alias for message building.
+pub const ScratchBuf = envelope.ScratchBuf;
 
 /// Maximum size for IME error JSON payloads.
 const MAX_IME_ERROR_JSON: usize = 512;
@@ -28,10 +28,11 @@ pub const ErrorCode = enum(u16) {
 
 // ── IMEError (0x04FF) ──────────────────────────────────────────────────────
 
-/// Builds an IMEError response (S->C).
+/// Builds an IMEError response (S->C). Accepts a typed ErrorCode and
+/// converts to the wire u16 internally.
 pub fn buildIMEError(
     pane_id: types.PaneId,
-    error_code: u16,
+    error_code: ErrorCode,
     detail: []const u8,
     sequence: u64,
     out_buf: *ScratchBuf,
@@ -39,7 +40,7 @@ pub fn buildIMEError(
     var json_buf: [MAX_IME_ERROR_JSON]u8 = undefined;
     const json = std.fmt.bufPrint(&json_buf, "{{\"pane_id\":{d},\"error_code\":{d},\"detail\":\"{s}\"}}", .{
         pane_id,
-        error_code,
+        @intFromEnum(error_code),
         detail,
     }) catch return null;
 
@@ -55,7 +56,7 @@ pub fn buildIMEError(
 
 test "buildIMEError: unknown input method error" {
     var buf: ScratchBuf = undefined;
-    const result = buildIMEError(1, @intFromEnum(ErrorCode.unknown_input_method), "Unknown input method: foobar", 5, &buf);
+    const result = buildIMEError(1, .unknown_input_method, "Unknown input method: foobar", 5, &buf);
     try std.testing.expect(result != null);
     const data = result.?;
     const header = try protocol.header.Header.decode(data[0..protocol.header.HEADER_SIZE]);
@@ -69,7 +70,7 @@ test "buildIMEError: unknown input method error" {
 
 test "buildIMEError: pane not found error" {
     var buf: ScratchBuf = undefined;
-    const result = buildIMEError(99, @intFromEnum(ErrorCode.pane_not_found), "Pane does not exist", 6, &buf);
+    const result = buildIMEError(99, .pane_not_found, "Pane does not exist", 6, &buf);
     try std.testing.expect(result != null);
     const data = result.?;
     const header = try protocol.header.Header.decode(data[0..protocol.header.HEADER_SIZE]);

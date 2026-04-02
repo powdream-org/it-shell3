@@ -16,8 +16,8 @@ const SessionEntry = server.state.session_entry.SessionEntry;
 /// Maximum size for notification JSON payloads.
 const MAX_NOTIFICATION_JSON: usize = 6144;
 
-/// Scratch buffer type for notification building.
-const ScratchBuf = [envelope.MAX_ENVELOPE_SIZE]u8;
+/// Scratch buffer type alias for notification building.
+const ScratchBuf = envelope.ScratchBuf;
 
 // ── SessionListChanged (0x0182) ─────────────────────────────────────────────
 
