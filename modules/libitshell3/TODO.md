@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 3 (Plan Verification)
+- **Step**: 4 (Cycle Setup)
 - **Cycle Type**: modification (Plan 8 — Input Pipeline & Preedit Wire Messages)
 - **Review Round**: 0
 - **Active Team**: (none)
@@ -23,7 +23,13 @@
 
 ## Spec Gap Log
 
-(empty — gaps discovered during implementation are logged here)
+- SC-3, SC-4: Spec path annotations stale (server/state/ subdirectory) —
+  dismissed, low impact
+- SC-8: SessionEntry zoomed_pane — implementation detail, no spec change
+- SC-11: Pane vt_stream — implementation detail, no spec change
+- SC-1, SC-2, SC-5, SC-6, SC-7, SC-10: 6 CTRs filed → daemon-architecture inbox
+  → Plan 11.5
+- SC-9: routeKeyEvent → handleKeyEvent rename added to plan (Task 6)
 
 ## Fix Cycle State
 
@@ -34,7 +40,7 @@
 
 - [x] Step 1: Requirements Intake
 - [x] Step 2: Plan Writing
-- [ ] Step 3: Plan Verification
+- [x] Step 3: Plan Verification
 - [ ] Step 4: Cycle Setup
 - [ ] Step 5: Scaffold & Build Verification
 - [ ] Step 6: Implementation Phase

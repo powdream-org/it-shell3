@@ -49,6 +49,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 9    | Frame Delivery & Runtime Policies             | (not yet written)                                       | libitshell3          | Not started     |
 | 10   | Cascades & Shutdown                           | (not yet written)                                       | libitshell3          | Not started     |
 | 11   | SSH Transport                                 | (not yet written)                                       | libitshell3-protocol | Not started     |
+| 11.5 | Spec Alignment CTR Resolution                 | (not yet written)                                       | multi-module + docs  | Not started     |
 | 12.1 | Daemon CLI — Design                           | (not yet written)                                       | daemon               | Not started     |
 | 12.2 | Daemon CLI — Implementation                   | (not yet written)                                       | daemon               | Not started     |
 | 13   | Debug Subsystem + `it-shell3-ctl`             | `specs/2026-03-26-daemon-debug-subsystem-design.md`     | daemon               | Not started     |
@@ -80,7 +81,9 @@ graph TD
     P3 --> P11
     P8 --> P9["Plan 9: Frame Delivery & Policies"]
     P9 --> P10["Plan 10: Cascades & Shutdown"]
-    P10 --> P12_1["Plan 12.1: Daemon CLI Design"]
+    P8 --> P11_5["Plan 11.5: Spec Alignment CTRs"]
+    P10 --> P11_5
+    P11_5 --> P12_1["Plan 12.1: Daemon CLI Design"]
     P12_1 --> P12_2["Plan 12.2: Daemon CLI Impl"]
     P12_2 --> P13["Plan 13: Debug Subsystem"]
     P13 --> P14_1["Plan 14.1: macOS Client Design"]
@@ -448,15 +451,39 @@ Key components:
 **Depends on:** Plan 5.5 + Plan 3 (Transport vtable). Can run in parallel with
 Plans 6-10 (SSH is client-side transport only).
 
+### Plan 11.5: Spec Alignment CTR Resolution (Not Started)
+
+**Scope:** Apply accumulated CTRs from Plan 8 verification to
+daemon-architecture spec. Documentation-only plan — no source code changes
+(except code rename SC-9: `routeKeyEvent` → `handleKeyEvent`).
+
+**Known CTRs to resolve:**
+
+- SC-1: Dispatcher directory path `server/dispatch/` → `server/handlers/`
+- SC-2: Dispatcher filenames (suffix convention + lifecycle/flow_control
+  renames)
+- SC-5: SplitNodeData annotation `core/split_node.zig` → `core/split_tree.zig`
+- SC-6: KeyEvent annotation — reflect re-export from libitshell3-ime
+- SC-7: Pane `foreground_process` — dedicated constant + separate name/path
+  fields
+- SC-10: Remove `handleIntraSessionFocusChange`/`handleInputMethodSwitch` from
+  `input/` table, document actual location in `server/ime/`
+
+**Code change:** Rename `routeKeyEvent` → `handleKeyEvent` in
+`input/key_router.zig` and all call sites (~20 locations).
+
+**Depends on:** Plan 8 (CTRs discovered during Plan 8 verification) + Plan 10
+(cascades must be done before Plan 12.1)
+
 ### Plan 12.1: Daemon CLI — Design (Not Started)
 
 **Scope:** Design docs for the daemon binary: startup orchestration (7-step per
 ADR 00048), LaunchAgent integration, version conflict handling, CLI argument
 parsing, per-instance socket directory (ADR 00054), stale socket detection,
-inherited fd check, default session creation.
+inherited fd check, default session creation, daemon shortcut keybinding system
+design (Phase 0 step 2 in key routing pipeline).
 
-**Depends on:** Plan 10 (shutdown sequence must be designed with cascade
-guarantees)
+**Depends on:** Plan 11.5 (spec alignment must be done before daemon CLI design)
 
 ### Plan 12.2: Daemon CLI — Implementation (Not Started)
 
