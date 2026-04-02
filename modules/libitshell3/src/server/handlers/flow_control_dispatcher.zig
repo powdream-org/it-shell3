@@ -34,23 +34,23 @@ fn handleClientDisplayInfo(params: CategoryDispatchParams) void {
     const payload = params.payload;
     const sequence = params.header.sequence;
 
-    if (handler_utils.extractU16Field(payload, "\"display_refresh_hz\":")) |hz| {
-        client.display_info.display_refresh_hz = hz;
+    if (handler_utils.extractU16Field(payload, "\"display_refresh_hz\":")) |refresh_hz| {
+        client.display_info.display_refresh_hz = refresh_hz;
     }
-    if (handler_utils.extractStringField(payload, "\"power_state\":\"")) |ps| {
-        client.display_info.power_state = parsePowerState(ps);
+    if (handler_utils.extractStringField(payload, "\"power_state\":\"")) |power_state| {
+        client.display_info.power_state = parsePowerState(power_state);
     }
-    if (handler_utils.extractU16Field(payload, "\"preferred_max_fps\":")) |fps| {
-        client.display_info.preferred_max_fps = fps;
+    if (handler_utils.extractU16Field(payload, "\"preferred_max_fps\":")) |preferred_max_fps| {
+        client.display_info.preferred_max_fps = preferred_max_fps;
     }
-    if (handler_utils.extractStringField(payload, "\"transport_type\":\"")) |tt| {
-        client.display_info.transport_type = parseTransportType(tt);
+    if (handler_utils.extractStringField(payload, "\"transport_type\":\"")) |transport_type| {
+        client.display_info.transport_type = parseTransportType(transport_type);
     }
-    if (handler_utils.extractU16Field(payload, "\"estimated_rtt_ms\":")) |rtt| {
-        client.display_info.estimated_rtt_ms = rtt;
+    if (handler_utils.extractU16Field(payload, "\"estimated_rtt_ms\":")) |estimated_rtt_ms| {
+        client.display_info.estimated_rtt_ms = estimated_rtt_ms;
     }
-    if (handler_utils.extractStringField(payload, "\"bandwidth_hint\":\"")) |bw| {
-        client.display_info.bandwidth_hint = parseBandwidthHint(bw);
+    if (handler_utils.extractStringField(payload, "\"bandwidth_hint\":\"")) |bandwidth_hint| {
+        client.display_info.bandwidth_hint = parseBandwidthHint(bandwidth_hint);
     }
 
     // Send ClientDisplayInfoAck (0x0506).

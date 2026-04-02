@@ -69,3 +69,28 @@ addition to being logged as a SIP.
 commit State Update changes (TODO.md step advancement) as part of the checkpoint
 commit before crossing to the next step. Do State Update BEFORE the commit, not
 after." This ensures the lesson survives context resets.
+
+## SIP-3: Auto-proceed steps should not ask owner for permission
+
+**Discovered during**: Step 8 (Spec Compliance Review)
+
+**What happened**: At every step boundary (Steps 5→6, 6→7, 7→8), the team leader
+asked the owner "Should I continue?" or "Next is Step N. Should I continue?"
+despite the step files explicitly stating "Auto-proceed — no owner input
+required." The owner had to type "yes" or "go" each time, creating unnecessary
+friction.
+
+**Root cause**: The team leader defaulted to cautious behavior (asking
+permission) rather than following the step file's explicit "Auto-proceed"
+instruction. The Cross-Cutting Rules in SKILL.md say "Mechanical gates
+auto-proceed" but the team leader treated every step transition as requiring
+owner confirmation.
+
+**Affected steps**: Not a step file issue — this is a team leader behavioral
+pattern. The step files already say "Auto-proceed." The issue is that the team
+leader ignores this instruction.
+
+**Proposed changes**: Add to the Cross-Cutting Rules in SKILL.md: "When a step's
+Next section says 'Auto-proceed', do NOT ask the owner for permission. Proceed
+immediately. Only pause when the Next section says 'Wait for owner' or when a
+gate involves a trade-off requiring human judgment."

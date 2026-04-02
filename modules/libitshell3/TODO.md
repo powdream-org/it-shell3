@@ -2,9 +2,9 @@
 
 ## Current State
 
-- **Step**: 8 (Spec Compliance Review)
+- **Step**: 9 (Fix Cycle)
 - **Cycle Type**: modification (Plan 8 — Input Pipeline & Preedit Wire Messages)
-- **Review Round**: 0
+- **Review Round**: 1
 - **Active Team**: impl-team
 - **Team Directory**: .claude/agents/impl-team/
 
@@ -45,7 +45,7 @@
 - [x] Step 5: Scaffold & Build Verification
 - [x] Step 6: Implementation Phase
 - [x] Step 7: Code Simplify & Convention Compliance
-- [ ] Step 8: Spec Compliance Review
+- [x] Step 8: Spec Compliance Review
 - [ ] Step 9: Fix Cycle
 - [ ] Step 10: Coverage Audit
 - [ ] Step 11: Over-Engineering Review
