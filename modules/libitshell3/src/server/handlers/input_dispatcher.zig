@@ -123,7 +123,7 @@ fn handleKeyEvent(params: CategoryDispatchParams) void {
             };
             const focused = entry.focusedPane();
             const pty_fd: std.posix.fd_t = if (focused) |p| p.pty_fd else -1;
-            procedures.ownershipTransferWithBroadcast(session, pty_fd, pty_ops, client_id, &bc);
+            procedures.ownershipTransferWithBroadcast(session, pty_fd, pty_ops, client_id, "replaced_by_other_client", &bc);
         }
     }
 
@@ -225,6 +225,8 @@ fn broadcastPreeditState(
                     null,
                 );
             }
+            session.preedit.owner = null;
+            session.preedit.incrementSessionId();
         }
     }
 }

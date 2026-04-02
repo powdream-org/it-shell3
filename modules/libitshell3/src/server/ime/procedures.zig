@@ -79,15 +79,19 @@ pub fn ownershipTransfer(
     pty_ops: *const PtyOps,
     new_owner: ?types.ClientId,
 ) void {
-    ownershipTransferWithBroadcast(session, pty_fd, pty_ops, new_owner, null);
+    ownershipTransferWithBroadcast(session, pty_fd, pty_ops, new_owner, "committed", null);
 }
 
 /// Ownership transfer with broadcast context for sending PreeditEnd.
+/// The `reason` parameter specifies the PreeditEnd reason string (e.g.,
+/// "committed", "replaced_by_other_client", "client_disconnected",
+/// "client_evicted").
 pub fn ownershipTransferWithBroadcast(
     session: *session_mod.Session,
     pty_fd: std.posix.fd_t,
     pty_ops: *const PtyOps,
     new_owner: ?types.ClientId,
+    reason: []const u8,
     broadcast_context: ?*const BroadcastContext,
 ) void {
     const preedit_session_id = session.preedit.session_id;
@@ -95,21 +99,21 @@ pub fn ownershipTransferWithBroadcast(
     const committed = result.committed_text orelse "";
     _ = ime_consumer.consumeImeResult(result, session, pty_fd, pty_ops, null);
     session.setPreedit(null);
-    sendPreeditEnd(broadcast_context, preedit_session_id, "committed", committed);
+    sendPreeditEnd(broadcast_context, preedit_session_id, reason, committed);
     session.preedit.incrementSessionId();
     session.preedit.owner = new_owner;
 }
 
 /// Resolve preedit ownership before client teardown (see ime-procedures spec).
 /// If the departing client is the preedit owner, flush and transfer to null.
-/// Used by disconnect, detach, and eviction -- identical from preedit perspective.
 fn handlePreeditOwnerDisconnect(
     session: *session_mod.Session,
     client_id: types.ClientId,
     pty_fd: std.posix.fd_t,
     pty_ops: *const PtyOps,
+    reason: []const u8,
 ) void {
-    handlePreeditOwnerDisconnectWithBroadcast(session, client_id, pty_fd, pty_ops, null);
+    handlePreeditOwnerDisconnectWithBroadcast(session, client_id, pty_fd, pty_ops, reason, null);
 }
 
 fn handlePreeditOwnerDisconnectWithBroadcast(
@@ -117,22 +121,78 @@ fn handlePreeditOwnerDisconnectWithBroadcast(
     client_id: types.ClientId,
     pty_fd: std.posix.fd_t,
     pty_ops: *const PtyOps,
+    reason: []const u8,
     broadcast_context: ?*const BroadcastContext,
 ) void {
     if (session.preedit.owner) |owner| {
         if (owner == client_id) {
-            ownershipTransferWithBroadcast(session, pty_fd, pty_ops, null, broadcast_context);
+            ownershipTransferWithBroadcast(session, pty_fd, pty_ops, null, reason, broadcast_context);
         }
     }
 }
 
-pub const onClientDisconnect = handlePreeditOwnerDisconnect;
-pub const onClientDetach = handlePreeditOwnerDisconnect;
-pub const onClientEviction = handlePreeditOwnerDisconnect;
+/// Client disconnect: PreeditEnd reason is "client_disconnected".
+pub fn onClientDisconnect(
+    session: *session_mod.Session,
+    client_id: types.ClientId,
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const PtyOps,
+) void {
+    handlePreeditOwnerDisconnect(session, client_id, pty_fd, pty_ops, "client_disconnected");
+}
 
-pub const onClientDisconnectWithBroadcast = handlePreeditOwnerDisconnectWithBroadcast;
-pub const onClientDetachWithBroadcast = handlePreeditOwnerDisconnectWithBroadcast;
-pub const onClientEvictionWithBroadcast = handlePreeditOwnerDisconnectWithBroadcast;
+/// Client detach: PreeditEnd reason is "client_disconnected" per spec Section 6.8.
+pub fn onClientDetach(
+    session: *session_mod.Session,
+    client_id: types.ClientId,
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const PtyOps,
+) void {
+    handlePreeditOwnerDisconnect(session, client_id, pty_fd, pty_ops, "client_disconnected");
+}
+
+/// Client eviction: PreeditEnd reason is "client_evicted".
+pub fn onClientEviction(
+    session: *session_mod.Session,
+    client_id: types.ClientId,
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const PtyOps,
+) void {
+    handlePreeditOwnerDisconnect(session, client_id, pty_fd, pty_ops, "client_evicted");
+}
+
+/// Client disconnect with broadcast context.
+pub fn onClientDisconnectWithBroadcast(
+    session: *session_mod.Session,
+    client_id: types.ClientId,
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const PtyOps,
+    broadcast_context: ?*const BroadcastContext,
+) void {
+    handlePreeditOwnerDisconnectWithBroadcast(session, client_id, pty_fd, pty_ops, "client_disconnected", broadcast_context);
+}
+
+/// Client detach with broadcast context.
+pub fn onClientDetachWithBroadcast(
+    session: *session_mod.Session,
+    client_id: types.ClientId,
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const PtyOps,
+    broadcast_context: ?*const BroadcastContext,
+) void {
+    handlePreeditOwnerDisconnectWithBroadcast(session, client_id, pty_fd, pty_ops, "client_disconnected", broadcast_context);
+}
+
+/// Client eviction with broadcast context.
+pub fn onClientEvictionWithBroadcast(
+    session: *session_mod.Session,
+    client_id: types.ClientId,
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const PtyOps,
+    broadcast_context: ?*const BroadcastContext,
+) void {
+    handlePreeditOwnerDisconnectWithBroadcast(session, client_id, pty_fd, pty_ops, "client_evicted", broadcast_context);
+}
 
 /// Intra-session pane focus change (see ime-procedures spec).
 /// Flush composition to OLD pane before updating focused_pane.
@@ -187,8 +247,8 @@ pub fn onPaneCloseWithBroadcast(
     session.preedit.owner = null;
     if (had_owner) {
         sendPreeditEnd(broadcast_context, preedit_session_id, "pane_closed", "");
+        session.preedit.incrementSessionId();
     }
-    session.preedit.incrementSessionId();
 }
 
 /// Alternate screen switch (see ime-procedures spec).
@@ -208,7 +268,7 @@ pub fn onAlternateScreenSwitchWithBroadcast(
     pty_ops: *const PtyOps,
     broadcast_context: ?*const BroadcastContext,
 ) void {
-    ownershipTransferWithBroadcast(session, pty_fd, pty_ops, null, broadcast_context);
+    ownershipTransferWithBroadcast(session, pty_fd, pty_ops, null, "committed", broadcast_context);
 }
 
 /// Mouse click during composition (see ime-procedures spec).
@@ -229,7 +289,7 @@ pub fn onMouseClickWithBroadcast(
     pty_ops: *const PtyOps,
     broadcast_context: ?*const BroadcastContext,
 ) void {
-    ownershipTransferWithBroadcast(session, pty_fd, pty_ops, null, broadcast_context);
+    ownershipTransferWithBroadcast(session, pty_fd, pty_ops, null, "committed", broadcast_context);
 }
 
 /// InputMethodSwitch during active preedit (see ime-procedures spec).
@@ -273,6 +333,8 @@ pub fn onInputMethodSwitchWithBroadcast(
         const committed = result.committed_text orelse "";
         _ = ime_consumer.consumeImeResult(result, session, pty_fd, pty_ops, null);
         sendPreeditEnd(broadcast_context, preedit_session_id, "committed", committed);
+        session.preedit.owner = null;
+        session.preedit.incrementSessionId();
     } else {
         const preedit_session_id = session.preedit.session_id;
         session.ime_engine.reset();
@@ -417,6 +479,19 @@ test "onPaneClose: resets (not flushes), clears preedit and owner, increments se
     try std.testing.expectEqual(@as(u32, 1), session.preedit.session_id);
 }
 
+test "onPaneClose: no owner -> no session_id increment" {
+    var mock = mock_ime.MockImeEngine{};
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.setPreedit("composing");
+
+    onPaneClose(&session);
+
+    try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
+    try std.testing.expect(session.current_preedit == null);
+    try std.testing.expect(session.preedit.owner == null);
+    try std.testing.expectEqual(@as(u32, 0), session.preedit.session_id);
+}
+
 test "onAlternateScreenSwitch: flushes and clears" {
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "flushed", .preedit_changed = true },
@@ -445,11 +520,12 @@ test "onMouseClick: flushes composition before mouse event" {
     try std.testing.expectEqualSlices(u8, "click", mock_pty.written());
 }
 
-test "onInputMethodSwitch: commit_current=true flushes atomically" {
+test "onInputMethodSwitch: commit_current=true flushes atomically and clears owner" {
     var mock = mock_ime.MockImeEngine{
         .set_active_input_method_result = .{ .committed_text = "committed", .preedit_changed = true },
     };
     var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.preedit.owner = 5;
     session.setPreedit("composing");
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
@@ -459,6 +535,8 @@ test "onInputMethodSwitch: commit_current=true flushes atomically" {
     try std.testing.expectEqual(@as(usize, 1), mock.set_active_input_method_count);
     try std.testing.expectEqualSlices(u8, "committed", mock_pty.written());
     try std.testing.expect(session.current_preedit == null);
+    try std.testing.expect(session.preedit.owner == null);
+    try std.testing.expectEqual(@as(u32, 1), session.preedit.session_id);
 }
 
 test "onInputMethodSwitch: commit_current=false resets and switches" {
