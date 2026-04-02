@@ -141,16 +141,6 @@ pub fn onClientDisconnect(
     handlePreeditOwnerDisconnect(session, client_id, pty_fd, pty_ops, "client_disconnected");
 }
 
-/// Client detach: PreeditEnd reason is "client_disconnected" per daemon-behavior (event-handling).
-pub fn onClientDetach(
-    session: *session_mod.Session,
-    client_id: types.ClientId,
-    pty_fd: std.posix.fd_t,
-    pty_ops: *const PtyOps,
-) void {
-    handlePreeditOwnerDisconnect(session, client_id, pty_fd, pty_ops, "client_disconnected");
-}
-
 /// Client eviction: PreeditEnd reason is "client_evicted".
 pub fn onClientEviction(
     session: *session_mod.Session,
@@ -163,17 +153,6 @@ pub fn onClientEviction(
 
 /// Client disconnect with broadcast context.
 pub fn onClientDisconnectWithBroadcast(
-    session: *session_mod.Session,
-    client_id: types.ClientId,
-    pty_fd: std.posix.fd_t,
-    pty_ops: *const PtyOps,
-    broadcast_context: ?*const BroadcastContext,
-) void {
-    handlePreeditOwnerDisconnectWithBroadcast(session, client_id, pty_fd, pty_ops, "client_disconnected", broadcast_context);
-}
-
-/// Client detach with broadcast context.
-pub fn onClientDetachWithBroadcast(
     session: *session_mod.Session,
     client_id: types.ClientId,
     pty_fd: std.posix.fd_t,
@@ -594,4 +573,220 @@ test "errorRecovery: no preedit -> reset only" {
 
     try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
     try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
+}
+
+// ── WithBroadcast Variant Tests ─────────────────────────────────────────────
+
+fn testBroadcastContext(client_manager: *ClientManager, session_id: types.SessionId, seq: *u64) BroadcastContext {
+    return .{
+        .client_manager = client_manager,
+        .session_id = session_id,
+        .pane_id = 0,
+        .sequence = seq,
+    };
+}
+
+test "ownershipTransferWithBroadcast: flushes and sends PreeditEnd broadcast" {
+    const helpers = test_mod.helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot).?;
+    _ = client.connection.transitionTo(.ready);
+    _ = client.connection.transitionTo(.operating);
+    client.connection.attached_session_id = 1;
+
+    var mock = mock_ime.MockImeEngine{
+        .flush_result = .{ .committed_text = "flushed", .preedit_changed = true },
+    };
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.preedit.owner = 42;
+    session.setPreedit("composing");
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    var seq: u64 = 100;
+    var bc = testBroadcastContext(&client_manager, 1, &seq);
+
+    ownershipTransferWithBroadcast(&session, 10, &pty_ops, 99, "replaced_by_other_client", &bc);
+
+    // Verify engine was flushed and text written to PTY.
+    try std.testing.expectEqual(@as(usize, 1), mock.flush_count);
+    try std.testing.expectEqualSlices(u8, "flushed", mock_pty.written());
+    try std.testing.expect(session.current_preedit == null);
+    try std.testing.expectEqual(@as(?types.ClientId, 99), session.preedit.owner);
+    try std.testing.expectEqual(@as(u32, 1), session.preedit.session_id);
+    // Sequence should have been incremented for the PreeditEnd message.
+    try std.testing.expect(seq > 100);
+    // Client should have received a broadcast message.
+    try std.testing.expect(!client.direct_queue.isEmpty());
+
+    client.deinit();
+}
+
+test "onClientDisconnectWithBroadcast: owner disconnect sends PreeditEnd" {
+    const helpers = test_mod.helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot).?;
+    _ = client.connection.transitionTo(.ready);
+    _ = client.connection.transitionTo(.operating);
+    client.connection.attached_session_id = 1;
+
+    var mock = mock_ime.MockImeEngine{
+        .flush_result = .{ .committed_text = "text", .preedit_changed = true },
+    };
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.preedit.owner = 5;
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    var seq: u64 = 50;
+    var bc = testBroadcastContext(&client_manager, 1, &seq);
+
+    onClientDisconnectWithBroadcast(&session, 5, 10, &pty_ops, &bc);
+
+    try std.testing.expect(session.preedit.owner == null);
+    try std.testing.expectEqualSlices(u8, "text", mock_pty.written());
+    try std.testing.expect(!client.direct_queue.isEmpty());
+
+    client.deinit();
+}
+
+test "onClientDisconnectWithBroadcast: non-owner disconnect is a no-op" {
+    const helpers = test_mod.helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+
+    var mock = mock_ime.MockImeEngine{};
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.preedit.owner = 5;
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    var seq: u64 = 50;
+    var bc = testBroadcastContext(&client_manager, 1, &seq);
+
+    onClientDisconnectWithBroadcast(&session, 99, 10, &pty_ops, &bc);
+
+    try std.testing.expectEqual(@as(?types.ClientId, 5), session.preedit.owner);
+    try std.testing.expectEqual(@as(usize, 0), mock.flush_count);
+}
+
+test "onFocusChangeWithBroadcast: sends PreeditEnd when owner exists" {
+    const helpers = test_mod.helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot).?;
+    _ = client.connection.transitionTo(.ready);
+    _ = client.connection.transitionTo(.operating);
+    client.connection.attached_session_id = 1;
+
+    var mock = mock_ime.MockImeEngine{
+        .flush_result = .{ .committed_text = "focus", .preedit_changed = true },
+    };
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.focused_pane = 0;
+    session.preedit.owner = 42;
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    var seq: u64 = 10;
+    var bc = testBroadcastContext(&client_manager, 1, &seq);
+
+    onFocusChangeWithBroadcast(&session, 42, &pty_ops, 3, &bc);
+
+    try std.testing.expectEqualSlices(u8, "focus", mock_pty.written());
+    try std.testing.expectEqual(@as(?types.PaneSlot, 3), session.focused_pane);
+    try std.testing.expect(session.preedit.owner == null);
+    try std.testing.expect(!client.direct_queue.isEmpty());
+
+    client.deinit();
+}
+
+test "onPaneCloseWithBroadcast: sends PreeditEnd when owner exists" {
+    const helpers = test_mod.helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot).?;
+    _ = client.connection.transitionTo(.ready);
+    _ = client.connection.transitionTo(.operating);
+    client.connection.attached_session_id = 1;
+
+    var mock = mock_ime.MockImeEngine{};
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.preedit.owner = 10;
+    session.setPreedit("composing");
+
+    var seq: u64 = 20;
+    var bc = testBroadcastContext(&client_manager, 1, &seq);
+
+    onPaneCloseWithBroadcast(&session, &bc);
+
+    try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
+    try std.testing.expect(session.preedit.owner == null);
+    try std.testing.expect(!client.direct_queue.isEmpty());
+
+    client.deinit();
+}
+
+test "onInputMethodSwitchWithBroadcast: sends PreeditEnd and InputMethodAck" {
+    const helpers = test_mod.helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot).?;
+    _ = client.connection.transitionTo(.ready);
+    _ = client.connection.transitionTo(.operating);
+    client.connection.attached_session_id = 1;
+
+    var mock = mock_ime.MockImeEngine{
+        .active_input_method = "korean_2set",
+        .set_active_input_method_result = .{ .committed_text = "switch", .preedit_changed = true },
+    };
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.preedit.owner = 5;
+    session.setPreedit("composing");
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    var seq: u64 = 30;
+    var bc = testBroadcastContext(&client_manager, 1, &seq);
+
+    onInputMethodSwitchWithBroadcast(&session, "direct", true, 10, &pty_ops, &bc);
+
+    try std.testing.expectEqualSlices(u8, "switch", mock_pty.written());
+    try std.testing.expect(session.preedit.owner == null);
+    try std.testing.expectEqualSlices(u8, "direct", session.getActiveInputMethod());
+    // Should have sent PreeditEnd + InputMethodAck => 2 broadcast messages.
+    try std.testing.expect(seq > 31);
+    try std.testing.expect(!client.direct_queue.isEmpty());
+
+    client.deinit();
+}
+
+test "errorRecoveryWithBroadcast: sends PreeditEnd when owner exists" {
+    const helpers = test_mod.helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot).?;
+    _ = client.connection.transitionTo(.ready);
+    _ = client.connection.transitionTo(.operating);
+    client.connection.attached_session_id = 1;
+
+    var mock = mock_ime.MockImeEngine{};
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.preedit.owner = 7;
+    session.setPreedit("broken");
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    var seq: u64 = 40;
+    var bc = testBroadcastContext(&client_manager, 1, &seq);
+
+    errorRecoveryWithBroadcast(&session, 10, &pty_ops, &bc);
+
+    try std.testing.expectEqualSlices(u8, "broken", mock_pty.written());
+    try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
+    try std.testing.expect(session.preedit.owner == null);
+    try std.testing.expect(!client.direct_queue.isEmpty());
+
+    client.deinit();
 }

@@ -2,9 +2,9 @@
 
 ## Current State
 
-- **Step**: 11 (Over-Engineering Review)
+- **Step**: 8 (Spec Compliance Review)
 - **Cycle Type**: modification (Plan 8 — Input Pipeline & Preedit Wire Messages)
-- **Review Round**: 2
+- **Review Round**: 3
 - **Active Team**: impl-team
 - **Team Directory**: .claude/agents/impl-team/
 
@@ -49,7 +49,7 @@
 - [x] Step 9: Fix Cycle
 - [x] Step 10: Coverage Audit (94.86% — 0.14% below 95% target, handler dispatch
       gap)
-- [ ] Step 11: Over-Engineering Review
+- [x] Step 11: Over-Engineering Review (code changed → returning to Step 8)
 - [ ] Step 12: Commit & Report
 - [ ] Step 13: Owner Review
 - [ ] Step 14: Retrospective

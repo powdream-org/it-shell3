@@ -127,33 +127,47 @@ fn handleKeyEvent(params: CategoryDispatchParams) void {
         }
     }
 
+    const focused = entry.focusedPane();
+    const pty_fd: std.posix.fd_t = if (focused) |p| p.pty_fd else -1;
+
+    const preedit_dirty = processKeyEvent(session, key, pty_fd, pty_ops);
+
+    // Broadcast preedit messages based on state transitions.
+    if (preedit_dirty) {
+        broadcastPreeditState(params, entry, session);
+    }
+
+    client.recordActivity();
+}
+
+/// Core logic for KeyEvent: route through Phase 0 + Phase 1, then consume
+/// the result via Phase 2. Returns true if preedit state changed (dirty).
+/// Extracted for unit testability — accepts explicit dependencies.
+fn processKeyEvent(
+    session: *core.session.Session,
+    key: core.KeyEvent,
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const interfaces.PtyOps,
+) bool {
     // Route through Phase 0 + Phase 1.
     const result = input.handleKeyEvent(session.ime_engine, key, &toggle_bindings);
 
     // Phase 2: consume the result.
-    const focused = entry.focusedPane();
-    const pty_fd: std.posix.fd_t = if (focused) |p| p.pty_fd else -1;
-
     switch (result) {
         .consumed => |ime_result| {
             _ = ime_consumer.consumeImeResult(ime_result, session, pty_fd, pty_ops, null);
+            return false;
         },
         .bypassed => |bypass_key| {
             // Encode via ghostty key_encode and write to PTY.
             _ = bypass_key;
             // TODO(Plan 9): Wire ghostty key_encode for bypassed keys.
+            return false;
         },
         .processed => |ime_result| {
-            const preedit_dirty = ime_consumer.consumeImeResult(ime_result, session, pty_fd, pty_ops, null);
-
-            // Broadcast preedit messages based on state transitions.
-            if (preedit_dirty) {
-                broadcastPreeditState(params, entry, session);
-            }
+            return ime_consumer.consumeImeResult(ime_result, session, pty_fd, pty_ops, null);
         },
     }
-
-    client.recordActivity();
 }
 
 /// Broadcasts preedit state changes (PreeditStart, PreeditUpdate, or PreeditEnd).
@@ -250,10 +264,19 @@ fn handleTextInput(params: CategoryDispatchParams) void {
     const pane = resolvePaneInEntry(entry, pane_id) orelse return;
     const pty_ops = params.context.pty_ops orelse &handler_utils.no_op_pty_ops;
 
-    // Write directly to PTY (bypass IME).
-    _ = pty_ops.write(pane.pty_fd, text) catch {};
+    processTextInput(pane.pty_fd, pty_ops, text);
 
     params.client.recordActivity();
+}
+
+/// Core logic for TextInput: write text directly to PTY (bypass IME).
+/// Extracted for unit testability.
+fn processTextInput(
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const interfaces.PtyOps,
+    text: []const u8,
+) void {
+    _ = pty_ops.write(pty_fd, text) catch {};
 }
 
 // ── PasteData (0x0205) ─────────────────────────────────────────────────────
@@ -275,20 +298,33 @@ fn handlePasteData(params: CategoryDispatchParams) void {
     const pane = resolvePaneInEntry(entry, pane_id) orelse return;
     const pty_ops = params.context.pty_ops orelse &handler_utils.no_op_pty_ops;
 
+    processPasteData(pane.pty_fd, pty_ops, data, bracketed_paste, first_chunk, final_chunk);
+
+    params.client.recordActivity();
+}
+
+/// Core logic for PasteData: write paste data to PTY with optional bracketed
+/// paste wrapping. Extracted for unit testability.
+fn processPasteData(
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const interfaces.PtyOps,
+    data: []const u8,
+    bracketed_paste: bool,
+    first_chunk: bool,
+    final_chunk: bool,
+) void {
     // Bracketed paste prefix.
     if (first_chunk and bracketed_paste) {
-        _ = pty_ops.write(pane.pty_fd, "\x1b[200~") catch {};
+        _ = pty_ops.write(pty_fd, "\x1b[200~") catch {};
     }
 
     // Write paste data.
-    _ = pty_ops.write(pane.pty_fd, data) catch {};
+    _ = pty_ops.write(pty_fd, data) catch {};
 
     // Bracketed paste suffix.
     if (final_chunk and bracketed_paste) {
-        _ = pty_ops.write(pane.pty_fd, "\x1b[201~") catch {};
+        _ = pty_ops.write(pty_fd, "\x1b[201~") catch {};
     }
-
-    params.client.recordActivity();
 }
 
 // ── FocusEvent (0x0206) ────────────────────────────────────────────────────
@@ -307,18 +343,28 @@ fn handleFocusEvent(params: CategoryDispatchParams) void {
     const pane = resolvePaneInEntry(entry, pane_id) orelse return;
     const pty_ops = params.context.pty_ops orelse &handler_utils.no_op_pty_ops;
 
-    // Focus reporting (CSI ? 1004 h). The terminal's focus reporting mode
-    // is tracked by ghostty. Since we don't have direct access to the mode
-    // flag here, we write the escape sequence unconditionally. The terminal
-    // application will ignore it if focus reporting is not enabled.
-    // TODO(Plan 9): Check terminal focus_reporting mode flag before writing.
-    if (focused) {
-        _ = pty_ops.write(pane.pty_fd, "\x1b[I") catch {};
-    } else {
-        _ = pty_ops.write(pane.pty_fd, "\x1b[O") catch {};
-    }
+    processFocusEvent(pane.pty_fd, pty_ops, focused);
 
     params.client.recordActivity();
+}
+
+/// Core logic for FocusEvent: write focus reporting escape sequence to PTY.
+/// Focus reporting (CSI ? 1004 h). The terminal's focus reporting mode
+/// is tracked by ghostty. Since we don't have direct access to the mode
+/// flag here, we write the escape sequence unconditionally. The terminal
+/// application will ignore it if focus reporting is not enabled.
+/// TODO(Plan 9): Check terminal focus_reporting mode flag before writing.
+/// Extracted for unit testability.
+fn processFocusEvent(
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const interfaces.PtyOps,
+    focused: bool,
+) void {
+    if (focused) {
+        _ = pty_ops.write(pty_fd, "\x1b[I") catch {};
+    } else {
+        _ = pty_ops.write(pty_fd, "\x1b[O") catch {};
+    }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -349,4 +395,143 @@ test "toggle_bindings: contains right alt for korean_2set" {
     try std.testing.expectEqual(@as(usize, 1), toggle_bindings.len);
     try std.testing.expectEqual(@as(u16, 0xE6), toggle_bindings[0].hid_keycode);
     try std.testing.expectEqualSlices(u8, "korean_2set", toggle_bindings[0].toggle_method);
+}
+
+// ── Core Function Tests ─────────────────────────────────────────────────────
+
+const test_mod = @import("itshell3_testing");
+const MockPtyOps = test_mod.mock_os.MockPtyOps;
+const mock_ime = test_mod.mock_ime_engine;
+const session_mod = core.session;
+
+test "processTextInput: writes text directly to PTY" {
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processTextInput(10, &pty_ops, "hello world");
+
+    try std.testing.expectEqualSlices(u8, "hello world", mock_pty.written());
+}
+
+test "processTextInput: empty text writes nothing" {
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processTextInput(10, &pty_ops, "");
+
+    try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
+}
+
+test "processPasteData: single chunk without bracketed paste" {
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processPasteData(10, &pty_ops, "pasted text", false, true, true);
+
+    try std.testing.expectEqualSlices(u8, "pasted text", mock_pty.written());
+}
+
+test "processPasteData: single chunk with bracketed paste" {
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processPasteData(10, &pty_ops, "data", true, true, true);
+
+    try std.testing.expectEqualSlices(u8, "\x1b[200~data\x1b[201~", mock_pty.written());
+}
+
+test "processPasteData: first chunk only with bracketed paste" {
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processPasteData(10, &pty_ops, "chunk1", true, true, false);
+
+    try std.testing.expectEqualSlices(u8, "\x1b[200~chunk1", mock_pty.written());
+}
+
+test "processPasteData: middle chunk with bracketed paste (no prefix or suffix)" {
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processPasteData(10, &pty_ops, "chunk2", true, false, false);
+
+    try std.testing.expectEqualSlices(u8, "chunk2", mock_pty.written());
+}
+
+test "processPasteData: final chunk with bracketed paste" {
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processPasteData(10, &pty_ops, "chunk3", true, false, true);
+
+    try std.testing.expectEqualSlices(u8, "chunk3\x1b[201~", mock_pty.written());
+}
+
+test "processFocusEvent: focused=true writes CSI I" {
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processFocusEvent(10, &pty_ops, true);
+
+    try std.testing.expectEqualSlices(u8, "\x1b[I", mock_pty.written());
+}
+
+test "processFocusEvent: focused=false writes CSI O" {
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processFocusEvent(10, &pty_ops, false);
+
+    try std.testing.expectEqualSlices(u8, "\x1b[O", mock_pty.written());
+}
+
+test "processKeyEvent: direct mode key produces committed text via PTY" {
+    var mock = mock_ime.MockImeEngine{
+        .active_input_method = "direct",
+        .results = &[_]core.ImeResult{
+            .{ .committed_text = "a", .preedit_changed = false },
+        },
+    };
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    const key = core.KeyEvent{ .hid_keycode = 0x04, .modifiers = .{}, .shift = false, .action = .press };
+    const dirty = processKeyEvent(&session, key, 10, &pty_ops);
+
+    try std.testing.expect(!dirty);
+    try std.testing.expectEqualSlices(u8, "a", mock_pty.written());
+}
+
+test "processKeyEvent: korean mode key produces preedit change" {
+    var mock = mock_ime.MockImeEngine{
+        .active_input_method = "korean_2set",
+        .results = &[_]core.ImeResult{
+            .{ .preedit_text = "\xe3\x84\xb1", .preedit_changed = true },
+        },
+    };
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    const key = core.KeyEvent{ .hid_keycode = 0x15, .modifiers = .{}, .shift = false, .action = .press };
+    const dirty = processKeyEvent(&session, key, 10, &pty_ops);
+
+    try std.testing.expect(dirty);
+}
+
+test "processKeyEvent: bypassed key (high HID keycode) does not write to PTY" {
+    var mock = mock_ime.MockImeEngine{
+        .active_input_method = "direct",
+    };
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    // HID keycode 0xFF is above HID_KEYCODE_MAX and should be bypassed.
+    const key = core.KeyEvent{ .hid_keycode = 0xFF, .modifiers = .{}, .shift = false, .action = .press };
+    const dirty = processKeyEvent(&session, key, 10, &pty_ops);
+
+    try std.testing.expect(!dirty);
+    try std.testing.expectEqual(@as(usize, 0), mock_pty.written().len);
 }

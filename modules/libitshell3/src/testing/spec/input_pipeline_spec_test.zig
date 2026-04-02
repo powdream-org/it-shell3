@@ -158,14 +158,29 @@ test "spec: paste data — single chunk written to PTY" {
 //    Spec: protocol 04-input-and-renderstate FocusEvent (0x0206)
 // ---------------------------------------------------------------------------
 
-test "spec: focus event — gained and lost focus are distinct" {
-    // Validates: protocol 04 FocusEvent focused=true (gained) vs false (lost).
-    // This is a message contract test — the focused boolean must be
-    // correctly interpreted. The server writes CSI ? 1004 h focus reports.
-    // We verify the field semantics are preserved.
-    const focused_true: bool = true;
-    const focused_false: bool = false;
-    try std.testing.expect(focused_true != focused_false);
+test "spec: focus event — gained and lost focus are distinct protocol messages" {
+    // Validates: protocol 04 FocusEvent (0x0206) focused=true (gained) vs false (lost).
+    // The server uses this boolean to decide whether to write CSI ? 1004 h focus reports.
+    // Exercises the production FocusEvent struct and MessageType from itshell3_protocol.
+    const protocol = @import("itshell3_protocol");
+    const FocusEvent = protocol.input.FocusEvent;
+    const MessageType = protocol.message_type.MessageType;
+
+    // FocusEvent message type is 0x0206 per spec.
+    try std.testing.expectEqual(@as(u16, 0x0206), @intFromEnum(MessageType.focus_event));
+
+    // Construct gained and lost focus events for the same pane.
+    const gained = FocusEvent{ .pane_id = 1, .focused = true };
+    const lost = FocusEvent{ .pane_id = 1, .focused = false };
+
+    // The focused field distinguishes the two states.
+    try std.testing.expect(gained.focused != lost.focused);
+    try std.testing.expect(gained.focused == true);
+    try std.testing.expect(lost.focused == false);
+
+    // FocusEvent is the lowest priority input (P5) — advisory, no immediate visual consequence.
+    const input_dispatcher = server.handlers.input_dispatcher;
+    try std.testing.expectEqual(input_dispatcher.InputPriority.p5_focus, input_dispatcher.priorityOf(.focus_event));
 }
 
 // ---------------------------------------------------------------------------
@@ -710,16 +725,24 @@ test "spec: input priority — KeyEvent and TextInput are highest priority" {
     // Priority 1: KeyEvent, TextInput (affects what user sees immediately).
     // Priority 4: PasteData (bulk, latency-tolerant).
     // Priority 5: FocusEvent (advisory, no immediate visual consequence).
-    // This is a design contract; the ordering is enforced by the event loop.
-    // We verify the priority constants/ordering if exposed.
-    //
-    // Structural test: KeyEvent priority < PasteData priority < FocusEvent priority.
-    // (Lower number = higher priority.)
-    const key_event_priority: u8 = 1;
-    const paste_data_priority: u8 = 4;
-    const focus_event_priority: u8 = 5;
-    try std.testing.expect(key_event_priority < paste_data_priority);
-    try std.testing.expect(paste_data_priority < focus_event_priority);
+    // Exercises the production InputPriority enum and priorityOf function.
+    const input_dispatcher = server.handlers.input_dispatcher;
+    const priorityOf = input_dispatcher.priorityOf;
+    const P = input_dispatcher.InputPriority;
+
+    // P1: KeyEvent, TextInput — interactive keystroke path (highest priority).
+    try std.testing.expectEqual(P.p1_key_text, priorityOf(.key_event));
+    try std.testing.expectEqual(P.p1_key_text, priorityOf(.text_input));
+
+    // P4: PasteData — bulk transfer, latency-tolerant.
+    try std.testing.expectEqual(P.p4_paste, priorityOf(.paste_data));
+
+    // P5: FocusEvent — advisory, no immediate visual consequence (lowest priority).
+    try std.testing.expectEqual(P.p5_focus, priorityOf(.focus_event));
+
+    // Verify ordering: lower enum value = higher priority.
+    try std.testing.expect(@intFromEnum(P.p1_key_text) < @intFromEnum(P.p4_paste));
+    try std.testing.expect(@intFromEnum(P.p4_paste) < @intFromEnum(P.p5_focus));
 }
 
 // ---------------------------------------------------------------------------
@@ -886,19 +909,46 @@ test "spec: concurrent resize — preedit continues uninterrupted" {
 // ---------------------------------------------------------------------------
 
 test "spec: ambiguous width — valid values are 1 and 2" {
-    // Validates: protocol (cjk-preedit-protocol) AmbiguousWidthConfig —
+    // Validates: protocol (cjk-preedit-protocol) AmbiguousWidthConfig (0x0406) —
     // ambiguous_width: 1 = single-width (Western default), 2 = double-width (East Asian default).
-    const single_width: u8 = 1;
-    const double_width: u8 = 2;
-    try std.testing.expect(single_width == 1);
-    try std.testing.expect(double_width == 2);
+    // Exercises the production AmbiguousWidthConfig struct from itshell3_protocol.
+    const protocol = @import("itshell3_protocol");
+    const AmbiguousWidthConfig = protocol.preedit.AmbiguousWidthConfig;
+    const MessageType = protocol.message_type.MessageType;
+
+    // Message type is 0x0406 per spec.
+    try std.testing.expectEqual(@as(u16, 0x0406), @intFromEnum(MessageType.ambiguous_width_config));
+
+    // Default is single-width (Western default).
+    const default_config = AmbiguousWidthConfig{ .pane_id = 1 };
+    try std.testing.expectEqual(@as(u8, 1), default_config.ambiguous_width);
+
+    // Double-width (East Asian default) is the other valid value.
+    const east_asian_config = AmbiguousWidthConfig{ .pane_id = 1, .ambiguous_width = 2 };
+    try std.testing.expectEqual(@as(u8, 2), east_asian_config.ambiguous_width);
+
+    // Default scope is per_pane.
+    try std.testing.expectEqualStrings("per_pane", default_config.scope);
 }
 
 test "spec: ambiguous width — scope values per_pane, per_session, global" {
-    // Validates: protocol (cjk-preedit-protocol) AmbiguousWidthConfig scope field accepts three values.
-    // This verifies the contract: scope determines which terminals are affected.
-    const scopes = [_][]const u8{ "per_pane", "per_session", "global" };
-    try std.testing.expectEqual(@as(usize, 3), scopes.len);
+    // Validates: protocol (cjk-preedit-protocol) AmbiguousWidthConfig scope field.
+    // The scope determines which terminals are affected by the width setting.
+    // Exercises the production AmbiguousWidthConfig struct with each valid scope.
+    const protocol = @import("itshell3_protocol");
+    const AmbiguousWidthConfig = protocol.preedit.AmbiguousWidthConfig;
+
+    // Construct configs with each of the three valid scope values per spec.
+    const per_pane = AmbiguousWidthConfig{ .pane_id = 1, .scope = "per_pane" };
+    const per_session = AmbiguousWidthConfig{ .pane_id = 1, .scope = "per_session" };
+    const global = AmbiguousWidthConfig{ .pane_id = 0xFFFFFFFF, .scope = "global" };
+
+    try std.testing.expectEqualStrings("per_pane", per_pane.scope);
+    try std.testing.expectEqualStrings("per_session", per_session.scope);
+    try std.testing.expectEqualStrings("global", global.scope);
+
+    // Global scope uses pane_id=0xFFFFFFFF (all panes) per spec.
+    try std.testing.expectEqual(@as(u32, 0xFFFFFFFF), global.pane_id);
 }
 
 // ---------------------------------------------------------------------------
@@ -907,18 +957,28 @@ test "spec: ambiguous width — scope values per_pane, per_session, global" {
 // ---------------------------------------------------------------------------
 
 test "spec: IME error — unknown input method code 0x0001" {
-    // Validates: protocol (cjk-preedit-protocol) IMEError codes table.
-    const IME_ERROR_UNKNOWN_INPUT_METHOD: u16 = 0x0001;
-    const IME_ERROR_PANE_NOT_EXIST: u16 = 0x0002;
-    const IME_ERROR_INVALID_TRANSITION: u16 = 0x0003;
-    const IME_ERROR_SESSION_ID_MISMATCH: u16 = 0x0004;
-    const IME_ERROR_UTF8_ENCODING: u16 = 0x0005;
-    const IME_ERROR_METHOD_NOT_SUPPORTED: u16 = 0x0006;
+    // Validates: protocol (cjk-preedit-protocol) IMEError error codes table.
+    // Exercises the production ErrorCode enum and buildIMEError function.
+    const ime_error_builder = server.handlers.ime_error_builder;
+    const ErrorCode = ime_error_builder.ErrorCode;
+    const protocol = @import("itshell3_protocol");
 
-    // All error codes are distinct.
-    try std.testing.expect(IME_ERROR_UNKNOWN_INPUT_METHOD != IME_ERROR_PANE_NOT_EXIST);
-    try std.testing.expect(IME_ERROR_INVALID_TRANSITION != IME_ERROR_SESSION_ID_MISMATCH);
-    try std.testing.expect(IME_ERROR_UTF8_ENCODING != IME_ERROR_METHOD_NOT_SUPPORTED);
+    // Verify all six error codes match their spec-defined wire values.
+    try std.testing.expectEqual(@as(u16, 0x0001), @intFromEnum(ErrorCode.unknown_input_method));
+    try std.testing.expectEqual(@as(u16, 0x0002), @intFromEnum(ErrorCode.pane_not_found));
+    try std.testing.expectEqual(@as(u16, 0x0003), @intFromEnum(ErrorCode.invalid_composition_state));
+    try std.testing.expectEqual(@as(u16, 0x0004), @intFromEnum(ErrorCode.preedit_session_id_mismatch));
+    try std.testing.expectEqual(@as(u16, 0x0005), @intFromEnum(ErrorCode.utf8_encoding_error));
+    try std.testing.expectEqual(@as(u16, 0x0006), @intFromEnum(ErrorCode.input_method_not_supported));
+
+    // Exercise buildIMEError to produce a wire-format message for unknown_input_method.
+    var buf: ime_error_builder.ScratchBuf = undefined;
+    const result = ime_error_builder.buildIMEError(1, .unknown_input_method, "Unknown input method: foobar", 5, &buf);
+    try std.testing.expect(result != null);
+
+    // Verify the message uses the ime_error message type (0x04FF).
+    const header = try protocol.header.Header.decode(result.?[0..protocol.header.HEADER_SIZE]);
+    try std.testing.expectEqual(@as(u16, 0x04FF), header.msg_type);
 }
 
 // ---------------------------------------------------------------------------
@@ -1194,20 +1254,32 @@ test "spec: preedit session_id — monotonically increasing counter per session"
 // ---------------------------------------------------------------------------
 
 test "spec: readonly client — receives all preedit S->C messages as observer" {
-    // Validates: protocol (cjk-preedit-protocol) readonly client observation — readonly clients receive ALL
-    // preedit-related S->C messages (PreeditStart, PreeditUpdate, PreeditEnd,
-    // PreeditSync, InputMethodAck) as observers. Readonly clients MUST NOT
-    // send InputMethodSwitch — server rejects with ERR_ACCESS_DENIED.
-    // This is a broadcast contract: all attached clients receive preedit messages.
-    // Verified structurally: broadcast sends to ALL clients, no readonly filter.
-    const message_types_broadcast_to_all = [_]u16{
-        0x0400, // PreeditStart
-        0x0401, // PreeditUpdate
-        0x0402, // PreeditEnd
-        0x0403, // PreeditSync
-        0x0405, // InputMethodAck
-    };
-    try std.testing.expectEqual(@as(usize, 5), message_types_broadcast_to_all.len);
+    // Validates: protocol (cjk-preedit-protocol) readonly client observation — readonly clients
+    // receive ALL preedit-related S->C messages (PreeditStart, PreeditUpdate, PreeditEnd,
+    // PreeditSync, InputMethodAck) as observers. InputMethodSwitch is C->S only.
+    // Exercises the production MessageType enum and preedit protocol structs.
+    const protocol = @import("itshell3_protocol");
+    const MessageType = protocol.message_type.MessageType;
+    const preedit = protocol.preedit;
+
+    // All five S->C preedit message types exist at their spec-defined wire values.
+    try std.testing.expectEqual(@as(u16, 0x0400), @intFromEnum(MessageType.preedit_start));
+    try std.testing.expectEqual(@as(u16, 0x0401), @intFromEnum(MessageType.preedit_update));
+    try std.testing.expectEqual(@as(u16, 0x0402), @intFromEnum(MessageType.preedit_end));
+    try std.testing.expectEqual(@as(u16, 0x0403), @intFromEnum(MessageType.preedit_sync));
+    try std.testing.expectEqual(@as(u16, 0x0405), @intFromEnum(MessageType.input_method_ack));
+
+    // All preedit S->C messages use JSON encoding per spec.
+    try std.testing.expectEqual(MessageType.Encoding.json, MessageType.preedit_start.expectedEncoding());
+    try std.testing.expectEqual(MessageType.Encoding.json, MessageType.preedit_update.expectedEncoding());
+    try std.testing.expectEqual(MessageType.Encoding.json, MessageType.preedit_end.expectedEncoding());
+    try std.testing.expectEqual(MessageType.Encoding.json, MessageType.preedit_sync.expectedEncoding());
+    try std.testing.expectEqual(MessageType.Encoding.json, MessageType.input_method_ack.expectedEncoding());
+
+    // InputMethodSwitch (0x0404) is C->S — readonly clients MUST NOT send it.
+    // Verify the struct exists and carries the commit_current field for preedit handling.
+    const switch_msg = preedit.InputMethodSwitch{ .pane_id = 1, .input_method = "direct" };
+    try std.testing.expect(switch_msg.commit_current == true); // default: commit, not cancel
 }
 
 // ---------------------------------------------------------------------------

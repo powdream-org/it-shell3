@@ -308,3 +308,113 @@ test "resolveSessionByPaneId: pane_id 0 returns attached session" {
     try std.testing.expect(result == null);
     client.deinit();
 }
+
+test "resolveSessionByPaneId: pane_id 0 with attached session returns that session" {
+    const helpers = @import("itshell3_testing").helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot_index = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot_index).?;
+
+    const SessionManagerType = server.state.session_manager.SessionManager;
+    const S = struct {
+        var session_manager = SessionManagerType.init();
+    };
+    S.session_manager.reset();
+    const session_id = S.session_manager.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
+    const entry = S.session_manager.getSession(session_id).?;
+    client.attached_session = entry;
+
+    const result = resolveSessionByPaneId(&S.session_manager, client, 0);
+    try std.testing.expect(result != null);
+    try std.testing.expectEqual(session_id, result.?.session.session_id);
+    client.deinit();
+}
+
+test "resolveSessionByPaneId: nonzero pane_id scans all sessions" {
+    const helpers = @import("itshell3_testing").helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot_index = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot_index).?;
+
+    const SessionManagerType = server.state.session_manager.SessionManager;
+    const S = struct {
+        var session_manager = SessionManagerType.init();
+    };
+    S.session_manager.reset();
+    const session_id = S.session_manager.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
+    const entry = S.session_manager.getSession(session_id).?;
+
+    // Populate pane slot 0 with a known pane_id.
+    const pane_id: u32 = 42;
+    const pane_mod = server.state.pane;
+    entry.pane_slots[0] = pane_mod.Pane.init(pane_id, 0, -1, 0, 80, 24);
+
+    const result = resolveSessionByPaneId(&S.session_manager, client, pane_id);
+    try std.testing.expect(result != null);
+    try std.testing.expectEqual(session_id, result.?.session.session_id);
+    client.deinit();
+}
+
+test "resolveSessionByPaneId: nonzero pane_id not found returns null" {
+    const helpers = @import("itshell3_testing").helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+    const slot_index = try client_manager.addClient(.{ .fd = 10 });
+    const client = client_manager.getClient(slot_index).?;
+
+    const SessionManagerType = server.state.session_manager.SessionManager;
+    const S = struct {
+        var session_manager = SessionManagerType.init();
+    };
+    S.session_manager.reset();
+    _ = S.session_manager.createSession("test", helpers.testImeEngine(), 0) catch unreachable;
+
+    const result = resolveSessionByPaneId(&S.session_manager, client, 99999);
+    try std.testing.expect(result == null);
+    client.deinit();
+}
+
+test "countAttachedClients: counts operating clients for session" {
+    const helpers = @import("itshell3_testing").helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+
+    // Add two clients, both attached to session 5.
+    const slot1 = try client_manager.addClient(.{ .fd = 10 });
+    const client1 = client_manager.getClient(slot1).?;
+    _ = client1.connection.transitionTo(.ready);
+    _ = client1.connection.transitionTo(.operating);
+    client1.connection.attached_session_id = 5;
+
+    const slot2 = try client_manager.addClient(.{ .fd = 11 });
+    const client2 = client_manager.getClient(slot2).?;
+    _ = client2.connection.transitionTo(.ready);
+    _ = client2.connection.transitionTo(.operating);
+    client2.connection.attached_session_id = 5;
+
+    // Add one client attached to a different session.
+    const slot3 = try client_manager.addClient(.{ .fd = 12 });
+    const client3 = client_manager.getClient(slot3).?;
+    _ = client3.connection.transitionTo(.ready);
+    _ = client3.connection.transitionTo(.operating);
+    client3.connection.attached_session_id = 7;
+
+    try std.testing.expectEqual(@as(u32, 2), countAttachedClients(&client_manager, 5));
+    try std.testing.expectEqual(@as(u32, 1), countAttachedClients(&client_manager, 7));
+    try std.testing.expectEqual(@as(u32, 0), countAttachedClients(&client_manager, 99));
+
+    client1.deinit();
+    client2.deinit();
+    client3.deinit();
+}
+
+test "countAttachedClients: non-operating clients are not counted" {
+    const helpers = @import("itshell3_testing").helpers;
+    var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
+
+    const slot1 = try client_manager.addClient(.{ .fd = 10 });
+    const client1 = client_manager.getClient(slot1).?;
+    // Client is in handshaking state, not operating.
+    client1.connection.attached_session_id = 5;
+
+    try std.testing.expectEqual(@as(u32, 0), countAttachedClients(&client_manager, 5));
+    client1.deinit();
+}

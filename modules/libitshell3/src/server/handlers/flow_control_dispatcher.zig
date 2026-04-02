@@ -34,30 +34,10 @@ fn handleClientDisplayInfo(params: CategoryDispatchParams) void {
     const payload = params.payload;
     const sequence = params.header.sequence;
 
-    if (handler_utils.extractU16Field(payload, "\"display_refresh_hz\":")) |refresh_hz| {
-        client.display_info.display_refresh_hz = refresh_hz;
-    }
-    if (handler_utils.extractStringField(payload, "\"power_state\":\"")) |power_state| {
-        client.display_info.power_state = parsePowerState(power_state);
-    }
-    if (handler_utils.extractU16Field(payload, "\"preferred_max_fps\":")) |preferred_max_fps| {
-        client.display_info.preferred_max_fps = preferred_max_fps;
-    }
-    if (handler_utils.extractStringField(payload, "\"transport_type\":\"")) |transport_type| {
-        client.display_info.transport_type = parseTransportType(transport_type);
-    }
-    if (handler_utils.extractU16Field(payload, "\"estimated_rtt_ms\":")) |estimated_rtt_ms| {
-        client.display_info.estimated_rtt_ms = estimated_rtt_ms;
-    }
-    if (handler_utils.extractStringField(payload, "\"bandwidth_hint\":\"")) |bandwidth_hint| {
-        client.display_info.bandwidth_hint = parseBandwidthHint(bandwidth_hint);
-    }
+    applyDisplayInfo(&client.display_info, payload);
 
     // Send ClientDisplayInfoAck (0x0506).
-    const effective_max_fps: u16 = if (client.display_info.preferred_max_fps > 0)
-        client.display_info.preferred_max_fps
-    else
-        client.display_info.display_refresh_hz;
+    const effective_max_fps = computeEffectiveMaxFps(&client.display_info);
 
     var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
     var json_buffer: [128]u8 = undefined;
@@ -73,6 +53,39 @@ fn handleClientDisplayInfo(params: CategoryDispatchParams) void {
     client.enqueueDirect(response) catch {};
 
     client.recordActivity();
+}
+
+/// Core logic: parse display info fields from JSON payload and apply to
+/// client display info struct. Extracted for unit testability.
+fn applyDisplayInfo(display_info: *ClientDisplayInfo, payload: []const u8) void {
+    if (handler_utils.extractU16Field(payload, "\"display_refresh_hz\":")) |refresh_hz| {
+        display_info.display_refresh_hz = refresh_hz;
+    }
+    if (handler_utils.extractStringField(payload, "\"power_state\":\"")) |power_state| {
+        display_info.power_state = parsePowerState(power_state);
+    }
+    if (handler_utils.extractU16Field(payload, "\"preferred_max_fps\":")) |preferred_max_fps| {
+        display_info.preferred_max_fps = preferred_max_fps;
+    }
+    if (handler_utils.extractStringField(payload, "\"transport_type\":\"")) |transport_type| {
+        display_info.transport_type = parseTransportType(transport_type);
+    }
+    if (handler_utils.extractU16Field(payload, "\"estimated_rtt_ms\":")) |estimated_rtt_ms| {
+        display_info.estimated_rtt_ms = estimated_rtt_ms;
+    }
+    if (handler_utils.extractStringField(payload, "\"bandwidth_hint\":\"")) |bandwidth_hint| {
+        display_info.bandwidth_hint = parseBandwidthHint(bandwidth_hint);
+    }
+}
+
+/// Computes effective max FPS from client display info.
+/// Returns preferred_max_fps if nonzero, otherwise display_refresh_hz.
+/// Extracted for unit testability.
+fn computeEffectiveMaxFps(display_info: *const ClientDisplayInfo) u16 {
+    return if (display_info.preferred_max_fps > 0)
+        display_info.preferred_max_fps
+    else
+        display_info.display_refresh_hz;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -116,4 +129,58 @@ test "parseBandwidthHint: maps string to enum" {
     try std.testing.expectEqual(ClientDisplayInfo.BandwidthHint.lan, parseBandwidthHint("lan"));
     try std.testing.expectEqual(ClientDisplayInfo.BandwidthHint.wan, parseBandwidthHint("wan"));
     try std.testing.expectEqual(ClientDisplayInfo.BandwidthHint.cellular, parseBandwidthHint("cellular"));
+}
+
+// ── Core Function Tests ─────────────────────────────────────────────────────
+
+test "applyDisplayInfo: parses all fields from JSON payload" {
+    var info = ClientDisplayInfo{};
+    const payload = "{\"display_refresh_hz\":120,\"power_state\":\"battery\",\"preferred_max_fps\":30,\"transport_type\":\"ssh_tunnel\",\"estimated_rtt_ms\":50,\"bandwidth_hint\":\"wan\"}";
+
+    applyDisplayInfo(&info, payload);
+
+    try std.testing.expectEqual(@as(u16, 120), info.display_refresh_hz);
+    try std.testing.expectEqual(ClientDisplayInfo.PowerState.battery, info.power_state);
+    try std.testing.expectEqual(@as(u16, 30), info.preferred_max_fps);
+    try std.testing.expectEqual(ClientDisplayInfo.TransportType.ssh_tunnel, info.transport_type);
+    try std.testing.expectEqual(@as(u16, 50), info.estimated_rtt_ms);
+    try std.testing.expectEqual(ClientDisplayInfo.BandwidthHint.wan, info.bandwidth_hint);
+}
+
+test "applyDisplayInfo: partial payload only updates present fields" {
+    var info = ClientDisplayInfo{};
+    const payload = "{\"display_refresh_hz\":144}";
+
+    applyDisplayInfo(&info, payload);
+
+    try std.testing.expectEqual(@as(u16, 144), info.display_refresh_hz);
+    // Defaults should remain.
+    try std.testing.expectEqual(ClientDisplayInfo.PowerState.ac, info.power_state);
+    try std.testing.expectEqual(@as(u16, 0), info.preferred_max_fps);
+    try std.testing.expectEqual(ClientDisplayInfo.TransportType.local, info.transport_type);
+}
+
+test "applyDisplayInfo: empty payload leaves defaults" {
+    var info = ClientDisplayInfo{};
+
+    applyDisplayInfo(&info, "{}");
+
+    try std.testing.expectEqual(@as(u16, 60), info.display_refresh_hz);
+    try std.testing.expectEqual(ClientDisplayInfo.PowerState.ac, info.power_state);
+}
+
+test "computeEffectiveMaxFps: uses preferred when nonzero" {
+    const info = ClientDisplayInfo{
+        .display_refresh_hz = 60,
+        .preferred_max_fps = 30,
+    };
+    try std.testing.expectEqual(@as(u16, 30), computeEffectiveMaxFps(&info));
+}
+
+test "computeEffectiveMaxFps: falls back to display_refresh_hz when preferred is zero" {
+    const info = ClientDisplayInfo{
+        .display_refresh_hz = 120,
+        .preferred_max_fps = 0,
+    };
+    try std.testing.expectEqual(@as(u16, 120), computeEffectiveMaxFps(&info));
 }

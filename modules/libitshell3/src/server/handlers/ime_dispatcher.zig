@@ -71,33 +71,31 @@ fn handleInputMethodSwitch(params: CategoryDispatchParams) void {
     // Resolve PTY fd and ops for the focused pane.
     const focused_pane = entry.focusedPane();
     const pty_fd: std.posix.fd_t = if (focused_pane) |p| p.pty_fd else -1;
-    const pty_ops = params.context.pty_ops orelse {
-        // No PTY ops available -- cannot write committed text.
-        // Still perform the switch logic without PTY write.
-        procedures.onInputMethodSwitchWithBroadcast(
-            &entry.session,
-            input_method,
-            commit_current,
-            pty_fd,
-            // Use a minimal no-op pty ops. The procedure will try to write
-            // but the write call will be skipped if no committed text.
-            &handler_utils.no_op_pty_ops,
-            &bc,
-        );
-        client.recordActivity();
-        return;
-    };
+    const pty_ops = params.context.pty_ops orelse &handler_utils.no_op_pty_ops;
 
+    processInputMethodSwitch(&entry.session, input_method, commit_current, pty_fd, pty_ops, &bc);
+
+    client.recordActivity();
+}
+
+/// Core logic for InputMethodSwitch: delegates to the IME procedure with
+/// explicit dependencies. Extracted for unit testability.
+fn processInputMethodSwitch(
+    session: *core.session.Session,
+    input_method: []const u8,
+    commit_current: bool,
+    pty_fd: std.posix.fd_t,
+    pty_ops: *const server.os.interfaces.PtyOps,
+    broadcast_context: ?*const BroadcastContext,
+) void {
     procedures.onInputMethodSwitchWithBroadcast(
-        &entry.session,
+        session,
         input_method,
         commit_current,
         pty_fd,
         pty_ops,
-        &bc,
+        broadcast_context,
     );
-
-    client.recordActivity();
 }
 
 /// Handles AmbiguousWidthConfig (0x0406).
@@ -123,4 +121,60 @@ test "isSupportedInputMethod: direct and korean_2set are supported" {
     try std.testing.expect(isSupportedInputMethod("korean_2set"));
     try std.testing.expect(!isSupportedInputMethod("japanese_romaji"));
     try std.testing.expect(!isSupportedInputMethod("foobar"));
+}
+
+// ── Core Function Tests ─────────────────────────────────────────────────────
+
+const test_mod = @import("itshell3_testing");
+const MockPtyOps = test_mod.mock_os.MockPtyOps;
+const mock_ime = test_mod.mock_ime_engine;
+const session_mod = core.session;
+
+test "processInputMethodSwitch: switches from direct to korean_2set" {
+    var mock = mock_ime.MockImeEngine{
+        .active_input_method = "direct",
+    };
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processInputMethodSwitch(&session, "korean_2set", true, -1, &pty_ops, null);
+
+    try std.testing.expectEqual(@as(usize, 1), mock.set_active_input_method_count);
+    try std.testing.expectEqualSlices(u8, "korean_2set", session.getActiveInputMethod());
+}
+
+test "processInputMethodSwitch: commit_current=true flushes composition" {
+    var mock = mock_ime.MockImeEngine{
+        .active_input_method = "korean_2set",
+        .set_active_input_method_result = .{ .committed_text = "flushed", .preedit_changed = true },
+    };
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.preedit.owner = 5;
+    session.setPreedit("composing");
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processInputMethodSwitch(&session, "direct", true, 10, &pty_ops, null);
+
+    try std.testing.expectEqualSlices(u8, "flushed", mock_pty.written());
+    try std.testing.expect(session.preedit.owner == null);
+}
+
+test "processInputMethodSwitch: commit_current=false resets without flushing" {
+    var mock = mock_ime.MockImeEngine{
+        .active_input_method = "korean_2set",
+    };
+    var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
+    session.preedit.owner = 5;
+    session.setPreedit("composing");
+    var mock_pty = MockPtyOps{};
+    const pty_ops = mock_pty.ops();
+
+    processInputMethodSwitch(&session, "direct", false, 10, &pty_ops, null);
+
+    try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
+    try std.testing.expectEqual(@as(usize, 0), mock.flush_count);
+    try std.testing.expect(session.preedit.owner == null);
+    try std.testing.expectEqualSlices(u8, "direct", session.getActiveInputMethod());
 }
