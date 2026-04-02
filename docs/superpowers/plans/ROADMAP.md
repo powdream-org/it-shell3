@@ -22,7 +22,7 @@ libhangul, POSIX (kqueue/epoll, forkpty, Unix sockets).
 
 | Module                | Source Files | Tests | Coverage (kcov) |
 | --------------------- | ------------ | ----- | --------------- |
-| libitshell3           | 64           | 875   | 95.55%          |
+| libitshell3           | 95           | 875   | 95.55%          |
 | libitshell3-protocol  | 15           | 215   | 93.23%          |
 | libitshell3-transport | 7            | 31    | 90.27%          |
 | libitshell3-ime       | 11           | 142   | 98.59%          |
