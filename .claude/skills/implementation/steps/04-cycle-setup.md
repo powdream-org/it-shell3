@@ -51,18 +51,15 @@ Update `docs/superpowers/plans/ROADMAP.md`:
 - Update the Current Status table with current source file count, test count,
   and coverage for the target module(s)
 
-### 4e. Present to owner
+### 4e. Present risks and surprises
 
-Show the owner:
+If any of these exist, present to the owner and wait for decision:
+- Coverage exemption requested
+- Scope changes discovered during plan verification
+- Unusual constraints or risks the owner hasn't seen
+- Decisions made without owner input that could be overridden
 
-1. Spec version(s) being implemented
-2. Plan summary (file list, task count, dependency graph)
-3. PoC reference (if any)
-4. Coverage approach (instrumented or scenario-matrix with exemption)
-5. Team composition (from agent directory)
-6. Verification results (from Step 3)
-
-Wait for owner approval before proceeding.
+If none exist, auto-proceed with a one-line status: "No risks or surprises. Auto-proceeding to Step 5."
 
 ## Gate
 
@@ -70,7 +67,8 @@ Wait for owner approval before proceeding.
 - [ ] Agent definitions verified
 - [ ] TODO.md updated with plan path, PoC, coverage exemption
 - [ ] ROADMAP.md updated
-- [ ] Owner has approved
+- [ ] Risks/surprises presented (or confirmed none exist)
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

@@ -104,6 +104,7 @@ Create `<target>/TODO.md` with this format:
 - [ ] Plan existence checked
 - [ ] TODO.md created
 - [ ] ROADMAP Plan Index status updated to `In progress`
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

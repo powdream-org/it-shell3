@@ -33,6 +33,9 @@
 - **Don't let QA engineer read implementation source code.** QA engineer derives
   tests from the spec alone. Reading the implementation introduces bias — tests
   end up confirming what the code does rather than what the spec says.
+- **Don't assume agents know project conventions.** The agent definition and
+  spawn prompt must both reference convention docs explicitly. Conventions
+  not read before coding become rework in Step 7.
 - **Don't serialize parallelizable tasks into one implementer.** If the plan's
   dependency graph shows independent task groups, spawn one implementer per
   group. Queuing all tasks behind a single agent wastes time.
@@ -76,6 +79,8 @@ engineer writes spec behavior tests from the spec/scenario matrix.
 You are implementing module <module>. Source dir: <target>/src/.
 Read TODO.md's ## Spec section for all spec paths, plan path, and PoC paths.
 Also read: docs/insights/implementation-learnings.md
+MANDATORY: Read ALL docs/conventions/zig-*.md files before writing any code.
+Convention violations caught later are expensive rework.
 CRITICAL: The design spec is the architectural authority, not the plan. If the
 plan's descriptions contradict the spec, the spec wins. Verify every public API
 against the spec section that defines it.
@@ -91,6 +96,8 @@ and inline unit tests are complete.
 You are writing spec behavior tests for module <module>.
 Read TODO.md's ## Spec section for all spec paths.
 Output dir: <target>/src/testing/spec/.
+MANDATORY: Read docs/conventions/zig-testing.md and docs/conventions/zig-documentation.md
+before writing tests.
 CRITICAL: Derive ALL test cases from the design spec and scenario matrix — NOT
 from the implementation code. You must NOT read implementation source files.
 FILE OWNERSHIP: You own ONLY src/testing/spec/*_spec_test.zig — do NOT create
@@ -157,6 +164,7 @@ Step 12.
 - [ ] `mise run test:all -- --no-coverage` executed (failures acceptable at this
       stage)
 - [ ] Spec gaps (if any) logged in TODO.md
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

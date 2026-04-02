@@ -81,6 +81,7 @@ Once `mise run test:macos` passes, the scaffold gate is satisfied.
 - [ ] Vendored C compiles (if applicable) with `.ReleaseSafe`
 - [ ] `mise run test:macos` passes
 - [ ] No production logic written yet
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

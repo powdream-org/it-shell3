@@ -97,6 +97,7 @@ Wait for both reviewers to report.
 - [ ] QA reviewer has completed dual review (Part A + Part B)
 - [ ] Development-reviewer has completed convention re-verification
 - [ ] Result is either "all clean" or a merged issue list with prefixes
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

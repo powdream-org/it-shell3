@@ -42,6 +42,7 @@ The owner signals one of:
 
 - [ ] Owner has explicitly accepted OR requested changes
 - [ ] If changes requested: changes logged
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

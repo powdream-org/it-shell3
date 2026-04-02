@@ -54,6 +54,7 @@ git push
 - [ ] TODO.md deleted
 - [ ] retrospective/ deleted
 - [ ] Committed and pushed
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

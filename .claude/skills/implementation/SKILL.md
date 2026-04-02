@@ -86,7 +86,7 @@ do not pre-read future steps.
 
 | Step | File                                  | Summary                                              | Gate                                               |
 | ---- | ------------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
-| 1    | `steps/01-requirements-intake.md`     | Identify spec, plan, inputs; create TODO.md          | Owner approves, TODO.md created                    |
+| 1    | `steps/01-requirements-intake.md`     | Identify spec, plan, inputs; create TODO.md          | TODO.md created, ROADMAP updated                   |
 | 2    | `steps/02-plan-writing.md`            | Write implementation plan via `/writing-impl-plan`   | Plan written and reviewed                          |
 | 3    | `steps/03-plan-verification.md`       | Verify plan against spec/code via review team        | All verifiers clean pass                           |
 | 4    | `steps/04-cycle-setup.md`             | Collect inputs, verify agents, owner approval        | Owner approved, ROADMAP updated                    |
@@ -148,7 +148,22 @@ These apply to ALL steps, not just one:
 - **Model selection.** Writing tasks (plans, CTRs, ADRs, spec tests) use opus.
   Plan verification uses the impl-plan-review-team (opus + effort: max).
   Verification tasks (spec checking, compliance review) may use sonnet.
-
+- **Mechanical gates auto-proceed.** If all gate conditions can be verified by
+  reading files and running commands (file exists, tests pass, agents present),
+  auto-proceed with a one-line status summary. Only pause for owner approval
+  when a gate involves a trade-off or decision requiring human judgment
+  (coverage exemption, scope change, unusual constraints).
+- **Don't shortcut skills.** When a step says "invoke /triage" or "invoke
+  /simplify", execute the skill's full procedure. "The information already
+  exists elsewhere" or "this is redundant" is not grounds to skip steps
+  within a skill. Skills define their own quality bar — the team leader
+  does not override it.
+- **Don't skip checkpoint commits.** Each step's checkpoint creates a rollback
+  point. Without them, a crash or context loss requires reconstructing all
+  work from scratch. Commit before proceeding to the next step.
+- **All step instructions are obligations, not just gates.** Gates are pass/fail
+  conditions, but Action and State Update sections carry equal authority.
+  "It's not in the gate" is not a reason to skip an instruction.
 ## Continuous Improvement Log
 
 When you encounter a procedural problem at any step, run `/sip <description>`

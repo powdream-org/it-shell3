@@ -56,6 +56,11 @@ See `docs/conventions/spec-document-sources.md` for the precedence rules
 You own **only** `<target>/src/testing/spec/*_spec_test.zig`. Do NOT create or
 modify any file outside this directory.
 
+## Project Conventions (MANDATORY — read before writing tests)
+
+- `docs/conventions/zig-testing.md` — test naming, inline vs spec, ownership
+- `docs/conventions/zig-documentation.md` — doc comment format, spec reference policy
+
 ## Completion Report Format
 
 When reporting completion, provide a test-by-test listing:

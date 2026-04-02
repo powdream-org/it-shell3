@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 12 (Commit & Report)
+- **Step**: 14 (Retrospective)
 - **Cycle Type**: modification (Plan 16 — align code with Plan 15 spec updates)
 - **Review Round**: 2
 - **Active Team**: impl-team
@@ -93,7 +93,7 @@
 - [x] Step 9: Fix Cycle
 - [x] Step 10: Coverage Audit
 - [x] Step 11: Over-Engineering Review (Round 2 regression clean)
-- [ ] Step 12: Commit & Report
-- [ ] Step 13: Owner Review
+- [x] Step 12: Commit & Report
+- [x] Step 13: Owner Review
 - [ ] Step 14: Retrospective
 - [ ] Step 15: Cleanup & ROADMAP Update

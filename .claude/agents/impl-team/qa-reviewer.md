@@ -81,6 +81,11 @@ Invalid exceptions:
 - "Low priority" — all code is equal for coverage
 - "Only triggered by invalid input" — test with invalid input
 
+## Project Conventions (MANDATORY — read before reviewing)
+
+- `docs/conventions/zig-testing.md` — test naming, structure, ownership rules
+- `docs/conventions/zig-documentation.md` — doc comment format, spec reference policy
+
 ## Spec Compliance Review Checklist
 
 When reviewing implementation, verify:

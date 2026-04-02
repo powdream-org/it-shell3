@@ -99,6 +99,7 @@ Present to the owner:
 - [ ] Diff reviewed (9c)
 - [ ] Code committed (9d)
 - [ ] Owner notified (9e)
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

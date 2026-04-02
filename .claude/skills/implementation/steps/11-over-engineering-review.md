@@ -7,6 +7,12 @@
   `05-implementation-workflow.md` §4.3 for why.
 - **Don't let the reviewer rewrite code.** They report findings — the
   implementer fixes. The reviewer re-validates.
+- **Don't self-triage over-engineering findings.** Even if findings appear
+  pre-existing or out-of-scope, the owner decides the disposition.
+  "Pre-existing" is a timeline fact, not a disposition — the owner may
+  still choose Fix, Justified, or Defer. Always invoke `/triage`.
+  Self-check: "has the owner seen this finding's 5W1H presentation?" —
+  if no, you haven't triaged it.
 - **Don't skip the regression loop.** If ANY code changes during this step,
   control returns to Step 8, not Step 12. No exceptions.
 
@@ -110,6 +116,8 @@ Step 8.
 - [ ] Over-engineering reviewer has completed the review
 - [ ] If findings: implementer has fixed them, reviewer has re-validated
 - [ ] If code changed: tests pass in Debug and ReleaseSafe
+- [ ] If findings exist: `/triage` invoked, sub-agent ID recorded, owner dispositions in TODO.md
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

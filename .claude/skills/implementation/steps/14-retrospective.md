@@ -72,6 +72,7 @@ change and commit with reason.
 - [ ] Cycle reviewed (14b)
 - [ ] `implementation-learnings.md` updated (or confirmed no new lessons)
 - [ ] Skill improvements proposed and applied (or confirmed none needed)
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

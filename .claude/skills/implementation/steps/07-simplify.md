@@ -77,6 +77,7 @@ the implementer reverts it.
 - [ ] `/fix-code-convention-violations` completed
 - [ ] Applicable fixes applied
 - [ ] `mise run test:all -- --no-coverage` passes
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

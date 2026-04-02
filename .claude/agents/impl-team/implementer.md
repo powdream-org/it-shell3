@@ -55,6 +55,13 @@ tests. Your job is to faithfully translate the design spec into working code.
 - Inline `test` blocks go at the bottom of each source file, testing internal
   functions and edge cases not covered by the integration test matrix.
 
+## Project Conventions (MANDATORY — read before writing any code)
+
+- `docs/conventions/zig-coding.md` — integer widths, packed struct rules
+- `docs/conventions/zig-naming.md` — no abbreviations, buffer constants, getters
+- `docs/conventions/zig-documentation.md` — doc comment format, TODO format
+- `docs/conventions/zig-testing.md` — inline vs spec tests, naming, ownership
+
 ## Communication
 
 - Talk directly to the QA reviewer (peer-to-peer) — do not route through the

@@ -85,6 +85,7 @@ Record coverage numbers (or scenario count) in TODO.md for the final report.
 - [ ] Exceptions documented with rationale
 - [ ] `mise run test:all` passes (with coverage)
 - [ ] If new tests revealed spec violations → returned to Step 8
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

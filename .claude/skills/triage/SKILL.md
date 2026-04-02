@@ -9,6 +9,23 @@ description: >
 
 # Issue Triage Skill
 
+## 0. Hard Gates (cannot be skipped)
+
+Before presenting ANY issue to the owner, ALL of these must be true:
+
+- [ ] Sub-agent spawned (Step 4) and returned all drafted presentations
+- [ ] Sub-agent read at least one quality example from `examples/` directory
+  matching the conflict type — the sub-agent's output must cite which
+  example file it read
+- [ ] Team leader reviewed each draft for accuracy before presenting
+
+"The information already exists in the SIP file" is NOT grounds to skip
+the sub-agent. The sub-agent reads quality examples to calibrate depth —
+without this calibration, presentations will be too shallow for owner
+decision-making.
+
+If any hard gate is not met, the triage has not started. Do not present.
+
 ## 1. Procedure
 
 1. **Group issues by component or area.** Do NOT group by severity — severity

@@ -110,6 +110,7 @@ All tests must pass before proceeding.
 - [ ] All `[CONV]` issues resolved and verified by development-reviewer
 - [ ] `mise run test:all -- --no-coverage` passes
 - [ ] No new unauthorized extensions introduced during fixes
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

@@ -85,6 +85,7 @@ Do NOT proceed to Step 4 until all three verifiers pass clean.
 - [ ] plan-code-verifier: clean pass (or N/A for greenfield)
 - [ ] All divergences investigated (not dismissed)
 - [ ] Owner-escalated items resolved
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 

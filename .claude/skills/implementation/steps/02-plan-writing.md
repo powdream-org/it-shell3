@@ -37,6 +37,7 @@ Confirm the plan covers:
 
 - [ ] Plan written via `/writing-impl-plan` skill
 - [ ] Plan reviewed by team leader
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
 
 ## State Update
 
