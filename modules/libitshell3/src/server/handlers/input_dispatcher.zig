@@ -399,12 +399,9 @@ test "toggle_bindings: contains right alt for korean_2set" {
 
 // ── Core Function Tests ─────────────────────────────────────────────────────
 
-const test_mod = @import("itshell3_testing");
-const MockPtyOps = test_mod.mock_os.MockPtyOps;
-const mock_ime = test_mod.mock_ime_engine;
-const session_mod = core.session;
-
 test "processTextInput: writes text directly to PTY" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -414,6 +411,8 @@ test "processTextInput: writes text directly to PTY" {
 }
 
 test "processTextInput: empty text writes nothing" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -423,6 +422,8 @@ test "processTextInput: empty text writes nothing" {
 }
 
 test "processPasteData: single chunk without bracketed paste" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -432,6 +433,8 @@ test "processPasteData: single chunk without bracketed paste" {
 }
 
 test "processPasteData: single chunk with bracketed paste" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -441,6 +444,8 @@ test "processPasteData: single chunk with bracketed paste" {
 }
 
 test "processPasteData: first chunk only with bracketed paste" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -450,6 +455,8 @@ test "processPasteData: first chunk only with bracketed paste" {
 }
 
 test "processPasteData: middle chunk with bracketed paste (no prefix or suffix)" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -459,6 +466,8 @@ test "processPasteData: middle chunk with bracketed paste (no prefix or suffix)"
 }
 
 test "processPasteData: final chunk with bracketed paste" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -468,6 +477,8 @@ test "processPasteData: final chunk with bracketed paste" {
 }
 
 test "processFocusEvent: focused=true writes CSI I" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -477,6 +488,8 @@ test "processFocusEvent: focused=true writes CSI I" {
 }
 
 test "processFocusEvent: focused=false writes CSI O" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock_pty = MockPtyOps{};
     const pty_ops = mock_pty.ops();
 
@@ -486,6 +499,10 @@ test "processFocusEvent: focused=false writes CSI O" {
 }
 
 test "processKeyEvent: direct mode key produces committed text via PTY" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
+    const mock_ime = test_mod.mock_ime_engine;
+    const session_mod = core.session;
     var mock = mock_ime.MockImeEngine{
         .active_input_method = "direct",
         .results = &[_]core.ImeResult{
@@ -504,6 +521,10 @@ test "processKeyEvent: direct mode key produces committed text via PTY" {
 }
 
 test "processKeyEvent: korean mode key produces preedit change" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
+    const mock_ime = test_mod.mock_ime_engine;
+    const session_mod = core.session;
     var mock = mock_ime.MockImeEngine{
         .active_input_method = "korean_2set",
         .results = &[_]core.ImeResult{
@@ -521,6 +542,10 @@ test "processKeyEvent: korean mode key produces preedit change" {
 }
 
 test "processKeyEvent: bypassed key (high HID keycode) does not write to PTY" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
+    const mock_ime = test_mod.mock_ime_engine;
+    const session_mod = core.session;
     var mock = mock_ime.MockImeEngine{
         .active_input_method = "direct",
     };

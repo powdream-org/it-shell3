@@ -125,12 +125,11 @@ test "isSupportedInputMethod: direct and korean_2set are supported" {
 
 // ── Core Function Tests ─────────────────────────────────────────────────────
 
-const test_mod = @import("itshell3_testing");
-const MockPtyOps = test_mod.mock_os.MockPtyOps;
-const mock_ime = test_mod.mock_ime_engine;
-const session_mod = core.session;
-
 test "processInputMethodSwitch: switches from direct to korean_2set" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
+    const mock_ime = test_mod.mock_ime_engine;
+    const session_mod = core.session;
     var mock = mock_ime.MockImeEngine{
         .active_input_method = "direct",
     };
@@ -145,6 +144,10 @@ test "processInputMethodSwitch: switches from direct to korean_2set" {
 }
 
 test "processInputMethodSwitch: commit_current=true flushes composition" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
+    const mock_ime = test_mod.mock_ime_engine;
+    const session_mod = core.session;
     var mock = mock_ime.MockImeEngine{
         .active_input_method = "korean_2set",
         .set_active_input_method_result = .{ .committed_text = "flushed", .preedit_changed = true },
@@ -162,6 +165,10 @@ test "processInputMethodSwitch: commit_current=true flushes composition" {
 }
 
 test "processInputMethodSwitch: commit_current=false resets without flushing" {
+    const test_mod = @import("itshell3_testing");
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
+    const mock_ime = test_mod.mock_ime_engine;
+    const session_mod = core.session;
     var mock = mock_ime.MockImeEngine{
         .active_input_method = "korean_2set",
     };

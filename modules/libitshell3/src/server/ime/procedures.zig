@@ -375,11 +375,10 @@ pub fn errorRecoveryWithBroadcast(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const test_mod = @import("itshell3_testing");
-const mock_ime = test_mod.mock_ime_engine;
-const MockPtyOps = test_mod.mock_os.MockPtyOps;
-
 test "ownershipTransfer: flushes, clears preedit, increments session_id, sets owner" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "committed", .preedit_changed = true },
     };
@@ -399,6 +398,9 @@ test "ownershipTransfer: flushes, clears preedit, increments session_id, sets ow
 }
 
 test "onClientDisconnect: owner disconnects -> flush and clear owner" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "flushed", .preedit_changed = true },
     };
@@ -414,6 +416,9 @@ test "onClientDisconnect: owner disconnects -> flush and clear owner" {
 }
 
 test "onClientDisconnect: non-owner disconnects -> no-op" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.preedit.owner = 5;
@@ -427,6 +432,9 @@ test "onClientDisconnect: non-owner disconnects -> no-op" {
 }
 
 test "onFocusChange: flushes to old pane, updates focused_pane" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "text", .preedit_changed = true },
     };
@@ -444,6 +452,8 @@ test "onFocusChange: flushes to old pane, updates focused_pane" {
 }
 
 test "onPaneClose: resets (not flushes), clears preedit and owner, increments session_id" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.preedit.owner = 10;
@@ -459,6 +469,8 @@ test "onPaneClose: resets (not flushes), clears preedit and owner, increments se
 }
 
 test "onPaneClose: no owner -> no session_id increment" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.setPreedit("composing");
@@ -472,6 +484,9 @@ test "onPaneClose: no owner -> no session_id increment" {
 }
 
 test "onAlternateScreenSwitch: flushes and clears" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "flushed", .preedit_changed = true },
     };
@@ -487,6 +502,9 @@ test "onAlternateScreenSwitch: flushes and clears" {
 }
 
 test "onMouseClick: flushes composition before mouse event" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{
         .flush_result = .{ .committed_text = "click", .preedit_changed = true },
     };
@@ -500,6 +518,9 @@ test "onMouseClick: flushes composition before mouse event" {
 }
 
 test "onInputMethodSwitch: commit_current=true flushes atomically and clears owner" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{
         .set_active_input_method_result = .{ .committed_text = "committed", .preedit_changed = true },
     };
@@ -519,6 +540,9 @@ test "onInputMethodSwitch: commit_current=true flushes atomically and clears own
 }
 
 test "onInputMethodSwitch: commit_current=false resets and switches" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.preedit.owner = 5;
@@ -537,6 +561,9 @@ test "onInputMethodSwitch: commit_current=false resets and switches" {
 }
 
 test "onInputMethodSwitch: updates session active_input_method" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
@@ -548,6 +575,9 @@ test "onInputMethodSwitch: updates session active_input_method" {
 }
 
 test "errorRecovery: best-effort commit + reset to known-good state" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     session.preedit.owner = 7;
@@ -564,6 +594,9 @@ test "errorRecovery: best-effort commit + reset to known-good state" {
 }
 
 test "errorRecovery: no preedit -> reset only" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     var mock = mock_ime.MockImeEngine{};
     var session = session_mod.Session.init(1, "test", 0, mock.engine(), 0);
     var mock_pty = MockPtyOps{};
@@ -587,6 +620,9 @@ fn testBroadcastContext(client_manager: *ClientManager, session_id: types.Sessio
 }
 
 test "ownershipTransferWithBroadcast: flushes and sends PreeditEnd broadcast" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     const helpers = test_mod.helpers;
     var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const slot = try client_manager.addClient(.{ .fd = 10 });
@@ -624,6 +660,9 @@ test "ownershipTransferWithBroadcast: flushes and sends PreeditEnd broadcast" {
 }
 
 test "onClientDisconnectWithBroadcast: owner disconnect sends PreeditEnd" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     const helpers = test_mod.helpers;
     var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const slot = try client_manager.addClient(.{ .fd = 10 });
@@ -653,6 +692,9 @@ test "onClientDisconnectWithBroadcast: owner disconnect sends PreeditEnd" {
 }
 
 test "onClientDisconnectWithBroadcast: non-owner disconnect is a no-op" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     const helpers = test_mod.helpers;
     var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
 
@@ -672,6 +714,9 @@ test "onClientDisconnectWithBroadcast: non-owner disconnect is a no-op" {
 }
 
 test "onFocusChangeWithBroadcast: sends PreeditEnd when owner exists" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     const helpers = test_mod.helpers;
     var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const slot = try client_manager.addClient(.{ .fd = 10 });
@@ -703,6 +748,8 @@ test "onFocusChangeWithBroadcast: sends PreeditEnd when owner exists" {
 }
 
 test "onPaneCloseWithBroadcast: sends PreeditEnd when owner exists" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
     const helpers = test_mod.helpers;
     var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const slot = try client_manager.addClient(.{ .fd = 10 });
@@ -729,6 +776,9 @@ test "onPaneCloseWithBroadcast: sends PreeditEnd when owner exists" {
 }
 
 test "onInputMethodSwitchWithBroadcast: sends PreeditEnd and InputMethodAck" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     const helpers = test_mod.helpers;
     var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const slot = try client_manager.addClient(.{ .fd = 10 });
@@ -763,6 +813,9 @@ test "onInputMethodSwitchWithBroadcast: sends PreeditEnd and InputMethodAck" {
 }
 
 test "errorRecoveryWithBroadcast: sends PreeditEnd when owner exists" {
+    const test_mod = @import("itshell3_testing");
+    const mock_ime = test_mod.mock_ime_engine;
+    const MockPtyOps = test_mod.mock_os.MockPtyOps;
     const helpers = test_mod.helpers;
     var client_manager = ClientManager{ .chunk_pool = helpers.testChunkPool() };
     const slot = try client_manager.addClient(.{ .fd = 10 });

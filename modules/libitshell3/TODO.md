@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 8 (Spec Compliance Review)
+- **Step**: 12 (Commit & Report)
 - **Cycle Type**: modification (Plan 8 — Input Pipeline & Preedit Wire Messages)
 - **Review Round**: 3
 - **Active Team**: impl-team
