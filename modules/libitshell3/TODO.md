@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 10 (Coverage Audit)
+- **Step**: 11 (Over-Engineering Review)
 - **Cycle Type**: modification (Plan 8 — Input Pipeline & Preedit Wire Messages)
 - **Review Round**: 2
 - **Active Team**: impl-team
@@ -47,7 +47,8 @@
 - [x] Step 7: Code Simplify & Convention Compliance
 - [x] Step 8: Spec Compliance Review
 - [x] Step 9: Fix Cycle
-- [ ] Step 10: Coverage Audit
+- [x] Step 10: Coverage Audit (94.86% — 0.14% below 95% target, handler dispatch
+      gap)
 - [ ] Step 11: Over-Engineering Review
 - [ ] Step 12: Commit & Report
 - [ ] Step 13: Owner Review
