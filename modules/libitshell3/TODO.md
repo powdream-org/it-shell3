@@ -2,11 +2,11 @@
 
 ## Current State
 
-- **Step**: 12 (Commit & Report)
+- **Step**: 15 (Cleanup & ROADMAP Update)
 - **Cycle Type**: modification (Plan 8 — Input Pipeline & Preedit Wire Messages)
 - **Review Round**: 3
-- **Active Team**: impl-team
-- **Team Directory**: .claude/agents/impl-team/
+- **Active Team**: (none)
+- **Team Directory**: (none)
 
 ## Spec
 
@@ -50,7 +50,7 @@
 - [x] Step 10: Coverage Audit (94.86% — 0.14% below 95% target, handler dispatch
       gap)
 - [x] Step 11: Over-Engineering Review (code changed → returning to Step 8)
-- [ ] Step 12: Commit & Report
-- [ ] Step 13: Owner Review
-- [ ] Step 14: Retrospective
+- [x] Step 12: Commit & Report
+- [x] Step 13: Owner Review
+- [x] Step 14: Retrospective (SIP-1~4 → redesign spec, no individual patches)
 - [ ] Step 15: Cleanup & ROADMAP Update
