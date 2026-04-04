@@ -7,6 +7,7 @@ const core = @import("itshell3_core");
 const types = core.types;
 const session_mod = core.session;
 const pane_mod = @import("pane.zig");
+const SessionDeliveryState = @import("../delivery/pane_delivery.zig").SessionDeliveryState;
 
 pub const PaneSlot = types.PaneSlot;
 pub const FreeMask = types.FreeMask;
@@ -38,6 +39,10 @@ pub const SessionEntry = struct {
     /// Per daemon-behavior spec multi-client resize policy.
     effective_cols: u16 = 80,
     effective_rows: u16 = 24,
+
+    /// Per-session delivery state for ring buffer access. Set when the event
+    /// loop initializes delivery infrastructure. null = delivery not yet wired.
+    delivery_state: ?*SessionDeliveryState = null,
 
     pub fn init(session: Session) SessionEntry {
         return SessionEntry{

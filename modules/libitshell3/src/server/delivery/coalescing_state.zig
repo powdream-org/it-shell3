@@ -145,7 +145,7 @@ pub const CoalescingState = struct {
         }
 
         // Low bandwidth forces Tier 3 for non-preedit (transport-aware tier adjustments)
-        if (display_info.bandwidth_hint == .cellular) {
+        if (display_info.bandwidth_hint == .cellular or display_info.bandwidth_hint == .wan) {
             interval = @max(interval, 33);
         }
 
@@ -250,6 +250,12 @@ test "CoalescingState.effectiveIntervalMs: WAN ssh raises tier 3 to 100ms" {
 test "CoalescingState.effectiveIntervalMs: cellular forces tier 3 minimum" {
     const cs = CoalescingState{ .tier = .interactive };
     const info = ClientDisplayInfo{ .bandwidth_hint = .cellular };
+    try std.testing.expectEqual(@as(u32, 33), cs.effectiveIntervalMs(&info));
+}
+
+test "CoalescingState.effectiveIntervalMs: wan forces tier 3 minimum" {
+    const cs = CoalescingState{ .tier = .interactive };
+    const info = ClientDisplayInfo{ .bandwidth_hint = .wan };
     try std.testing.expectEqual(@as(u32, 33), cs.effectiveIntervalMs(&info));
 }
 

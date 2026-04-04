@@ -111,16 +111,23 @@ fn handleContinuePane(params: CategoryDispatchParams) void {
     // Clear paused state
     client.paused = false;
 
-    // Advance ring cursor to latest I-frame for the specified pane
+    // Advance ring cursor to latest I-frame for the specified pane.
+    // Per daemon-behavior ContinuePane recovery: seek to latest I-frame
+    // so the client receives a full keyframe before any deltas.
     if (client.attached_session) |entry| {
         if (entry.findPaneSlotByPaneId(pane_id)) |slot| {
             if (client.ring_cursors[slot]) |*cursor| {
-                // Seek to latest I-frame for recovery (ContinuePane rules)
-                // Ring buffer access goes through pane_delivery module
-                _ = cursor;
+                if (entry.delivery_state) |ds| {
+                    if (ds.getRingBuffer(slot)) |ring| {
+                        ring.seekToLatestIFrame(cursor);
+                    }
+                }
             }
         }
     }
+
+    // Restore health state on ContinuePane recovery
+    client.markHealthy();
 
     // Record as application-level message (resets stale timeout)
     client.recordApplicationMessage();

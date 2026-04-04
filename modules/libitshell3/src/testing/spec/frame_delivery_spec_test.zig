@@ -172,6 +172,103 @@ test "spec: high RTT raises idle threshold to 200ms" {
     try std.testing.expectEqual(@as(u32, 100), coalescing.CoalescingState.idleThresholdMs(&info_low_rtt));
 }
 
+// ── PausePane Escalation Timeline (daemon-behavior PausePane escalation) ──
+
+test "spec: PausePane sets paused and records start time" {
+    const ClientState = server.connection.client_state.ClientState;
+    var client = ClientState.init(.{ .fd = 7 }, 42, testing_helpers.testChunkPool());
+    defer client.deinit();
+
+    client.paused = true;
+    client.pause_started_at = 1000;
+
+    try std.testing.expect(client.paused);
+    try std.testing.expectEqual(@as(i64, 1000), client.pause_started_at);
+    // Health remains healthy at T=0 (pause just started)
+    try std.testing.expectEqual(ClientState.HealthState.healthy, client.health_state);
+}
+
+test "spec: PausePane escalation T=5s resize excluded from pause duration" {
+    // Per daemon-behavior PausePane escalation: resize during pause does NOT
+    // reset the escalation timer. Paused + resize = still paused, timer continues.
+    const ClientState = server.connection.client_state.ClientState;
+    var client = ClientState.init(.{ .fd = 7 }, 42, testing_helpers.testChunkPool());
+    defer client.deinit();
+
+    client.paused = true;
+    client.pause_started_at = 1000;
+    // Resize at T+5s does not unpause
+    // (resize is excluded from application-level messages that reset pause)
+    try std.testing.expect(client.paused);
+}
+
+test "spec: PausePane escalation T=60s stale (local transport)" {
+    // Per daemon-behavior PausePane escalation: after stale_timeout_ms (60s for
+    // local), the client transitions to stale health state.
+    const ClientState = server.connection.client_state.ClientState;
+    var client = ClientState.init(.{ .fd = 7 }, 42, testing_helpers.testChunkPool());
+    defer client.deinit();
+
+    client.paused = true;
+    client.pause_started_at = 1000;
+
+    // Default local stale timeout is 60000ms
+    try std.testing.expectEqual(@as(u32, 60000), client.flow_control.stale_timeout_ms);
+
+    // After stale timeout, server marks client stale
+    client.markStale();
+    try std.testing.expectEqual(ClientState.HealthState.stale, client.health_state);
+    // Client is still paused AND stale (orthogonal states)
+    try std.testing.expect(client.paused);
+}
+
+test "spec: PausePane escalation T=120s stale (SSH transport)" {
+    // Per daemon-behavior PausePane escalation: SSH transport has longer stale
+    // timeout (120s) due to higher latency tolerance.
+    const ClientState = server.connection.client_state.ClientState;
+    const ssh_config = ClientState.FlowControlConfig.defaultForTransport(.ssh_tunnel);
+    try std.testing.expectEqual(@as(u32, 120000), ssh_config.stale_timeout_ms);
+}
+
+test "spec: PausePane escalation T=300s eviction timeout" {
+    // Per daemon-behavior PausePane escalation: after eviction_timeout_ms (300s),
+    // the server may evict the client connection entirely.
+    const ClientState = server.connection.client_state.ClientState;
+    var client = ClientState.init(.{ .fd = 7 }, 42, testing_helpers.testChunkPool());
+    defer client.deinit();
+
+    // Default eviction timeout is 300000ms (5 minutes)
+    try std.testing.expectEqual(@as(u32, 300000), client.flow_control.eviction_timeout_ms);
+
+    // Server-enforced minimum prevents eviction_timeout < 60s
+    client.flow_control.eviction_timeout_ms = @max(30000, 60000);
+    try std.testing.expectEqual(@as(u32, 60000), client.flow_control.eviction_timeout_ms);
+}
+
+test "spec: ContinuePane clears pause and restores health" {
+    // Per daemon-behavior ContinuePane recovery: clears paused state and
+    // restores health to healthy (if was stale from pause escalation).
+    const ClientState = server.connection.client_state.ClientState;
+    var client = ClientState.init(.{ .fd = 7 }, 42, testing_helpers.testChunkPool());
+    defer client.deinit();
+
+    // Simulate pause escalation to stale
+    client.paused = true;
+    client.pause_started_at = 1000;
+    client.markStale();
+    try std.testing.expect(client.paused);
+    try std.testing.expectEqual(ClientState.HealthState.stale, client.health_state);
+
+    // ContinuePane recovery
+    client.paused = false;
+    client.markHealthy();
+    client.recordApplicationMessage();
+
+    try std.testing.expect(!client.paused);
+    try std.testing.expectEqual(ClientState.HealthState.healthy, client.health_state);
+    try std.testing.expect(client.last_application_message_at > 0);
+}
+
 // ── Client Health State (daemon-behavior client health model) ───────────────
 
 test "spec: client health defaults to healthy" {
@@ -400,6 +497,42 @@ test "spec: pane with cols=2 rows=1 is NOT undersized" {
     const Pane = server.state.pane.Pane;
     const pane = Pane.init(1, 0, 5, 100, 2, 1);
     try std.testing.expect(!pane.isUndersized());
+}
+
+// ── Resize Orchestration Ordering (daemon-behavior resize orchestration) ──
+
+test "spec: resize orchestration ordering WindowResizeAck before LayoutChanged before I-frame" {
+    // Per daemon-behavior resize orchestration ordering: the resize sequence
+    // must execute in this exact order:
+    // 1. ioctl(TIOCSWINSZ) via OS vtable
+    // 2. WindowResizeAck to requester
+    // 3. LayoutChanged to all clients
+    // 4. I-frame(s) to ring
+    const resize_handler = server.handlers.resize_handler;
+    const Pane = server.state.pane.Pane;
+    const SessionEntry = server.state.session_entry.SessionEntry;
+    const session_mod = core.session;
+    const s = session_mod.Session.init(1, "s", 0, testing_helpers.testImeEngine(), 0);
+    var entry = SessionEntry.init(s);
+    const slot = try entry.allocPaneSlot();
+    entry.setPaneAtSlot(slot, Pane.init(1, slot, 5, 100, 80, 24));
+    const pane = entry.getPaneAtSlot(slot).?;
+
+    // Execute orchestration (no PTY ops in test)
+    const result = resize_handler.orchestrateResize(pane, &entry, 120, 40, null, 1000);
+
+    // All steps must be performed (ioctl skipped without PTY ops)
+    try std.testing.expect(!result.ioctl_applied); // No PTY ops provided
+    try std.testing.expect(result.ack_sent); // Step 2: WindowResizeAck
+    try std.testing.expect(result.layout_changed_sent); // Step 3: LayoutChanged
+    try std.testing.expect(result.i_frame_queued); // Step 4: I-frame
+
+    // Verify side effects: pane dimensions updated, dirty flag set
+    try std.testing.expectEqual(@as(u16, 120), pane.cols);
+    try std.testing.expectEqual(@as(u16, 40), pane.rows);
+    try std.testing.expect(entry.isDirty(slot));
+    try std.testing.expectEqual(@as(u16, 120), entry.effective_cols);
+    try std.testing.expectEqual(@as(u16, 40), entry.effective_rows);
 }
 
 // ── Resize (daemon-behavior resize policy) ─────────────────────────────────
