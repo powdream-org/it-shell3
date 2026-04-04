@@ -2,9 +2,9 @@
 
 ## Current State
 
-- **Step**: 9 (Fix Cycle)
+- **Step**: 8 (Spec Compliance Review — Round 2)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
-- **Review Round**: 1
+- **Review Round**: 2
 - **Active Team**: plan9-impl
 - **Team Directory**: .claude/agents/impl-team/
 
@@ -26,8 +26,8 @@
 
 ## Fix Cycle State
 
-- **Fix Iteration**: 1
-- **Active Issues**: R1-001, R1-002, R1-003, R1-004, R1-005, R1-006, R1-007
+- **Fix Iteration**: 2
+- **Active Issues**: (none — pending Round 2 review)
 
 ## Progress — Round 1
 
