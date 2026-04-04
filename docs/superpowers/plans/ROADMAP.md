@@ -58,7 +58,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 15   | Design Doc CTR Resolution                     | (not yet written)                                       | multi-module         | **Done**    |
 | 16   | Post-Design Code Alignment                    | `2026-04-02-libitshell3-post-design-code-alignment.md`  | multi-module         | **Done**    |
 | 17+  | Deferred Features                             | —                                                       | various              | Not started |
-| S1   | Implementation Skill Redesign                 | `2026-04-04-implementation-skill-redesign.md`           | skill infrastructure | Not started |
+| S1   | Implementation Skill Redesign                 | `2026-04-04-implementation-skill-redesign.md`           | skill infrastructure | **Done**    |
 
 ---
 
@@ -622,7 +622,7 @@ Features deferred beyond the initial implementation scope:
 - Readonly client enforcement (AttachSessionRequest `readonly` field, prohibited
   message list, ERR_ACCESS_DENIED response — protocol spec Section 8)
 
-### Plan S1: Implementation Skill Redesign (Not Started)
+### Plan S1: Implementation Skill Redesign (Done)
 
 **Scope:** Restructure the `/implementation` skill to use fork-based step
 isolation for Steps 6-9. Extract heavy context-consuming steps into
