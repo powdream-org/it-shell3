@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 8.5 (Spec Compliance Triage)
+- **Step**: 9 (Fix Cycle)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 1
 - **Active Team**: plan9-impl
@@ -26,8 +26,8 @@
 
 ## Fix Cycle State
 
-- **Fix Iteration**: 0
-- **Active Issues**: (none)
+- **Fix Iteration**: 1
+- **Active Issues**: R1-001, R1-002, R1-003, R1-004, R1-005, R1-006, R1-007
 
 ## Progress — Round 1
 
