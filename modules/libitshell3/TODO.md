@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 7 (Code Simplify & Convention Compliance) ← active
+- **Step**: 7.5 (Convention Violation Triage)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 0
 - **Active Team**: plan9-impl
@@ -37,7 +37,7 @@
 - [x] Step 4: Cycle Setup
 - [x] Step 5: Scaffold & Build Verification
 - [x] Step 6: Implementation Phase
-- [ ] Step 7: Code Simplify & Convention Compliance
+- [x] Step 7: Code Simplify & Convention Compliance
 - [ ] Step 8: Spec Compliance Review
 - [ ] Step 9: Fix Cycle
 - [ ] Step 10: Coverage Audit
