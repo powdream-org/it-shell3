@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 4 (Cycle Setup)
+- **Step**: 5 (Scaffold & Build Verification)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 0
 - **Active Team**: (none)
@@ -17,8 +17,8 @@
   - server-client-protocols v1.0-r13
 - **Previous spec version(s)**: same (Plan 8 built against these versions)
 - **Plan**: docs/superpowers/plans/2026-04-04-libitshell3-frame-delivery.md
-- **PoC**: pending — Step 4
-- **Coverage exemption**: pending — Step 4
+- **PoC**: none
+- **Coverage exemption**: no
 
 ## Spec Gap Log
 
@@ -34,7 +34,7 @@
 - [x] Step 1: Requirements Intake
 - [x] Step 2: Plan Writing
 - [x] Step 3: Plan Verification
-- [ ] Step 4: Cycle Setup
+- [x] Step 4: Cycle Setup
 - [ ] Step 5: Scaffold & Build Verification
 - [ ] Step 6: Implementation Phase
 - [ ] Step 7: Code Simplify & Convention Compliance
