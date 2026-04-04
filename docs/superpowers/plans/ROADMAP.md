@@ -46,7 +46,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 7    | Session & Pane Operations                     | `2026-03-29-libitshell3-session-pane-operations.md`     | libitshell3          | **Done**    |
 | 7.5  | Message Dispatcher Refactor                   | `2026-03-31-libitshell3-message-dispatcher-refactor.md` | libitshell3          | **Done**    |
 | 8    | Input Pipeline & Preedit Wire Messages        | `2026-04-02-libitshell3-input-pipeline.md`              | libitshell3          | **Done**    |
-| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                       | libitshell3          | Not started |
+| 9    | Frame Delivery & Runtime Policies             | (not yet written)                                       | libitshell3          | In progress |
 | 10   | Cascades & Shutdown                           | (not yet written)                                       | libitshell3          | Not started |
 | 11   | SSH Transport                                 | (not yet written)                                       | libitshell3-protocol | Not started |
 | 11.5 | Spec Alignment CTR Resolution                 | (not yet written)                                       | multi-module + docs  | Not started |
@@ -377,7 +377,7 @@ comment added in `preedit_state.zig`.
 
 **Depends on:** Plan 7 (input must target a focused pane in an attached session)
 
-### Plan 9: Frame Delivery & Runtime Policies (Not Started)
+### Plan 9: Frame Delivery & Runtime Policies (In Progress)
 
 **Scope:** Frame export pipeline (FlatCell → CellData → ring), adaptive
 coalescing (4-tier model with hysteresis), per-client cursor tracking,
