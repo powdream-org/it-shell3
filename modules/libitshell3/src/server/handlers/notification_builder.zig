@@ -256,7 +256,7 @@ fn serializeNode(
 // ── ClientHealthChanged (0x0185) ───────────────────────────────────────────
 
 /// Builds a ClientHealthChanged notification.
-/// Per daemon-behavior spec Section 3.2 and protocol spec Section 4.6.
+/// Per daemon-behavior spec health escalation and protocol spec client health changed.
 pub fn buildClientHealthChanged(
     session_id: types.SessionId,
     client_id: types.ClientId,

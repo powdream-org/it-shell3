@@ -2,14 +2,14 @@
 //! Implements the 4-tier model (+ Idle) with hysteresis-based tier transitions,
 //! WAN adjustments, and power-aware throttling.
 //!
-//! Per daemon-behavior policies-and-procedures spec (Sections 5.1-5.8).
+//! Per daemon-behavior policies-and-procedures spec (coalescing tier model).
 
 const std = @import("std");
 const server = @import("itshell3_server");
 const ClientState = server.connection.client_state.ClientState;
 const ClientDisplayInfo = ClientState.ClientDisplayInfo;
 
-/// Coalescing tier per daemon-behavior spec Section 5.1.
+/// Coalescing tier per daemon-behavior spec coalescing tier model.
 pub const CoalescingTier = enum(u8) {
     /// Tier 0: Preedit state change. 0ms (immediate).
     preedit = 0,
@@ -52,7 +52,7 @@ pub const CoalescingState = struct {
     resize_idle_suppression_until: i64 = 0,
 
     /// Upgrades to the given tier if it's faster than the current tier.
-    /// Upgrades are immediate per spec Section 5.2.
+    /// Upgrades are immediate per spec tier transition rules.
     pub fn upgradeTo(self: *CoalescingState, tier: CoalescingTier, now: i64) void {
         if (@intFromEnum(tier) < @intFromEnum(self.tier)) {
             self.tier = tier;
@@ -72,7 +72,7 @@ pub const CoalescingState = struct {
             return;
         }
 
-        // Downgrade checks (Section 5.2):
+        // Downgrade checks (tier transition rules):
         // Interactive -> Active: sustained output >100ms
         if (self.tier == .interactive) {
             if (now - self.tier_entered_at > 100) {
@@ -90,12 +90,12 @@ pub const CoalescingState = struct {
     }
 
     /// Checks for Idle transition: no output for >100ms.
-    /// Per spec Section 5.7, idle is suppressed during resize settling.
+    /// Per spec resize idle suppression rules, idle is suppressed during resize settling.
     pub fn checkIdle(self: *CoalescingState, now: i64, idle_threshold_ms: u32) void {
         if (self.tier == .preedit) return; // Never idle from preedit
         if (self.tier == .idle) return; // Already idle
 
-        // Idle suppression during resize (Section 5.7)
+        // Idle suppression during resize (resize idle suppression rules)
         if (self.resize_idle_suppressed and now < self.resize_idle_suppression_until) {
             return;
         }
@@ -113,14 +113,14 @@ pub const CoalescingState = struct {
     }
 
     /// Triggers preedit tier (Tier 0, immediate) regardless of current state.
-    /// Per spec Section 5.3: preedit is never throttled.
+    /// Per spec preedit immediate delivery rule: preedit is never throttled.
     pub fn triggerPreedit(self: *CoalescingState, now: i64) void {
         self.tier = .preedit;
         self.tier_entered_at = now;
     }
 
     /// Sets resize idle suppression window.
-    /// Per spec Section 5.7: suppressed during resize + 500ms settling.
+    /// Per spec resize idle suppression: suppressed during resize + 500ms settling.
     pub fn setResizeIdleSuppression(self: *CoalescingState, suppression_end: i64) void {
         self.resize_idle_suppressed = true;
         self.resize_idle_suppression_until = suppression_end;
@@ -132,24 +132,24 @@ pub const CoalescingState = struct {
         self: *const CoalescingState,
         display_info: *const ClientDisplayInfo,
     ) u32 {
-        // Preedit is never throttled (Section 5.5, 5.6)
+        // Preedit is never throttled (preedit immediate delivery rule)
         if (self.tier == .preedit) return 0;
         if (self.tier == .idle) return 0;
 
         var interval = self.tier.baseIntervalMs();
 
-        // WAN adjustments (Section 5.5)
+        // WAN adjustments (transport-aware tier adjustments)
         if (display_info.transport_type == .ssh_tunnel) {
             if (self.tier == .active) interval = @max(interval, 33);
             if (self.tier == .bulk) interval = @max(interval, 100);
         }
 
-        // Low bandwidth forces Tier 3 for non-preedit (Section 5.5)
+        // Low bandwidth forces Tier 3 for non-preedit (transport-aware tier adjustments)
         if (display_info.bandwidth_hint == .cellular) {
             interval = @max(interval, 33);
         }
 
-        // Power-aware throttling (Section 5.6)
+        // Power-aware throttling
         switch (display_info.power_state) {
             .battery => interval = @max(interval, 16), // Cap at Tier 2
             .low_battery => interval = @max(interval, 33), // Cap at Tier 3
@@ -160,7 +160,7 @@ pub const CoalescingState = struct {
     }
 
     /// Computes the default idle threshold for this client's display info.
-    /// Per spec Section 5.5: >100ms RTT raises Idle threshold to 200ms.
+    /// Per spec WAN transport adjustments: >100ms RTT raises Idle threshold to 200ms.
     pub fn idleThresholdMs(display_info: *const ClientDisplayInfo) u32 {
         if (display_info.estimated_rtt_ms > 100) return 200;
         return 100;

@@ -99,7 +99,7 @@ fn processInputMethodSwitch(
 }
 
 /// Handles AmbiguousWidthConfig (0x0406).
-/// Per daemon-behavior spec Section 2.9: passes ambiguous_width value to
+/// Per daemon-behavior spec ambiguous width config: passes ambiguous_width value to
 /// Terminal instance(s) determined by the scope field.
 fn handleAmbiguousWidthConfig(params: CategoryDispatchParams) void {
     const payload = params.payload;
@@ -110,7 +110,7 @@ fn handleAmbiguousWidthConfig(params: CategoryDispatchParams) void {
     const scope = handler_utils.extractStringField(payload, "\"scope\":\"") orelse "per_session";
 
     // Apply to terminal instances based on scope.
-    // Per daemon-architecture spec Section 4.5: the ghostty terminal
+    // Per daemon-architecture spec ghostty helper functions: the ghostty terminal
     // API for setting ambiguous width is not yet ported from the vendor PoC.
     // When available, this will iterate the appropriate terminals and set
     // the ambiguous_width property.

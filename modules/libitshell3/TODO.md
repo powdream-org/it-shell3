@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 7 (Code Simplify & Convention Compliance)
+- **Step**: 7 (Code Simplify & Convention Compliance) ← active
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 0
 - **Active Team**: plan9-impl

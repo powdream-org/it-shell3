@@ -1,6 +1,6 @@
 //! JSON metadata blob serializer for FrameUpdate messages. Produces the
 //! length-prefixed JSON section (4-byte u32 LE + JSON bytes) per protocol
-//! 04-input-and-renderstate Section 3.2.
+//! 04-input-and-renderstate FrameUpdate metadata format.
 //!
 //! I-frame metadata includes all required fields. P-frame metadata includes
 //! only changed fields (absent fields are omitted, not null).

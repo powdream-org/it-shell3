@@ -35,7 +35,7 @@ pub const SessionEntry = struct {
 
     /// Effective session dimensions (cols x rows) computed from the resize
     /// policy. Updated on WindowResize, client attach/detach, stale transitions.
-    /// Per daemon-behavior spec Section 2.
+    /// Per daemon-behavior spec multi-client resize policy.
     effective_cols: u16 = 80,
     effective_rows: u16 = 24,
 

@@ -2,10 +2,10 @@
 //! resize orchestration. Implements the complete resize pipeline including
 //! stale re-inclusion hysteresis.
 //!
-//! Per daemon-behavior policies-and-procedures spec (Section 2: multi-client
-//! resize policy); daemon-architecture integration-boundaries spec (Section 1.4
-//! first-resize-no-debounce exception); protocol 03-session-pane-management
-//! spec (Section 5 WindowResize/WindowResizeAck wire format).
+//! Per daemon-behavior policies-and-procedures spec (multi-client resize
+//! policy); daemon-architecture integration-boundaries spec (first-resize-
+//! no-debounce exception); protocol 03-session-pane-management spec
+//! (WindowResize/WindowResizeAck wire format).
 
 const std = @import("std");
 const server = @import("itshell3_server");
@@ -14,13 +14,13 @@ const Pane = server.state.pane.Pane;
 const core = @import("itshell3_core");
 const types = core.types;
 
-/// Resize debounce window in milliseconds (Section 2.4).
+/// Resize debounce window in milliseconds.
 pub const RESIZE_DEBOUNCE_MS: i64 = 250;
 
-/// Stale re-inclusion hysteresis in milliseconds (Section 2.5).
+/// Stale re-inclusion hysteresis in milliseconds.
 pub const STALE_RE_INCLUSION_HYSTERESIS_MS: i64 = 5000;
 
-/// Idle suppression settling period after debounce fires (Section 5.7).
+/// Idle suppression settling period after debounce fires.
 pub const IDLE_SUPPRESSION_SETTLING_MS: i64 = 500;
 
 /// Resize policy selection.
@@ -42,7 +42,7 @@ pub fn computeEffectiveDimensionsLatest(
 /// Applies resize debounce logic. Returns true if the resize should fire
 /// immediately (first resize or debounce expired), false if debounced.
 pub fn shouldResizeImmediately(pane: *const Pane, now: i64) bool {
-    // First resize fires immediately (Section 1.4 exception)
+    // First resize fires immediately (first-resize-no-debounce exception)
     if (!pane.first_resize_done) return true;
 
     // Check if debounce deadline has passed

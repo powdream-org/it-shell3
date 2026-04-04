@@ -3,9 +3,9 @@
 //! the full export pipeline: RenderState.update + bulkExport + overlayPreedit
 //! + frame builder + serialize to ring.
 //!
-//! Per daemon-architecture integration-boundaries spec (Section 4.6 frame
-//! export pipeline); daemon-behavior policies-and-procedures spec
-//! (Sections 5.1-5.4 coalescing tier intervals, preedit immediate rule).
+//! Per daemon-architecture integration-boundaries spec (frame export
+//! pipeline); daemon-behavior policies-and-procedures spec (coalescing
+//! tier intervals, preedit immediate rule).
 
 const std = @import("std");
 const interfaces = @import("../os/interfaces.zig");
@@ -20,7 +20,7 @@ const frame_builder = server.delivery.frame_builder;
 const core = @import("itshell3_core");
 const types = core.types;
 
-/// Default I-frame interval in milliseconds (1 second per spec Section 4.9).
+/// Default I-frame interval in milliseconds (1 second per spec I-frame scheduling).
 pub const DEFAULT_I_FRAME_INTERVAL_MS: i64 = 1000;
 
 /// Minimum I-frame interval (500ms per spec).
@@ -79,22 +79,11 @@ fn processDirtyPanes(entry: *SessionEntry, now: i64, i_frame_interval_ms: i64) v
     var slot: u32 = 0;
     while (slot < types.MAX_PANES) : (slot += 1) {
         const pane_slot: types.PaneSlot = @intCast(slot);
-        if (!entry.isDirty(pane_slot)) {
-            // Check I-frame scheduling even for non-dirty panes
-            if (entry.getPaneAtSlot(pane_slot)) |pane| {
-                if (pane.needsIFrame(now, i_frame_interval_ms)) {
-                    // Would trigger I-frame, but no changes since last
-                    // I-frame means the existing I-frame in ring is sufficient.
-                    // This is handled by needsIFrame returning false when
-                    // has_changes_since_i_frame is false.
-                }
-            }
-            continue;
-        }
+        if (!entry.isDirty(pane_slot)) continue;
 
         const pane = entry.getPaneAtSlot(pane_slot) orelse continue;
 
-        // Frame suppression for undersized panes (Section 4.6)
+        // Frame suppression for undersized panes (frame export pipeline)
         if (pane.isUndersized()) {
             entry.clearDirtySlot(pane_slot);
             continue;

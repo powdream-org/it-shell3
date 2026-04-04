@@ -211,7 +211,7 @@ fn dispatchNotificationRange(params: CategoryDispatchParams) void {
     }
 }
 
-/// Handles WindowResize (C->S). Per daemon-behavior spec Section 2:
+/// Handles WindowResize (C->S). Per daemon-behavior spec resize policy:
 /// Updates client display dimensions, updates latest_client_id,
 /// triggers resize debounce computation.
 fn handleWindowResize(params: CategoryDispatchParams) void {
@@ -221,9 +221,6 @@ fn handleWindowResize(params: CategoryDispatchParams) void {
 
     const cols = handler_utils.extractU16Field(payload, "\"cols\":") orelse return;
     const rows = handler_utils.extractU16Field(payload, "\"rows\":") orelse return;
-
-    // Update client display info dimensions
-    client.display_info.display_refresh_hz = client.display_info.display_refresh_hz; // preserve
 
     // Record as application-level message (updates latest_client_id)
     client.recordApplicationMessage();
@@ -236,8 +233,6 @@ fn handleWindowResize(params: CategoryDispatchParams) void {
     }
 
     // Send WindowResizeAck to requesting client
-    const ctx = params.context;
-    _ = ctx;
     var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
     var json_buffer: [128]u8 = undefined;
     const json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"cols\":{d},\"rows\":{d}}}", .{

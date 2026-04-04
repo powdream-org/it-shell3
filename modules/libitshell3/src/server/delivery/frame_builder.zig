@@ -1,8 +1,8 @@
 //! Frame builder module. Converts FlatCell export data to CellData wire format
 //! and assembles dirty bitmaps into DirtyRow arrays for frame serialization.
 //!
-//! Per daemon-architecture integration-boundaries spec (Section 4.3 CellData =
-//! FlatCell terminology binding, Section 4.6 frame export pipeline steps S3-S4);
+//! Per daemon-architecture integration-boundaries spec (CellData = FlatCell
+//! terminology binding, frame export pipeline steps S3-S4);
 //! ADR 00056 (frame_builder.zig location and responsibility).
 
 const std = @import("std");

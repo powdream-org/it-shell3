@@ -1,9 +1,9 @@
 //! EVFILT_WRITE chain handler. Handles writable events for client sockets,
 //! draining the direct queue (priority 1) then ring buffer (priority 2).
 //!
-//! Per daemon-architecture integration-boundaries spec (Section 4.4 two-channel
-//! write priority, Section 4.7 write-ready and backpressure); daemon-behavior
-//! policies-and-procedures spec (Section 4.5 socket write priority).
+//! Per daemon-architecture integration-boundaries spec (two-channel write
+//! priority, write-ready and backpressure); daemon-behavior
+//! policies-and-procedures spec (socket write priority).
 
 const std = @import("std");
 const interfaces = @import("../os/interfaces.zig");

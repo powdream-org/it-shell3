@@ -94,7 +94,7 @@ pub fn handlePtyRead(
 /// Checks for metadata changes (title, cwd) after VT stream processing
 /// and broadcasts PaneMetadataChanged if values have changed.
 ///
-/// Per daemon-architecture spec Section 4.5: title and CWD are extracted
+/// Per daemon-architecture spec ghostty helper functions: title and CWD are extracted
 /// from ghostty Terminal via helper functions after VT stream processing.
 fn checkAndBroadcastMetadataChanges(
     pane: *pane_mod.Pane,
@@ -104,7 +104,7 @@ fn checkAndBroadcastMetadataChanges(
     _ = terminal;
     // ghostty Terminal title/cwd extraction requires ghostty API functions
     // (getTitle, getCwd) that are not yet ported from the vendor PoC copy
-    // (see daemon-architecture spec Section 4.4, API gap status table).
+    // (see daemon-architecture spec API gap status table).
     // When ported, this function will:
     // 1. Extract title via terminal helper
     // 2. Compare against pane.getTitle()

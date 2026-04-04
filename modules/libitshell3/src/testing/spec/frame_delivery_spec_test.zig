@@ -1,8 +1,9 @@
 //! Spec behavior tests for Plan 9: Frame Delivery & Runtime Policies.
 //!
-//! Tests are derived from daemon-behavior v1.0-r9 (Sections 2-5),
-//! daemon-architecture v1.0-r9 (Sections 4.3, 4.6, 4.9), and
-//! server-client-protocols v1.0-r13 (Sections 3, 6).
+//! Tests are derived from daemon-behavior v1.0-r9 (resize policy, client
+//! health, flow control, coalescing tiers), daemon-architecture v1.0-r9
+//! (frame export pipeline, I-frame scheduling), and server-client-protocols
+//! v1.0-r13 (FrameUpdate wire format, flow control messages).
 
 const std = @import("std");
 const server = @import("itshell3_server");
@@ -10,7 +11,7 @@ const core = @import("itshell3_core");
 const protocol = @import("itshell3_protocol");
 const testing_helpers = @import("itshell3_testing").helpers;
 
-// ── Ring Buffer Lag Thresholds (daemon-behavior §4.4, ADR 00055) ────────────
+// ── Ring Buffer Lag Thresholds (daemon-behavior smooth degradation, ADR 00055)
 
 test "spec: ring lag thresholds computed at init from capacity (ADR 00055)" {
     // Spec: threshold_50 = capacity >> 1, threshold_75 = (capacity>>1) + (capacity>>2),
@@ -24,7 +25,7 @@ test "spec: ring lag thresholds computed at init from capacity (ADR 00055)" {
 }
 
 test "spec: lag at exactly 50 percent does NOT trigger degradation (strict >)" {
-    // Spec §4.4: smooth degradation uses strict greater-than semantics
+    // Spec smooth degradation: uses strict greater-than semantics
     const ring_buffer_mod = server.delivery.ring_buffer;
     var backing: [200]u8 = @splat(0);
     var rb = ring_buffer_mod.RingBuffer.init(&backing);
@@ -67,10 +68,10 @@ test "spec: lag above 90 percent triggers I-frame seek on next ContinuePane" {
     _ = &cursor;
 }
 
-// ── Coalescing Tier Model (daemon-behavior §5.1-5.8) ────────────────────────
+// ── Coalescing Tier Model (daemon-behavior coalescing tiers) ────────────────
 
 test "spec: four-tier model base intervals" {
-    // Spec §5.1: Tier 0=0ms, Tier 1=0ms, Tier 2=16ms, Tier 3=33ms
+    // Spec coalescing tier model: Tier 0=0ms, Tier 1=0ms, Tier 2=16ms, Tier 3=33ms
     const coalescing = server.delivery.coalescing_state;
     try std.testing.expectEqual(@as(u32, 0), coalescing.CoalescingTier.preedit.baseIntervalMs());
     try std.testing.expectEqual(@as(u32, 0), coalescing.CoalescingTier.interactive.baseIntervalMs());
@@ -78,15 +79,15 @@ test "spec: four-tier model base intervals" {
     try std.testing.expectEqual(@as(u32, 33), coalescing.CoalescingTier.bulk.baseIntervalMs());
 }
 
-test "spec: preedit tier override regardless of current tier (§5.3)" {
-    // Spec §5.3: Preedit state changes MUST trigger immediate frame delivery
+test "spec: preedit tier override regardless of current tier" {
+    // Spec preedit immediate delivery: state changes MUST trigger immediate frame delivery
     const coalescing = server.delivery.coalescing_state;
     var cs = coalescing.CoalescingState{ .tier = .bulk };
     cs.triggerPreedit(1000);
     try std.testing.expectEqual(coalescing.CoalescingTier.preedit, cs.tier);
 }
 
-test "spec: upgrade is immediate, downgrade requires sustained condition (§5.2)" {
+test "spec: upgrade is immediate, downgrade requires sustained condition" {
     const coalescing = server.delivery.coalescing_state;
     // Upgrade: immediate
     var cs = coalescing.CoalescingState{ .tier = .active, .tier_entered_at = 1000 };
@@ -102,7 +103,7 @@ test "spec: upgrade is immediate, downgrade requires sustained condition (§5.2)
     try std.testing.expectEqual(coalescing.CoalescingTier.active, cs2.tier);
 }
 
-test "spec: WAN ssh raises Tier 2 to 33ms and Tier 3 to 100ms (§5.5)" {
+test "spec: WAN ssh raises Tier 2 to 33ms and Tier 3 to 100ms" {
     const coalescing = server.delivery.coalescing_state;
     const ClientState = server.connection.client_state.ClientState;
     const info = ClientState.ClientDisplayInfo{ .transport_type = .ssh_tunnel };
@@ -114,7 +115,7 @@ test "spec: WAN ssh raises Tier 2 to 33ms and Tier 3 to 100ms (§5.5)" {
     try std.testing.expectEqual(@as(u32, 100), cs_bulk.effectiveIntervalMs(&info));
 }
 
-test "spec: preedit never throttled regardless of power/transport/bandwidth (§5.3)" {
+test "spec: preedit never throttled regardless of power/transport/bandwidth" {
     const coalescing = server.delivery.coalescing_state;
     const ClientState = server.connection.client_state.ClientState;
     const info = ClientState.ClientDisplayInfo{
@@ -127,7 +128,7 @@ test "spec: preedit never throttled regardless of power/transport/bandwidth (§5
     try std.testing.expectEqual(@as(u32, 0), cs.effectiveIntervalMs(&info));
 }
 
-test "spec: idle suppression during resize + 500ms settling (§5.7)" {
+test "spec: idle suppression during resize + 500ms settling" {
     const coalescing = server.delivery.coalescing_state;
     var cs = coalescing.CoalescingState{ .tier = .active, .last_output_timestamp = 1000 };
 
@@ -143,7 +144,7 @@ test "spec: idle suppression during resize + 500ms settling (§5.7)" {
     try std.testing.expectEqual(coalescing.CoalescingTier.idle, cs.tier);
 }
 
-test "spec: power-aware battery caps at Tier 2 (§5.6)" {
+test "spec: power-aware battery caps at Tier 2" {
     const coalescing = server.delivery.coalescing_state;
     const ClientState = server.connection.client_state.ClientState;
     const info = ClientState.ClientDisplayInfo{ .power_state = .battery };
@@ -152,7 +153,7 @@ test "spec: power-aware battery caps at Tier 2 (§5.6)" {
     try std.testing.expectEqual(@as(u32, 16), cs.effectiveIntervalMs(&info));
 }
 
-test "spec: power-aware low_battery caps at Tier 3 (§5.6)" {
+test "spec: power-aware low_battery caps at Tier 3" {
     const coalescing = server.delivery.coalescing_state;
     const ClientState = server.connection.client_state.ClientState;
     const info = ClientState.ClientDisplayInfo{ .power_state = .low_battery };
@@ -161,7 +162,7 @@ test "spec: power-aware low_battery caps at Tier 3 (§5.6)" {
     try std.testing.expectEqual(@as(u32, 33), cs.effectiveIntervalMs(&info));
 }
 
-test "spec: high RTT raises idle threshold to 200ms (§5.5)" {
+test "spec: high RTT raises idle threshold to 200ms" {
     const coalescing = server.delivery.coalescing_state;
     const ClientState = server.connection.client_state.ClientState;
     const info_high_rtt = ClientState.ClientDisplayInfo{ .estimated_rtt_ms = 150 };
@@ -171,16 +172,16 @@ test "spec: high RTT raises idle threshold to 200ms (§5.5)" {
     try std.testing.expectEqual(@as(u32, 100), coalescing.CoalescingState.idleThresholdMs(&info_low_rtt));
 }
 
-// ── Client Health State (daemon-behavior §3.1-3.5) ──────────────────────────
+// ── Client Health State (daemon-behavior client health model) ───────────────
 
-test "spec: client health defaults to healthy (§3.1)" {
+test "spec: client health defaults to healthy" {
     const ClientState = server.connection.client_state.ClientState;
     const client = ClientState.init(.{ .fd = 7 }, 42, testing_helpers.testChunkPool());
     try std.testing.expectEqual(ClientState.HealthState.healthy, client.health_state);
     try std.testing.expect(!client.paused);
 }
 
-test "spec: FlowControlConfig transport-aware defaults (§4.3)" {
+test "spec: FlowControlConfig transport-aware defaults" {
     const ClientState = server.connection.client_state.ClientState;
     const local = ClientState.FlowControlConfig.defaultForTransport(.local);
     try std.testing.expectEqual(@as(u32, 5000), local.max_queue_age_ms);
@@ -191,7 +192,7 @@ test "spec: FlowControlConfig transport-aware defaults (§4.3)" {
     try std.testing.expectEqual(@as(u32, 120000), ssh.stale_timeout_ms);
 }
 
-test "spec: paused is orthogonal to health state (§3.1)" {
+test "spec: paused is orthogonal to health state" {
     const ClientState = server.connection.client_state.ClientState;
     var client = ClientState.init(.{ .fd = 7 }, 42, testing_helpers.testChunkPool());
     defer client.deinit();
@@ -206,7 +207,7 @@ test "spec: paused is orthogonal to health state (§3.1)" {
     try std.testing.expectEqual(ClientState.HealthState.stale, client.health_state);
 }
 
-test "spec: recordApplicationMessage resets stale timeout (§3.3)" {
+test "spec: recordApplicationMessage resets stale timeout" {
     const ClientState = server.connection.client_state.ClientState;
     var client = ClientState.init(.{ .fd = 7 }, 42, testing_helpers.testChunkPool());
     defer client.deinit();
@@ -216,7 +217,7 @@ test "spec: recordApplicationMessage resets stale timeout (§3.3)" {
     try std.testing.expect(client.last_application_message_at > 0);
 }
 
-// ── Frame Builder (daemon-architecture §4.3, §4.6) ─────────────────────────
+// ── Frame Builder (daemon-architecture frame export pipeline) ───────────────
 
 test "spec: empty dirty bitmap produces no DirtyRows for P-frame" {
     const frame_builder = server.delivery.frame_builder;
@@ -265,9 +266,9 @@ test "spec: force_all=true includes all rows (I-frame scenario)" {
     try std.testing.expectEqual(@as(u16, 3), count);
 }
 
-// ── Frame Serializer JSON Metadata (protocol 04 §3.1, §3.2) ────────────────
+// ── Frame Serializer JSON Metadata (protocol 04 FrameUpdate wire format) ────
 
-test "spec: JSON metadata sets section_flags bit 7 (protocol 04 §3.1)" {
+test "spec: JSON metadata sets section_flags bit 7" {
     const frame_serializer = server.delivery.frame_serializer;
     const ring_buffer_mod = server.delivery.ring_buffer;
 
@@ -347,9 +348,9 @@ test "spec: no JSON metadata leaves bit 7 clear" {
     try std.testing.expect(!fh.hasJsonMetadata());
 }
 
-// ── Pane I-Frame Scheduling (daemon-architecture §4.9, ADR 00057) ───────────
+// ── Pane I-Frame Scheduling (daemon-architecture I-frame scheduling, ADR 00057)
 
-test "spec: I-frame timer no-op when pane has no changes (§4.9)" {
+test "spec: I-frame timer no-op when pane has no changes" {
     const Pane = server.state.pane.Pane;
     var pane = Pane.init(1, 0, 5, 100, 80, 24);
     pane.recordIFrameProduction(1000);
@@ -357,7 +358,7 @@ test "spec: I-frame timer no-op when pane has no changes (§4.9)" {
     try std.testing.expect(!pane.needsIFrame(2001, 1000));
 }
 
-test "spec: I-frame timer fires when pane has changes and interval elapsed (§4.9)" {
+test "spec: I-frame timer fires when pane has changes and interval elapsed" {
     const Pane = server.state.pane.Pane;
     var pane = Pane.init(1, 0, 5, 100, 80, 24);
     pane.recordIFrameProduction(1000);
@@ -381,7 +382,7 @@ test "spec: I-frame from resize resets timer (ADR 00057)" {
     try std.testing.expect(pane.needsIFrame(2501, 1000));
 }
 
-// ── Frame Suppression for Undersized Panes (daemon-architecture §4.6) ───────
+// ── Frame Suppression for Undersized Panes (daemon-architecture frame export)
 
 test "spec: pane with cols < 2 is undersized" {
     const Pane = server.state.pane.Pane;
@@ -401,7 +402,7 @@ test "spec: pane with cols=2 rows=1 is NOT undersized" {
     try std.testing.expect(!pane.isUndersized());
 }
 
-// ── Resize (daemon-behavior §2) ─────────────────────────────────────────────
+// ── Resize (daemon-behavior resize policy) ─────────────────────────────────
 
 test "spec: first resize fires immediately (no debounce)" {
     const resize_handler = server.handlers.resize_handler;
@@ -411,7 +412,7 @@ test "spec: first resize fires immediately (no debounce)" {
     try std.testing.expect(resize_handler.shouldResizeImmediately(&pane, 1000));
 }
 
-test "spec: subsequent resize debounced at 250ms (§2.4)" {
+test "spec: subsequent resize debounced at 250ms" {
     const resize_handler = server.handlers.resize_handler;
     const Pane = server.state.pane.Pane;
     var pane = Pane.init(1, 0, 5, 100, 80, 24);
@@ -424,7 +425,7 @@ test "spec: subsequent resize debounced at 250ms (§2.4)" {
     try std.testing.expect(resize_handler.shouldResizeImmediately(&pane, 1250));
 }
 
-test "spec: session effective dimensions update on WindowResize (§2)" {
+test "spec: session effective dimensions update on WindowResize" {
     const session_mod = core.session;
     const SessionEntry = server.state.session_entry.SessionEntry;
     const s = session_mod.Session.init(1, "s", 0, testing_helpers.testImeEngine(), 0);
@@ -438,9 +439,9 @@ test "spec: session effective dimensions update on WindowResize (§2)" {
     try std.testing.expectEqual(@as(u16, 40), entry.effective_rows);
 }
 
-// ── Metadata Serializer (protocol 04 §3.2) ─────────────────────────────────
+// ── Metadata Serializer (protocol 04 FrameUpdate metadata) ─────────────────
 
-test "spec: I-frame metadata includes all required fields (protocol 04 §3.2)" {
+test "spec: I-frame metadata includes all required fields" {
     const metadata_serializer = server.delivery.metadata_serializer;
     var palette: [256]metadata_serializer.RgbColor = @splat(metadata_serializer.RgbColor{});
     const metadata = metadata_serializer.IFrameMetadata{
@@ -470,7 +471,7 @@ test "spec: I-frame metadata includes all required fields (protocol 04 §3.2)" {
     try std.testing.expect(std.mem.indexOf(u8, json, "\"terminal_modes\"") != null);
 }
 
-test "spec: P-frame metadata omits unchanged fields (protocol 04 §3.2)" {
+test "spec: P-frame metadata omits unchanged fields" {
     const metadata_serializer = server.delivery.metadata_serializer;
     const metadata = metadata_serializer.PFrameMetadata{
         .cursor = .{ .x = 10, .y = 5 },
@@ -489,7 +490,7 @@ test "spec: P-frame metadata omits unchanged fields (protocol 04 §3.2)" {
     try std.testing.expect(std.mem.indexOf(u8, json, "\"dimensions\"") == null);
 }
 
-test "spec: P-frame with no changes returns null (protocol 04 §3.2)" {
+test "spec: P-frame with no changes returns null" {
     const metadata_serializer = server.delivery.metadata_serializer;
     const metadata = metadata_serializer.PFrameMetadata{};
 

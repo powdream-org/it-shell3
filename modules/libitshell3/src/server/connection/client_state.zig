@@ -47,20 +47,20 @@ pub const ClientState = struct {
     last_ping_id_sent: u32 = 0,
     last_ping_id_acked: u32 = 0,
 
-    /// Health state per daemon-behavior spec Section 3.1.
+    /// Health state per daemon-behavior spec client health model.
     health_state: HealthState = .healthy,
     /// Timestamp when health state last changed.
     health_state_changed_at: i64 = 0,
-    /// Whether PausePane is active (orthogonal to health state per spec Section 3.1).
+    /// Whether PausePane is active (orthogonal to health state per spec).
     paused: bool = false,
     /// Timestamp when PausePane was received (T=0 for escalation timeline).
     pause_started_at: i64 = 0,
 
-    /// Flow control configuration per daemon-behavior spec Section 4.3.
+    /// Flow control configuration per daemon-behavior spec flow control config.
     flow_control: FlowControlConfig = .{},
 
     /// Timestamp of last application-level message for stale timeout tracking.
-    /// Per spec Section 3.3: resets on ContinuePane, KeyEvent, WindowResize,
+    /// Per spec stale timeout rules: resets on ContinuePane, KeyEvent, WindowResize,
     /// ClientDisplayInfo, and request messages. HeartbeatAck does NOT reset.
     last_application_message_at: i64 = 0,
 
@@ -75,14 +75,14 @@ pub const ClientState = struct {
     /// Whether this client slot is occupied.
     occupied: bool = false,
 
-    /// Client health states per daemon-behavior spec Section 3.1.
+    /// Client health states per daemon-behavior spec client health model.
     pub const HealthState = enum {
         healthy,
         stale,
     };
 
     /// Flow control configuration with transport-aware defaults.
-    /// Per daemon-behavior spec Section 4.3.
+    /// Per daemon-behavior spec flow control config.
     pub const FlowControlConfig = struct {
         max_queue_age_ms: u32 = 5000,
         auto_continue: bool = true,
@@ -156,7 +156,7 @@ pub const ClientState = struct {
     }
 
     /// Records an application-level message for stale timeout tracking.
-    /// Per spec Section 3.3: resets on KeyEvent, WindowResize, ContinuePane,
+    /// Per spec stale timeout rules: resets on KeyEvent, WindowResize, ContinuePane,
     /// ClientDisplayInfo, and request messages. Also resets heartbeat liveness.
     pub fn recordApplicationMessage(self: *ClientState) void {
         const now = std.time.milliTimestamp();

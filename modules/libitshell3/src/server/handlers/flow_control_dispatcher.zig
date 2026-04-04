@@ -88,19 +88,19 @@ fn computeEffectiveMaxFps(display_info: *const ClientDisplayInfo) u16 {
         display_info.display_refresh_hz;
 }
 
-/// Handles PausePane (C->S advisory). Per daemon-behavior spec Section 4.1:
+/// Handles PausePane (C->S advisory). Per daemon-behavior spec PausePane rules:
 /// PausePane does NOT stop ring writes. It starts the health escalation timeline.
 fn handlePausePane(params: CategoryDispatchParams) void {
     const client = params.client;
 
-    // Mark client as paused and start escalation timeline (Section 3.2)
+    // Mark client as paused and start escalation timeline
     client.paused = true;
     client.pause_started_at = std.time.milliTimestamp();
 
     // PausePane is advisory — no ack needed per protocol spec.
 }
 
-/// Handles ContinuePane (C->S recovery). Per daemon-behavior spec Section 4.2:
+/// Handles ContinuePane (C->S recovery). Per daemon-behavior spec ContinuePane rules:
 /// Advances ring cursor to latest I-frame, restores coalescing tier.
 fn handleContinuePane(params: CategoryDispatchParams) void {
     const client = params.client;
@@ -115,7 +115,7 @@ fn handleContinuePane(params: CategoryDispatchParams) void {
     if (client.attached_session) |entry| {
         if (entry.findPaneSlotByPaneId(pane_id)) |slot| {
             if (client.ring_cursors[slot]) |*cursor| {
-                // Seek to latest I-frame for recovery (Section 4.2)
+                // Seek to latest I-frame for recovery (ContinuePane rules)
                 // Ring buffer access goes through pane_delivery module
                 _ = cursor;
             }
@@ -126,7 +126,7 @@ fn handleContinuePane(params: CategoryDispatchParams) void {
     client.recordApplicationMessage();
 }
 
-/// Handles FlowControlConfig (C->S). Per daemon-behavior spec Section 4.3:
+/// Handles FlowControlConfig (C->S). Per daemon-behavior spec flow control config:
 /// Updates per-client flow parameters with transport-aware defaults.
 fn handleFlowControlConfig(params: CategoryDispatchParams) void {
     const client = params.client;

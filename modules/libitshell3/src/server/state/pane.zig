@@ -47,14 +47,14 @@ pub const Pane = struct {
     is_running: bool = true,
     exit_status: ?u8 = null,
 
-    // I-frame scheduling per daemon-architecture spec Section 4.9.
+    // I-frame scheduling per daemon-architecture spec I-frame scheduling.
     /// Timestamp of last I-frame production for this pane.
     /// Resets on any I-frame: attach, recovery, resize, timer (ADR 00057).
     last_i_frame_time: i64 = 0,
     /// Whether pane state has changed since last I-frame.
     has_changes_since_i_frame: bool = false,
 
-    // Resize debounce per daemon-behavior spec Section 2.4.
+    // Resize debounce per daemon-behavior spec resize policy.
     /// Deadline (timestamp ms) for the pending resize debounce timer.
     /// null = no pending resize.
     resize_debounce_deadline: ?i64 = null,
@@ -119,7 +119,7 @@ pub const Pane = struct {
     }
 
     /// Whether the I-frame timer should fire for this pane.
-    /// Per spec Section 4.9: no-op when unchanged since last I-frame.
+    /// Per spec I-frame scheduling: no-op when unchanged since last I-frame.
     pub fn needsIFrame(self: *const Pane, now: i64, interval_ms: i64) bool {
         if (!self.has_changes_since_i_frame) return false;
         if (self.last_i_frame_time == 0) return true;
@@ -127,7 +127,7 @@ pub const Pane = struct {
     }
 
     /// Whether the pane dimensions are too small for frame generation.
-    /// Per daemon-architecture spec Section 4.6: cols < 2 or rows < 1.
+    /// Per daemon-architecture spec frame export pipeline: cols < 2 or rows < 1.
     pub fn isUndersized(self: *const Pane) bool {
         return self.cols < 2 or self.rows < 1;
     }

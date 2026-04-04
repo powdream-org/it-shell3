@@ -52,7 +52,7 @@ pub fn serializeAndWrite(
 ///
 /// When `json_metadata` is non-null, section_flags bit 7 is set and the
 /// JSON blob (already length-prefixed) is appended after the DirtyRows
-/// section. Per protocol 04 Section 3.1.
+/// section. Per protocol 04 FrameUpdate wire format.
 pub fn serializeAndWriteWithMetadata(
     scratch: []u8,
     ring: *RingBuffer,

@@ -268,7 +268,7 @@ fn sendAttachNotifications(
 
     // Send LayoutChanged notification to the requester.
     // Initialize ring cursors for all panes in the session.
-    // Per daemon-behavior spec Section 12: on attach, initialize ring cursors
+    // Per daemon-behavior spec attach procedure: on attach, initialize ring cursors
     // and send initial I-frame. I-frame delivery happens through the coalescing
     // timer after dirty marks are set for all panes.
     initializeRingCursorsForSession(client, entry);
@@ -561,7 +561,7 @@ fn sendPreeditSyncIfActive(client: *ClientState, entry: *SessionEntry) void {
 }
 
 /// Initializes ring cursors for all panes in a newly attached session.
-/// Per daemon-behavior spec Section 12: READY -> OPERATING transition
+/// Per daemon-behavior spec attach procedure: READY -> OPERATING transition
 /// initializes ring cursors to start reading from the current write position.
 fn initializeRingCursorsForSession(
     client: *ClientState,
