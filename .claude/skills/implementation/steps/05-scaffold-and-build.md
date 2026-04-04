@@ -76,24 +76,14 @@ Once `mise run test:macos` passes, the scaffold gate is satisfied.
 
 ## Gate
 
-- [ ] Directory structure created per plan
-- [ ] `zig build` compiles without errors
-- [ ] Vendored C compiles (if applicable) with `.ReleaseSafe`
-- [ ] `mise run test:macos` passes
-- [ ] No production logic written yet
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
-
-## State Update
-
-Update TODO.md:
-
-- **Step**: 6 (Implementation Phase)
-- Mark Step 5 as `[x]`
-
-Checkpoint: commit all changed artifacts (TODO.md, scaffold files).
-
-## Next
-
-**Auto-proceed** — no owner input required.
-
-Read `steps/06-implementation.md`.
+- [ ] Directory structure created per plan: `ls <target>/src/` → expected
+      files/dirs exist
+- [ ] `zig build` compiles without errors: `(cd <target> && zig build)` → exit
+      code 0
+- [ ] Vendored C compiles (if applicable) with `.ReleaseSafe`:
+      `(cd <target> && zig build)` → no C compilation errors
+- [ ] `mise run test:macos` passes: `mise run test:macos` → output contains
+      "passed" with 0 failures
+- [ ] No production logic written yet → team leader confirmation (scaffold only)
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts):
+      `git log -1 --oneline` → commit message references scaffold

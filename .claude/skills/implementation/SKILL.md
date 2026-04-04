@@ -15,50 +15,9 @@ Target: **$ARGUMENTS**
 
 ## Target Resolution
 
-Targets are resolved by **filesystem discovery** across all source directories.
-
-### Step 1: Discover all targets
-
-Targets live across three top-level directories with different structures:
-
-```bash
-# Libraries — each subdirectory is a target
-ls -d modules/*/ 2>/dev/null
-
-# Daemon — the directory itself is a target (contains build.zig + main.zig)
-ls daemon/build.zig 2>/dev/null && echo "daemon/"
-
-# Client apps — each subdirectory is a target
-ls -d app/*/ 2>/dev/null
-```
-
-This produces paths like `modules/libitshell3-ime/`, `daemon/`, `app/macos/`.
-These paths are the **target directories**.
-
-### Step 2: Match argument to target
-
-Fuzzy-match the argument against discovered target directory names. Examples
-(not exhaustive — always discover from filesystem):
-
-- `ime` → `modules/libitshell3-ime`
-- `protocol` → `modules/libitshell3-protocol`
-- `client` or `client-sdk` → `modules/libitshell3-client`
-- `core` or `libitshell3` → `modules/libitshell3`
-- `daemon` → `daemon`
-- `macos` or `app` → `app/macos`
-
-If no match or ambiguous, show all discovered targets and ask the user to
-clarify. If the target directory does not exist yet, confirm with the user that
-this is a new target before proceeding (Step 1 will create it).
-
-The resolved path (e.g., `modules/libitshell3-ime`) is referred to as `<target>`
-throughout all step files.
-
-### Step 3: Resolve team directory
-
-Implementation teams use a shared agent directory: `.claude/agents/impl-team/`.
-
-Use `ls -la` on the team directory to discover members (may include symlinks).
+Invoke `/impl-resolve-target` with `$ARGUMENTS`. This resolves the target
+argument to a filesystem path and team directory. The resolved path is referred
+to as `<target>` throughout all step and skill files.
 
 ## Entry Point — ALWAYS Start Here
 
@@ -80,27 +39,29 @@ compaction.**
 
 ## Step Index
 
-Each step file contains: anti-patterns, action instructions, gate conditions,
-and TODO.md state update instructions. Read **only the current step's file** —
-do not pre-read future steps.
+Read **only the current step's file or skill** — do not pre-read future steps.
+Steps 6-9 execute in isolated fork context; the team leader dispatches them and
+reads the JSON gate result. All other steps are executed by the team leader
+directly.
 
-| Step | File                                  | Summary                                              | Gate                                              |
-| ---- | ------------------------------------- | ---------------------------------------------------- | ------------------------------------------------- |
-| 1    | `steps/01-requirements-intake.md`     | Identify spec, plan, inputs; create TODO.md          | TODO.md created, ROADMAP updated                  |
-| 2    | `steps/02-plan-writing.md`            | Write implementation plan via `/writing-impl-plan`   | Plan written and reviewed                         |
-| 3    | `steps/03-plan-verification.md`       | Verify plan against spec/code via review team        | All verifiers clean pass                          |
-| 4    | `steps/04-cycle-setup.md`             | Collect inputs, verify agents, owner approval        | Owner approved, ROADMAP updated                   |
-| 5    | `steps/05-scaffold-and-build.md`      | Create project skeleton; verify build chain          | `mise run test:macos` passes                      |
-| 6    | `steps/06-implementation.md`          | Implementer + QA engineer parallel; devops builds    | Code compiles, tests executed                     |
-| 7    | `steps/07-simplify.md`                | `/simplify` + `/fix-code-convention-violations`      | Fixes applied, tests pass                         |
-| 8    | `steps/08-spec-compliance.md`         | QA reviewer + development-reviewer dual review       | Clean pass or `[CODE]`/`[TEST]`/`[CONV]` list     |
-| 9    | `steps/09-fix-cycle.md`               | Route issues to implementer/QA engineer; re-validate | All issues resolved → back to Step 8              |
-| 10   | `steps/10-coverage-audit.md`          | Measure coverage; fill gaps                          | Targets met or exemption granted                  |
-| 11   | `steps/11-over-engineering-review.md` | Principal architect reviews for KISS/YAGNI           | Clean → Step 12; code changed → back to Step 8    |
-| 12   | `steps/12-commit-and-report.md`       | Commit code; report to owner                         | All gates green, code committed                   |
-| 13   | `steps/13-owner-review.md`            | Owner evaluates; accepts or requests changes         | Owner accepts → Step 14; changes → back to Step 6 |
-| 14   | `steps/14-retrospective.md`           | Review cycle, update learnings                       | Learnings updated, SIPs processed                 |
-| 15   | `steps/15-cleanup.md`                 | Delete artifacts, update ROADMAP.md                  | ROADMAP updated, artifacts deleted, pushed        |
+| Step | Location                              | Execution     |
+| ---- | ------------------------------------- | ------------- |
+| —    | `direct/impl-resolve-target/SKILL.md` | direct        |
+| 1    | `steps/01-requirements-intake.md`     | team leader   |
+| 2    | `steps/02-plan-writing.md`            | team leader   |
+| 3    | `steps/03-plan-verification.md`       | team leader   |
+| 4    | `steps/04-cycle-setup.md`             | team leader   |
+| 5    | `steps/05-scaffold-and-build.md`      | team leader   |
+| 6    | `isolated/impl-execute/SKILL.md`      | context: fork |
+| 7    | `isolated/impl-simplify/SKILL.md`     | context: fork |
+| 8    | `isolated/impl-review/SKILL.md`       | context: fork |
+| 9    | `isolated/impl-fix/SKILL.md`          | context: fork |
+| 10   | `steps/10-coverage-audit.md`          | team leader   |
+| 11   | `steps/11-over-engineering-review.md` | team leader   |
+| 12   | `steps/12-commit-and-report.md`       | team leader   |
+| 13   | `steps/13-owner-review.md`            | team leader   |
+| 14   | `steps/14-retrospective.md`           | team leader   |
+| 15   | `steps/15-cleanup.md`                 | team leader   |
 
 ## Master Transition Table
 
@@ -270,6 +231,20 @@ Triage occurs at Steps 7.5 and 8.5. These rules apply to both:
 
 When you encounter a procedural problem at any step, run `/sip <description>`
 immediately. Do not wait for the retrospective step.
+
+## Success Criteria
+
+This skill redesign is successful if in each implementation cycle:
+
+- Zero instances of team leader asking permission at auto-proceed gates
+- Zero instances of team leader directly editing code
+- Zero instances of gate conditions passed without verification
+- All triage invocations follow the full procedure
+- All convention violations routed per the location table (not self-triaged)
+- Fork steps (6-9) return valid JSON conforming to the defined schema
+- Team leader's fork step processing consists only of: JSON gate read →
+  transition table lookup �� state update → commit
+- Steps 10-11: team leader executes gate verification commands directly
 
 ## Rationale & Reference
 

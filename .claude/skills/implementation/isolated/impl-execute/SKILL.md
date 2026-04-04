@@ -1,3 +1,11 @@
+---
+name: impl-execute
+description: >
+  Execute the implementation phase: spawn implementer and QA engineer, wire tests, build and run.
+user-invocable: false
+context: fork
+---
+
 # Step 6: Implementation Phase
 
 ## Anti-Patterns
@@ -34,8 +42,8 @@
   tests from the spec alone. Reading the implementation introduces bias — tests
   end up confirming what the code does rather than what the spec says.
 - **Don't assume agents know project conventions.** The agent definition and
-  spawn prompt must both reference convention docs explicitly. Conventions
-  not read before coding become rework in Step 7.
+  spawn prompt must both reference convention docs explicitly. Conventions not
+  read before coding become rework in Step 7.
 - **Don't serialize parallelizable tasks into one implementer.** If the plan's
   dependency graph shows independent task groups, spawn one implementer per
   group. Queuing all tasks behind a single agent wastes time.
@@ -136,8 +144,8 @@ indicate:
 resolve API mismatches. Check which side matches the spec — that side is
 correct; the other must adjust.
 
-**If tests compile but some fail:** Proceed to Step 7. Failures feed into the
-spec compliance review at Step 8.
+**If tests compile but some fail:** Proceed to gate evaluation. Failures feed
+into the spec compliance review at Step 8.
 
 ### 6g. Monitor progress
 
@@ -150,35 +158,66 @@ During each agent's active phase:
 ### 6h. Keep team alive
 
 Do NOT disband the team. All agents (implementer, QA engineer, QA reviewer,
-development-reviewer, devops) continue into Steps 7-11. They are disbanded in
-Step 12.
+development-reviewer, devops) continue into subsequent steps. They are disbanded
+in Step 12.
 
-## Gate
+## Gate Verification
+
+Each condition must be verified by the fork before returning. Execute the exact
+commands listed.
 
 - [ ] Implementer reports all source files complete with inline unit tests
 - [ ] QA engineer reports all spec behavior tests with per-test requirement
       citations
 - [ ] Devops has wired spec tests into `src/testing/root.zig`
-- [ ] Code compiles (`zig build` succeeds)
-- [ ] `zig fmt --check src/` passes
-- [ ] `mise run test:all -- --no-coverage` executed (failures acceptable at this
-      stage)
+- [ ] Code compiles: `(cd <target> && zig build)` → exit code 0
+- [ ] Format clean: `(cd <target> && zig fmt --check src/)` → exit code 0
+- [ ] Tests executed: `mise run test:all -- --no-coverage` → command completes
+      (failures acceptable at this stage; record pass/fail/skip counts)
 - [ ] Spec gaps (if any) logged in TODO.md
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
+- [ ] Checkpoint commit performed: `git add -A && git commit` with all changed
+      artifacts (TODO.md, source files, test files)
 
-## State Update
+## Return
 
-Update TODO.md:
+Return a JSON object conforming to the fork return contract:
 
-- **Step**: 7 (Code Simplify)
-- **Active Team**: impl-team
-- **Team Directory**: `.claude/agents/impl-team/`
-- Mark Step 6 as `[x]`
+```json
+{
+  "step": 6,
+  "gate": "PASS | FAIL",
+  "checkpoint": "<commit-sha>",
+  "payload": {
+    "compilation": "PASS | FAIL",
+    "tests_executed": true | false,
+    "test_summary": {
+      "passed": "<number>",
+      "failed": "<number>",
+      "skipped": "<number>"
+    },
+    "spec_gaps": [
+      {
+        "file": "<path>",
+        "line": "<number>",
+        "spec_section": "<section name>",
+        "description": "<what the spec requires vs what is implemented>",
+        "severity": "divergence"
+      }
+    ]
+  }
+}
+```
 
-Checkpoint: commit all changed artifacts (TODO.md, source files, test files).
+**Field semantics:**
 
-## Next
-
-**Auto-proceed** — no owner input required.
-
-Read `steps/07-simplify.md`.
+- `gate`: `PASS` if code compiles AND tests were executed (failures are
+  acceptable). `FAIL` if code does not compile or agents could not complete.
+- `checkpoint`: The SHA of the checkpoint commit created at the end of the step.
+- `compilation`: `PASS` if `zig build` succeeds, `FAIL` otherwise.
+- `tests_executed`: `true` if `mise run test:all -- --no-coverage` ran to
+  completion (regardless of test results), `false` if it could not run.
+- `test_summary`: Counts from the test run. All zeros if tests were not
+  executed.
+- `spec_gaps`: Array of spec gaps discovered during implementation. Empty array
+  `[]` if none found. Each entry must cite the spec section and describe the
+  divergence.

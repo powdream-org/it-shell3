@@ -1,3 +1,11 @@
+---
+name: impl-review
+description: >
+  Run spec compliance review with QA reviewer and development-reviewer, report issues found.
+user-invocable: false
+context: fork
+---
+
 # Step 8: Spec Compliance Review
 
 ## Anti-Patterns
@@ -17,7 +25,7 @@
   still violate the spec's delivery mechanism or API contract. Verify against
   the SPEC, not the plan or the code's apparent intent.
 - **Don't edit code directly.** The team leader delegates fixes to the
-  implementer or QA engineer. If reviewers find issues, they go through Step 6 —
+  implementer or QA engineer. If reviewers find issues, they go through Step 9 —
   the team leader never edits source files.
 - **Don't skip convention re-verification.** The development-reviewer must
   re-verify after Step 7 fixes AND after any Step 9 fix cycle, since fixes can
@@ -88,30 +96,66 @@ If no violations: "Clean pass — no convention violations found."
 
 Wait for both reviewers to report.
 
-- **If both clean** → Proceed to Step 10 (Coverage Audit).
-- **If any issues found** → Merge issue lists (`[CODE]` + `[TEST]` + `[CONV]`)
-  and proceed to Step 9 (Fix Cycle).
+- **If both clean** → gate is `CLEAN`.
+- **If any issues found** → gate is `ISSUES`. Merge issue lists (`[CODE]` +
+  `[TEST]` + `[CONV]`) into the payload.
 
-## Gate
+## Gate Verification
+
+Each condition must be verified by the fork before returning.
 
 - [ ] QA reviewer has completed dual review (Part A + Part B)
 - [ ] Development-reviewer has completed convention re-verification
-- [ ] Result is either "all clean" or a merged issue list with prefixes
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
+- [ ] Result is classified: either `CLEAN` (no issues) or `ISSUES` (merged issue
+      list with `[CODE]`/`[TEST]`/`[CONV]` prefixes and unique IDs)
+- [ ] Each issue has: unique ID (e.g. `R1-001`), category, file, line,
+      spec_section, summary, evidence, and suggested_fix
+- [ ] Checkpoint commit performed: `git add -A && git commit` with all changed
+      artifacts (TODO.md)
 
-## State Update
+## Return
 
-Update TODO.md:
+Return a JSON object conforming to the fork return contract:
 
-- If clean: **Step**: 10 (Coverage Audit), mark Step 8 as `[x]`
-- If issues: **Step**: 9 (Fix Cycle), mark Step 8 as `[x]`
-- **Review Round**: increment by 1
+```json
+{
+  "step": 8,
+  "gate": "CLEAN | ISSUES",
+  "checkpoint": "<commit-sha>",
+  "payload": {
+    "issues": [
+      {
+        "id": "<unique ID, e.g. R1-001>",
+        "category": "CODE | TEST | CONV",
+        "file": "<path>",
+        "line": "<number>",
+        "spec_section": "<section name or convention rule>",
+        "summary": "<one-line description of the issue>",
+        "evidence": "<spec quote vs code quote showing the mismatch>",
+        "suggested_fix": "<actionable fix description>"
+      }
+    ]
+  }
+}
+```
 
-Checkpoint: commit all changed artifacts (TODO.md).
+**Field semantics:**
 
-## Next
-
-**Auto-proceed** — no owner input required.
-
-- If clean → Read `steps/10-coverage-audit.md`.
-- If issues found → Read `steps/09-fix-cycle.md`.
+- `gate`: `CLEAN` if both QA reviewer and development-reviewer report no issues.
+  `ISSUES` if any issues were found by either reviewer.
+- `checkpoint`: The SHA of the checkpoint commit created at the end of the step.
+- `issues`: Array of all issues found, merged from both reviewers. Empty array
+  `[]` when `gate` is `CLEAN`. Each issue includes:
+  - `id`: Unique identifier using format `R<round>-<sequence>`, e.g. `R1-001`.
+  - `category`: `CODE` for implementation compliance issues (from QA reviewer
+    Part A), `TEST` for test completeness issues (from QA reviewer Part B),
+    `CONV` for convention violations (from development-reviewer).
+  - `file`: Absolute or target-relative path to the file containing the issue.
+  - `line`: Line number in the file where the issue occurs.
+  - `spec_section`: The spec section or convention rule that is violated.
+  - `summary`: One-line description of the issue.
+  - `evidence`: Direct quote from the spec alongside the code that contradicts
+    it, showing the mismatch clearly.
+  - `suggested_fix`: Actionable description of how to resolve the issue. The
+    team leader uses `category` to route: `CODE`/`CONV` to implementer, `TEST`
+    to QA engineer.

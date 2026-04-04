@@ -99,27 +99,16 @@ Create `<target>/TODO.md` with this format:
 
 ## Gate
 
-- [ ] Cycle type determined (greenfield / modification)
-- [ ] Design spec identified and version(s) recorded
-- [ ] Plan existence checked
-- [ ] TODO.md created
-- [ ] ROADMAP Plan Index status updated to `In progress`
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
-
-## State Update
-
-Update TODO.md:
-
-- **Step**: 2 (Plan Writing) or 3 (Plan Verification)
-- Mark Step 1 as `[x]`
-
-Update ROADMAP Plan Index: set this plan's status to `**In progress**`.
-
-Checkpoint: commit all changed artifacts (TODO.md, ROADMAP.md).
-
-## Next
-
-**Auto-proceed** — no owner input required.
-
-- If no plan → Read `steps/02-plan-writing.md`.
-- If plan exists → Read `steps/03-plan-verification.md`.
+- [ ] Cycle type determined (greenfield / modification):
+      `grep 'Cycle Type' <target>/TODO.md` → contains "greenfield" or
+      "modification"
+- [ ] Design spec identified and version(s) recorded:
+      `grep 'Spec version' <target>/TODO.md` → non-empty version string
+- [ ] Plan existence checked: `ls docs/superpowers/plans/*<module>* 2>/dev/null`
+      → exit code 0 or confirmed no plan
+- [ ] TODO.md created: `ls <target>/TODO.md` → exit code 0
+- [ ] ROADMAP Plan Index status updated to `In progress`:
+      `grep '<plan-name>' docs/superpowers/plans/ROADMAP.md` → contains "In
+      progress"
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts):
+      `git log -1 --oneline` → commit message references step 1 artifacts

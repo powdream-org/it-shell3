@@ -80,25 +80,12 @@ Do NOT proceed to Step 4 until all three verifiers pass clean.
 
 ## Gate
 
-- [ ] spec-plan-verifier: clean pass
-- [ ] spec-code-verifier: clean pass (or N/A for greenfield)
-- [ ] plan-code-verifier: clean pass (or N/A for greenfield)
-- [ ] All divergences investigated (not dismissed)
-- [ ] Owner-escalated items resolved
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
-
-## State Update
-
-Update TODO.md:
-
-- **Step**: 4 (Cycle Setup)
-- Mark Step 3 as `[x]`
-- Log any spec gaps discovered in the Spec Gap Log
-
-Checkpoint: commit all changed artifacts (TODO.md, plan file, CTRs if any).
-
-## Next
-
-**Auto-proceed** — no owner input required.
-
-Read `steps/04-cycle-setup.md`.
+- [ ] spec-plan-verifier: clean pass → verifier agent reports "clean pass"
+- [ ] spec-code-verifier: clean pass (or N/A for greenfield) → verifier agent
+      reports "clean pass" or N/A
+- [ ] plan-code-verifier: clean pass (or N/A for greenfield) → verifier agent
+      reports "clean pass" or N/A
+- [ ] All divergences investigated (not dismissed) → team leader confirmation
+- [ ] Owner-escalated items resolved → owner confirmation
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts):
+      `git log -1 --oneline` → commit message references plan verification

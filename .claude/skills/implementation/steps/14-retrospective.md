@@ -69,19 +69,12 @@ change and commit with reason.
 
 ## Gate
 
-- [ ] Cycle reviewed (14b)
-- [ ] `implementation-learnings.md` updated (or confirmed no new lessons)
-- [ ] Skill improvements proposed and applied (or confirmed none needed)
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
-
-## State Update
-
-Update TODO.md: **Step**: 15 (Cleanup & ROADMAP Update). Mark Step 14 as `[x]`.
-
-Checkpoint: commit all changed artifacts (TODO.md, learnings, skill edits).
-
-## Next
-
-**Auto-proceed** — no owner input required.
-
-Read `steps/15-cleanup.md`.
+- [ ] Cycle reviewed (14b) → team leader confirmation (all 6 questions answered)
+- [ ] `implementation-learnings.md` updated (or confirmed no new lessons):
+      `git diff docs/insights/implementation-learnings.md` → changes present, or
+      confirmed no new lessons
+- [ ] Skill improvements proposed and applied (or confirmed none needed):
+      `ls <target>/retrospective/skill-improvement-proposals.md 2>/dev/null` →
+      SIPs processed or confirmed none
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts):
+      `git log -1 --oneline` → commit message references retrospective

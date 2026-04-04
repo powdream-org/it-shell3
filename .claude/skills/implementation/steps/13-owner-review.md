@@ -40,33 +40,9 @@ The owner signals one of:
 
 ## Gate
 
-- [ ] Owner has explicitly accepted OR requested changes
-- [ ] If changes requested: changes logged
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
-
-## State Update
-
-Update TODO.md:
-
-- If accepted:
-  - **Step**: 14 (Retrospective & Cleanup)
-  - Mark Step 13 as `[x]`
-- If changes requested:
-  - **Step**: 6 (Implementation Phase)
-  - Append a new `## Progress — Round N` section to TODO.md (do NOT reset
-    previous round's marks — they are the audit trail)
-  - **Carry forward**: Spec Gap Log, Coverage exemption, Plan path, Spec
-    version(s), owner's change requests
-  - **Reset in new round**: Active Team, Team Directory, Fix Iteration, Active
-    Issues
-  - Increment review round
-
-Checkpoint: commit all changed artifacts (TODO.md, any immediate fixes from
-owner).
-
-## Next
-
-**Owner input required** — wait for owner's explicit accept/change signal.
-
-- If accepted → Read `steps/14-retrospective.md`.
-- If changes requested → Read `steps/06-implementation.md`.
+- [ ] Owner has explicitly accepted OR requested changes → owner confirmation
+      ("accepted" / "changes requested")
+- [ ] If changes requested: changes logged: `grep -A5 'Round' <target>/TODO.md`
+      → change requests documented
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts):
+      `git log -1 --oneline` → commit message references owner review

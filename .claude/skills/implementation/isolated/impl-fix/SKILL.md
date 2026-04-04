@@ -1,3 +1,11 @@
+---
+name: impl-fix
+description: >
+  Execute the fix cycle: route triaged issues to agents, verify fixes, run tests.
+user-invocable: false
+context: fork
+---
+
 # Step 9: Fix Cycle
 
 ## Anti-Patterns
@@ -22,24 +30,18 @@
 ### 9a. Update TODO.md
 
 Update TODO.md: set **Step** to 9 (Fix Cycle), mark Step 8 as `[x]`. Record the
-merged issue list in **Active Issues**.
+triaged issue list in **Active Issues**.
 
 ### 9b. Check context budget
 
 Run `/check-available-context-window`. If remaining <= 25%, ask the owner to
 `/compact` before continuing. Fix cycles accumulate context with each iteration
-— especially if multiple rounds of 5 → 6 → 5 have occurred.
-
-### 9b-bis. Triage issues with owner
-
-Before routing, invoke `/triage` with the merged issue list ([CODE] + [TEST] +
-[CONV]).
-
-Dispositions for this step: Fix, Defer (Plan N), CTR, False alarm, Skip.
-
-After triage is complete, route fix-dispositioned issues to agents per 9c.
+— especially if multiple rounds of 8 → 9 → 8 have occurred.
 
 ### 9c. Route issues to the correct agent
+
+Route only the fix-dispositioned issues (from the team leader's triage at Step
+8.5) to the appropriate agents:
 
 **`[CODE]` and `[CONV]` issues → Implementer**
 (`.claude/agents/impl-team/implementer.md`):
@@ -76,17 +78,16 @@ Both agents work on their respective issues:
 4. QA reviewer confirms or reopens each issue
 5. Repeat until all issues resolved
 
-You (team leader) monitor but do NOT intervene unless:
+Monitor but do NOT intervene unless:
 
 - An issue reveals a spec gap → log in TODO.md, report to owner
 - The agents are stuck in a loop (same issue reopened 3+ times) → escalate to
   owner for decision
 - The owner needs to make a decision
 
-**Round limit:** The 8 → 9 → 8 loop runs automatically for up to **3 rounds**.
-If Step 8 still finds issues after Round 3, STOP and escalate to the owner. The
-owner decides: (a) continue with another round, (b) accept remaining issues as
-known limitations, or (c) trigger a spec revision.
+**Round limit:** The fix-and-verify loop within this step runs for up to **3
+internal rounds**. If issues remain unresolved after 3 rounds, STOP and report
+`gate: FAIL` with `unresolved` items.
 
 Track the current round in TODO.md's `Review Round` field.
 
@@ -101,34 +102,62 @@ mise run test:all -- --no-coverage
 Report structured results.
 ```
 
-All tests must pass before proceeding.
+All tests must pass before returning `gate: PASS`.
 
-## Gate
+## Gate Verification
+
+Each condition must be verified by the fork before returning. Execute the exact
+commands listed.
 
 - [ ] All `[CODE]` issues resolved and verified by QA reviewer
 - [ ] All `[TEST]` issues resolved and verified by QA reviewer
 - [ ] All `[CONV]` issues resolved and verified by development-reviewer
-- [ ] `mise run test:all -- --no-coverage` passes
+- [ ] Tests pass: `mise run test:all -- --no-coverage` → output contains "tests
+      passed" and exit code 0
+- [ ] Format clean: `(cd <target> && zig fmt --check src/)` → exit code 0
 - [ ] No new unauthorized extensions introduced during fixes
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
+- [ ] Checkpoint commit performed: `git add -A && git commit` with all changed
+      artifacts (TODO.md, fixed source/test files)
 
-## State Update
+## Return
 
-Update TODO.md:
+Return a JSON object conforming to the fork return contract:
 
-- **Step**: 8 (Spec Compliance Review) — yes, back to Step 8 for re-review
-- Mark Step 9 as `[x]` in the current round's progress
-- Increment `Fix Iteration` in Fix Cycle State
-- Update `Active Issues` to reflect resolved/remaining issues
-- If starting a new verification round after Step 11 regression, append a new
-  `## Progress — Round N` section (do NOT reset previous marks)
+```json
+{
+  "step": 9,
+  "gate": "PASS | FAIL",
+  "checkpoint": "<commit-sha>",
+  "payload": {
+    "rounds_used": "<number>",
+    "resolved": [
+      {
+        "id": "<issue ID from Step 8, e.g. R1-001>",
+        "summary": "<one-line description of what was fixed>"
+      }
+    ],
+    "unresolved": [
+      {
+        "id": "<issue ID from Step 8>",
+        "summary": "<one-line description of why it could not be resolved>"
+      }
+    ],
+    "tests_pass": true | false
+  }
+}
+```
 
-Checkpoint: commit all changed artifacts (TODO.md, fixed source/test files).
+**Field semantics:**
 
-## Next
-
-**Auto-proceed** — no owner input required.
-
-Read `steps/08-spec-compliance.md` — the QA reviewer does another full review to
-catch any issues introduced by the fixes. This loop (8 → 9 → 8) continues until
-Step 8 produces a clean pass.
+- `gate`: `PASS` if all fix-dispositioned issues are resolved AND tests pass.
+  `FAIL` if any issues remain unresolved after 3 internal rounds, or if tests
+  fail after all fixes are applied.
+- `checkpoint`: The SHA of the checkpoint commit created at the end of the step.
+- `rounds_used`: Number of internal fix-and-verify rounds executed (1 to 3).
+- `resolved`: Array of issues that were successfully fixed and verified. Each
+  entry references the original issue ID from Step 8's output.
+- `unresolved`: Array of issues that could not be resolved within the round
+  limit. Empty array `[]` when `gate` is `PASS`. Non-empty `unresolved` with
+  `gate: FAIL` triggers owner escalation by the team leader.
+- `tests_pass`: `true` if `mise run test:all -- --no-coverage` passes with exit
+  code 0 after all fixes are applied.

@@ -94,24 +94,14 @@ Present to the owner:
 
 ## Gate
 
-- [ ] All final gates verified (9a)
-- [ ] Team disbanded (9b)
-- [ ] Diff reviewed (9c)
-- [ ] Code committed (9d)
-- [ ] Owner notified (9e)
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
-
-## State Update
-
-Update TODO.md:
-
-- **Step**: 13 (Owner Review)
-- Mark Step 12 as `[x]`
-
-(No separate checkpoint — code was just committed in 12e.)
-
-## Next
-
-**Auto-proceed** — no owner input required (owner review happens in Step 13).
-
-Read `steps/13-owner-review.md`.
+- [ ] All final gates verified (12b):
+      `mise run test:macos && mise run test:macos:release-safe` → all tests
+      pass; `(cd <target> && zig fmt --check src/)` → exit code 0
+- [ ] Team disbanded (12c) → team leader confirmation (all agents shut down)
+- [ ] Diff reviewed (12d): `git diff --cached` → no secrets, no debug prints, no
+      unexpected files
+- [ ] Code committed (12e): `git log -1 --oneline` → commit message follows
+      convention
+- [ ] Owner notified (12f) → owner confirmation (report delivered)
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts): `git status` →
+      clean working tree (except TODO.md)

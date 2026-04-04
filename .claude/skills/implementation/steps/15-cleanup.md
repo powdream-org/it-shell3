@@ -48,18 +48,17 @@ git push
 
 ## Gate
 
-- [ ] ROADMAP.md Plan Index status updated to Done
-- [ ] ROADMAP.md Current Status table has correct numbers
-- [ ] ROADMAP.md dependency graph has ✅ on completed plan
-- [ ] TODO.md deleted
-- [ ] retrospective/ deleted
-- [ ] Committed and pushed
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
-
-## State Update
-
-Implementation is **Complete**. No further TODO.md updates (it's been deleted).
-
-## Next
-
-**Done.** Report completion to the owner.
+- [ ] ROADMAP.md Plan Index status updated to Done:
+      `grep '<plan-name>' docs/superpowers/plans/ROADMAP.md` → contains "Done"
+- [ ] ROADMAP.md Current Status table has correct numbers:
+      `grep -A3 'Current Status' docs/superpowers/plans/ROADMAP.md` →
+      file/test/coverage numbers match actual
+- [ ] ROADMAP.md dependency graph has checkmark on completed plan:
+      `grep '<plan-name>' docs/superpowers/plans/ROADMAP.md` → node label
+      includes completion marker
+- [ ] TODO.md deleted: `ls <target>/TODO.md 2>/dev/null` → exit code non-zero
+      (file gone)
+- [ ] retrospective/ deleted: `ls <target>/retrospective/ 2>/dev/null` → exit
+      code non-zero (directory gone)
+- [ ] Committed and pushed: `git log -1 --oneline` → commit message references
+      cleanup; `git status` → clean working tree

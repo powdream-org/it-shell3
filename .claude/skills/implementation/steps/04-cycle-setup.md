@@ -54,33 +54,27 @@ Update `docs/superpowers/plans/ROADMAP.md`:
 ### 4e. Present risks and surprises
 
 If any of these exist, present to the owner and wait for decision:
+
 - Coverage exemption requested
 - Scope changes discovered during plan verification
 - Unusual constraints or risks the owner hasn't seen
 - Decisions made without owner input that could be overridden
 
-If none exist, auto-proceed with a one-line status: "No risks or surprises. Auto-proceeding to Step 5."
+If none exist, auto-proceed with a one-line status: "No risks or surprises.
+Auto-proceeding to Step 5."
 
 ## Gate
 
-- [ ] PoC and constraints collected
-- [ ] Agent definitions verified
-- [ ] TODO.md updated with plan path, PoC, coverage exemption
-- [ ] ROADMAP.md updated
-- [ ] Risks/surprises presented (or confirmed none exist)
-- [ ] Checkpoint commit performed (TODO.md + changed artifacts)
-
-## State Update
-
-Update TODO.md:
-
-- **Step**: 5 (Scaffold & Build Verification)
-- Mark Step 4 as `[x]`
-
-Checkpoint: commit all changed artifacts (TODO.md, ROADMAP.md).
-
-## Next
-
-**Auto-proceed** — owner already approved in 4e.
-
-Read `steps/05-scaffold-and-build.md`.
+- [ ] PoC and constraints collected: `grep 'PoC' <target>/TODO.md` → shows paths
+      or "none"
+- [ ] Agent definitions verified: `ls .claude/agents/impl-team/*.md` → all
+      required agent files present
+- [ ] TODO.md updated with plan path, PoC, coverage exemption:
+      `grep -E 'Plan|PoC|Coverage exemption' <target>/TODO.md` → all fields
+      populated
+- [ ] ROADMAP.md updated: `grep '<plan-name>' docs/superpowers/plans/ROADMAP.md`
+      → contains "In progress" with current stats
+- [ ] Risks/surprises presented (or confirmed none exist) → owner confirmation
+      or "no risks" logged
+- [ ] Checkpoint commit performed (TODO.md + changed artifacts):
+      `git log -1 --oneline` → commit message references cycle setup
