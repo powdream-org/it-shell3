@@ -45,6 +45,11 @@ frontmatter for isolated execution, JSON return contracts.
 - Modifications to `docs/work-styles/` or `docs/conventions/`
 - Any Zig source code changes
 
+**Execution constraint:** All files in this plan are skill files under
+`.claude/skills/`. Sub-agents do not have write permission to this directory.
+For every task: sub-agent drafts content to a temp file, team leader reviews and
+applies the edit to the skill file.
+
 ## File Structure
 
 | File                                                                | Action | Responsibility                                                                                                      |
