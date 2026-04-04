@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 8 (Spec Compliance Review)
+- **Step**: 8.5 (Spec Compliance Triage)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 1
 - **Active Team**: plan9-impl
