@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 3 (Plan Verification)
+- **Step**: 4 (Cycle Setup)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 0
 - **Active Team**: (none)
@@ -33,7 +33,7 @@
 
 - [x] Step 1: Requirements Intake
 - [x] Step 2: Plan Writing
-- [ ] Step 3: Plan Verification
+- [x] Step 3: Plan Verification
 - [ ] Step 4: Cycle Setup
 - [ ] Step 5: Scaffold & Build Verification
 - [ ] Step 6: Implementation Phase

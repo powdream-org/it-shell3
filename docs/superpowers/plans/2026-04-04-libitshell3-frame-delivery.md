@@ -219,8 +219,12 @@ resize), §5.8 (per-(client, pane) cadence independence)
 - Any-to-Idle after no output >100ms
 - Upgrade (faster) is immediate on trigger event
 - WAN adjustments: SSH transport raises Tier 2 to 33ms, Tier 3 to 100ms
+- WAN adjustments: bandwidth_hint below 1 Mbps forces Tier 3 for all non-preedit
+  output
+- WAN adjustments: estimated_rtt_ms above 100ms increases Idle threshold to
+  200ms
 - Power-aware: battery caps at Tier 2, low_battery caps at Tier 3
-- Preedit is never throttled regardless of power or transport
+- Preedit is never throttled regardless of power, transport, or bandwidth_hint
 - One pane's tier does not affect another pane's delivery for same client
 
 ### Task 6: Client Health State and Flow Control Fields
@@ -268,6 +272,12 @@ always-sent notification)
 - ClientHealthChanged carries correct health/previous_health/reason fields
 - Ring cursor stagnation (>90% for stale_timeout_ms) triggers stale
   independently
+- On stale recovery, LayoutChanged enqueued to direct queue if layout changed
+  during stale period
+- On stale recovery, PreeditSync enqueued to direct queue if preedit is active
+- Context messages (LayoutChanged, PreeditSync) arrive before the I-frame
+  (guaranteed by direct queue priority over ring buffer)
+- ContinuePane does NOT send context messages (stale recovery only)
 
 ### Task 8: Flow Control Handlers (PausePane, ContinuePane, FlowControlConfig)
 
@@ -363,7 +373,8 @@ direct queue first, ring second)
 
 **Spec:** daemon-behavior §2 (multi-client resize policy), §2.4 (250ms per-pane
 debounce), §2.5 (5s stale re-inclusion hysteresis), §2.6 (resize orchestration
-ordering); protocol 03 §5.1-5.3 (WindowResize/WindowResizeAck wire format)
+ordering); daemon-architecture §1.4 (first-resize-no-debounce exception);
+protocol 03 §5.1-5.3 (WindowResize/WindowResizeAck wire format)
 
 **Depends on:** Task 6 (latest_client tracking, effective dimensions), Task 10
 (I-frame scheduling for post-resize I-frame)
@@ -383,6 +394,9 @@ ordering); protocol 03 §5.1-5.3 (WindowResize/WindowResizeAck wire format)
 - Latest client updates on KeyEvent and WindowResize
 - Stale re-inclusion: 5s hysteresis before recovered client's dimensions
   included
+- First resize after session creation or client attach fires immediately (no
+  debounce)
+- Per-pane state tracks whether first resize has occurred since creation/attach
 
 ### Task 13: Idle Suppression During Resize
 
