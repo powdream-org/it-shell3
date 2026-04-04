@@ -84,23 +84,83 @@ Each step file contains: anti-patterns, action instructions, gate conditions,
 and TODO.md state update instructions. Read **only the current step's file** —
 do not pre-read future steps.
 
-| Step | File                                  | Summary                                              | Gate                                               |
-| ---- | ------------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
-| 1    | `steps/01-requirements-intake.md`     | Identify spec, plan, inputs; create TODO.md          | TODO.md created, ROADMAP updated                   |
-| 2    | `steps/02-plan-writing.md`            | Write implementation plan via `/writing-impl-plan`   | Plan written and reviewed                          |
-| 3    | `steps/03-plan-verification.md`       | Verify plan against spec/code via review team        | All verifiers clean pass                           |
-| 4    | `steps/04-cycle-setup.md`             | Collect inputs, verify agents, owner approval        | Owner approved, ROADMAP updated                    |
-| 5    | `steps/05-scaffold-and-build.md`      | Create project skeleton; verify build chain          | `mise run test:macos` passes                       |
-| 6    | `steps/06-implementation.md`          | Implementer + QA engineer parallel; devops builds    | Code compiles, tests executed                      |
-| 7    | `steps/07-simplify.md`                | `/simplify` + `/fix-code-convention-violations`      | Fixes applied, tests pass                          |
-| 8    | `steps/08-spec-compliance.md`         | QA reviewer + development-reviewer dual review       | Clean pass or `[CODE]`/`[TEST]`/`[CONV]` list      |
-| 9    | `steps/09-fix-cycle.md`               | Route issues to implementer/QA engineer; re-validate | All issues resolved → back to Step 8               |
-| 10   | `steps/10-coverage-audit.md`          | Measure coverage; fill gaps                          | Targets met or exemption granted                   |
-| 11   | `steps/11-over-engineering-review.md` | Principal architect reviews for KISS/YAGNI           | Clean → Step 12; code changed → back to Step 8     |
-| 12   | `steps/12-commit-and-report.md`       | Commit code; report to owner                         | All gates green, code committed                    |
-| 13   | `steps/13-owner-review.md`            | Owner evaluates; accepts or requests changes         | Owner accepts → Step 14; changes → back to Step 6  |
-| 14   | `steps/14-retrospective.md`           | Review cycle, update learnings                       | Learnings updated, SIPs processed                  |
-| 15   | `steps/15-cleanup.md`                 | Delete artifacts, update ROADMAP.md                  | ROADMAP updated, artifacts deleted, pushed          |
+| Step | File                                  | Summary                                              | Gate                                              |
+| ---- | ------------------------------------- | ---------------------------------------------------- | ------------------------------------------------- |
+| 1    | `steps/01-requirements-intake.md`     | Identify spec, plan, inputs; create TODO.md          | TODO.md created, ROADMAP updated                  |
+| 2    | `steps/02-plan-writing.md`            | Write implementation plan via `/writing-impl-plan`   | Plan written and reviewed                         |
+| 3    | `steps/03-plan-verification.md`       | Verify plan against spec/code via review team        | All verifiers clean pass                          |
+| 4    | `steps/04-cycle-setup.md`             | Collect inputs, verify agents, owner approval        | Owner approved, ROADMAP updated                   |
+| 5    | `steps/05-scaffold-and-build.md`      | Create project skeleton; verify build chain          | `mise run test:macos` passes                      |
+| 6    | `steps/06-implementation.md`          | Implementer + QA engineer parallel; devops builds    | Code compiles, tests executed                     |
+| 7    | `steps/07-simplify.md`                | `/simplify` + `/fix-code-convention-violations`      | Fixes applied, tests pass                         |
+| 8    | `steps/08-spec-compliance.md`         | QA reviewer + development-reviewer dual review       | Clean pass or `[CODE]`/`[TEST]`/`[CONV]` list     |
+| 9    | `steps/09-fix-cycle.md`               | Route issues to implementer/QA engineer; re-validate | All issues resolved → back to Step 8              |
+| 10   | `steps/10-coverage-audit.md`          | Measure coverage; fill gaps                          | Targets met or exemption granted                  |
+| 11   | `steps/11-over-engineering-review.md` | Principal architect reviews for KISS/YAGNI           | Clean → Step 12; code changed → back to Step 8    |
+| 12   | `steps/12-commit-and-report.md`       | Commit code; report to owner                         | All gates green, code committed                   |
+| 13   | `steps/13-owner-review.md`            | Owner evaluates; accepts or requests changes         | Owner accepts → Step 14; changes → back to Step 6 |
+| 14   | `steps/14-retrospective.md`           | Review cycle, update learnings                       | Learnings updated, SIPs processed                 |
+| 15   | `steps/15-cleanup.md`                 | Delete artifacts, update ROADMAP.md                  | ROADMAP updated, artifacts deleted, pushed        |
+
+## Master Transition Table
+
+The team leader's sole procedure for step transitions: read gate → look up table
+→ update TODO.md state → commit → execute next.
+
+| From | Gate Source    | Gate Result                       | TODO.md State Update | Next                    | Proceed   |
+| ---- | -------------- | --------------------------------- | -------------------- | ----------------------- | --------- |
+| 1    | file check     | TODO.md created                   | Step → 2 or 3        | 02 / 03                 | auto      |
+| 2    | file check     | Plan written                      | Step → 3             | 03                      | auto      |
+| 3    | verifier       | All clean                         | Step → 4             | 04                      | auto      |
+| 4    | agent check    | Agents verified                   | Step → 5             | 05                      | auto      |
+| 5    | build output   | Build passes                      | Step → 6             | dispatch /impl-execute  | auto      |
+| 6    | fork JSON      | `gate: PASS`                      | Step → 7             | dispatch /impl-simplify | auto      |
+| 6    | fork JSON      | `gate: FAIL`                      | (escalate)           | owner decides           | **owner** |
+| 7    | fork JSON      | `gate: PASS`, violations: `[]`    | Step → 8             | dispatch /impl-review   | auto      |
+| 7    | fork JSON      | `gate: PASS`, violations: `[...]` | Step → 7.5           | /triage                 | **owner** |
+| 7.5  | triage done    | Owner dispositioned               | Step → 8             | dispatch /impl-review   | auto      |
+| 8    | fork JSON      | `gate: CLEAN`                     | Step → 10            | 10                      | auto      |
+| 8    | fork JSON      | `gate: ISSUES`                    | Step → 8.5           | /triage                 | **owner** |
+| 8.5  | triage done    | fix items exist                   | Step → 9             | dispatch /impl-fix      | auto      |
+| 8.5  | triage done    | all skip/defer                    | Step → 10            | 10                      | auto      |
+| 9    | fork JSON      | `gate: PASS`                      | Step → 8, Fix Iter++ | dispatch /impl-review   | auto      |
+| 9    | fork JSON      | `gate: FAIL`                      | (escalate)           | owner decides           | **owner** |
+| 10   | command output | Coverage ≥ targets                | Step → 11            | 11                      | auto      |
+| 10   | command output | Coverage < targets                | (escalate)           | owner decides           | **owner** |
+| 11   | reviewer       | No code changed                   | Step → 12            | 12                      | auto      |
+| 11   | reviewer       | Code changed                      | Step → 8, Round++    | dispatch /impl-review   | auto      |
+| 12   | gate checks    | All green                         | Step → 13            | 13                      | auto      |
+| 13   | owner          | Accepts                           | Step → 14            | 14                      | **owner** |
+| 13   | owner          | Requests changes                  | Step → 6, new Round  | dispatch /impl-execute  | **owner** |
+| 14   | retro output   | Complete                          | Step → 15            | 15                      | auto      |
+| 15   | cleanup        | Done                              | (end)                | —                       | auto      |
+
+## Transition Rules
+
+1. **Gate satisfaction is binary.** All conditions met = satisfied. Any
+   condition not met = not satisfied. No "close enough" or "essentially met".
+
+2. **Fork steps: gate from JSON.** The team leader reads the `gate` field from
+   the fork's JSON result. The fork has already executed verification commands.
+   The team leader does not re-run them.
+
+3. **Non-fork steps: gate from command output.** For Steps 1-5 and 10-15, the
+   team leader executes the verification command specified in the step file and
+   reads the output directly.
+
+4. **Gate not satisfied → `owner` proceed.** When any gate condition is not met,
+   the team leader escalates to the owner. The team leader does not decide
+   whether the gap is acceptable.
+
+5. **`auto` proceed = no owner interaction.** Proceed immediately with a
+   one-line status update. Do not ask "Should I continue?", "Ready to proceed?",
+   or any variant.
+
+6. **`owner` proceed = wait for explicit signal.** Do not prompt, suggest, or
+   nudge. Present the situation and wait.
+
+7. **State update before commit.** The TODO.md state update is applied BEFORE
+   the checkpoint commit. The fork commits code; the team leader commits state.
 
 ## Regression Loop
 
@@ -155,15 +215,57 @@ These apply to ALL steps, not just one:
   (coverage exemption, scope change, unusual constraints).
 - **Don't shortcut skills.** When a step says "invoke /triage" or "invoke
   /simplify", execute the skill's full procedure. "The information already
-  exists elsewhere" or "this is redundant" is not grounds to skip steps
-  within a skill. Skills define their own quality bar — the team leader
-  does not override it.
+  exists elsewhere" or "this is redundant" is not grounds to skip steps within a
+  skill. Skills define their own quality bar — the team leader does not override
+  it.
 - **Don't skip checkpoint commits.** Each step's checkpoint creates a rollback
-  point. Without them, a crash or context loss requires reconstructing all
-  work from scratch. Commit before proceeding to the next step.
+  point. Without them, a crash or context loss requires reconstructing all work
+  from scratch. Commit before proceeding to the next step.
 - **All step instructions are obligations, not just gates.** Gates are pass/fail
-  conditions, but Action and State Update sections carry equal authority.
-  "It's not in the gate" is not a reason to skip an instruction.
+  conditions, but Action sections carry equal authority. "It's not in the gate"
+  is not a reason to skip an instruction.
+
+## Delegation Rules
+
+Fork structurally enforces delegation for Steps 6-9 — the team leader cannot
+access intermediate code, test output, or agent coordination within those steps.
+
+For Steps 10-11 (un-forked), delegation rules remain as explicit constraints:
+
+**Team leader MAY directly:**
+
+- Read/write TODO.md
+- Look up the transition table
+- Invoke fork skills and `/triage`
+- Run git commands (add, commit, status, diff)
+- Run gate verification commands (Steps 10-11 only)
+
+**Team leader MUST delegate (Steps 10-11):**
+
+- Code editing → implementer sub-agent
+- Test editing → QA engineer sub-agent
+- Coverage measurement → devops sub-agent
+- Triage presentation → `/triage` skill
+
+## Triage Quality Rules
+
+Triage occurs at Steps 7.5 and 8.5. These rules apply to both:
+
+1. **Every `/triage` invocation follows the full procedure.** No exception for
+   small issue counts, later rounds, or "obvious" issues.
+
+2. **Grouping by root cause, not by symptom.** Issues that share the same
+   underlying cause belong in the same group. Solo groups are allowed only when
+   genuinely unrelated to all others.
+
+3. **Sub-agent preparation is mandatory.** The sub-agent reads quality examples
+   and prepares 5W1H presentations. The team leader does not present issues
+   directly from the fork JSON.
+
+4. **Triage is invoked, not inlined.** When a transition says "/triage", the
+   team leader invokes the skill. Presenting issues in any other format violates
+   this rule.
+
 ## Continuous Improvement Log
 
 When you encounter a procedural problem at any step, run `/sip <description>`
