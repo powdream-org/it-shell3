@@ -58,6 +58,7 @@ Coverage measured via `mise run test:coverage` (Docker + kcov on Linux).
 | 15   | Design Doc CTR Resolution                     | (not yet written)                                       | multi-module         | **Done**    |
 | 16   | Post-Design Code Alignment                    | `2026-04-02-libitshell3-post-design-code-alignment.md`  | multi-module         | **Done**    |
 | 17+  | Deferred Features                             | —                                                       | various              | Not started |
+| S1   | Implementation Skill Redesign                 | `2026-04-04-implementation-skill-redesign.md`           | skill infrastructure | Not started |
 
 ---
 
@@ -620,6 +621,31 @@ Features deferred beyond the initial implementation scope:
 - Silence detection timer
 - Readonly client enforcement (AttachSessionRequest `readonly` field, prohibited
   message list, ERR_ACCESS_DENIED response — protocol spec Section 8)
+
+### Plan S1: Implementation Skill Redesign (Not Started)
+
+**Scope:** Restructure the `/implementation` skill to use fork-based step
+isolation for Steps 6-9. Extract heavy context-consuming steps into
+`context: fork` skills that return structured JSON results. Add a master
+transition table to SKILL.md. Extract target resolution into a direct skill.
+Remove per-step State Update/Next sections from all non-fork step files.
+
+**Key deliverables:**
+
+- Master transition table in SKILL.md (replaces per-step routing)
+- 4 isolated fork skills: `/impl-execute` (Step 6), `/impl-simplify` (Step 7),
+  `/impl-review` (Step 8), `/impl-fix` (Step 9)
+- 1 direct skill: `/impl-resolve-target` (target resolution)
+- Updated delegation rules (fork structurally enforces Steps 6-9; explicit rules
+  remain for Steps 10-11)
+- Non-fork step files simplified (State Update/Next removed, verification
+  commands in Gate)
+
+**Design spec:**
+`docs/superpowers/specs/2026-04-03-implementation-skill-redesign.md`
+
+**Depends on:** None (skill infrastructure — independent of module
+implementation plans)
 
 ---
 
