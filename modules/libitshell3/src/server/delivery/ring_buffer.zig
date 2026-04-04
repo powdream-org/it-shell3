@@ -72,6 +72,12 @@ pub const RingBuffer = struct {
     latest_i_frame_idx: usize,
     has_i_frame: bool,
 
+    /// Pre-computed lag thresholds for smooth degradation (ADR 00055).
+    /// Computed at init time from capacity using integer arithmetic.
+    threshold_50: usize,
+    threshold_75: usize,
+    threshold_90: usize,
+
     const inert_state: RingBuffer = .{
         .buf = &.{},
         .capacity = 0,
@@ -81,6 +87,9 @@ pub const RingBuffer = struct {
         .frame_count = 0,
         .latest_i_frame_idx = 0,
         .has_i_frame = false,
+        .threshold_50 = 0,
+        .threshold_75 = 0,
+        .threshold_90 = 0,
     };
 
     /// Create a zero-capacity inert ring buffer (placeholder for unallocated pane slots).
@@ -90,15 +99,19 @@ pub const RingBuffer = struct {
 
     pub fn init(backing: []u8) RingBuffer {
         std.debug.assert(backing.len > 0);
+        const cap = backing.len;
         return .{
             .buf = backing,
-            .capacity = backing.len,
+            .capacity = cap,
             .write_pos = 0,
             .total_written = 0,
             .frame_index = [_]FrameMeta{.{}} ** MAX_FRAME_INDEX,
             .frame_count = 0,
             .latest_i_frame_idx = 0,
             .has_i_frame = false,
+            .threshold_50 = cap >> 1,
+            .threshold_75 = (cap >> 1) + (cap >> 2),
+            .threshold_90 = cap - cap / 10,
         };
     }
 
@@ -216,6 +229,30 @@ pub const RingBuffer = struct {
             cursor.position = meta.total_offset;
             cursor.last_i_frame = meta.total_offset;
         }
+    }
+
+    /// Returns the byte lag for a cursor (how far behind the write head).
+    /// Returns 0 if the cursor is caught up or overwritten.
+    pub fn lagBytes(self: *const RingBuffer, cursor: *const RingCursor) usize {
+        if (self.isCursorOverwritten(cursor)) return self.capacity;
+        if (cursor.position >= self.total_written) return 0;
+        return self.total_written - cursor.position;
+    }
+
+    /// Returns true if the cursor lag exceeds the 50% threshold.
+    /// Uses strict greater-than per ADR 00055: lag at exactly 50% does NOT trigger.
+    pub fn isLagAbove50(self: *const RingBuffer, cursor: *const RingCursor) bool {
+        return self.lagBytes(cursor) > self.threshold_50;
+    }
+
+    /// Returns true if the cursor lag exceeds the 75% threshold.
+    pub fn isLagAbove75(self: *const RingBuffer, cursor: *const RingCursor) bool {
+        return self.lagBytes(cursor) > self.threshold_75;
+    }
+
+    /// Returns true if the cursor lag exceeds the 90% threshold.
+    pub fn isLagAbove90(self: *const RingBuffer, cursor: *const RingCursor) bool {
+        return self.lagBytes(cursor) > self.threshold_90;
     }
 
     /// Whether the ring contains at least one non-overwritten I-frame.
@@ -612,4 +649,115 @@ test "RingBuffer: wrap-around data integrity via iovecs across ring boundary" {
     for (combined[0..30]) |b| {
         try std.testing.expectEqual(@as(u8, 'E'), b);
     }
+}
+
+// ── Lag Threshold Tests (ADR 00055) ────────────────────────────────────────
+
+test "RingBuffer.init: pre-computes lag thresholds from capacity" {
+    var backing: [1000]u8 = @splat(0);
+    const rb = RingBuffer.init(&backing);
+    try std.testing.expectEqual(@as(usize, 500), rb.threshold_50);
+    try std.testing.expectEqual(@as(usize, 750), rb.threshold_75);
+    try std.testing.expectEqual(@as(usize, 900), rb.threshold_90);
+}
+
+test "RingBuffer.init: threshold formulas use integer arithmetic" {
+    // 2 MB ring: verify exact integer results
+    var backing: [2 * 1024 * 1024]u8 = @splat(0);
+    const rb = RingBuffer.init(&backing);
+    const cap = 2 * 1024 * 1024;
+    try std.testing.expectEqual(cap >> 1, rb.threshold_50);
+    try std.testing.expectEqual((cap >> 1) + (cap >> 2), rb.threshold_75);
+    try std.testing.expectEqual(cap - cap / 10, rb.threshold_90);
+}
+
+test "RingBuffer.lagBytes: returns 0 for caught-up cursor" {
+    var backing: [1024]u8 = @splat(0);
+    const rb = RingBuffer.init(&backing);
+    const cursor = RingCursor.init();
+    try std.testing.expectEqual(@as(usize, 0), rb.lagBytes(&cursor));
+}
+
+test "RingBuffer.lagBytes: returns pending bytes for lagging cursor" {
+    var backing: [1024]u8 = @splat(0);
+    var rb = RingBuffer.init(&backing);
+    const cursor = RingCursor.init();
+    try rb.writeFrame("hello", false, 1);
+    try std.testing.expectEqual(@as(usize, 5), rb.lagBytes(&cursor));
+}
+
+test "RingBuffer.isLagAbove50: strict greater-than semantics" {
+    var backing: [100]u8 = @splat(0);
+    var rb = RingBuffer.init(&backing);
+    var cursor = RingCursor.init();
+
+    // Write exactly 50 bytes (= threshold_50). Should NOT trigger.
+    const frame = [_]u8{'X'} ** 50;
+    try rb.writeFrame(&frame, true, 1);
+    try std.testing.expectEqual(@as(usize, 50), rb.lagBytes(&cursor));
+    try std.testing.expect(!rb.isLagAbove50(&cursor));
+
+    // Advance cursor by 49, lag = 1 byte. Still below threshold.
+    rb.advanceCursor(&cursor, 49);
+    try std.testing.expect(!rb.isLagAbove50(&cursor));
+}
+
+test "RingBuffer.isLagAbove50: triggers at 51 bytes on 100-byte ring" {
+    var backing: [100]u8 = @splat(0);
+    var rb = RingBuffer.init(&backing);
+    const cursor = RingCursor.init();
+
+    // Write 50 bytes (one frame of 50 bytes)
+    const frame50 = [_]u8{'X'} ** 50;
+    try rb.writeFrame(&frame50, true, 1);
+    // lag = 50 = threshold_50, strict > means false
+    try std.testing.expect(!rb.isLagAbove50(&cursor));
+
+    // Write 1 more byte
+    try rb.writeFrame("Y", false, 2);
+    // lag = 51 > 50, triggers
+    try std.testing.expect(rb.isLagAbove50(&cursor));
+}
+
+test "RingBuffer.isLagAbove75: triggers above 75 percent" {
+    var backing: [100]u8 = @splat(0);
+    var rb = RingBuffer.init(&backing);
+    var cursor = RingCursor.init();
+
+    // threshold_75 = 50 + 25 = 75
+    // Write 50 + 25 = 75 bytes total
+    const frame50 = [_]u8{'A'} ** 50;
+    try rb.writeFrame(&frame50, true, 1);
+    const frame25 = [_]u8{'B'} ** 25;
+    try rb.writeFrame(&frame25, false, 2);
+    // lag = 75 = threshold_75, strict > means false
+    try std.testing.expect(!rb.isLagAbove75(&cursor));
+
+    try rb.writeFrame("C", false, 3);
+    try std.testing.expect(rb.isLagAbove75(&cursor));
+    _ = &cursor;
+}
+
+test "RingBuffer.isLagAbove90: triggers above 90 percent" {
+    var backing: [100]u8 = @splat(0);
+    var rb = RingBuffer.init(&backing);
+    var cursor = RingCursor.init();
+
+    // threshold_90 = 100 - 100/10 = 90
+    const frame45 = [_]u8{'X'} ** 45;
+    try rb.writeFrame(&frame45, true, 1);
+    try rb.writeFrame(&frame45, false, 2);
+    // lag = 90 = threshold_90, strict > means false
+    try std.testing.expect(!rb.isLagAbove90(&cursor));
+
+    try rb.writeFrame("Z", false, 3);
+    try std.testing.expect(rb.isLagAbove90(&cursor));
+    _ = &cursor;
+}
+
+test "RingBuffer.initInert: lag thresholds are zero" {
+    const rb = RingBuffer.initInert();
+    try std.testing.expectEqual(@as(usize, 0), rb.threshold_50);
+    try std.testing.expectEqual(@as(usize, 0), rb.threshold_75);
+    try std.testing.expectEqual(@as(usize, 0), rb.threshold_90);
 }

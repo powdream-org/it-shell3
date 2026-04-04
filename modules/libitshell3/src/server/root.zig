@@ -21,6 +21,9 @@ pub const delivery = struct {
     pub const frame_serializer = @import("delivery/frame_serializer.zig");
     pub const pane_delivery = @import("delivery/pane_delivery.zig");
     pub const client_writer = @import("delivery/client_writer.zig");
+    pub const frame_builder = @import("delivery/frame_builder.zig");
+    pub const metadata_serializer = @import("delivery/metadata_serializer.zig");
+    pub const coalescing_state = @import("delivery/coalescing_state.zig");
 };
 
 pub const connection = struct {
@@ -78,6 +81,9 @@ pub const handlers = struct {
     pub const handler_utils = @import("handlers/handler_utils.zig");
     pub const session_handler = @import("handlers/session_handler.zig");
     pub const pane_handler = @import("handlers/pane_handler.zig");
+    pub const coalescing_timer_handler = @import("handlers/coalescing_timer_handler.zig");
+    pub const write_handler = @import("handlers/write_handler.zig");
+    pub const resize_handler = @import("handlers/resize_handler.zig");
     pub const EventLoop = event_loop.EventLoop;
     pub const Handler = event_loop.Handler;
 };

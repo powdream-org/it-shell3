@@ -47,6 +47,23 @@ pub const ClientState = struct {
     last_ping_id_sent: u32 = 0,
     last_ping_id_acked: u32 = 0,
 
+    /// Health state per daemon-behavior spec Section 3.1.
+    health_state: HealthState = .healthy,
+    /// Timestamp when health state last changed.
+    health_state_changed_at: i64 = 0,
+    /// Whether PausePane is active (orthogonal to health state per spec Section 3.1).
+    paused: bool = false,
+    /// Timestamp when PausePane was received (T=0 for escalation timeline).
+    pause_started_at: i64 = 0,
+
+    /// Flow control configuration per daemon-behavior spec Section 4.3.
+    flow_control: FlowControlConfig = .{},
+
+    /// Timestamp of last application-level message for stale timeout tracking.
+    /// Per spec Section 3.3: resets on ContinuePane, KeyEvent, WindowResize,
+    /// ClientDisplayInfo, and request messages. HeartbeatAck does NOT reset.
+    last_application_message_at: i64 = 0,
+
     /// Timer IDs for per-client timers (handshake timeout, ready idle timeout).
     handshake_timer_id: ?u16 = null,
     ready_idle_timer_id: ?u16 = null,
@@ -57,6 +74,34 @@ pub const ClientState = struct {
 
     /// Whether this client slot is occupied.
     occupied: bool = false,
+
+    /// Client health states per daemon-behavior spec Section 3.1.
+    pub const HealthState = enum {
+        healthy,
+        stale,
+    };
+
+    /// Flow control configuration with transport-aware defaults.
+    /// Per daemon-behavior spec Section 4.3.
+    pub const FlowControlConfig = struct {
+        max_queue_age_ms: u32 = 5000,
+        auto_continue: bool = true,
+        stale_timeout_ms: u32 = 60000,
+        eviction_timeout_ms: u32 = 300000,
+
+        /// Returns the default config for a given transport type.
+        pub fn defaultForTransport(transport_type: ClientDisplayInfo.TransportType) FlowControlConfig {
+            return switch (transport_type) {
+                .ssh_tunnel => .{
+                    .max_queue_age_ms = 10000,
+                    .auto_continue = true,
+                    .stale_timeout_ms = 120000,
+                    .eviction_timeout_ms = 300000,
+                },
+                else => .{},
+            };
+        }
+    };
 
     /// Display, power, and transport state reported by the client via
     /// ClientDisplayInfo (0x0505). See protocol flow-control-and-auxiliary spec.
@@ -108,6 +153,27 @@ pub const ClientState = struct {
     /// Resets the heartbeat liveness timeout.
     pub fn recordActivity(self: *ClientState) void {
         self.last_activity_timestamp = std.time.milliTimestamp();
+    }
+
+    /// Records an application-level message for stale timeout tracking.
+    /// Per spec Section 3.3: resets on KeyEvent, WindowResize, ContinuePane,
+    /// ClientDisplayInfo, and request messages. Also resets heartbeat liveness.
+    pub fn recordApplicationMessage(self: *ClientState) void {
+        const now = std.time.milliTimestamp();
+        self.last_application_message_at = now;
+        self.last_activity_timestamp = now;
+    }
+
+    /// Transitions to stale health state.
+    pub fn markStale(self: *ClientState) void {
+        self.health_state = .stale;
+        self.health_state_changed_at = std.time.milliTimestamp();
+    }
+
+    /// Recovers from stale to healthy.
+    pub fn markHealthy(self: *ClientState) void {
+        self.health_state = .healthy;
+        self.health_state_changed_at = std.time.milliTimestamp();
     }
 
     pub fn enqueueDirect(self: *ClientState, data: []const u8) !void {

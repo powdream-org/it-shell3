@@ -35,11 +35,43 @@ pub fn serializeAndWrite(
     dirty_rows: []const DirtyRow,
     next_sequence: *u64,
 ) ?usize {
-    if (dirty_rows.len == 0 and frame_type == .p_frame) return null;
+    return serializeAndWriteWithMetadata(
+        scratch,
+        ring,
+        session_id,
+        pane_id,
+        frame_type,
+        dirty_rows,
+        null,
+        next_sequence,
+    );
+}
+
+/// Serialize dirty rows with optional JSON metadata blob into a complete
+/// wire message and write to the ring buffer.
+///
+/// When `json_metadata` is non-null, section_flags bit 7 is set and the
+/// JSON blob (already length-prefixed) is appended after the DirtyRows
+/// section. Per protocol 04 Section 3.1.
+pub fn serializeAndWriteWithMetadata(
+    scratch: []u8,
+    ring: *RingBuffer,
+    session_id: u32,
+    pane_id: u32,
+    frame_type: FrameType,
+    dirty_rows: []const DirtyRow,
+    json_metadata: ?[]const u8,
+    next_sequence: *u64,
+) ?usize {
+    if (dirty_rows.len == 0 and frame_type == .p_frame and json_metadata == null) return null;
     std.debug.assert(scratch.len >= SCRATCH_SIZE);
 
     var fbs = std.io.fixedBufferStream(scratch[protocol.header.HEADER_SIZE..]);
     const writer = fbs.writer();
+
+    var section_flags: u16 = 0;
+    if (dirty_rows.len > 0) section_flags |= SectionFlags.dirty_rows;
+    if (json_metadata != null) section_flags |= SectionFlags.json_metadata;
 
     const fh = FrameHeader{
         .session_id = session_id,
@@ -47,7 +79,7 @@ pub fn serializeAndWrite(
         .frame_sequence = next_sequence.*,
         .frame_type = frame_type,
         .screen = .primary,
-        .section_flags = if (dirty_rows.len > 0) SectionFlags.dirty_rows else 0,
+        .section_flags = section_flags,
     };
     var fh_buf: [protocol.frame_update.FRAME_HEADER_SIZE]u8 = undefined;
     fh.encode(&fh_buf);
@@ -55,6 +87,10 @@ pub fn serializeAndWrite(
 
     if (dirty_rows.len > 0) {
         protocol.frame_update.encodeDirtyRows(dirty_rows, writer) catch return null;
+    }
+
+    if (json_metadata) |metadata| {
+        writer.writeAll(metadata) catch return null;
     }
 
     const payload_len = fbs.getWritten().len;

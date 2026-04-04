@@ -253,6 +253,36 @@ fn serializeNode(
     }
 }
 
+// ── ClientHealthChanged (0x0185) ───────────────────────────────────────────
+
+/// Builds a ClientHealthChanged notification.
+/// Per daemon-behavior spec Section 3.2 and protocol spec Section 4.6.
+pub fn buildClientHealthChanged(
+    session_id: types.SessionId,
+    client_id: types.ClientId,
+    health: []const u8,
+    previous_health: []const u8,
+    reason: []const u8,
+    sequence: u64,
+    out_buf: *ScratchBuf,
+) ?[]const u8 {
+    var json_buf: [MAX_NOTIFICATION_JSON]u8 = undefined;
+    const json = std.fmt.bufPrint(&json_buf, "{{\"session_id\":{d},\"client_id\":{d},\"health\":\"{s}\",\"previous_health\":\"{s}\",\"reason\":\"{s}\"}}", .{
+        session_id,
+        client_id,
+        health,
+        previous_health,
+        reason,
+    }) catch return null;
+
+    return envelope.wrapNotification(
+        out_buf,
+        @intFromEnum(MessageType.client_health_changed),
+        sequence,
+        json,
+    );
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 test "buildSessionListChanged: produces valid envelope" {

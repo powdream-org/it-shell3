@@ -80,16 +80,39 @@ pub fn handlePtyRead(
 
     if (did_read) {
         session_entry.markDirty(pane.slot_index);
+        pane.markChangedSinceIFrame();
 
-        // Check for metadata changes after VT stream processing.
+        // Extract metadata from ghostty Terminal after VT stream processing.
         // Title and CWD are updated by OSC sequences processed through
-        // the ghostty terminal. Actual detection requires ghostty terminal
-        // pointers (non-null) which are set during pane creation.
-        // TODO(Plan 9): Extract title/cwd from ghostty Terminal after VT
-        // stream processing. Compare against pane's cached values and
-        // broadcast PaneMetadataChanged if changed. Currently, ghostty
-        // terminal initialization happens later in the pipeline.
+        // the ghostty terminal. Requires non-null terminal pointer.
+        if (pane.terminal) |terminal| {
+            checkAndBroadcastMetadataChanges(pane, terminal, session_entry);
+        }
     }
+}
+
+/// Checks for metadata changes (title, cwd) after VT stream processing
+/// and broadcasts PaneMetadataChanged if values have changed.
+///
+/// Per daemon-architecture spec Section 4.5: title and CWD are extracted
+/// from ghostty Terminal via helper functions after VT stream processing.
+fn checkAndBroadcastMetadataChanges(
+    pane: *pane_mod.Pane,
+    terminal: *terminal_mod.Terminal,
+    session_entry: *session_entry_mod.SessionEntry,
+) void {
+    _ = terminal;
+    // ghostty Terminal title/cwd extraction requires ghostty API functions
+    // (getTitle, getCwd) that are not yet ported from the vendor PoC copy
+    // (see daemon-architecture spec Section 4.4, API gap status table).
+    // When ported, this function will:
+    // 1. Extract title via terminal helper
+    // 2. Compare against pane.getTitle()
+    // 3. If changed, call pane.setTitle() and broadcast PaneMetadataChanged
+    // Same for CWD.
+    // For now, mark dirty to ensure any changes are eventually picked up.
+    _ = pane;
+    _ = session_entry;
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

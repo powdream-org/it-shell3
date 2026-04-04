@@ -33,6 +33,12 @@ pub const SessionEntry = struct {
     /// Zoom state: slot of the zoomed pane, or null if not zoomed.
     zoomed_pane: ?PaneSlot = null,
 
+    /// Effective session dimensions (cols x rows) computed from the resize
+    /// policy. Updated on WindowResize, client attach/detach, stale transitions.
+    /// Per daemon-behavior spec Section 2.
+    effective_cols: u16 = 80,
+    effective_rows: u16 = 24,
+
     pub fn init(session: Session) SessionEntry {
         return SessionEntry{
             .session = session,
@@ -41,6 +47,12 @@ pub const SessionEntry = struct {
             .dirty_mask = 0,
             .latest_client_id = 0,
         };
+    }
+
+    /// Updates the effective session dimensions.
+    pub fn setEffectiveDimensions(self: *SessionEntry, cols: u16, rows: u16) void {
+        self.effective_cols = cols;
+        self.effective_rows = rows;
     }
 
     pub fn allocPaneSlot(self: *SessionEntry) error{NoFreeSlots}!PaneSlot {

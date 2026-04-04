@@ -324,9 +324,9 @@ pub fn handleNavigatePane(
         return;
     };
 
-    // TODO(Plan 9): Use actual session dimensions from the latest client.
-    const total_cols: u16 = 80;
-    const total_rows: u16 = 24;
+    // Use actual session effective dimensions from the latest client.
+    const total_cols: u16 = entry.effective_cols;
+    const total_rows: u16 = entry.effective_rows;
 
     const new_slot = navigation.findPaneInDirection(
         &entry.session.tree_nodes,
@@ -610,11 +610,10 @@ fn broadcastLayoutChanged(
 /// Callers use notification_builder.buildLayoutChanged to assemble the
 /// complete notification payload.
 pub fn buildLayoutPayload(entry: *SessionEntry, out_buffer: []u8) ?[]const u8 {
-    // TODO(Plan 9): Use actual session dimensions.
     return notification_builder.serializeLayoutTree(
         entry,
-        80,
-        24,
+        entry.effective_cols,
+        entry.effective_rows,
         entry.session.getActiveInputMethod(),
         entry.session.getActiveKeyboardLayout(),
         out_buffer,

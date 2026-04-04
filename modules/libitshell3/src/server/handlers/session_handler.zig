@@ -267,7 +267,12 @@ fn sendAttachNotifications(
     }
 
     // Send LayoutChanged notification to the requester.
-    // TODO(Plan 9): Send initial I-frame from ring buffer.
+    // Initialize ring cursors for all panes in the session.
+    // Per daemon-behavior spec Section 12: on attach, initialize ring cursors
+    // and send initial I-frame. I-frame delivery happens through the coalescing
+    // timer after dirty marks are set for all panes.
+    initializeRingCursorsForSession(client, entry);
+    // Mark all panes dirty so the coalescing timer exports initial I-frames.
     var tree_buffer: [4096]u8 = @splat(0);
     if (pane_handler.buildLayoutPayload(entry, &tree_buffer)) |tree_json| {
         var layout_changed_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
@@ -551,6 +556,26 @@ fn sendPreeditSyncIfActive(client: *ClientState, entry: *SessionEntry) void {
                 // Unicast to the joining client only.
                 client.enqueueDirect(msg) catch {};
             }
+        }
+    }
+}
+
+/// Initializes ring cursors for all panes in a newly attached session.
+/// Per daemon-behavior spec Section 12: READY -> OPERATING transition
+/// initializes ring cursors to start reading from the current write position.
+fn initializeRingCursorsForSession(
+    client: *ClientState,
+    entry: *SessionEntry,
+) void {
+    const ring_buffer_mod = server.delivery.ring_buffer;
+    var slot: u32 = 0;
+    while (slot < core.types.MAX_PANES) : (slot += 1) {
+        const pane_slot: core.types.PaneSlot = @intCast(slot);
+        if (entry.getPaneAtSlot(pane_slot)) |_| {
+            // Initialize cursor at current ring position.
+            client.ring_cursors[slot] = ring_buffer_mod.RingCursor.init();
+            // Mark pane dirty so initial I-frame is generated
+            entry.markDirty(pane_slot);
         }
     }
 }

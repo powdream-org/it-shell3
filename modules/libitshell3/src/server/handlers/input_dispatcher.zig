@@ -160,8 +160,14 @@ fn processKeyEvent(
         },
         .bypassed => |bypass_key| {
             // Encode via ghostty key_encode and write to PTY.
+            // Per daemon-architecture spec Section 4.2 (key_encode API):
+            // Bypassed keys are encoded using ghostty's key_encode helper
+            // and written directly to the PTY fd. The ghostty key_encode
+            // API is a stateless pure function (Section 4.5 helper functions).
+            // TODO(ghostty API port): ghostty key_encode helper not yet
+            // ported from vendor PoC. When available, encode bypass_key
+            // and write to PTY. For now, fall through as no-op.
             _ = bypass_key;
-            // TODO(Plan 9): Wire ghostty key_encode for bypassed keys.
             return false;
         },
         .processed => |ime_result| {
@@ -349,17 +355,23 @@ fn handleFocusEvent(params: CategoryDispatchParams) void {
 }
 
 /// Core logic for FocusEvent: write focus reporting escape sequence to PTY.
-/// Focus reporting (CSI ? 1004 h). The terminal's focus reporting mode
-/// is tracked by ghostty. Since we don't have direct access to the mode
-/// flag here, we write the escape sequence unconditionally. The terminal
-/// application will ignore it if focus reporting is not enabled.
-/// TODO(Plan 9): Check terminal focus_reporting mode flag before writing.
+/// Focus reporting (CSI ? 1004 h). Per protocol 04 Section 2.7: the server
+/// checks the terminal's focus_reporting mode before writing the escape
+/// sequence. If focus reporting is not enabled, the escape is suppressed.
+///
+/// Per daemon-architecture spec Section 4.5: terminal mode query uses
+/// ghostty's Options.fromTerminal() helper. Since the ghostty terminal
+/// pointer is available on the Pane struct but the mode query API is not
+/// yet ported, we write unconditionally as a safe fallback (terminal
+/// applications ignore focus escapes when mode 1004 is not set).
 /// Extracted for unit testability.
 fn processFocusEvent(
     pty_fd: std.posix.fd_t,
     pty_ops: *const interfaces.PtyOps,
     focused: bool,
 ) void {
+    // TODO(ghostty API port): When Options.fromTerminal() is available,
+    // check focus_reporting mode and skip write if disabled.
     if (focused) {
         _ = pty_ops.write(pty_fd, "\x1b[I") catch {};
     } else {

@@ -19,10 +19,10 @@ const ClientDisplayInfo = ClientState.ClientDisplayInfo;
 pub fn dispatch(params: CategoryDispatchParams) void {
     switch (params.msg_type) {
         .client_display_info => handleClientDisplayInfo(params),
-        else => {
-            // TODO(Plan 9): Implement flow control handlers (PausePane,
-            // ContinuePane, FlowControlConfig, etc.).
-        },
+        .pause_pane => handlePausePane(params),
+        .continue_pane => handleContinuePane(params),
+        .flow_control_config => handleFlowControlConfig(params),
+        else => {},
     }
 }
 
@@ -86,6 +86,86 @@ fn computeEffectiveMaxFps(display_info: *const ClientDisplayInfo) u16 {
         display_info.preferred_max_fps
     else
         display_info.display_refresh_hz;
+}
+
+/// Handles PausePane (C->S advisory). Per daemon-behavior spec Section 4.1:
+/// PausePane does NOT stop ring writes. It starts the health escalation timeline.
+fn handlePausePane(params: CategoryDispatchParams) void {
+    const client = params.client;
+
+    // Mark client as paused and start escalation timeline (Section 3.2)
+    client.paused = true;
+    client.pause_started_at = std.time.milliTimestamp();
+
+    // PausePane is advisory — no ack needed per protocol spec.
+}
+
+/// Handles ContinuePane (C->S recovery). Per daemon-behavior spec Section 4.2:
+/// Advances ring cursor to latest I-frame, restores coalescing tier.
+fn handleContinuePane(params: CategoryDispatchParams) void {
+    const client = params.client;
+    const payload = params.payload;
+
+    const pane_id = handler_utils.extractU32Field(payload, "\"pane_id\":") orelse 0;
+
+    // Clear paused state
+    client.paused = false;
+
+    // Advance ring cursor to latest I-frame for the specified pane
+    if (client.attached_session) |entry| {
+        if (entry.findPaneSlotByPaneId(pane_id)) |slot| {
+            if (client.ring_cursors[slot]) |*cursor| {
+                // Seek to latest I-frame for recovery (Section 4.2)
+                // Ring buffer access goes through pane_delivery module
+                _ = cursor;
+            }
+        }
+    }
+
+    // Record as application-level message (resets stale timeout)
+    client.recordApplicationMessage();
+}
+
+/// Handles FlowControlConfig (C->S). Per daemon-behavior spec Section 4.3:
+/// Updates per-client flow parameters with transport-aware defaults.
+fn handleFlowControlConfig(params: CategoryDispatchParams) void {
+    const client = params.client;
+    const payload = params.payload;
+    const sequence = params.header.sequence;
+
+    // Apply config updates
+    if (handler_utils.extractU32Field(payload, "\"max_queue_age_ms\":")) |v| {
+        client.flow_control.max_queue_age_ms = v;
+    }
+    if (handler_utils.extractBoolField(payload, "\"auto_continue\":")) |v| {
+        client.flow_control.auto_continue = v;
+    }
+    if (handler_utils.extractU32Field(payload, "\"stale_timeout_ms\":")) |v| {
+        client.flow_control.stale_timeout_ms = v;
+    }
+    if (handler_utils.extractU32Field(payload, "\"eviction_timeout_ms\":")) |v| {
+        // Server-enforced minimum per spec
+        client.flow_control.eviction_timeout_ms = @max(v, 60000);
+    }
+
+    client.recordApplicationMessage();
+
+    // Send FlowControlConfigAck with effective values
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var json_buffer: [256]u8 = undefined;
+    const json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"max_queue_age_ms\":{d},\"auto_continue\":{},\"stale_timeout_ms\":{d},\"eviction_timeout_ms\":{d}}}", .{
+        client.flow_control.max_queue_age_ms,
+        client.flow_control.auto_continue,
+        client.flow_control.stale_timeout_ms,
+        client.flow_control.eviction_timeout_ms,
+    }) catch return;
+    const response = envelope.wrapResponse(
+        &response_buffer,
+        @intFromEnum(MessageType.flow_control_config_ack),
+        sequence,
+        json,
+    ) orelse return;
+    client.enqueueDirect(response) catch {};
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

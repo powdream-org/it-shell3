@@ -5,8 +5,8 @@
 - **Step**: 6 (Implementation Phase)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 0
-- **Active Team**: (none)
-- **Team Directory**: (none)
+- **Active Team**: plan9-impl
+- **Team Directory**: .claude/agents/impl-team/
 
 ## Spec
 

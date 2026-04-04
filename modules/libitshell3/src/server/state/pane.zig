@@ -47,6 +47,24 @@ pub const Pane = struct {
     is_running: bool = true,
     exit_status: ?u8 = null,
 
+    // I-frame scheduling per daemon-architecture spec Section 4.9.
+    /// Timestamp of last I-frame production for this pane.
+    /// Resets on any I-frame: attach, recovery, resize, timer (ADR 00057).
+    last_i_frame_time: i64 = 0,
+    /// Whether pane state has changed since last I-frame.
+    has_changes_since_i_frame: bool = false,
+
+    // Resize debounce per daemon-behavior spec Section 2.4.
+    /// Deadline (timestamp ms) for the pending resize debounce timer.
+    /// null = no pending resize.
+    resize_debounce_deadline: ?i64 = null,
+    /// Pending effective dimensions from the most recent WindowResize.
+    pending_resize_cols: u16 = 0,
+    pending_resize_rows: u16 = 0,
+    /// Whether the first resize has occurred since pane creation or client attach.
+    /// First resize fires immediately (no debounce).
+    first_resize_done: bool = false,
+
     // TODO(Plan 17+): Add silence_subscriptions: BoundedArray(SilenceSubscription, MAX),
     //                 silence_deadline: ?i64 — requires SilenceSubscription type definition
 
@@ -87,6 +105,31 @@ pub const Pane = struct {
     /// Called when the PTY master fd returns EOF.
     pub fn markPtyEof(self: *Pane) void {
         self.pty_eof = true;
+    }
+
+    /// Records that an I-frame was produced for this pane (ADR 00057).
+    pub fn recordIFrameProduction(self: *Pane, now: i64) void {
+        self.last_i_frame_time = now;
+        self.has_changes_since_i_frame = false;
+    }
+
+    /// Marks the pane as having changes since the last I-frame.
+    pub fn markChangedSinceIFrame(self: *Pane) void {
+        self.has_changes_since_i_frame = true;
+    }
+
+    /// Whether the I-frame timer should fire for this pane.
+    /// Per spec Section 4.9: no-op when unchanged since last I-frame.
+    pub fn needsIFrame(self: *const Pane, now: i64, interval_ms: i64) bool {
+        if (!self.has_changes_since_i_frame) return false;
+        if (self.last_i_frame_time == 0) return true;
+        return now - self.last_i_frame_time >= interval_ms;
+    }
+
+    /// Whether the pane dimensions are too small for frame generation.
+    /// Per daemon-architecture spec Section 4.6: cols < 2 or rows < 1.
+    pub fn isUndersized(self: *const Pane) bool {
+        return self.cols < 2 or self.rows < 1;
     }
 
     /// Copies up to MAX_PANE_TITLE bytes from title into the internal buffer.

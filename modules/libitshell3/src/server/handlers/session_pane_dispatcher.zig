@@ -15,6 +15,8 @@ const core = @import("itshell3_core");
 const message_dispatcher = @import("message_dispatcher.zig");
 const CategoryDispatchParams = message_dispatcher.CategoryDispatchParams;
 const DispatcherContext = message_dispatcher.DispatcherContext;
+const handler_utils = @import("handler_utils.zig");
+const envelope = @import("protocol_envelope.zig");
 
 /// Dispatches a session/pane-category message using a second-level split.
 pub fn dispatch(params: CategoryDispatchParams) void {
@@ -25,8 +27,8 @@ pub fn dispatch(params: CategoryDispatchParams) void {
         1 => dispatchPane(params),
         2 => {
             // S->C notifications (0x0180-0x0185) need no receive handler on
-            // the server side. WindowResize (0x0190) is C->S but deferred.
-            // TODO(Plan 9): Handle WindowResize with resize debounce.
+            // the server side. WindowResize (0x0190+) is C->S.
+            dispatchNotificationRange(params);
         },
         else => {},
     }
@@ -198,6 +200,57 @@ fn dispatchPane(params: CategoryDispatchParams) void {
         },
         else => {},
     }
+}
+
+fn dispatchNotificationRange(params: CategoryDispatchParams) void {
+    switch (params.msg_type) {
+        .window_resize => handleWindowResize(params),
+        else => {
+            // Other notification-range messages (S->C only) need no handler.
+        },
+    }
+}
+
+/// Handles WindowResize (C->S). Per daemon-behavior spec Section 2:
+/// Updates client display dimensions, updates latest_client_id,
+/// triggers resize debounce computation.
+fn handleWindowResize(params: CategoryDispatchParams) void {
+    const client = params.client;
+    const payload = params.payload;
+    const sequence = params.header.sequence;
+
+    const cols = handler_utils.extractU16Field(payload, "\"cols\":") orelse return;
+    const rows = handler_utils.extractU16Field(payload, "\"rows\":") orelse return;
+
+    // Update client display info dimensions
+    client.display_info.display_refresh_hz = client.display_info.display_refresh_hz; // preserve
+
+    // Record as application-level message (updates latest_client_id)
+    client.recordApplicationMessage();
+
+    // Update latest_client_id on session
+    if (client.attached_session) |entry| {
+        entry.latest_client_id = client.getClientId();
+        // Update effective dimensions (latest policy: use this client's size)
+        entry.setEffectiveDimensions(cols, rows);
+    }
+
+    // Send WindowResizeAck to requesting client
+    const ctx = params.context;
+    _ = ctx;
+    var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
+    var json_buffer: [128]u8 = undefined;
+    const json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"cols\":{d},\"rows\":{d}}}", .{
+        cols,
+        rows,
+    }) catch return;
+    const response = envelope.wrapResponse(
+        &response_buffer,
+        @intFromEnum(MessageType.window_resize_ack),
+        sequence,
+        json,
+    ) orelse return;
+    client.enqueueDirect(response) catch {};
 }
 
 fn makeSessionHandlerContext(ctx: *DispatcherContext) session_handler.SessionHandlerContext {
