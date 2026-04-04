@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 1 (Requirements Intake)
+- **Step**: 3 (Plan Verification)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 0
 - **Active Team**: (none)
@@ -16,7 +16,7 @@
   - daemon-architecture v1.0-r9
   - server-client-protocols v1.0-r13
 - **Previous spec version(s)**: same (Plan 8 built against these versions)
-- **Plan**: pending — Step 2
+- **Plan**: docs/superpowers/plans/2026-04-04-libitshell3-frame-delivery.md
 - **PoC**: pending — Step 4
 - **Coverage exemption**: pending — Step 4
 
@@ -31,8 +31,8 @@
 
 ## Progress — Round 1
 
-- [ ] Step 1: Requirements Intake
-- [ ] Step 2: Plan Writing
+- [x] Step 1: Requirements Intake
+- [x] Step 2: Plan Writing
 - [ ] Step 3: Plan Verification
 - [ ] Step 4: Cycle Setup
 - [ ] Step 5: Scaffold & Build Verification
