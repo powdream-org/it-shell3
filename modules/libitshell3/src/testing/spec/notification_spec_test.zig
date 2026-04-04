@@ -5,13 +5,13 @@
 //! and the response-before-notification ordering invariant.
 //!
 //! Spec sources:
-//!   - protocol 03-session-pane-management (Section 4: Notifications,
-//!     0x0180-0x0185 type codes, delivery rules)
-//!   - daemon-behavior 02-event-handling (Section 1.1 response-before-notification
-//!     invariant, known instances table)
-//!   - daemon-behavior 03-policies-and-procedures (Section 9 notification defaults,
-//!     Section 9.1 always-sent, Section 9.2 opt-in)
-//!   - daemon-architecture 02-state-and-types (Section 1.6 pane metadata tracking)
+//!   - protocol 03-session-pane-management (notifications: 0x0180-0x0185 type
+//!     codes, delivery rules)
+//!   - daemon-behavior 02-event-handling (response-before-notification invariant,
+//!     known instances table)
+//!   - daemon-behavior 03-policies-and-procedures (notification defaults:
+//!     always-sent, opt-in)
+//!   - daemon-architecture 02-state-and-types (pane metadata tracking)
 
 const std = @import("std");
 const core = @import("itshell3_core");
@@ -28,7 +28,7 @@ const ClientManager = server.connection.ClientManager;
 // ── Notification type codes ────────────────────────────────────────────────
 
 test "spec: notification types -- correct protocol codes for always-sent" {
-    // protocol 03 Section 4: Notifications (0x0180-0x0185).
+    // protocol 03 notifications: 0x0180-0x0185 type codes.
     try std.testing.expectEqual(@as(u16, 0x0180), @intFromEnum(MessageType.layout_changed));
     try std.testing.expectEqual(@as(u16, 0x0181), @intFromEnum(MessageType.pane_metadata_changed));
     try std.testing.expectEqual(@as(u16, 0x0182), @intFromEnum(MessageType.session_list_changed));
@@ -38,7 +38,7 @@ test "spec: notification types -- correct protocol codes for always-sent" {
 }
 
 test "spec: notification types -- window resize codes" {
-    // protocol 03 Section 5: Window Resize (0x0190-0x0191).
+    // protocol 03 window resize: 0x0190-0x0191 type codes.
     try std.testing.expectEqual(@as(u16, 0x0190), @intFromEnum(MessageType.window_resize));
     try std.testing.expectEqual(@as(u16, 0x0191), @intFromEnum(MessageType.window_resize_ack));
 }
@@ -46,7 +46,7 @@ test "spec: notification types -- window resize codes" {
 // ── Notification encoding ──────────────────────────────────────────────────
 
 test "spec: notification encoding -- all notifications use JSON" {
-    // protocol 03 Section: all session and pane management messages use JSON.
+    // protocol 03: all session and pane management messages use JSON.
     // protocol 01: expectedEncoding() returns json for non-frame_update.
     try std.testing.expectEqual(MessageType.Encoding.json, MessageType.layout_changed.expectedEncoding());
     try std.testing.expectEqual(MessageType.Encoding.json, MessageType.pane_metadata_changed.expectedEncoding());
@@ -58,7 +58,7 @@ test "spec: notification encoding -- all notifications use JSON" {
 // ── Protocol header structure ──────────────────────────────────────────────
 
 test "spec: notification header -- 20 bytes with magic 0x4954" {
-    // protocol 01 Section 3.1: every message begins with 20-byte header (v2).
+    // protocol 01 header format: every message begins with 20-byte header (v2).
     // Magic bytes: 0x49 0x54 (ASCII "IT").
     try std.testing.expectEqual(@as(usize, 20), header_mod.HEADER_SIZE);
     try std.testing.expectEqual(@as(u8, 0x49), header_mod.MAGIC[0]);
@@ -67,7 +67,7 @@ test "spec: notification header -- 20 bytes with magic 0x4954" {
 }
 
 test "spec: notification header -- encode and decode round-trips" {
-    // protocol 01 Section 3.1: header fields encode/decode correctly.
+    // protocol 01 header format: header fields encode/decode correctly.
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.layout_changed),
         .flags = .{},
@@ -84,7 +84,7 @@ test "spec: notification header -- encode and decode round-trips" {
 }
 
 test "spec: notification header -- bad magic rejected" {
-    // protocol 01 Section 3.1: magic mismatch returns BadMagic.
+    // protocol 01 header format: magic mismatch returns BadMagic.
     var buf: [header_mod.HEADER_SIZE]u8 = [_]u8{0} ** header_mod.HEADER_SIZE;
     buf[0] = 0xFF;
     buf[1] = 0xFF;
@@ -93,12 +93,12 @@ test "spec: notification header -- bad magic rejected" {
 }
 
 test "spec: notification header -- max payload size 16 MiB" {
-    // protocol 01 Section 3.1: max payload 16 MiB.
+    // protocol 01 header format: max payload 16 MiB.
     try std.testing.expectEqual(@as(u32, 16 * 1024 * 1024), header_mod.MAX_PAYLOAD_SIZE);
 }
 
 test "spec: notification header -- payload exceeding max rejected" {
-    // protocol 01 Section 3.1: PayloadTooLarge error.
+    // protocol 01 header format: PayloadTooLarge error.
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.layout_changed),
         .flags = .{},
@@ -118,9 +118,9 @@ test "spec: notification header -- payload exceeding max rejected" {
 // integration tests or by the implementation's send-sequence logic.
 
 test "spec: response-before-notification -- response types exist for each request" {
-    // daemon-behavior 02 Section 1.1: for every request that produces a response
-    // and notifications, the response type code is always request_code + 1.
-    // This ensures the handler can always identify the response type.
+    // daemon-behavior 02 response-before-notification invariant: for every request
+    // that produces a response and notifications, the response type code is always
+    // request_code + 1. This ensures the handler can always identify the response type.
 
     // Session messages: request at even offset, response at odd offset.
     try std.testing.expectEqual(
@@ -154,7 +154,7 @@ test "spec: response-before-notification -- response types exist for each reques
 // ── Notification delivery scope (structural verification) ──────────────────
 
 test "spec: notification scope -- SessionListChanged broadcast to all connected" {
-    // daemon-behavior 02 Section 4.2, protocol 03 Section 4.3:
+    // daemon-behavior 02 notification delivery, protocol 03 SessionListChanged delivery:
     // SessionListChanged is sent to ALL connected clients (READY + OPERATING),
     // not just session-scoped.
     // Verify broadcastToActive exists and has the correct signature.
@@ -167,7 +167,7 @@ test "spec: notification scope -- SessionListChanged broadcast to all connected"
 }
 
 test "spec: notification scope -- LayoutChanged is session-scoped" {
-    // protocol 03 Section 4.1: LayoutChanged sent to all clients attached to
+    // protocol 03 LayoutChanged delivery: sent to all clients attached to
     // the affected session.
     // Verify broadcastToSession exists and has the correct signature.
     const BroadcastResult = broadcast.BroadcastResult;
@@ -180,7 +180,7 @@ test "spec: notification scope -- LayoutChanged is session-scoped" {
 // ── Always-sent vs opt-in categorization ───────────────────────────────────
 
 test "spec: notification defaults -- always-sent codes are in 0x0180-0x0185" {
-    // daemon-behavior 03 Section 9.1: always-sent notifications.
+    // daemon-behavior 03 always-sent notification defaults.
     // These must be in the 0x0180-0x018x range.
     const always_sent = [_]MessageType{
         .layout_changed,
@@ -197,7 +197,7 @@ test "spec: notification defaults -- always-sent codes are in 0x0180-0x0185" {
 }
 
 test "spec: notification defaults -- opt-in codes are in 0x0800-0x08FF" {
-    // daemon-behavior 03 Section 9.2: opt-in notifications require Subscribe.
+    // daemon-behavior 03 opt-in notification defaults: require Subscribe.
     const opt_in = [_]MessageType{
         .pane_title_changed,
         .process_exited,
@@ -216,7 +216,7 @@ test "spec: notification defaults -- opt-in codes are in 0x0800-0x08FF" {
 // ── LayoutChanged triggers ─────────────────────────────────────────────────
 
 test "spec: LayoutChanged triggers -- all structural operations listed" {
-    // protocol 03 Section 4.1: LayoutChanged fires on split, close, resize,
+    // protocol 03 LayoutChanged triggers: fires on split, close, resize,
     // equalize, zoom, swap, window_resize, and attach.
     // Verify all triggering request types exist.
     const triggers = [_]MessageType{
@@ -239,7 +239,7 @@ test "spec: LayoutChanged triggers -- all structural operations listed" {
 // ── SessionListChanged event types ─────────────────────────────────────────
 
 test "spec: SessionListChanged events -- created destroyed renamed triggers" {
-    // protocol 03 Section 4.3: SessionListChanged fires with event types:
+    // protocol 03 SessionListChanged triggers: fires with event types:
     // "created" (CreateSession), "destroyed" (DestroySession or last pane close),
     // "renamed" (RenameSession).
     // Verify the corresponding request types exist.
@@ -257,7 +257,7 @@ test "spec: SessionListChanged events -- created destroyed renamed triggers" {
 // ── DestroySession cascade wire ordering ───────────────────────────────────
 
 test "spec: destroy cascade -- 5 wire messages in specified order" {
-    // daemon-behavior 02 Section 4.2: Wire messages in order:
+    // daemon-behavior 02 destroy session wire ordering. Wire messages in order:
     // 1. PreeditEnd (if composition active) — Plan 8, not tested here
     // 2. DestroySessionResponse to requester
     // 3. SessionListChanged(destroyed) broadcast to ALL connected
@@ -274,8 +274,8 @@ test "spec: destroy cascade -- 5 wire messages in specified order" {
 // ── PaneMetadataChanged: only changed fields ───────────────────────────────
 
 test "spec: PaneMetadataChanged -- tracks title and cwd changes" {
-    // protocol 03 Section 4.2: only changed fields included.
-    // daemon-architecture 02 Section 1.6: title from OSC 0/2, cwd from OSC 7.
+    // protocol 03 PaneMetadataChanged payload: only changed fields included.
+    // daemon-architecture 02 pane metadata tracking: title from OSC 0/2, cwd from OSC 7.
     // Verify Pane struct can detect title/cwd changes by comparing before/after.
     const Pane = server.state.Pane;
     var p = Pane.init(1, 0, 5, 100, 80, 24);
@@ -300,8 +300,8 @@ test "spec: PaneMetadataChanged -- tracks title and cwd changes" {
 // ── Flags: response flag for LayoutGetResponse ─────────────────────────────
 
 test "spec: LayoutGetResponse -- uses RESPONSE flag in header" {
-    // protocol 03 Section 2.21: LayoutGetResponse carries same payload format
-    // as LayoutChanged, but with RESPONSE flag set.
+    // protocol 03 LayoutGetResponse: carries same payload format as LayoutChanged,
+    // but with RESPONSE flag set.
     const flags = Flags{ .response = true };
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.layout_get_response),

@@ -6,11 +6,10 @@
 //! state-guarded message rejection.
 //!
 //! Spec sources:
-//!   - daemon-behavior policies-and-procedures — client state transitions (Section 12),
-//!     handshake timeouts (Section 13), heartbeat policy (Section 10),
-//!     negotiation algorithms (Section 14)
+//!   - daemon-behavior policies-and-procedures — client state transitions,
+//!     handshake timeouts, heartbeat policy, negotiation algorithms
 //!   - protocol 01-protocol-overview — lifecycle message type range (0x0001-0x00FF),
-//!     heartbeat ping_id semantics (Section 5.4)
+//!     heartbeat ping_id semantics
 //!   - protocol 02-handshake-capability-negotiation — ClientHello/ServerHello flow,
 //!     version negotiation, capability intersection, render capability requirement
 
@@ -110,10 +109,10 @@ const no_render_client_hello_json =
 /// Malformed JSON payload.
 const malformed_json = "{not valid json!";
 
-// ── Spec: Lifecycle Message Type Range (protocol 01-protocol-overview) ─────
+// ── Spec: Lifecycle Message Type Range ────────────────────────────────────────
 
 test "spec: lifecycle dispatch — all lifecycle messages have page 0x00" {
-    // Protocol 01-protocol-overview: Handshake & Lifecycle range is 0x0001-0x00FF.
+    // protocol 01 lifecycle message type range: Handshake & Lifecycle is 0x0001-0x00FF.
     // The lifecycle dispatcher handles page 0x00 (msg_type >> 8 == 0x00).
     const lifecycle_types = [_]MessageType{
         .client_hello, // 0x0001
@@ -128,12 +127,12 @@ test "spec: lifecycle dispatch — all lifecycle messages have page 0x00" {
     }
 }
 
-// ── Spec: ClientHello Handling (protocol 02, daemon-behavior Section 12) ───
+// ── Spec: ClientHello Handling ────────────────────────────────────────────────
 
 test "spec: lifecycle dispatch — valid ClientHello transitions client to READY" {
-    // Spec: daemon-behavior policies-and-procedures Section 12:
+    // Spec: daemon-behavior client state transitions:
     //   HANDSHAKING + Valid ClientHello -> READY
-    // Spec: protocol 02-handshake Section 1:
+    // Spec: protocol 02 ClientHello/ServerHello flow:
     //   "The connection transitions from HANDSHAKING to READY on success."
     resetState();
 
@@ -156,9 +155,9 @@ test "spec: lifecycle dispatch — valid ClientHello transitions client to READY
 }
 
 test "spec: lifecycle dispatch — ClientHello in non-HANDSHAKING state is rejected" {
-    // Spec: daemon-behavior policies-and-procedures Section 12:
+    // Spec: daemon-behavior client state transitions:
     //   Only HANDSHAKING accepts ClientHello.
-    // Spec: protocol 01-protocol-overview Section 5.2:
+    // Spec: protocol 01 per-state allowed messages:
     //   HANDSHAKING allows ClientHello; READY/OPERATING do not.
     resetState();
 
@@ -182,9 +181,9 @@ test "spec: lifecycle dispatch — ClientHello in non-HANDSHAKING state is rejec
 }
 
 test "spec: lifecycle dispatch — version mismatch ClientHello triggers disconnect" {
-    // Spec: daemon-behavior policies-and-procedures Section 14.1:
+    // Spec: daemon-behavior negotiation algorithms:
     //   "if negotiated_version < client.protocol_version_min -> ERR_VERSION_MISMATCH"
-    // Spec: daemon-behavior Section 12:
+    // Spec: daemon-behavior client state transitions:
     //   HANDSHAKING + Invalid ClientHello -> [closed]
     resetState();
 
@@ -207,7 +206,7 @@ test "spec: lifecycle dispatch — version mismatch ClientHello triggers disconn
 }
 
 test "spec: lifecycle dispatch — no common rendering mode triggers disconnect" {
-    // Spec: daemon-behavior policies-and-procedures Section 14.3:
+    // Spec: daemon-behavior negotiation algorithms — render capability requirement:
     //   "If neither cell_data nor vt_fallback is in the intersection, the server
     //   MUST send Error(ERR_CAPABILITY_REQUIRED) and disconnect."
     resetState();
@@ -230,9 +229,9 @@ test "spec: lifecycle dispatch — no common rendering mode triggers disconnect"
 }
 
 test "spec: lifecycle dispatch — malformed ClientHello triggers disconnect" {
-    // Spec: daemon-behavior policies-and-procedures Section 12:
+    // Spec: daemon-behavior client state transitions:
     //   HANDSHAKING + Invalid ClientHello -> [closed]
-    // Spec: protocol 01-protocol-overview Section 5.3:
+    // Spec: protocol 01 disconnect handling:
     //   HANDSHAKING -> DISCONNECTING on error
     resetState();
 
@@ -252,14 +251,14 @@ test "spec: lifecycle dispatch — malformed ClientHello triggers disconnect" {
     try std.testing.expect(disconnected);
 }
 
-// ── Spec: Heartbeat Handling (protocol 01 Section 5.4, daemon-behavior Section 10) ─
+// ── Spec: Heartbeat Handling ──────────────────────────────────────────────────
 
 test "spec: lifecycle dispatch — heartbeat in READY state records activity" {
-    // Spec: protocol 01-protocol-overview Section 5.4:
+    // Spec: protocol 01 heartbeat ping_id semantics:
     //   "Either side MAY send Heartbeat. The receiver responds with HeartbeatAck."
-    // Spec: daemon-behavior policies-and-procedures Section 10.2:
+    // Spec: daemon-behavior heartbeat policy:
     //   "The receiver responds with HeartbeatAck (0x0004)."
-    // Spec: protocol 01-protocol-overview Section 5.2:
+    // Spec: protocol 01 per-state allowed messages:
     //   READY state allows Heartbeat.
     resetState();
 
@@ -285,7 +284,7 @@ test "spec: lifecycle dispatch — heartbeat in READY state records activity" {
 }
 
 test "spec: lifecycle dispatch — heartbeat in OPERATING state records activity" {
-    // Spec: protocol 01-protocol-overview Section 5.2:
+    // Spec: protocol 01 per-state allowed messages:
     //   OPERATING state allows all message types including Heartbeat.
     resetState();
 
@@ -310,13 +309,13 @@ test "spec: lifecycle dispatch — heartbeat in OPERATING state records activity
     try std.testing.expect(client.last_activity_timestamp >= old_activity);
 }
 
-// ── Spec: HeartbeatAck Handling (daemon-behavior Section 10) ───────────────
+// ── Spec: HeartbeatAck Handling ───────────────────────────────────────────────
 
 test "spec: lifecycle dispatch — heartbeat ack records activity for connection liveness" {
-    // Spec: protocol 01-protocol-overview Section 5.4:
+    // Spec: protocol 01 heartbeat ping_id semantics:
     //   "If no message (of any kind) is received within the timeout, the connection
     //   is considered dead" — HeartbeatAck counts as a received message.
-    // Spec: daemon-behavior policies-and-procedures Section 10.2:
+    // Spec: daemon-behavior heartbeat policy:
     //   HeartbeatAck records connection-level activity.
     resetState();
 
@@ -345,9 +344,9 @@ test "spec: lifecycle dispatch — heartbeat ack records activity for connection
 }
 
 test "spec: lifecycle dispatch — heartbeat ack does NOT reset stale timeout" {
-    // Spec: daemon-behavior policies-and-procedures Section 10.4:
+    // Spec: daemon-behavior heartbeat policy:
     //   "HeartbeatAck MUST NOT reset the stale timeout."
-    // Spec: daemon-behavior policies-and-procedures Section 3.3:
+    // Spec: daemon-behavior heartbeat policy — iOS suspension handling:
     //   "HeartbeatAck MUST NOT reset the stale timeout. On iOS, the OS can
     //   suspend the application while keeping TCP sockets alive."
     //
@@ -384,13 +383,13 @@ test "spec: lifecycle dispatch — heartbeat ack does NOT reset stale timeout" {
     try std.testing.expectEqual(@as(u32, 10), client.last_ping_id_acked);
 }
 
-// ── Spec: Disconnect Handling (protocol 01 Section 5.3, daemon-behavior Section 12) ─
+// ── Spec: Disconnect Handling ─────────────────────────────────────────────────
 
 test "spec: lifecycle dispatch — disconnect message triggers client teardown" {
-    // Spec: protocol 01-protocol-overview Section 5.3:
+    // Spec: protocol 01 disconnect handling:
     //   READY + Disconnect -> DISCONNECTING
     //   OPERATING + Disconnect -> DISCONNECTING
-    // Spec: daemon-behavior policies-and-procedures Section 12:
+    // Spec: daemon-behavior client state transitions:
     //   READY + Client disconnect -> [closed]: Clean up ClientState
     resetState();
 
@@ -416,9 +415,9 @@ test "spec: lifecycle dispatch — disconnect message triggers client teardown" 
 }
 
 test "spec: lifecycle dispatch — disconnect in OPERATING state triggers cleanup" {
-    // Spec: protocol 01-protocol-overview Section 5.3:
+    // Spec: protocol 01 disconnect handling:
     //   OPERATING + Disconnect -> DISCONNECTING: Drain and close
-    // Spec: daemon-behavior policies-and-procedures Section 12:
+    // Spec: daemon-behavior client state transitions:
     //   OPERATING + Client disconnect -> [closed]: Clean up ClientState
     resetState();
 
@@ -443,10 +442,10 @@ test "spec: lifecycle dispatch — disconnect in OPERATING state triggers cleanu
     try std.testing.expect(disconnected);
 }
 
-// ── Spec: Handshake Timer Cancellation (daemon-behavior Section 13) ────────
+// ── Spec: Handshake Timer Cancellation ────────────────────────────────────────
 
 test "spec: lifecycle dispatch — handshake timer cancelled on successful handshake" {
-    // Spec: daemon-behavior policies-and-procedures Section 13:
+    // Spec: daemon-behavior handshake timeouts:
     //   "Each timeout MUST be enforced via per-client EVFILT_TIMER. The timer
     //   is cancelled when the expected message arrives."
     // The handshake timer (ClientHello -> ServerHello: 5s) must be cancelled
@@ -471,13 +470,13 @@ test "spec: lifecycle dispatch — handshake timer cancelled on successful hands
     try std.testing.expectEqual(State.ready, client.connection.state);
 }
 
-// ── Spec: Heartbeat in HANDSHAKING is Not Allowed (protocol 01 Section 5.2) ─
+// ── Spec: Heartbeat in HANDSHAKING is Not Allowed ─────────────────────────────
 
 test "spec: lifecycle dispatch — heartbeat in HANDSHAKING state is not processed" {
-    // Spec: protocol 01-protocol-overview Section 5.2:
+    // Spec: protocol 01 per-state allowed messages:
     //   HANDSHAKING allows only ClientHello, ServerHello, Error, Disconnect.
     //   Heartbeat is NOT in the allowed set.
-    // Spec: daemon-behavior policies-and-procedures Section 12:
+    // Spec: daemon-behavior client state transitions:
     //   HANDSHAKING row only lists "Valid ClientHello" and "Invalid ClientHello/timeout".
     resetState();
 
@@ -501,10 +500,10 @@ test "spec: lifecycle dispatch — heartbeat in HANDSHAKING state is not process
     try std.testing.expectEqual(State.handshaking, client.connection.state);
 }
 
-// ── Spec: Handshake Timeout Values (daemon-behavior Section 13) ────────────
+// ── Spec: Handshake Timeout Values ────────────────────────────────────────────
 
 test "spec: lifecycle dispatch — handshake timeout is 5 seconds per spec" {
-    // Spec: daemon-behavior policies-and-procedures Section 13:
+    // Spec: daemon-behavior handshake timeouts:
     //   "ClientHello -> ServerHello: 5s"
     //   "Transport connection (accept to first byte): 5s"
     // Verify the constant matches the spec value.
@@ -514,47 +513,47 @@ test "spec: lifecycle dispatch — handshake timeout is 5 seconds per spec" {
 }
 
 test "spec: lifecycle dispatch — ready idle timeout is 60 seconds per spec" {
-    // Spec: daemon-behavior policies-and-procedures Section 13:
+    // Spec: daemon-behavior handshake timeouts:
     //   "READY -> AttachSession/CreateSession/AttachOrCreate: 60s"
     try std.testing.expectEqual(@as(u32, 60_000), message_dispatcher.ready_idle_timeout_ms);
 }
 
-// ── Spec: Connection Timeout (daemon-behavior Section 10.1, Section 13) ────
+// ── Spec: Connection Timeout ───────────────────────────────────────────────────
 
 test "spec: lifecycle dispatch — heartbeat response timeout is 90 seconds per spec" {
-    // Spec: daemon-behavior policies-and-procedures Section 10.1:
+    // Spec: daemon-behavior heartbeat policy — connection timeout:
     //   "Connection timeout: 90s — No message of any kind received within
     //   this period -> connection is dead"
-    // Spec: Section 13 table:
+    // Spec: daemon-behavior handshake timeouts:
     //   "Heartbeat response: 90s -> Send Disconnect(TIMEOUT), close connection"
     const heartbeat_manager_mod = server.connection.heartbeat_manager;
     try std.testing.expectEqual(@as(i64, 90_000), heartbeat_manager_mod.HEARTBEAT_TIMEOUT_MS);
 }
 
-// ── Spec: Heartbeat Interval (daemon-behavior Section 10.1) ────────────────
+// ── Spec: Heartbeat Interval ───────────────────────────────────────────────────
 
 test "spec: lifecycle dispatch — heartbeat interval is 30 seconds per spec" {
-    // Spec: daemon-behavior policies-and-procedures Section 10.1:
+    // Spec: daemon-behavior heartbeat policy — heartbeat interval:
     //   "Heartbeat interval: 30s — How often to send Heartbeat if no other
     //   messages sent"
     const heartbeat_manager_mod = server.connection.heartbeat_manager;
     try std.testing.expectEqual(@as(u32, 30_000), heartbeat_manager_mod.HEARTBEAT_INTERVAL_MS);
 }
 
-// ── Spec: Error Message in Lifecycle Range (protocol 01-protocol-overview) ──
+// ── Spec: Error Message in Lifecycle Range ─────────────────────────────────────
 
 test "spec: lifecycle dispatch — Error message type is 0x00FF within lifecycle range" {
-    // Spec: protocol 01-protocol-overview Section 4.2:
+    // Spec: protocol 01 lifecycle message type range:
     //   "0x00FF: Error — Bidirectional — Structured error report"
     try std.testing.expectEqual(@as(u16, 0x00FF), @intFromEnum(MessageType.@"error"));
     // It falls within the lifecycle page (0x00).
     try std.testing.expectEqual(@as(u16, 0x00), @intFromEnum(MessageType.@"error") >> 8);
 }
 
-// ── Spec: ServerHello on Successful Handshake (protocol 02 Section 1) ──────
+// ── Spec: ServerHello on Successful Handshake ─────────────────────────────────
 
 test "spec: lifecycle dispatch — successful ClientHello assigns client_id" {
-    // Spec: protocol 02-handshake-capability-negotiation Section 1:
+    // Spec: protocol 02 ClientHello/ServerHello flow:
     //   "The server responds with ServerHello declaring its capabilities,
     //   the negotiated feature set, and the client's assigned client_id."
     resetState();
@@ -575,10 +574,10 @@ test "spec: lifecycle dispatch — successful ClientHello assigns client_id" {
     try std.testing.expect(client.connection.client_id > 0);
 }
 
-// ── Spec: Heartbeat Bidirectional Semantics (protocol 01 Section 5.4) ──────
+// ── Spec: Heartbeat Bidirectional Semantics ────────────────────────────────────
 
 test "spec: lifecycle dispatch — heartbeat ping_id echo semantics" {
-    // Spec: protocol 01-protocol-overview Section 5.4:
+    // Spec: protocol 01 heartbeat ping_id semantics:
     //   "Heartbeat payload: { ping_id: 42 }"
     //   "HeartbeatAck payload: { ping_id: 42 } — Echoed from Heartbeat"
     // The receiver of a Heartbeat echoes the ping_id in HeartbeatAck.
@@ -604,12 +603,12 @@ test "spec: lifecycle dispatch — heartbeat ping_id echo semantics" {
     try std.testing.expectEqual(State.ready, client.connection.state);
 }
 
-// ── Spec: Disconnect Reason Codes (protocol 02 Section 11.1) ───────────────
+// ── Spec: Disconnect Reason Codes ─────────────────────────────────────────────
 
 test "spec: lifecycle dispatch — disconnect with timeout reason" {
-    // Spec: protocol 02-handshake-capability-negotiation Section 11.1:
+    // Spec: protocol 02 disconnect reason codes:
     //   Disconnect reasons include "timeout".
-    // Spec: daemon-behavior policies-and-procedures Section 13:
+    // Spec: daemon-behavior handshake timeouts:
     //   Various timeouts send Disconnect(TIMEOUT).
     resetState();
 

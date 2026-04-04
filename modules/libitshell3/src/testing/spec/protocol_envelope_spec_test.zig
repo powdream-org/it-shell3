@@ -5,10 +5,10 @@
 //! and sequence number population.
 //!
 //! Spec sources:
-//!   - protocol 01-protocol-overview (Section 3.1: 16-byte header format,
-//!     magic 0x4954, version byte, flags, msg_type, payload_length, sequence)
-//!   - protocol 03-session-pane-management (Encoding section: all session/pane
-//!     messages use JSON payloads wrapped in 16-byte header)
+//!   - protocol 01-protocol-overview (header format: magic 0x4954, version byte,
+//!     flags, msg_type, payload_length, sequence)
+//!   - protocol 03-session-pane-management (encoding: all session/pane messages
+//!     use JSON payloads wrapped in header)
 
 const std = @import("std");
 const protocol = @import("itshell3_protocol");
@@ -21,7 +21,7 @@ const MessageType = protocol.message_type.MessageType;
 // ── Header field encoding ──────────────────────────────────────────────────
 
 test "spec: envelope -- magic bytes are 0x49 0x54 at offsets 0-1" {
-    // protocol 01 Section 3.1: Offset 0, Size 2, "IT" (0x4954).
+    // protocol 01 header format: Offset 0, Size 2, "IT" (0x4954).
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.create_session_response),
         .flags = .{},
@@ -35,7 +35,7 @@ test "spec: envelope -- magic bytes are 0x49 0x54 at offsets 0-1" {
 }
 
 test "spec: envelope -- version byte is 2 at offset 2" {
-    // protocol 01 Section 3.1: Offset 2, Size 1, currently 2 (v2 header).
+    // protocol 01 header format: Offset 2, Size 1, currently 2 (v2 header).
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.list_sessions_response),
         .flags = .{},
@@ -48,7 +48,7 @@ test "spec: envelope -- version byte is 2 at offset 2" {
 }
 
 test "spec: envelope -- flags at offset 3 default to JSON encoding" {
-    // protocol 01 Section 3.1: Offset 3, Size 1, Flags byte.
+    // protocol 01 header format: Offset 3, Size 1, Flags byte.
     // JSON encoding = bit 0 is 0.
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.session_list_changed),
@@ -66,7 +66,7 @@ test "spec: envelope -- flags at offset 3 default to JSON encoding" {
 }
 
 test "spec: envelope -- msg_type at offsets 4-5 little-endian" {
-    // protocol 01 Section 3.1: Offset 4, Size 2, msg_type (little-endian).
+    // protocol 01 header format: Offset 4, Size 2, msg_type (little-endian).
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.layout_changed), // 0x0180
         .flags = .{},
@@ -80,7 +80,7 @@ test "spec: envelope -- msg_type at offsets 4-5 little-endian" {
 }
 
 test "spec: envelope -- reserved bytes at offsets 6-7 are zero" {
-    // protocol 01 Section 3.1: Offset 6, Size 2, reserved (must be 0).
+    // protocol 01 header format: Offset 6, Size 2, reserved (must be 0).
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.client_attached),
         .flags = .{},
@@ -94,7 +94,7 @@ test "spec: envelope -- reserved bytes at offsets 6-7 are zero" {
 }
 
 test "spec: envelope -- payload_length at offsets 8-11 little-endian" {
-    // protocol 01 Section 3.1: Offset 8, Size 4, payload_length (little-endian).
+    // protocol 01 header format: Offset 8, Size 4, payload_length (little-endian).
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.attach_session_response),
         .flags = .{},
@@ -108,7 +108,7 @@ test "spec: envelope -- payload_length at offsets 8-11 little-endian" {
 }
 
 test "spec: envelope -- sequence at offsets 12-15 little-endian" {
-    // protocol 01 Section 3.1: Offset 12, Size 4, sequence (little-endian).
+    // protocol 01 header format: Offset 12, Size 4, sequence (little-endian).
     const hdr = Header{
         .msg_type = @intFromEnum(MessageType.detach_session_response),
         .flags = .{},
@@ -124,7 +124,7 @@ test "spec: envelope -- sequence at offsets 12-15 little-endian" {
 // ── Decode validation ──────────────────────────────────────────────────────
 
 test "spec: envelope -- decode rejects wrong version" {
-    // protocol 01 Section 3.1.1: exact version match required.
+    // protocol 01 header format — version validation: exact version match required.
     var buf: [header_mod.HEADER_SIZE]u8 = [_]u8{0} ** header_mod.HEADER_SIZE;
     buf[0] = 0x49;
     buf[1] = 0x54;
@@ -134,7 +134,7 @@ test "spec: envelope -- decode rejects wrong version" {
 }
 
 test "spec: envelope -- decode rejects nonzero reserved flags" {
-    // protocol 01 Section 3.1: reserved bits in flags must be 0.
+    // protocol 01 header format: reserved bits in flags must be 0.
     var buf: [header_mod.HEADER_SIZE]u8 = [_]u8{0} ** header_mod.HEADER_SIZE;
     buf[0] = 0x49;
     buf[1] = 0x54;
@@ -145,7 +145,7 @@ test "spec: envelope -- decode rejects nonzero reserved flags" {
 }
 
 test "spec: envelope -- decode rejects nonzero reserved field" {
-    // protocol 01 Section 3.1: reserved bytes at offset 6-7 must be 0.
+    // protocol 01 header format: reserved bytes at offset 6-7 must be 0.
     var buf: [header_mod.HEADER_SIZE]u8 = [_]u8{0} ** header_mod.HEADER_SIZE;
     buf[0] = 0x49;
     buf[1] = 0x54;
@@ -192,7 +192,7 @@ test "spec: envelope -- error flag set for error responses" {
 // ── All session/pane responses use JSON encoding ───────────────────────────
 
 test "spec: envelope -- session response types use JSON encoding" {
-    // protocol 03 Encoding section: all session/pane messages use JSON.
+    // protocol 03 encoding: all session/pane messages use JSON.
     const response_types = [_]MessageType{
         .create_session_response,
         .list_sessions_response,
@@ -208,7 +208,7 @@ test "spec: envelope -- session response types use JSON encoding" {
 }
 
 test "spec: envelope -- pane response types use JSON encoding" {
-    // protocol 03 Encoding section: all pane messages use JSON.
+    // protocol 03 encoding: all pane messages use JSON.
     const response_types = [_]MessageType{
         .create_pane_response,
         .split_pane_response,
