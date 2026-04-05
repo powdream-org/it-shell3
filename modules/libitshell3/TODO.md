@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 8 (Spec Compliance Review — Round 2)
+- **Step**: 8 (Spec Compliance Review — Round 2, complete)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 2
 - **Active Team**: plan9-impl
