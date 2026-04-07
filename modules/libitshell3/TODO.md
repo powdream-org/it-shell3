@@ -29,7 +29,7 @@
 - **Fix Iteration**: 3
 - **Active Issues**:
   - R3-001 [CONV] coalescing_timer_handler.zig:176-177 — test-only imports at
-    file top level
+    file top level (still present, pending fix)
 
 ## Progress — Round 1
 
