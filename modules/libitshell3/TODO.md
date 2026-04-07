@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 8 (Spec Compliance Review)
+- **Step**: 9 (Fix Cycle)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 3
 - **Active Team**: plan9-impl
@@ -29,7 +29,7 @@
 - **Fix Iteration**: 3
 - **Active Issues**:
   - R3-001 [CONV] coalescing_timer_handler.zig:176-177 — test-only imports at
-    file top level (still present, pending fix)
+    file top level — RESOLVED (moved into test blocks)
 
 ## Progress — Round 1
 
@@ -41,7 +41,7 @@
 - [x] Step 6: Implementation Phase
 - [x] Step 7: Code Simplify & Convention Compliance
 - [x] Step 8: Spec Compliance Review
-- [x] Step 9: Fix Cycle
+- [x] Step 9: Fix Cycle (R3 — 1 CONV issue resolved)
 - [ ] Step 10: Coverage Audit
 - [ ] Step 11: Over-Engineering Review
 - [ ] Step 12: Commit & Report
