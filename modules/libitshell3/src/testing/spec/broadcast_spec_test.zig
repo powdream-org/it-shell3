@@ -122,7 +122,7 @@ test "spec: broadcast — exclude-one variant for response-before-notification" 
     try std.testing.expectEqual(@as(u16, 2), result.sent_count);
 
     // Verify idx1 did NOT receive the message (direct_queue should be empty).
-    try std.testing.expect(c1.direct_queue.isEmpty());
+    try std.testing.expect(c1.control_channel.direct_queue.isEmpty());
 
     mgr.getClient(idx1).?.deinit();
     mgr.getClient(idx2).?.deinit();
@@ -243,7 +243,7 @@ test "spec: broadcast — messages go via direct queue (priority 1 channel)" {
     _ = broadcast_mod.broadcastToSession(&mgr, 1, "test-notification", null);
 
     // Verify the message is in the direct queue (not ring buffer).
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
 
     mgr.getClient(idx).?.deinit();
 }

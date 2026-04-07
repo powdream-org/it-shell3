@@ -14,7 +14,8 @@ const testing = std.testing;
 const server = @import("itshell3_server");
 const ring_buffer_mod = server.delivery.ring_buffer;
 const frame_serializer_mod = server.delivery.frame_serializer;
-const client_writer_mod = server.delivery.client_writer;
+const control_channel_mod = server.delivery.control_channel_writer;
+const frame_delivery_mod = server.delivery.frame_delivery;
 const direct_queue_mod = server.delivery.direct_queue;
 const pane_delivery_mod = server.delivery.pane_delivery;
 const protocol = @import("itshell3_protocol");
@@ -170,18 +171,19 @@ test "spec: wire format in ring — iovec data is valid protocol message" {
 
 test "spec: two-channel priority — direct queue drained before ring" {
     // "the server drains the direct queue first, then writes ring buffer frames"
-    var cw = client_writer_mod.ClientWriter.init();
+    var cw = control_channel_mod.ControlChannelWriter.init();
     defer cw.deinit();
     var backing: [4096]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
+    var cursor = ring_buffer_mod.RingCursor.init();
 
-    try cw.enqueueDirect("PreeditSync-msg");
+    try cw.enqueue("PreeditSync-msg");
     try ring.writeFrame("FrameUpdate-data", true, 1);
 
     // Both channels have data
-    try testing.expect(cw.hasPending(&ring));
+    try testing.expect(!cw.direct_queue.isEmpty() or ring.available(&cursor) > 0);
     try testing.expect(!cw.direct_queue.isEmpty());
-    try testing.expect(ring.available(&cw.ring_cursor) > 0);
+    try testing.expect(ring.available(&cursor) > 0);
 
     // Direct queue data is accessible first (FIFO peek)
     const direct_data = cw.direct_queue.peek().?;
@@ -577,13 +579,13 @@ test "spec: would_block semantics — cursor position unchanged on retry" {
     try testing.expectEqual(@intFromPtr(p1.iov[0].base), @intFromPtr(p2.iov[0].base));
 }
 
-test "spec: write result — WriteResult has three spec-required branches" {
-    // Spec policies write-ready and backpressure pseudocode: bytes_written, would_block, peer_closed
-    const WriteResult = client_writer_mod.WriteResult;
-    _ = WriteResult.fully_caught_up; // bytes_written + cursor == write_pos
-    _ = WriteResult.more_pending; // bytes_written + cursor != write_pos
-    _ = WriteResult.would_block;
-    _ = WriteResult.peer_closed;
+test "spec: delivery result — DeliveryResult has spec-required branches" {
+    // Spec policies write-ready and backpressure pseudocode: bytes_written, would_block, peer_closed.
+    const DeliveryResult = frame_delivery_mod.DeliveryResult;
+    _ = DeliveryResult.fully_caught_up;
+    _ = DeliveryResult.would_block;
+    _ = DeliveryResult.peer_closed;
+    _ = DeliveryResult.write_error;
 }
 
 // ===========================================================================

@@ -15,7 +15,7 @@ const testing = std.testing;
 const server = @import("itshell3_server");
 const ring_buffer_mod = server.delivery.ring_buffer;
 const frame_serializer_mod = server.delivery.frame_serializer;
-const client_writer_mod = server.delivery.client_writer;
+const control_channel_mod = server.delivery.control_channel_writer;
 const direct_queue_mod = server.delivery.direct_queue;
 const pane_delivery_mod = server.delivery.pane_delivery;
 const protocol = @import("itshell3_protocol");
@@ -132,17 +132,18 @@ test "spec: wire format — iovecs yield decodable protocol message" {
 }
 
 test "spec: two-channel priority — direct queue drained before ring buffer" {
-    var cw = client_writer_mod.ClientWriter.init();
+    var cw = control_channel_mod.ControlChannelWriter.init();
     defer cw.deinit();
     var backing: [4096]u8 = @splat(0);
     var ring = RingBuffer.init(&backing);
+    var cursor = ring_buffer_mod.RingCursor.init();
 
     // Both channels have data
-    try cw.enqueueDirect("PreeditSync-msg");
+    try cw.enqueue("PreeditSync-msg");
     try ring.writeFrame("FrameUpdate-data", true, 1);
 
     try testing.expect(!cw.direct_queue.isEmpty());
-    try testing.expect(ring.available(&cw.ring_cursor) > 0);
+    try testing.expect(ring.available(&cursor) > 0);
 
     // Drain direct queue
     try testing.expectEqualSlices(u8, "PreeditSync-msg", cw.direct_queue.peek().?);
@@ -150,19 +151,19 @@ test "spec: two-channel priority — direct queue drained before ring buffer" {
 
     // Direct empty; ring still has data
     try testing.expect(cw.direct_queue.isEmpty());
-    try testing.expect(cw.hasPending(&ring));
+    try testing.expect(ring.available(&cursor) > 0);
 
     // Read ring data via iovecs
-    const p = ring.pendingIovecs(&cw.ring_cursor).?;
+    const p = ring.pendingIovecs(&cursor).?;
     var flat: [256]u8 = @splat(0);
     const n = flattenIovecs(p, &flat);
     try testing.expect(n > 0);
     // Payload in ring entry is "FrameUpdate-data" directly (no prefix)
     try testing.expectEqualSlices(u8, "FrameUpdate-data", flat[0.."FrameUpdate-data".len]);
-    ring.advanceCursor(&cw.ring_cursor, p.totalLen());
+    ring.advanceCursor(&cursor, p.totalLen());
 
     // Now fully caught up
-    try testing.expect(!cw.hasPending(&ring));
+    try testing.expect(ring.available(&cursor) == 0);
 }
 
 test "spec: independent cursors — positions and available are orthogonal" {
