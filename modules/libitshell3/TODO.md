@@ -2,9 +2,9 @@
 
 ## Current State
 
-- **Step**: 10 (Coverage Audit)
+- **Step**: 8 (Spec Compliance Review — Round 3)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
-- **Review Round**: 2
+- **Review Round**: 3
 - **Active Team**: plan9-impl
 - **Team Directory**: .claude/agents/impl-team/
 
