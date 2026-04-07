@@ -2,7 +2,6 @@
 name: impl-fix
 description: >
   Execute the fix cycle: route triaged issues to agents, verify fixes, run tests.
-user-invocable: false
 context: fork
 ---
 

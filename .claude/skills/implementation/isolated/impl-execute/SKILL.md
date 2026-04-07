@@ -2,7 +2,6 @@
 name: impl-execute
 description: >
   Execute the implementation phase: spawn implementer and QA engineer, wire tests, build and run.
-user-invocable: false
 context: fork
 ---
 
