@@ -18,8 +18,7 @@ const MAX_PANES = core.types.MAX_PANES;
 const server = @import("itshell3_server");
 const ring_buffer_mod = server.delivery.ring_buffer;
 const RingCursor = ring_buffer_mod.RingCursor;
-const direct_queue_mod = server.delivery.direct_queue;
-const DirectQueue = direct_queue_mod.DirectQueue;
+const ControlChannelWriter = server.delivery.control_channel_writer.ControlChannelWriter;
 const SessionEntry = server.state.session_entry.SessionEntry;
 
 pub const ClientState = struct {
@@ -29,11 +28,8 @@ pub const ClientState = struct {
     /// One cursor per pane slot. null = client has not received frames for that pane.
     ring_cursors: [MAX_PANES]?RingCursor = [_]?RingCursor{null} ** MAX_PANES,
 
-    /// Per-client direct message queue (priority 1 channel).
-    direct_queue: DirectQueue = DirectQueue.init(),
-
-    /// Partial send offset for direct queue drain.
-    direct_partial_offset: usize = 0,
+    /// Control channel writer (priority 1 direct queue flush).
+    control_channel: ControlChannelWriter = ControlChannelWriter.init(),
 
     /// Display info reported by the client via ClientDisplayInfo (0x0505).
     display_info: ClientDisplayInfo = .{},
@@ -132,7 +128,7 @@ pub const ClientState = struct {
 
     /// Reset this slot to unoccupied state.
     pub fn deinit(self: *ClientState) void {
-        self.direct_queue.deinit();
+        self.control_channel.deinit();
         self.message_reader.reset();
         self.attached_session = null;
         self.occupied = false;
@@ -177,7 +173,7 @@ pub const ClientState = struct {
     }
 
     pub fn enqueueDirect(self: *ClientState, data: []const u8) !void {
-        try self.direct_queue.enqueue(data);
+        try self.control_channel.enqueue(data);
     }
 };
 
@@ -215,7 +211,7 @@ test "ClientState.enqueueDirect: adds message to direct queue" {
     var client = ClientState.init(.{ .fd = 7 }, 1, testing_helpers.testChunkPool());
     defer client.deinit();
     try client.enqueueDirect("test-msg");
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
 }
 
 test "ClientState: ring_cursors all start as null" {

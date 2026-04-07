@@ -611,7 +611,7 @@ test "handleListSessions: returns empty list when no sessions" {
     handleListSessions(&context, client, slot_index, 1);
 
     // Verify something was enqueued.
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
 
     client.deinit();
 }

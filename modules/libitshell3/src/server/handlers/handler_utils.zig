@@ -194,7 +194,7 @@ test "sendErrorResponse: enqueues response to client" {
         "already attached to a session",
     );
 
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
     client.deinit();
 }
 
@@ -222,7 +222,7 @@ test "getSessionOrSendError: returns null and enqueues error for missing session
     );
 
     try std.testing.expect(result == null);
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
     client.deinit();
 }
 
@@ -251,7 +251,7 @@ test "getSessionOrSendError: returns entry for existing session" {
     );
 
     try std.testing.expect(result != null);
-    try std.testing.expect(client.direct_queue.isEmpty());
+    try std.testing.expect(client.control_channel.direct_queue.isEmpty());
     client.deinit();
 }
 

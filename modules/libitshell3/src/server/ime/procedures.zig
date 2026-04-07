@@ -654,7 +654,7 @@ test "ownershipTransferWithBroadcast: flushes and sends PreeditEnd broadcast" {
     // Sequence should have been incremented for the PreeditEnd message.
     try std.testing.expect(seq > 100);
     // Client should have received a broadcast message.
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
 
     client.deinit();
 }
@@ -686,7 +686,7 @@ test "onClientDisconnectWithBroadcast: owner disconnect sends PreeditEnd" {
 
     try std.testing.expect(session.preedit.owner == null);
     try std.testing.expectEqualSlices(u8, "text", mock_pty.written());
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
 
     client.deinit();
 }
@@ -742,7 +742,7 @@ test "onFocusChangeWithBroadcast: sends PreeditEnd when owner exists" {
     try std.testing.expectEqualSlices(u8, "focus", mock_pty.written());
     try std.testing.expectEqual(@as(?types.PaneSlot, 3), session.focused_pane);
     try std.testing.expect(session.preedit.owner == null);
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
 
     client.deinit();
 }
@@ -770,7 +770,7 @@ test "onPaneCloseWithBroadcast: sends PreeditEnd when owner exists" {
 
     try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
     try std.testing.expect(session.preedit.owner == null);
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
 
     client.deinit();
 }
@@ -807,7 +807,7 @@ test "onInputMethodSwitchWithBroadcast: sends PreeditEnd and InputMethodAck" {
     try std.testing.expectEqualSlices(u8, "direct", session.getActiveInputMethod());
     // Should have sent PreeditEnd + InputMethodAck => 2 broadcast messages.
     try std.testing.expect(seq > 31);
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
 
     client.deinit();
 }
@@ -839,7 +839,7 @@ test "errorRecoveryWithBroadcast: sends PreeditEnd when owner exists" {
     try std.testing.expectEqualSlices(u8, "broken", mock_pty.written());
     try std.testing.expectEqual(@as(usize, 1), mock.reset_count);
     try std.testing.expect(session.preedit.owner == null);
-    try std.testing.expect(!client.direct_queue.isEmpty());
+    try std.testing.expect(!client.control_channel.direct_queue.isEmpty());
 
     client.deinit();
 }

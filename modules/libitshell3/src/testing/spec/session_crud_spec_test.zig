@@ -269,7 +269,7 @@ test "spec: session message types -- correct protocol codes" {
 fn extractFirstPayload(client: anytype, out: []u8) ?[]const u8 {
     const HEADER_SIZE = protocol.header.HEADER_SIZE;
     var copy_buf: [server.handlers.protocol_envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
-    const n = client.direct_queue.peekCopy(&copy_buf) orelse return null;
+    const n = client.control_channel.direct_queue.peekCopy(&copy_buf) orelse return null;
     if (n < HEADER_SIZE) return null;
     const payload_len = std.mem.readInt(u32, copy_buf[8..12], .little);
     const total = HEADER_SIZE + payload_len;
@@ -281,7 +281,7 @@ fn extractFirstPayload(client: anytype, out: []u8) ?[]const u8 {
 /// Dequeues the first item in the client's direct queue and returns the JSON
 /// payload of the next item (i.e., the second message), or null.
 fn extractSecondPayload(client: anytype, out: []u8) ?[]const u8 {
-    client.direct_queue.dequeue();
+    client.control_channel.direct_queue.dequeue();
     return extractFirstPayload(client, out);
 }
 
@@ -290,7 +290,7 @@ fn extractSecondPayload(client: anytype, out: []u8) ?[]const u8 {
 fn peekMsgType(client: anytype) ?u16 {
     const HEADER_SIZE = protocol.header.HEADER_SIZE;
     var copy_buf: [server.handlers.protocol_envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
-    const n = client.direct_queue.peekCopy(&copy_buf) orelse return null;
+    const n = client.control_channel.direct_queue.peekCopy(&copy_buf) orelse return null;
     if (n < HEADER_SIZE) return null;
     return std.mem.readInt(u16, copy_buf[4..6], .little);
 }
@@ -304,7 +304,7 @@ fn extractPayloadByMsgType(client: anytype, target_msg_type: u16, out: []u8) ?[]
         if (mt == target_msg_type) {
             return extractFirstPayload(client, out);
         }
-        client.direct_queue.dequeue();
+        client.control_channel.direct_queue.dequeue();
     }
     return null;
 }
@@ -726,10 +726,10 @@ test "spec: forced detach response -- sequence is non-zero (server-assigned)" {
     server.handlers.session_handler.handleDestroySession(&ctx, requester, req_idx, 42, sess_id, true);
 
     // Peer must have received a DetachSessionResponse.
-    try std.testing.expect(!peer.direct_queue.isEmpty());
+    try std.testing.expect(!peer.control_channel.direct_queue.isEmpty());
 
     var peer_buf: [4096]u8 = undefined;
-    const peer_item_len = peer.direct_queue.peekCopy(&peer_buf);
+    const peer_item_len = peer.control_channel.direct_queue.peekCopy(&peer_buf);
     try std.testing.expect(peer_item_len != null);
 
     // The header encodes the sequence at bytes [12..16] (little-endian u32).
