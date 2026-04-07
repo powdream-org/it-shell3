@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 10 (Coverage Audit)
+- **Step**: 8 (Spec Compliance Review)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 3
 - **Active Team**: plan9-impl
@@ -26,8 +26,10 @@
 
 ## Fix Cycle State
 
-- **Fix Iteration**: 2
-- **Active Issues**: (none — pending Round 2 review)
+- **Fix Iteration**: 3
+- **Active Issues**:
+  - R3-001 [CONV] coalescing_timer_handler.zig:176-177 — test-only imports at
+    file top level
 
 ## Progress — Round 1
 
