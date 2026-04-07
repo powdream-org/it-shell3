@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 10 (Coverage Audit)
+- **Step**: 11 (Over-Engineering Review)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 3
 - **Active Team**: plan9-impl
