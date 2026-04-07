@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 9 (Fix Cycle)
+- **Step**: 10 (Coverage Audit)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 3
 - **Active Team**: plan9-impl
