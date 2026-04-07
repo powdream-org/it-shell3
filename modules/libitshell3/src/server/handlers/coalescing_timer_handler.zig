@@ -173,9 +173,6 @@ fn exportAndSerializeFrame(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-const testImeEngine = @import("itshell3_testing").helpers.testImeEngine;
-const session_mod = core.session;
-
 test "isCoalescingTimer: identifies coalescing timer ID" {
     try std.testing.expect(isCoalescingTimer(COALESCING_TIMER_ID));
     try std.testing.expect(!isCoalescingTimer(0));
@@ -183,6 +180,8 @@ test "isCoalescingTimer: identifies coalescing timer ID" {
 }
 
 test "processDirtyPanes: skips undersized panes" {
+    const testImeEngine = @import("itshell3_testing").helpers.testImeEngine;
+    const session_mod = core.session;
     var s = session_mod.Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
     _ = &s;
@@ -198,6 +197,8 @@ test "processDirtyPanes: skips undersized panes" {
 }
 
 test "processDirtyPanes: processes valid-sized pane" {
+    const testImeEngine = @import("itshell3_testing").helpers.testImeEngine;
+    const session_mod = core.session;
     var s = session_mod.Session.init(1, "s", 0, testImeEngine(), 0);
     var entry = SessionEntry.init(s);
     _ = &s;
