@@ -2,7 +2,6 @@
 name: impl-simplify
 description: >
   Run code simplification and convention compliance checks, fix in-plan violations, report out-of-plan violations.
-user-invocable: false
 context: fork
 ---
 

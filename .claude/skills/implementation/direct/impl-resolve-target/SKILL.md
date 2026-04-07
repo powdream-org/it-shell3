@@ -3,7 +3,6 @@ name: impl-resolve-target
 description: >
   Resolve implementation target argument to filesystem path and team directory.
   Internal skill invoked by the implementation team leader at cycle start.
-user-invocable: false
 ---
 
 # Resolve Implementation Target

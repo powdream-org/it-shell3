@@ -2,7 +2,6 @@
 name: impl-review
 description: >
   Run spec compliance review with QA reviewer and development-reviewer, report issues found.
-user-invocable: false
 context: fork
 ---
 
