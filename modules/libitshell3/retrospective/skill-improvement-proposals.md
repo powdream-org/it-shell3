@@ -177,3 +177,29 @@ need identifiers.
 - Add to triage SKILL.md Step 2: "Assign each group a short ID (A, B, C or 1,
   2, 3) so the owner can reference it easily."
 - Update the example format in Step 2 to include an ID column.
+
+## SIP-8: Alive agent misidentified as zombie — killed working impl-review-r3
+
+**Discovered during**: Step 8 Round 3 (Spec Compliance Review)
+
+**What happened**: `impl-review-r3` was sending idle notifications while its
+sub-agents performed the review. The team leader sent a status check message,
+received idle notifications but no text reply, and concluded the agent was a
+zombie. The team leader shut it down and spawned a replacement, wasting the
+in-progress review work.
+
+**Root cause**: The team leader confused "not responding to my text message"
+with "zombie." An agent sending idle notifications is alive — it's busy waiting
+for sub-agent results. A zombie is an agent that produces no output at all (no
+idle notifications, no shutdown_approved, nothing). The correct action was to
+wait longer, not to kill and respawn.
+
+**Affected steps**: Not step-specific — general agent lifecycle management.
+
+**Proposed changes**:
+
+- Add to MEMORY.md zombie definition: "An agent sending idle notifications is
+  ALIVE. Only agents producing zero output are potential zombies."
+- Add to implementation SKILL.md zombie prevention: "Wait at least 5 minutes
+  after the last idle notification before considering an agent a zombie. Idle
+  notifications prove the agent process is running."
