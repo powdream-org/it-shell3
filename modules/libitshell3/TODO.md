@@ -2,9 +2,9 @@
 
 ## Current State
 
-- **Step**: 11 (Over-Engineering Review)
+- **Step**: 8 (Spec Compliance Review — Round 4)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
-- **Review Round**: 3
+- **Review Round**: 4
 - **Active Team**: plan9-impl
 - **Team Directory**: .claude/agents/impl-team/
 
