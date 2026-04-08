@@ -94,24 +94,6 @@ fn isBitSet(bitmap: *const [MAX_ROWS / 8]u8, bit_index: u16) bool {
     return (bitmap[byte_idx] & (@as(u8, 1) << bit_offset)) != 0;
 }
 
-/// Clears a dirty bitmap to all zeros.
-pub fn clearDirtyBitmap(bitmap: *[MAX_ROWS / 8]u8) void {
-    @memset(bitmap, 0);
-}
-
-/// Sets a bit in the dirty bitmap.
-pub fn setDirtyBit(bitmap: *[MAX_ROWS / 8]u8, row: u16) void {
-    if (row >= MAX_ROWS) return;
-    const byte_idx = row / 8;
-    const bit_offset: u3 = @intCast(row % 8);
-    bitmap[byte_idx] |= @as(u8, 1) << bit_offset;
-}
-
-/// Sets all bits in the dirty bitmap (for I-frame generation).
-pub fn setAllDirtyBits(bitmap: *[MAX_ROWS / 8]u8) void {
-    @memset(bitmap, 0xFF);
-}
-
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 test "assembleDirtyRows: empty dirty bitmap produces no rows" {
@@ -138,6 +120,7 @@ test "assembleDirtyRows: empty dirty bitmap produces no rows" {
 }
 
 test "assembleDirtyRows: full dirty bitmap (I-frame) produces all rows" {
+    const test_helpers = @import("itshell3_testing").helpers;
     var cells_row0: [2]CellData = @splat(std.mem.zeroes(CellData));
     cells_row0[0].codepoint = 'A';
     cells_row0[1].codepoint = 'B';
@@ -151,7 +134,7 @@ test "assembleDirtyRows: full dirty bitmap (I-frame) produces all rows" {
     const underline_color_tables = [_][]const UnderlineColorEntry{ &.{}, &.{} };
 
     var bitmap: [MAX_ROWS / 8]u8 = @splat(0);
-    setAllDirtyBits(&bitmap);
+    test_helpers.setAllDirtyBits(&bitmap);
 
     const result = ExportResult{
         .rows = &row_data,
@@ -171,6 +154,7 @@ test "assembleDirtyRows: full dirty bitmap (I-frame) produces all rows" {
 }
 
 test "assembleDirtyRows: sparse bitmap only includes dirty rows" {
+    const test_helpers = @import("itshell3_testing").helpers;
     var cells: [3]CellData = @splat(std.mem.zeroes(CellData));
     cells[0].codepoint = 'X';
 
@@ -179,8 +163,8 @@ test "assembleDirtyRows: sparse bitmap only includes dirty rows" {
     const underline_color_tables = [_][]const UnderlineColorEntry{ &.{}, &.{}, &.{}, &.{} };
 
     var bitmap: [MAX_ROWS / 8]u8 = @splat(0);
-    setDirtyBit(&bitmap, 1);
-    setDirtyBit(&bitmap, 3);
+    test_helpers.setDirtyBit(&bitmap, 1);
+    test_helpers.setDirtyBit(&bitmap, 3);
 
     const result = ExportResult{
         .rows = &row_data,
@@ -199,6 +183,7 @@ test "assembleDirtyRows: sparse bitmap only includes dirty rows" {
 }
 
 test "assembleDirtyRows: wide characters preserved through conversion" {
+    const test_helpers = @import("itshell3_testing").helpers;
     var cells: [3]CellData = @splat(std.mem.zeroes(CellData));
     cells[0].codepoint = 0xD55C; // Korean character
     cells[0].wide = CellData.Wide.wide;
@@ -211,7 +196,7 @@ test "assembleDirtyRows: wide characters preserved through conversion" {
     const underline_color_tables = [_][]const UnderlineColorEntry{&.{}};
 
     var bitmap: [MAX_ROWS / 8]u8 = @splat(0);
-    setDirtyBit(&bitmap, 0);
+    test_helpers.setDirtyBit(&bitmap, 0);
 
     const result = ExportResult{
         .rows = &row_data,
@@ -230,6 +215,7 @@ test "assembleDirtyRows: wide characters preserved through conversion" {
 }
 
 test "assembleDirtyRows: grapheme and underline color side tables assembled" {
+    const test_helpers = @import("itshell3_testing").helpers;
     var cells: [2]CellData = @splat(std.mem.zeroes(CellData));
     cells[0].codepoint = 'A';
 
@@ -243,7 +229,7 @@ test "assembleDirtyRows: grapheme and underline color side tables assembled" {
     const underline_color_tables = [_][]const UnderlineColorEntry{&underline};
 
     var bitmap: [MAX_ROWS / 8]u8 = @splat(0);
-    setDirtyBit(&bitmap, 0);
+    test_helpers.setDirtyBit(&bitmap, 0);
 
     const result = ExportResult{
         .rows = &row_data,
@@ -263,21 +249,23 @@ test "assembleDirtyRows: grapheme and underline color side tables assembled" {
 }
 
 test "isBitSet: boundary conditions" {
+    const test_helpers = @import("itshell3_testing").helpers;
     var bitmap: [MAX_ROWS / 8]u8 = @splat(0);
     try std.testing.expect(!isBitSet(&bitmap, 0));
     try std.testing.expect(!isBitSet(&bitmap, 255));
 
-    setDirtyBit(&bitmap, 0);
+    test_helpers.setDirtyBit(&bitmap, 0);
     try std.testing.expect(isBitSet(&bitmap, 0));
     try std.testing.expect(!isBitSet(&bitmap, 1));
 
-    setDirtyBit(&bitmap, 255);
+    test_helpers.setDirtyBit(&bitmap, 255);
     try std.testing.expect(isBitSet(&bitmap, 255));
 }
 
 test "clearDirtyBitmap: zeros all bits" {
+    const test_helpers = @import("itshell3_testing").helpers;
     var bitmap: [MAX_ROWS / 8]u8 = @splat(0xFF);
-    clearDirtyBitmap(&bitmap);
+    test_helpers.clearDirtyBitmap(&bitmap);
     for (bitmap) |byte| {
         try std.testing.expectEqual(@as(u8, 0), byte);
     }

@@ -69,13 +69,6 @@ fn deliverPaneFrames(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-test "DeliveryResult: enum variants" {
-    _ = DeliveryResult.fully_caught_up;
-    _ = DeliveryResult.would_block;
-    _ = DeliveryResult.peer_closed;
-    _ = DeliveryResult.write_error;
-}
-
 test "deliverPendingFrames: no active panes returns fully_caught_up" {
     const pipe_fds = try std.posix.pipe();
     defer std.posix.close(pipe_fds[0]);
