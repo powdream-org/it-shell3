@@ -103,10 +103,3 @@ test "ControlChannelWriter.enqueue: error propagation from QueueFull" {
     try cw.enqueue(&big);
     try std.testing.expectError(error.QueueFull, cw.enqueue("overflow"));
 }
-
-test "FlushResult: enum variants" {
-    _ = FlushResult.flushed;
-    _ = FlushResult.would_block;
-    _ = FlushResult.peer_closed;
-    _ = FlushResult.write_error;
-}

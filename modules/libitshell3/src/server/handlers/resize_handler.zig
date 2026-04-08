@@ -32,12 +32,32 @@ pub const ResizePolicy = enum {
     smallest,
 };
 
-/// Computes effective dimensions from a single client (latest policy).
-pub fn computeEffectiveDimensionsLatest(
-    cols: u16,
-    rows: u16,
-) struct { cols: u16, rows: u16 } {
-    return .{ .cols = cols, .rows = rows };
+/// Checks whether a recovered client has passed the stale re-inclusion
+/// hysteresis period (5s). Returns true if the client's dimensions
+/// should be included in resize computation.
+///
+/// Per daemon-behavior spec Section 2.5: when a stale client recovers,
+/// the daemon waits 5 seconds before including that client's dimensions
+/// in the resize calculation to prevent resize oscillation from
+/// intermittently responsive clients.
+pub fn isStaleReInclusionEligible(
+    health_state_changed_at: i64,
+    now: i64,
+) bool {
+    return now - health_state_changed_at >= STALE_RE_INCLUSION_HYSTERESIS_MS;
+}
+
+/// Sets idle suppression on the coalescing state for resize settling.
+/// Suppresses the Idle transition for 500ms after the debounce fires.
+///
+/// Per daemon-behavior spec Section 5.7: during an active resize drag
+/// and for 500ms after the debounce fires, the daemon suppresses the
+/// Idle timeout to prevent tier drops between rapid resize events.
+pub fn applyResizeIdleSuppression(
+    coalescing_state: *@import("itshell3_server").delivery.coalescing_state.CoalescingState,
+    now: i64,
+) void {
+    coalescing_state.setResizeIdleSuppression(now + IDLE_SUPPRESSION_SETTLING_MS);
 }
 
 /// Applies resize debounce logic. Returns true if the resize should fire
@@ -78,10 +98,12 @@ pub fn dimensionsChanged(entry: *const SessionEntry, new_cols: u16, new_rows: u1
 
 /// Result of a resize orchestration step, tracking which actions were performed.
 /// Used for test verification of the ordering guarantee.
+///
+/// Only fields that can vary at runtime are tracked. Steps 2 (ack) and 3
+/// (layout changed) always execute when orchestrateResize is called, so
+/// they are not represented here.
 pub const ResizeOrchestrationResult = struct {
     ioctl_applied: bool = false,
-    ack_sent: bool = false,
-    layout_changed_sent: bool = false,
     i_frame_queued: bool = false,
 };
 
@@ -117,13 +139,12 @@ pub fn orchestrateResize(
 
     // Step 2: WindowResizeAck to requesting client.
     // The actual wire message is built by the caller (session_pane_dispatcher)
-    // since it has access to the client and envelope builder. We signal that
-    // this step should happen via the result flag.
-    result.ack_sent = true;
+    // since it has access to the client and envelope builder. This step
+    // always executes when orchestrateResize is called.
 
     // Step 3: LayoutChanged notification to all attached clients.
     // Like the ack, the actual broadcast goes through the caller's context.
-    result.layout_changed_sent = true;
+    // This step always executes when orchestrateResize is called.
 
     // Step 4: Record I-frame production. The next coalescing tick will
     // produce an I-frame for this pane (all cells re-exported after resize).
@@ -140,10 +161,31 @@ pub fn orchestrateResize(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-test "computeEffectiveDimensionsLatest: returns given dimensions" {
-    const result = computeEffectiveDimensionsLatest(120, 40);
-    try std.testing.expectEqual(@as(u16, 120), result.cols);
-    try std.testing.expectEqual(@as(u16, 40), result.rows);
+test "isStaleReInclusionEligible: not eligible within hysteresis" {
+    // Client recovered at t=1000, check at t=4000 (only 3s elapsed, need 5s)
+    try std.testing.expect(!isStaleReInclusionEligible(1000, 4000));
+}
+
+test "isStaleReInclusionEligible: eligible after hysteresis expires" {
+    // Client recovered at t=1000, check at t=6000 (5s elapsed)
+    try std.testing.expect(isStaleReInclusionEligible(1000, 6000));
+}
+
+test "isStaleReInclusionEligible: eligible exactly at boundary" {
+    // Client recovered at t=1000, check at t=6000 (exactly 5000ms)
+    try std.testing.expect(isStaleReInclusionEligible(1000, 1000 + STALE_RE_INCLUSION_HYSTERESIS_MS));
+}
+
+test "applyResizeIdleSuppression: sets suppression on coalescing state" {
+    const coalescing_state_mod = @import("itshell3_server").delivery.coalescing_state;
+    var cs = coalescing_state_mod.CoalescingState{ .tier = .active, .last_output_timestamp = 1000 };
+    applyResizeIdleSuppression(&cs, 2000);
+    // Should suppress idle until now + 500ms
+    try std.testing.expect(cs.resize_idle_suppressed);
+    try std.testing.expectEqual(@as(i64, 2000 + IDLE_SUPPRESSION_SETTLING_MS), cs.resize_idle_suppression_until);
+    // Verify idle is actually suppressed during the window
+    cs.checkIdle(2200, 100); // 200ms after, within suppression
+    try std.testing.expectEqual(coalescing_state_mod.CoalescingTier.active, cs.tier);
 }
 
 test "shouldResizeImmediately: first resize fires immediately" {
@@ -210,9 +252,6 @@ test "orchestrateResize: all steps execute in order" {
 
     // Without PTY ops, ioctl is skipped
     try std.testing.expect(!result.ioctl_applied);
-    // Ack and layout_changed steps are signaled
-    try std.testing.expect(result.ack_sent);
-    try std.testing.expect(result.layout_changed_sent);
     // I-frame is queued
     try std.testing.expect(result.i_frame_queued);
     // Pane dimensions updated
@@ -242,7 +281,5 @@ test "orchestrateResize: with PTY ops applies ioctl" {
     const result = orchestrateResize(pane, &entry, 100, 30, &pty_ops, 2000);
 
     try std.testing.expect(result.ioctl_applied);
-    try std.testing.expect(result.ack_sent);
-    try std.testing.expect(result.layout_changed_sent);
     try std.testing.expect(result.i_frame_queued);
 }

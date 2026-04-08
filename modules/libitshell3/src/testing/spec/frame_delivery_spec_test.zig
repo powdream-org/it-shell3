@@ -521,10 +521,10 @@ test "spec: resize orchestration ordering WindowResizeAck before LayoutChanged b
     // Execute orchestration (no PTY ops in test)
     const result = resize_handler.orchestrateResize(pane, &entry, 120, 40, null, 1000);
 
-    // All steps must be performed (ioctl skipped without PTY ops)
+    // All steps must be performed (ioctl skipped without PTY ops).
+    // Steps 2 (ack) and 3 (layout changed) always execute when
+    // orchestrateResize is called, so only variable fields are tracked.
     try std.testing.expect(!result.ioctl_applied); // No PTY ops provided
-    try std.testing.expect(result.ack_sent); // Step 2: WindowResizeAck
-    try std.testing.expect(result.layout_changed_sent); // Step 3: LayoutChanged
     try std.testing.expect(result.i_frame_queued); // Step 4: I-frame
 
     // Verify side effects: pane dimensions updated, dirty flag set
@@ -583,7 +583,7 @@ test "spec: I-frame metadata includes all required fields" {
         .palette = &palette,
         .fg = .{},
         .bg = .{},
-        .mouse = .none,
+        .mouse = .{},
         .terminal_modes = .{},
     };
 

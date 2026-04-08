@@ -104,6 +104,28 @@ pub fn createPipe() ![2]std.posix.fd_t {
     return std.posix.pipe() catch return error.EventLoopError;
 }
 
+// ── Dirty Bitmap Test Helpers ─────────────────────────────────────────────────
+
+const frame_builder = @import("itshell3_server").delivery.frame_builder;
+
+/// Clears a dirty bitmap to all zeros.
+pub fn clearDirtyBitmap(bitmap: *[frame_builder.MAX_ROWS / 8]u8) void {
+    @memset(bitmap, 0);
+}
+
+/// Sets a bit in the dirty bitmap.
+pub fn setDirtyBit(bitmap: *[frame_builder.MAX_ROWS / 8]u8, row: u16) void {
+    if (row >= frame_builder.MAX_ROWS) return;
+    const byte_idx = row / 8;
+    const bit_offset: u3 = @intCast(row % 8);
+    bitmap[byte_idx] |= @as(u8, 1) << bit_offset;
+}
+
+/// Sets all bits in the dirty bitmap (for I-frame generation).
+pub fn setAllDirtyBits(bitmap: *[frame_builder.MAX_ROWS / 8]u8) void {
+    @memset(bitmap, 0xFF);
+}
+
 test "createPipe: returns valid file descriptors" {
     const pipe_fds = try createPipe();
     defer std.posix.close(pipe_fds[0]);
