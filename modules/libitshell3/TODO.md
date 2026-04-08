@@ -40,10 +40,13 @@
 - [x] Step 5: Scaffold & Build Verification
 - [x] Step 6: Implementation Phase
 - [x] Step 7: Code Simplify & Convention Compliance
-- [x] Step 8: Spec Compliance Review
+- [x] Step 8: Spec Compliance Review (Round 3)
 - [x] Step 9: Fix Cycle (R3 — 1 CONV issue resolved)
+- [x] Step 10: Coverage Audit
+- [x] Step 11: Over-Engineering Review (Round 4 regression fixes)
+- [x] Step 8: Spec Compliance Review (Round 4 — post-Step 11 re-review)
+- [ ] Step 9: Fix Cycle (Round 4)
 - [ ] Step 10: Coverage Audit
-- [ ] Step 11: Over-Engineering Review
 - [ ] Step 12: Commit & Report
 - [ ] Step 13: Owner Review
 - [ ] Step 14: Retrospective
