@@ -2,9 +2,9 @@
 
 ## Current State
 
-- **Step**: 9 (Fix Cycle — Round 4)
+- **Step**: 8 (Spec Compliance Review — Round 5)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
-- **Review Round**: 4
+- **Review Round**: 5
 - **Active Team**: plan9-impl
 - **Team Directory**: .claude/agents/impl-team/
 
@@ -51,6 +51,7 @@
 - [x] Step 11: Over-Engineering Review (Round 4 regression fixes)
 - [x] Step 8: Spec Compliance Review (Round 4 — post-Step 11 re-review)
 - [x] Step 9: Fix Cycle (Round 4 — 3 issues resolved)
+- [x] Step 8: Spec Compliance Review (Round 5 — CLEAN)
 - [ ] Step 10: Coverage Audit
 - [ ] Step 12: Commit & Report
 - [ ] Step 13: Owner Review
