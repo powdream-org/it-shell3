@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **Step**: 8 (Spec Compliance Review — Round 4)
+- **Step**: 9 (Fix Cycle — Round 4)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
 - **Review Round**: 4
 - **Active Team**: plan9-impl
@@ -26,10 +26,15 @@
 
 ## Fix Cycle State
 
-- **Fix Iteration**: 3
+- **Fix Iteration**: 4
 - **Active Issues**:
-  - R3-001 [CONV] coalescing_timer_handler.zig:176-177 — test-only imports at
-    file top level — RESOLVED (moved into test blocks)
+  - R4-001 [CODE] metadata_serializer.zig:286 — writeTerminalModes hardcoded
+    leading comma causing invalid JSON — RESOLVED (comma removed from helper,
+    I-frame call site updated to handle comma explicitly)
+  - R4-002 [CONV] metadata_serializer.zig + resize_handler.zig — 9 spec section
+    number references replaced with topic-name references — RESOLVED
+  - R4-003 [TEST] metadata_serializer.zig — P-frame terminal_modes tests added
+    (only-field and alongside-cursor cases) — RESOLVED
 
 ## Progress — Round 1
 
@@ -45,7 +50,7 @@
 - [x] Step 10: Coverage Audit
 - [x] Step 11: Over-Engineering Review (Round 4 regression fixes)
 - [x] Step 8: Spec Compliance Review (Round 4 — post-Step 11 re-review)
-- [ ] Step 9: Fix Cycle (Round 4)
+- [x] Step 9: Fix Cycle (Round 4 — 3 issues resolved)
 - [ ] Step 10: Coverage Audit
 - [ ] Step 12: Commit & Report
 - [ ] Step 13: Owner Review
