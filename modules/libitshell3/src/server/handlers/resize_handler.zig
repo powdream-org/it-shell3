@@ -36,7 +36,7 @@ pub const ResizePolicy = enum {
 /// hysteresis period (5s). Returns true if the client's dimensions
 /// should be included in resize computation.
 ///
-/// Per daemon-behavior spec Section 2.5: when a stale client recovers,
+/// Per daemon-behavior spec stale re-inclusion hysteresis: when a stale client recovers,
 /// the daemon waits 5 seconds before including that client's dimensions
 /// in the resize calculation to prevent resize oscillation from
 /// intermittently responsive clients.
@@ -50,7 +50,7 @@ pub fn isStaleReInclusionEligible(
 /// Sets idle suppression on the coalescing state for resize settling.
 /// Suppresses the Idle transition for 500ms after the debounce fires.
 ///
-/// Per daemon-behavior spec Section 5.7: during an active resize drag
+/// Per daemon-behavior spec resize idle suppression policy: during an active resize drag
 /// and for 500ms after the debounce fires, the daemon suppresses the
 /// Idle timeout to prevent tier drops between rapid resize events.
 pub fn applyResizeIdleSuppression(

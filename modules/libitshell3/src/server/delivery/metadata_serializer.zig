@@ -20,7 +20,7 @@ pub const MAX_JSON_METADATA_SIZE: usize = 8192;
 pub const METADATA_BUFFER_SIZE: usize = 4 + MAX_JSON_METADATA_SIZE;
 
 /// Cursor state for metadata serialization.
-/// Per protocol 04-input-and-renderstate Section 3.2 cursor fields.
+/// Per protocol 04-input-and-renderstate FrameUpdate metadata cursor fields.
 pub const CursorInfo = struct {
     x: u16 = 0,
     y: u16 = 0,
@@ -45,7 +45,7 @@ pub const RgbColor = struct {
 };
 
 /// Terminal mode flags for metadata.
-/// Per protocol 04-input-and-renderstate Section 3.2 terminal modes fields.
+/// Per protocol 04-input-and-renderstate FrameUpdate metadata terminal modes fields.
 pub const TerminalModes = struct {
     bracketed_paste: bool = false,
     focus_reporting: bool = false,
@@ -55,7 +55,7 @@ pub const TerminalModes = struct {
 };
 
 /// Mouse state for metadata serialization.
-/// Per protocol 04-input-and-renderstate Section 3.2 mouse fields.
+/// Per protocol 04-input-and-renderstate FrameUpdate metadata mouse fields.
 pub const MouseState = struct {
     /// 0=off, 1=button, 2=any (motion), 3=sgr.
     tracking: u8 = 0,
@@ -64,7 +64,7 @@ pub const MouseState = struct {
 };
 
 /// Full metadata for I-frame serialization (all fields required).
-/// Per protocol 04-input-and-renderstate Section 3.2.
+/// Per protocol 04-input-and-renderstate FrameUpdate metadata format.
 pub const IFrameMetadata = struct {
     cursor: CursorInfo,
     dimensions: DimensionsInfo,
@@ -81,7 +81,7 @@ pub const IFrameMetadata = struct {
 };
 
 /// Delta metadata for P-frame serialization (only changed fields).
-/// Per protocol 04-input-and-renderstate Section 3.2.
+/// Per protocol 04-input-and-renderstate FrameUpdate metadata format.
 pub const PFrameMetadata = struct {
     cursor: ?CursorInfo = null,
     dimensions: ?DimensionsInfo = null,
@@ -129,7 +129,7 @@ pub fn serializeIFrameMetadata(
         metadata.dimensions.rows,
     }) catch return null;
 
-    // colors (nested object per spec Section 3.2)
+    // colors (nested object per protocol FrameUpdate metadata format)
     writer.writeAll(",\"colors\":{") catch return null;
     // fg (REQUIRED in I-frames)
     writer.print("\"fg\":[{d},{d},{d}]", .{ metadata.fg.r, metadata.fg.g, metadata.fg.b }) catch return null;
@@ -155,6 +155,7 @@ pub fn serializeIFrameMetadata(
     }) catch return null;
 
     // terminal_modes
+    writer.writeAll(",") catch return null;
     writeTerminalModes(writer, &metadata.terminal_modes) catch return null;
 
     writer.writeAll("}") catch return null;
@@ -283,7 +284,7 @@ pub fn serializePFrameMetadata(
 }
 
 fn writeTerminalModes(writer: anytype, modes: *const TerminalModes) !void {
-    try writer.print(",\"terminal_modes\":{{\"bracketed_paste\":{},\"focus_reporting\":{},\"application_cursor_keys\":{},\"application_keypad\":{},\"kitty_keyboard_flags\":{d}}}", .{
+    try writer.print("\"terminal_modes\":{{\"bracketed_paste\":{},\"focus_reporting\":{},\"application_cursor_keys\":{},\"application_keypad\":{},\"kitty_keyboard_flags\":{d}}}", .{
         modes.bracketed_paste,
         modes.focus_reporting,
         modes.application_cursor_keys,
@@ -317,7 +318,7 @@ test "serializeIFrameMetadata: produces valid length-prefixed JSON" {
     const json_len = std.mem.readInt(u32, buf[0..4], .little);
     try std.testing.expectEqual(total.? - 4, json_len);
 
-    // Verify JSON contains required fields per spec Section 3.2
+    // Verify JSON contains required fields per protocol FrameUpdate metadata format
     const json = buf[4..][0..json_len];
     try std.testing.expect(std.mem.indexOf(u8, json, "\"cursor\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, json, "\"dimensions\"") != null);
@@ -483,4 +484,66 @@ test "serializePFrameMetadata: palette_changes delta format" {
     // Per spec format: [[index, [r,g,b]], ...]
     try std.testing.expect(std.mem.indexOf(u8, json, "[0,[255,0,0]]") != null);
     try std.testing.expect(std.mem.indexOf(u8, json, "[7,[0,255,0]]") != null);
+}
+
+test "serializePFrameMetadata: terminal_modes as only changed field produces valid JSON" {
+    const metadata = PFrameMetadata{
+        .terminal_modes = .{
+            .bracketed_paste = true,
+            .focus_reporting = false,
+            .application_cursor_keys = true,
+            .application_keypad = false,
+            .kitty_keyboard_flags = 3,
+        },
+    };
+
+    var buf: [METADATA_BUFFER_SIZE]u8 = undefined;
+    const total = serializePFrameMetadata(&metadata, &buf);
+    try std.testing.expect(total != null);
+
+    const json_len = std.mem.readInt(u32, buf[0..4], .little);
+    const json = buf[4..][0..json_len];
+    // Must be valid JSON: starts with '{', ends with '}'
+    try std.testing.expectEqual(@as(u8, '{'), json[0]);
+    try std.testing.expectEqual(@as(u8, '}'), json[json_len - 1]);
+    // Must contain terminal_modes with correct values
+    try std.testing.expect(std.mem.indexOf(u8, json, "\"terminal_modes\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, json, "\"bracketed_paste\":true") != null);
+    try std.testing.expect(std.mem.indexOf(u8, json, "\"application_cursor_keys\":true") != null);
+    try std.testing.expect(std.mem.indexOf(u8, json, "\"kitty_keyboard_flags\":3") != null);
+    // Must NOT have a leading comma before terminal_modes (it's the only field)
+    try std.testing.expect(std.mem.indexOf(u8, json, "{\"terminal_modes\"") != null);
+}
+
+test "serializePFrameMetadata: terminal_modes alongside cursor produces valid JSON" {
+    const metadata = PFrameMetadata{
+        .cursor = .{ .x = 10, .y = 5, .visible = true, .style = 0, .blinking = false, .password_input = false },
+        .terminal_modes = .{
+            .bracketed_paste = false,
+            .focus_reporting = true,
+            .application_cursor_keys = false,
+            .application_keypad = true,
+            .kitty_keyboard_flags = 0,
+        },
+    };
+
+    var buf: [METADATA_BUFFER_SIZE]u8 = undefined;
+    const total = serializePFrameMetadata(&metadata, &buf);
+    try std.testing.expect(total != null);
+
+    const json_len = std.mem.readInt(u32, buf[0..4], .little);
+    const json = buf[4..][0..json_len];
+    // Must be valid JSON: starts with '{', ends with '}'
+    try std.testing.expectEqual(@as(u8, '{'), json[0]);
+    try std.testing.expectEqual(@as(u8, '}'), json[json_len - 1]);
+    // Both fields present
+    try std.testing.expect(std.mem.indexOf(u8, json, "\"cursor\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, json, "\"terminal_modes\"") != null);
+    // Comma separates cursor and terminal_modes (no double comma)
+    try std.testing.expect(std.mem.indexOf(u8, json, ",\"terminal_modes\"") != null);
+    // No double comma anywhere in the output
+    try std.testing.expect(std.mem.indexOf(u8, json, ",,") == null);
+    // Verify terminal_modes values
+    try std.testing.expect(std.mem.indexOf(u8, json, "\"focus_reporting\":true") != null);
+    try std.testing.expect(std.mem.indexOf(u8, json, "\"application_keypad\":true") != null);
 }
