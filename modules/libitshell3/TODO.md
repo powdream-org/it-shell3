@@ -2,9 +2,9 @@
 
 ## Current State
 
-- **Step**: 8 (Spec Compliance Review — Round 5)
+- **Step**: 9 (Fix Cycle — OE2 issues)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
-- **Review Round**: 5
+- **Review Round**: OE2-fix-1
 - **Active Team**: plan9-impl
 - **Team Directory**: .claude/agents/impl-team/
 
@@ -26,15 +26,12 @@
 
 ## Fix Cycle State
 
-- **Fix Iteration**: 4
+- **Fix Iteration**: OE2-fix-1
 - **Active Issues**:
-  - R4-001 [CODE] metadata_serializer.zig:286 — writeTerminalModes hardcoded
-    leading comma causing invalid JSON — RESOLVED (comma removed from helper,
-    I-frame call site updated to handle comma explicitly)
-  - R4-002 [CONV] metadata_serializer.zig + resize_handler.zig — 9 spec section
-    number references replaced with topic-name references — RESOLVED
-  - R4-003 [TEST] metadata_serializer.zig — P-frame terminal_modes tests added
-    (only-field and alongside-cursor cases) — RESOLVED
+  - OE2-2 [CODE] resize_handler.zig dimensionsChanged not wired into dispatch
+    path — RESOLVED (dimensionsChanged guard added to handleWindowResize)
+  - OE2-3 [CONV] resize_handler.zig:89 — applyPaneDimensions pub removed —
+    RESOLVED (pub keyword removed, function is file-private)
 
 ## Progress — Round 1
 
@@ -52,6 +49,7 @@
 - [x] Step 8: Spec Compliance Review (Round 4 — post-Step 11 re-review)
 - [x] Step 9: Fix Cycle (Round 4 — 3 issues resolved)
 - [x] Step 8: Spec Compliance Review (Round 5 — CLEAN)
+- [x] Step 9: Fix Cycle (OE2 — 2 issues resolved: OE2-2 CODE, OE2-3 CONV)
 - [ ] Step 10: Coverage Audit
 - [ ] Step 12: Commit & Report
 - [ ] Step 13: Owner Review

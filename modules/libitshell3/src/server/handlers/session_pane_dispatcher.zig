@@ -17,6 +17,7 @@ const CategoryDispatchParams = message_dispatcher.CategoryDispatchParams;
 const DispatcherContext = message_dispatcher.DispatcherContext;
 const handler_utils = @import("handler_utils.zig");
 const envelope = @import("protocol_envelope.zig");
+const resize_handler = @import("resize_handler.zig");
 
 /// Dispatches a session/pane-category message using a second-level split.
 pub fn dispatch(params: CategoryDispatchParams) void {
@@ -225,14 +226,17 @@ fn handleWindowResize(params: CategoryDispatchParams) void {
     // Record as application-level message (updates latest_client_id)
     client.recordApplicationMessage();
 
-    // Update latest_client_id on session
+    // Update latest_client_id on session and apply dimension change guard.
+    // Per daemon-behavior spec resize policy: only update effective dimensions
+    // if the size actually changed.
     if (client.attached_session) |entry| {
         entry.latest_client_id = client.getClientId();
-        // Update effective dimensions (latest policy: use this client's size)
-        entry.setEffectiveDimensions(cols, rows);
+        if (resize_handler.dimensionsChanged(entry, cols, rows)) {
+            entry.setEffectiveDimensions(cols, rows);
+        }
     }
 
-    // Send WindowResizeAck to requesting client
+    // Send WindowResizeAck to requesting client (always, regardless of change)
     var response_buffer: [envelope.MAX_ENVELOPE_SIZE]u8 = undefined;
     var json_buffer: [128]u8 = undefined;
     const json = std.fmt.bufPrint(&json_buffer, "{{\"status\":0,\"cols\":{d},\"rows\":{d}}}", .{
