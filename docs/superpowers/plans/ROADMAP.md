@@ -449,6 +449,13 @@ Key components:
   over SSH)
 - ADR 00010 (SSH tunneling over custom TCP/TLS)
 
+**Note (from Plan 9):** `FlowControlConfig.defaultForTransport()` in
+`client_state.zig` implements transport-aware flow control defaults (local vs
+SSH timeout values per daemon-behavior spec Section 4.3). Currently has no
+production caller — wire into `handleClientDisplayInfo` when SSH transport is
+implemented so the daemon applies SSH-tuned defaults on transport type
+discovery.
+
 **Depends on:** Plan 5.5 + Plan 3 (Transport vtable). Can run in parallel with
 Plans 6-10 (SSH is client-side transport only).
 
@@ -491,6 +498,17 @@ design (Phase 0 step 2 in key routing pipeline).
 **Scope:** Implement daemon binary from Plan 12.1 design: `main.zig`
 orchestration, LaunchAgent plist, stale socket detection, inherited fd check,
 default session creation, CLI argument parsing, version conflict handling.
+
+**Note (from Plan 9):** ghostty API port — the following ghostty APIs are
+stubbed in libitshell3 with `TODO(Plan 12)` markers and must be wired when the
+daemon binary integrates the real ghostty terminal:
+
+- `key_encode` — bypassed key encoding (`input_dispatcher.zig`)
+- `Options.fromTerminal()` — focus_reporting mode query (`input_dispatcher.zig`)
+- Terminal ambiguous_width setter — AmbiguousWidthConfig pass-through
+  (`ime_dispatcher.zig`)
+- `getTitle()` / `getCwd()` — pane metadata extraction after VT stream
+  processing (`pty_read.zig`)
 
 **Depends on:** Plan 12.1 (design must be complete before implementation)
 
@@ -621,6 +639,8 @@ Features deferred beyond the initial implementation scope:
 - Silence detection timer
 - Readonly client enforcement (AttachSessionRequest `readonly` field, prohibited
   message list, ERR_ACCESS_DENIED response — protocol spec Section 8)
+- Smallest resize policy (min(cols) x min(rows) across eligible clients —
+  daemon-behavior spec resize policies, opt-in)
 
 ### Plan S1: Implementation Skill Redesign (Done)
 

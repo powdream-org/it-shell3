@@ -101,16 +101,10 @@ fn checkAndBroadcastMetadataChanges(
     terminal: *terminal_mod.Terminal,
     session_entry: *session_entry_mod.SessionEntry,
 ) void {
+    // TODO(Plan 12): Extract title via ghostty getTitle(), CWD via getCwd().
+    // Compare against pane current values, broadcast PaneMetadataChanged
+    // if changed.
     _ = terminal;
-    // ghostty Terminal title/cwd extraction requires ghostty API functions
-    // (getTitle, getCwd) that are not yet ported from the vendor PoC copy
-    // (see daemon-architecture spec API gap status table).
-    // When ported, this function will:
-    // 1. Extract title via terminal helper
-    // 2. Compare against pane.getTitle()
-    // 3. If changed, call pane.setTitle() and broadcast PaneMetadataChanged
-    // Same for CWD.
-    // For now, mark dirty to ensure any changes are eventually picked up.
     _ = pane;
     _ = session_entry;
 }

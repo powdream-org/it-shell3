@@ -109,11 +109,8 @@ fn handleAmbiguousWidthConfig(params: CategoryDispatchParams) void {
     const ambiguous_width = handler_utils.extractU16Field(payload, "\"ambiguous_width\":") orelse 1;
     const scope = handler_utils.extractStringField(payload, "\"scope\":\"") orelse "per_session";
 
-    // Apply to terminal instances based on scope.
-    // Per daemon-architecture spec ghostty helper functions: the ghostty terminal
-    // API for setting ambiguous width is not yet ported from the vendor PoC.
-    // When available, this will iterate the appropriate terminals and set
-    // the ambiguous_width property.
+    // TODO(Plan 12): Apply ambiguous_width to terminal instances based on
+    // scope via ghostty terminal property setter.
     _ = ambiguous_width;
     _ = scope;
 
