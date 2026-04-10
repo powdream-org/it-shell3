@@ -86,7 +86,7 @@ pub fn clearResizeDebounce(pane: *Pane) void {
 }
 
 /// Updates pane dimensions (would normally issue ioctl TIOCSWINSZ).
-pub fn applyPaneDimensions(pane: *Pane, cols: u16, rows: u16) void {
+fn applyPaneDimensions(pane: *Pane, cols: u16, rows: u16) void {
     pane.cols = cols;
     pane.rows = rows;
 }
