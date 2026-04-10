@@ -164,9 +164,8 @@ fn processKeyEvent(
             // Bypassed keys are encoded using ghostty's key_encode helper
             // and written directly to the PTY fd. The ghostty key_encode
             // API is a stateless pure function (ghostty helper functions).
-            // TODO(ghostty API port): ghostty key_encode helper not yet
-            // ported from vendor PoC. When available, encode bypass_key
-            // and write to PTY. For now, fall through as no-op.
+            // TODO(Plan 12): Wire ghostty key_encode helper to encode
+            // bypass_key and write to PTY. Currently no-op.
             _ = bypass_key;
             return false;
         },
@@ -370,8 +369,8 @@ fn processFocusEvent(
     pty_ops: *const interfaces.PtyOps,
     focused: bool,
 ) void {
-    // TODO(ghostty API port): When Options.fromTerminal() is available,
-    // check focus_reporting mode and skip write if disabled.
+    // TODO(Plan 12): Check terminal focus_reporting mode via
+    // Options.fromTerminal() and skip write if disabled.
     if (focused) {
         _ = pty_ops.write(pty_fd, "\x1b[I") catch {};
     } else {
