@@ -2,9 +2,9 @@
 
 ## Current State
 
-- **Step**: 9 (Fix Cycle — OE2 issues)
+- **Step**: 8 (Spec Compliance Review)
 - **Cycle Type**: modification (Plan 9 — Frame Delivery & Runtime Policies)
-- **Review Round**: OE2-fix-1
+- **Review Round**: 6
 - **Active Team**: plan9-impl
 - **Team Directory**: .claude/agents/impl-team/
 
@@ -50,6 +50,8 @@
 - [x] Step 9: Fix Cycle (Round 4 — 3 issues resolved)
 - [x] Step 8: Spec Compliance Review (Round 5 — CLEAN)
 - [x] Step 9: Fix Cycle (OE2 — 2 issues resolved: OE2-2 CODE, OE2-3 CONV)
+- [x] Step 8: Spec Compliance Review (Round 6 — post-OE2 fixes re-review —
+      CLEAN)
 - [ ] Step 10: Coverage Audit
 - [ ] Step 12: Commit & Report
 - [ ] Step 13: Owner Review
