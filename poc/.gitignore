@@ -6,7 +6,13 @@ ime-ghostty-real/poc-ghostty-real
 macos-ime-suppression/poc-ime-suppression
 libhangul-states/probe
 preedit-visual/preedit-visual
+09-import-plus-preedit/poc09-gpu
+09-import-plus-preedit/screenshots/
+09-import-plus-preedit/vendors/ghostty/.zig-cache/
+09-import-plus-preedit/vendors/ghostty/zig-out/
+09-import-plus-preedit/vendors/ghostty/macos/build/
 
 # Cloned dependencies (build from source)
 ime-key-handling/libhangul/
 06-renderstate-extraction/vendors/ghostty/
+09-import-plus-preedit/vendors/ghostty/
